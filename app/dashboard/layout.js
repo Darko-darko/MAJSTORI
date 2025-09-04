@@ -16,30 +16,32 @@ export default function DashboardLayout({ children }) {
   }, [])
 
   const checkUser = async () => {
-    try {
-      const { user: currentUser } = await auth.getUser()
-      
-      if (!currentUser) {
-        router.push('/login')
-        return
-      }
-
-      setUser(currentUser)
-
-      const { data: majstorData, error } = await majstorsAPI.getById(currentUser.id)
-      if (error) {
-        console.error('Error fetching majstor profile:', error)
-      } else {
-        setMajstor(majstorData)
-      }
-
-    } catch (error) {
-      console.error('Auth error:', error)
+  try {
+    const { user: currentUser } = await auth.getUser()
+    console.log('Current user:', currentUser) // DODAJ OVO
+    
+    if (!currentUser) {
       router.push('/login')
-    } finally {
-      setLoading(false)
+      return
     }
+
+    setUser(currentUser)
+
+    const { data: majstorData, error } = await majstorsAPI.getById(currentUser.id)
+    console.log('Majstor data:', majstorData, 'Error:', error) // DODAJ OVO
+    
+    if (error) {
+      console.error('Error fetching majstor profile:', error)
+    } else {
+      setMajstor(majstorData)
+    }
+  } catch (error) {
+    console.error('Auth error:', error)
+    router.push('/login')
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleSignOut = async () => {
     try {
