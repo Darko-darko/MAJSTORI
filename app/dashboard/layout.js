@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }) {
   const navigation = [
     { name: 'Übersicht', href: '/dashboard', icon: '📊' },
     { name: 'Meine Kunden', href: '/dashboard/customers', icon: '👥' },
-    { name: 'QR Visitenkarte', href: '/dashboard/business-card', icon: '📱' },
+    { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱' },
     { name: 'Kundenanfragen', href: '/dashboard/inquiries', icon: '📧', badge: '3' },
     { name: 'Rechnungen', href: '/dashboard/invoices', icon: '📄' },
     { name: 'Garantien', href: '/dashboard/warranties', icon: '🛡️' },
