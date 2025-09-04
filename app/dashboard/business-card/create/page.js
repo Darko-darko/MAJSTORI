@@ -406,6 +406,7 @@ export default function CreateBusinessCardPage() {
       }
 
       alert('Visitenkarte erfolgreich gespeichert!')
+      await loadExistingCard()
 
     } catch (err) {
       console.error('Error saving business card:', err)
