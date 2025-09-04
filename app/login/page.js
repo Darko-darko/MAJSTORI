@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { auth, supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -13,17 +13,9 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const searchParams = useSearchParams()
 
-  useEffect(() => {
-    // Check for errors from callback
-    const error = searchParams.get('error')
-    if (error === 'auth_failed') {
-      setError('Google Anmeldung fehlgeschlagen')
-    } else if (error === 'callback_error') {
-      setError('Authentifizierungsfehler')
-    }
-  }, [searchParams])
+
+  
 
   const handleChange = (e) => {
     setFormData(prev => ({
