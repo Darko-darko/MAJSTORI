@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-export default function CreateBusinessCardPage() {
+export default function BusinessCardPage() {
   const [formData, setFormData] = useState({
     title: 'Meine Visitenkarte',
     description: '',
@@ -16,12 +16,21 @@ export default function CreateBusinessCardPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [majstor, setMajstor] = useState(null)
-  const [preview, setPreview] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState('')
+  const cardRef = useRef(null)
   const router = useRouter()
 
   useEffect(() => {
     loadMajstorData()
+    loadExistingCard()
   }, [])
+
+  useEffect(() => {
+    if (majstor?.slug) {
+      console.log('Majstor loaded with slug:', majstor.slug)
+      generateQRCode()
+    }
+  }, [majstor])
 
   const loadMajstorData = async () => {
     try {
@@ -40,15 +49,65 @@ export default function CreateBusinessCardPage() {
       if (error) {
         console.error('Error loading majstor:', error)
       } else {
+        // Auto-generate slug if missing
+        if (!majstorData.slug && majstorData.full_name) {
+          const slug = majstorData.full_name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .substring(0, 50)
+          
+          const { error: updateError } = await supabase
+            .from('majstors')
+            .update({ slug })
+            .eq('id', user.id)
+          
+          if (!updateError) {
+            majstorData.slug = slug
+          }
+        }
+        
         setMajstor(majstorData)
-        setFormData(prev => ({
-          ...prev,
-          description: majstorData.business_name || ''
-        }))
+        console.log('Majstor data loaded:', majstorData)
       }
     } catch (error) {
       console.error('Auth error:', error)
       router.push('/login')
+    }
+  }
+
+  const loadExistingCard = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: existingCard } = await supabase
+        .from('business_cards')
+        .select('*')
+        .eq('majstor_id', user.id)
+        .single()
+
+      if (existingCard) {
+        setFormData({
+          title: existingCard.title || 'Meine Visitenkarte',
+          description: existingCard.description || '',
+          services: existingCard.services || [],
+          background_color: existingCard.background_color || '#1e293b',
+          text_color: existingCard.text_color || '#ffffff',
+        })
+      }
+    } catch (error) {
+      console.log('No existing card found')
+    }
+  }
+
+  const generateQRCode = async (url) => {
+    try {
+      // Simple QR code generation using online API as fallback
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`
+      setQrCodeUrl(qrUrl)
+    } catch (error) {
+      console.error('Error generating QR code:', error)
     }
   }
 
@@ -94,7 +153,8 @@ export default function CreateBusinessCardPage() {
       const cardData = {
         majstor_id: user.id,
         ...formData,
-        is_active: true
+        is_active: true,
+        qr_code_url: qrCodeUrl
       }
 
       let result
@@ -117,7 +177,7 @@ export default function CreateBusinessCardPage() {
         throw result.error
       }
 
-      router.push('/dashboard/business-card?success=created')
+      alert('Visitenkarte erfolgreich gespeichert!')
 
     } catch (err) {
       console.error('Error saving business card:', err)
@@ -127,12 +187,45 @@ export default function CreateBusinessCardPage() {
     }
   }
 
+  const downloadBusinessCard = async () => {
+    if (!cardRef.current) return
+
+    try {
+      // Import html2canvas dynamically
+      const html2canvas = (await import('html2canvas')).default
+      
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true
+      })
+      
+      const link = document.createElement('a')
+      link.download = `visitenkarte-${majstor?.full_name?.replace(/\s+/g, '-').toLowerCase() || 'majstor'}.png`
+      link.href = canvas.toDataURL()
+      link.click()
+    } catch (error) {
+      console.error('Error downloading business card:', error)
+      alert('Fehler beim Herunterladen der Visitenkarte')
+    }
+  }
+
+  const downloadQRCode = () => {
+    if (!qrCodeUrl) return
+
+    const link = document.createElement('a')
+    link.download = `qr-code-${majstor?.slug || 'majstor'}.png`
+    link.href = qrCodeUrl
+    link.target = '_blank'
+    link.click()
+    
+    // Clean up
+    link.remove()
+  }
+
   const colorPresets = [
-    { name: 'Dunkelblau', bg: '#1e293b', text: '#ffffff' },
-    { name: 'Schwarz', bg: '#000000', text: '#ffffff' },
-    { name: 'Blau', bg: '#2563eb', text: '#ffffff' },
-    { name: 'Grün', bg: '#059669', text: '#ffffff' },
-    { name: 'Weiß', bg: '#ffffff', text: '#000000' },
+    '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
+    '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4338ca'
   ]
 
   if (!majstor) {
@@ -148,9 +241,9 @@ export default function CreateBusinessCardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">QR Visitenkarte erstellen</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">QR Visitenkarte</h1>
           <p className="text-slate-400">
-            Erstellen Sie Ihre digitale Visitenkarte mit QR-Code für Kunden
+            Erstellen und verwalten Sie Ihre digitale Visitenkarte
           </p>
         </div>
         <Link
@@ -165,7 +258,7 @@ export default function CreateBusinessCardPage() {
         {/* Form Section */}
         <div className="space-y-6">
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Visitenkarte Details</h2>
+            <h2 className="text-lg font-semibold text-white mb-4">Visitenkarte bearbeiten</h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Title */}
@@ -203,22 +296,46 @@ export default function CreateBusinessCardPage() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Dienstleistungen
                 </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newService}
-                    onChange={(e) => setNewService(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="z.B. Elektroinstallation"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
-                  />
-                  <button
-                    type="button"
-                    onClick={addService}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                <div className="space-y-2 mb-2">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setNewService(e.target.value)
+                        e.target.value = ''
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
-                    +
-                  </button>
+                    <option value="">Wählen Sie eine Dienstleistung...</option>
+                    <option value="Elektroinstallation">Elektroinstallation</option>
+                    <option value="Wasserinstallation">Wasserinstallation</option>
+                    <option value="Heizung & Klima">Heizung & Klima</option>
+                    <option value="Renovierung">Renovierung</option>
+                    <option value="Malerarbeiten">Malerarbeiten</option>
+                    <option value="Fliesenverlegung">Fliesenverlegung</option>
+                    <option value="Dacharbeiten">Dacharbeiten</option>
+                    <option value="Garten & Landschaft">Garten & Landschaft</option>
+                    <option value="Fenster & Türen">Fenster & Türen</option>
+                    <option value="Sicherheitstechnik">Sicherheitstechnik</option>
+                  </select>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newService}
+                      onChange={(e) => setNewService(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      placeholder="Oder eigene Dienstleistung eingeben..."
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
+                    />
+                    <button
+                      type="button"
+                      onClick={addService}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      Hinzufügen
+                    </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {formData.services.map((service, index) => (
@@ -240,36 +357,44 @@ export default function CreateBusinessCardPage() {
               </div>
 
               {/* Color Scheme */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Farbschema
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {colorPresets.map((preset, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => setFormData(prev => ({
-                        ...prev,
-                        background_color: preset.bg,
-                        text_color: preset.text
-                      }))}
-                      className={`aspect-square rounded-lg border-2 transition-all ${
-                        formData.background_color === preset.bg
-                          ? 'border-blue-400 scale-105'
-                          : 'border-slate-600'
-                      }`}
-                      style={{ backgroundColor: preset.bg }}
-                      title={preset.name}
-                    >
-                      <div 
-                        className="w-full h-full rounded-md flex items-center justify-center text-xs font-bold"
-                        style={{ color: preset.text }}
-                      >
-                        Aa
-                      </div>
-                    </button>
-                  ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Hintergrundfarbe
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="color"
+                      value={formData.background_color}
+                      onChange={(e) => setFormData(prev => ({...prev, background_color: e.target.value}))}
+                      className="w-full h-10 rounded border border-slate-600 bg-slate-900"
+                    />
+                    <div className="flex gap-1 flex-wrap">
+                      {colorPresets.map((color, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setFormData(prev => ({...prev, background_color: color}))}
+                          className={`w-6 h-6 rounded border-2 ${
+                            formData.background_color === color ? 'border-white' : 'border-slate-600'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Textfarbe
+                  </label>
+                  <input
+                    type="color"
+                    value={formData.text_color}
+                    onChange={(e) => setFormData(prev => ({...prev, text_color: e.target.value}))}
+                    className="w-full h-10 rounded border border-slate-600 bg-slate-900"
+                  />
                 </div>
               </div>
 
@@ -290,6 +415,29 @@ export default function CreateBusinessCardPage() {
               </button>
             </form>
           </div>
+
+          {/* Download Actions */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Downloads</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={downloadBusinessCard}
+                className="flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                📱 Visitenkarte
+              </button>
+              <button
+                onClick={downloadQRCode}
+                disabled={!qrCodeUrl}
+                className="flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                📱 QR Code
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-2 text-center">
+              Herunterladen als PNG für Druck oder digitale Nutzung
+            </p>
+          </div>
         </div>
 
         {/* Preview Section */}
@@ -298,16 +446,22 @@ export default function CreateBusinessCardPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Live Vorschau</h2>
               {majstor?.slug && (
-                <p className="text-xs text-slate-400">
-                  majstori.de/m/{majstor.slug}
-                </p>
+                <a
+                  href={`/m/${majstor.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:text-blue-300"
+                >
+                  majstori.de/m/{majstor.slug} →
+                </a>
               )}
             </div>
 
             {/* Business Card Preview */}
-            <div className="border border-slate-600 rounded-lg p-3">
+            <div className="border border-slate-600 rounded-lg p-4 bg-white">
               <div 
-                className="rounded-xl p-6 text-center shadow-lg"
+                ref={cardRef}
+                className="rounded-xl p-6 text-center shadow-lg max-w-sm mx-auto"
                 style={{ 
                   backgroundColor: formData.background_color,
                   color: formData.text_color 
@@ -341,7 +495,7 @@ export default function CreateBusinessCardPage() {
                   <div className="mb-4">
                     <h3 className="text-sm font-semibold mb-2 opacity-90">Dienstleistungen:</h3>
                     <div className="flex flex-wrap gap-1 justify-center">
-                      {formData.services.map((service, index) => (
+                      {formData.services.slice(0, 3).map((service, index) => (
                         <span
                           key={index}
                           className="px-2 py-1 rounded-md text-xs font-medium opacity-80"
@@ -353,19 +507,26 @@ export default function CreateBusinessCardPage() {
                           {service}
                         </span>
                       ))}
+                      {formData.services.length > 3 && (
+                        <span className="text-xs opacity-70">+{formData.services.length - 3} mehr</span>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* QR Code Placeholder */}
-                <div className="bg-white/20 rounded-lg p-3 inline-block">
-                  <div className="w-16 h-16 bg-white/80 rounded flex items-center justify-center text-black text-xs font-bold">
-                    QR
-                  </div>
+                {/* QR Code */}
+                <div className="inline-block p-2 bg-white rounded-lg">
+                  {qrCodeUrl ? (
+                    <img src={qrCodeUrl} alt="QR Code" className="w-16 h-16" />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-black text-xs font-bold">
+                      QR
+                    </div>
+                  )}
                 </div>
                 
                 <p className="text-xs opacity-70 mt-2">
-                  QR-Code für Kontakt
+                  QR-Code für Kontakt & Anfragen
                 </p>
               </div>
             </div>
@@ -373,12 +534,23 @@ export default function CreateBusinessCardPage() {
             {/* Info */}
             <div className="mt-4 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
               <p className="text-blue-300 text-sm">
-                💡 Nach dem Speichern wird ein echter QR-Code generiert
+                💡 QR-Code führt zur öffentlichen Seite majstori.de/m/{majstor.slug}
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Install html2canvas notice */}
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          if (typeof window !== 'undefined' && !window.html2canvas) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            document.head.appendChild(script);
+          }
+        `
+      }} />
     </div>
   )
 }
