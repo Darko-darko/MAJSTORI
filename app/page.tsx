@@ -24,71 +24,71 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
+    {/* Hero Section - POPRAVLJENA RESPONSIVNOST */}
+      <section className="pt-20 sm:pt-24 md:pt-32 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-2 mb-8">
+          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 sm:px-4 py-2 mb-6 sm:mb-8">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-blue-300 text-sm font-medium">Über 500+ Handwerker vertrauen uns bereits</span>
+            <span className="text-blue-300 text-xs sm:text-sm font-medium">Über 500+ Handwerker vertrauen uns bereits</span>
           </div>
 
-          {/* Main Headline */}
-          <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight">
+          {/* Main Headline - Responsive Text Sizes */}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white mb-4 sm:mb-6 leading-tight">
             Digitale
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
               Visitenkarte
             </span>
-            für Handwerker
+            <span className="block sm:inline"> für Handwerker</span>
           </h1>
 
-          {/* Subheadline */}
-          <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+          {/* Subheadline - Responsive Text and Spacing */}
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 mb-8 sm:mb-10 md:mb-12 max-w-3xl mx-auto leading-relaxed px-2">
             QR-Code, Kundenanfragen mit Fotos, automatische Rechnungen und Garantien. 
             Alles in einer professionellen Plattform.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+          {/* CTA Buttons - Mobile Optimized */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-10 sm:mb-12 md:mb-16 px-2">
             <a
               href="/signup"
-              className="group bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
+              className="group bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
             >
               7 Tage kostenlos testen
               <span className="ml-2 group-hover:translate-x-1 transition-transform duration-300">→</span>
             </a>
             <a
               href="#features"
-              className="border-2 border-white/20 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-white/10 transition-all duration-300"
+              className="border-2 border-white/20 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-white/10 transition-all duration-300"
             >
               Funktionen ansehen
             </a>
           </div>
 
-          {/* Hero Image/Demo */}
-          <div className="relative max-w-4xl mx-auto">
-            <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-8 border border-slate-600 shadow-2xl">
-              <div className="grid md:grid-cols-3 gap-6 text-left">
-                <div className="bg-slate-900 rounded-lg p-6 border border-slate-600">
-                  <div className="w-12 h-12 bg-blue-500 rounded-lg mb-4 flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">QR</span>
+          {/* Hero Image/Demo - Mobile Responsive */}
+          <div className="relative max-w-4xl mx-auto px-2">
+            <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 border border-slate-600 shadow-2xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 text-left">
+                <div className="bg-slate-900 rounded-lg p-4 sm:p-6 border border-slate-600">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
+                    <span className="text-white font-bold text-lg sm:text-xl">QR</span>
                   </div>
-                  <h3 className="text-white font-semibold mb-2">QR-Code</h3>
-                  <p className="text-slate-400 text-sm">Digitale Visitenkarte sofort verfügbar</p>
+                  <h3 className="text-white font-semibold mb-2 text-sm sm:text-base">QR-Code</h3>
+                  <p className="text-slate-400 text-xs sm:text-sm">Digitale Visitenkarte sofort verfügbar</p>
                 </div>
-                <div className="bg-slate-900 rounded-lg p-6 border border-slate-600">
-                  <div className="w-12 h-12 bg-green-500 rounded-lg mb-4 flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">📧</span>
+                <div className="bg-slate-900 rounded-lg p-4 sm:p-6 border border-slate-600">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
+                    <span className="text-white font-bold text-lg sm:text-xl">🔧</span>
                   </div>
-                  <h3 className="text-white font-semibold mb-2">Anfragen</h3>
-                  <p className="text-slate-400 text-sm">Kunden senden Fotos + Beschreibung</p>
+                  <h3 className="text-white font-semibold mb-2 text-sm sm:text-base">Anfragen</h3>
+                  <p className="text-slate-400 text-xs sm:text-sm">Kunden senden Fotos + Beschreibung</p>
                 </div>
-                <div className="bg-slate-900 rounded-lg p-6 border border-slate-600">
-                  <div className="w-12 h-12 bg-purple-500 rounded-lg mb-4 flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">€</span>
+                <div className="bg-slate-900 rounded-lg p-4 sm:p-6 border border-slate-600 sm:col-span-2 md:col-span-1">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
+                    <span className="text-white font-bold text-lg sm:text-xl">€</span>
                   </div>
-                  <h3 className="text-white font-semibold mb-2">Rechnungen</h3>
-                  <p className="text-slate-400 text-sm">Automatische PDF-Erstellung</p>
+                  <h3 className="text-white font-semibold mb-2 text-sm sm:text-base">Rechnungen</h3>
+                  <p className="text-slate-400 text-xs sm:text-sm">Automatische PDF-Erstellung</p>
                 </div>
               </div>
             </div>

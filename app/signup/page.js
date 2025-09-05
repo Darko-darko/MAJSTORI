@@ -1,3 +1,4 @@
+// pages/signup/page.js - POJEDNOSTAVLJENA VERZIJA
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -52,7 +53,7 @@ export default function SignUpPage() {
     }
   }
 
-  // Email/password registracija
+  // Email/password registracija - POJEDNOSTAVLJENA
   const handleEmailSignUp = async (e) => {
     e.preventDefault()
     setError('')
@@ -79,9 +80,9 @@ export default function SignUpPage() {
     }
 
     try {
-      console.log('Starting signup process...')
+      console.log('Starting simplified signup process...')
 
-      // 1. Registracija korisnika u Supabase Auth
+      // JEDNOSTAVAN SIGNUP - trigger će kreirati profil automatski
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -95,54 +96,28 @@ export default function SignUpPage() {
         }
       })
 
-      console.log('Auth response:', authData, authError)
+      console.log('Auth signup result:', {
+        user: authData?.user?.email,
+        error: authError?.message
+      })
 
       if (authError) {
         throw authError
       }
 
       if (authData.user) {
-        // 2. Kreiranje profila u majstors tabeli
-        const slug = formData.fullName
-          .toLowerCase()
-          .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, '')
-          .substring(0, 50)
-
-        const profileData = {
-          id: authData.user.id,
-          email: formData.email,
-          full_name: formData.fullName,
-          business_name: formData.businessName || null,
-          phone: formData.phone || null,
-          city: formData.city || null,
-          slug: slug,
-          subscription_status: 'trial',
-          subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        if (authData.user.email_confirmed_at) {
+          // User je već potvrđen (development mode)
+          setMessage('Registrierung erfolgreich! Sie werden zum Dashboard weitergeleitet...')
+          
+          // Sačekaj da se trigger izvrši
+          setTimeout(() => {
+            router.push('/dashboard?welcome=true')
+          }, 1500)
+        } else {
+          // User treba da potvrdi email
+          setMessage('Registrierung erfolgreich! Bitte prüfen Sie Ihre E-Mails zur Bestätigung.')
         }
-
-        console.log('Creating profile:', profileData)
-
-        const { data: profileResult, error: profileError } = await supabase
-          .from('majstors')
-          .insert(profileData)
-          .select()
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-          setError('Profilerstellung fehlgeschlagen: ' + profileError.message)
-          return
-        }
-
-        console.log('Profile created successfully:', profileResult)
-        
-        setMessage('Registrierung erfolgreich! Sie werden zum Dashboard weitergeleitet...')
-        
-        // Redirect nach 2 sekunde
-        setTimeout(() => {
-          router.push('/dashboard?welcome=true')
-        }, 2000)
       }
 
     } catch (err) {
@@ -152,6 +127,8 @@ export default function SignUpPage() {
         setError('Diese E-Mail-Adresse ist bereits registriert.')
       } else if (err.message.includes('Invalid email')) {
         setError('Ungültige E-Mail-Adresse')
+      } else if (err.message.includes('Password should be at least')) {
+        setError('Passwort muss mindestens 6 Zeichen haben')
       } else {
         setError(err.message || 'Registrierung fehlgeschlagen')
       }

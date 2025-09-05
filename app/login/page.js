@@ -26,29 +26,32 @@ export default function LoginPage() {
 
   // Google OAuth Login
   const handleGoogleLogin = async () => {
-    try {
-      setGoogleLoading(true)
-      setError('')
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      })
-
-      if (error) {
-        console.error('Google OAuth error:', error)
-        setError('Fehler bei Google Anmeldung: ' + error.message)
+  try {
+    console.log('1. Starting Google OAuth...') // DODAJ
+    setGoogleLoading(true)
+    setError('')
+    
+    console.log('2. Calling supabase.auth.signInWithOAuth...') // DODAJ
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`
       }
-    } catch (err) {
-      console.error('Google login error:', err)
-      setError('Ein unerwarteter Fehler ist aufgetreten')
-    } finally {
-      setGoogleLoading(false)
-    }
-  }
+    })
 
+    console.log('3. OAuth result:', data, error) // DODAJ
+
+    if (error) {
+      console.error('Google OAuth error:', error)
+      setError('Fehler bei Google Anmeldung: ' + error.message)
+    }
+  } catch (err) {
+    console.error('4. Catch block error:', err) // DODAJ
+    setError('Ein unerwarteter Fehler ist aufgetreten')
+  } finally {
+    setGoogleLoading(false)
+  }
+}
   // Regular email/password login
   const handleSubmit = async (e) => {
     e.preventDefault()

@@ -1,10 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default function DashboardPage() {
   const [welcomeMessage, setWelcomeMessage] = useState(false)
+  const [stats, setStats] = useState({
+    totalInquiries: 0,
+    newInquiries: 0,
+    totalInvoices: 0,
+    qrScans: 0
+  })
+  const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -12,7 +20,49 @@ export default function DashboardPage() {
       setWelcomeMessage(true)
       setTimeout(() => setWelcomeMessage(false), 5000)
     }
+    loadStats()
   }, [searchParams])
+
+  const loadStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Load inquiries stats
+      const { data: inquiries, error: inquiriesError } = await supabase
+        .from('inquiries')
+        .select('status')
+        .eq('majstor_id', user.id)
+
+      if (!inquiriesError) {
+        const newInquiries = inquiries?.filter(i => i.status === 'new').length || 0
+        setStats(prev => ({
+          ...prev,
+          totalInquiries: inquiries?.length || 0,
+          newInquiries
+        }))
+      }
+
+      // Load invoices stats (kada implementiraš invoice sistem)
+      // const { data: invoices } = await supabase
+      //   .from('invoices')
+      //   .select('id')
+      //   .eq('majstor_id', user.id)
+
+      // QR scans ćemo implementirati kasnije
+      
+    } catch (error) {
+      console.error('Error loading stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Refresh stats every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(loadStats, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="space-y-8">
@@ -37,11 +87,13 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Kundenanfragen</p>
-              <p className="text-3xl font-bold text-white">0</p>
-              <p className="text-sm text-slate-400">Diese Woche</p>
+              <p className="text-3xl font-bold text-white">{loading ? '-' : stats.totalInquiries}</p>
+              <p className="text-sm text-slate-400">
+                {loading ? 'Laden...' : `${stats.newInquiries} neue`}
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl">
-              📧
+              🔧
             </div>
           </div>
         </div>
@@ -50,7 +102,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Rechnungen</p>
-              <p className="text-3xl font-bold text-white">0</p>
+              <p className="text-3xl font-bold text-white">{loading ? '-' : stats.totalInvoices}</p>
               <p className="text-sm text-slate-400">Erstellt</p>
             </div>
             <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-2xl">
@@ -63,7 +115,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">QR Scans</p>
-              <p className="text-3xl font-bold text-white">0</p>
+              <p className="text-3xl font-bold text-white">{loading ? '-' : stats.qrScans}</p>
               <p className="text-sm text-slate-400">Heute</p>
             </div>
             <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl">
@@ -127,11 +179,13 @@ export default function DashboardPage() {
             href="/dashboard/inquiries"
             className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative"
           >
-            <div className="text-2xl mb-2">📧</div>
+            <div className="text-2xl mb-2">🔧</div>
             <div className="text-white font-medium text-sm">Kundenanfragen</div>
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-              0
-            </span>
+            {stats.newInquiries > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
+              </span>
+            )}
           </Link>
 
           <Link
@@ -174,16 +228,13 @@ export default function DashboardPage() {
             <div className="text-white font-medium text-sm">Einstellungen</div>
           </Link>
 
-          <button
-            onClick={() => {
-              // Sign out logic
-              window.location.href = '/'
-            }}
+          <Link
+            href="/"
             className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-red-600 transition-colors text-left"
           >
             <div className="text-2xl mb-2">🚪</div>
             <div className="text-white font-medium text-sm">Abmelden</div>
-          </button>
+          </Link>
         </div>
       </div>
     </div>

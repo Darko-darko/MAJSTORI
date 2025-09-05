@@ -1,18 +1,33 @@
 // app/auth/callback/route.js
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+
+// Service role client za bypass RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
 export async function GET(request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  
+  console.log('1. Auth callback triggered with code:', !!code)
 
   if (code) {
     const cookieStore = cookies()
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
     try {
+      // Exchange code for session
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+      
+      console.log('2. Auth exchange result:', {
+        user: data?.user?.email,
+        error: error?.message
+      })
       
       if (error) {
         console.error('Auth callback error:', error)
@@ -20,55 +35,82 @@ export async function GET(request) {
       }
 
       if (data.user) {
-        console.log('User authenticated:', data.user.email)
+        console.log('3. User authenticated successfully')
         
-        // Proverite da li user već postoji u majstors tabeli
-        const { data: existingProfile } = await supabase
+        // Proverite da li profil već postoji
+        const { data: existingProfile, error: checkError } = await supabaseAdmin
           .from('majstors')
-          .select('id')
+          .select('id, slug')
           .eq('id', data.user.id)
           .single()
 
-        // Ako ne postoji, kreiraj profil
+        console.log('4. Profile check result:', {
+          exists: !!existingProfile,
+          error: checkError?.message
+        })
+
+        let isNewUser = false
+
+        // Ako profil ne postoji, kreiraj ga
         if (!existingProfile) {
-          console.log('Creating new profile for Google user')
+          console.log('5. Creating new profile for user...')
+          isNewUser = true
           
           const displayName = data.user.user_metadata?.full_name || 
                             data.user.user_metadata?.name || 
                             data.user.email?.split('@')[0] || 
                             'Handwerker'
           
-          const slug = displayName
+          // Generiši unique slug
+          const baseSlug = displayName
             .toLowerCase()
             .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-]/g, '')
-            .substring(0, 50)
+            .substring(0, 40)
+          
+          const slug = `${baseSlug}-${Date.now()}`
 
           const profileData = {
             id: data.user.id,
             email: data.user.email,
             full_name: displayName,
-            slug: slug + '-' + Date.now(), // Dodaj timestamp da izbegnemo duplikate
+            business_name: data.user.user_metadata?.business_name || null,
+            phone: data.user.user_metadata?.phone || null,
+            city: data.user.user_metadata?.city || null,
+            slug: slug,
             subscription_status: 'trial',
-            subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            is_active: true
           }
 
-          const { error: profileError } = await supabase
+          console.log('6. Creating profile with data:', {
+            email: profileData.email,
+            name: profileData.full_name,
+            slug: profileData.slug
+          })
+
+          // Koristi service role da bypasses RLS
+          const { data: newProfile, error: profileError } = await supabaseAdmin
             .from('majstors')
             .insert(profileData)
+            .select('id, slug')
+            .single()
 
           if (profileError) {
-            console.error('Profile creation failed:', profileError)
-            // Nastavi dalje - korisnik će moći da dopuni profil kasnije
+            console.error('7. Profile creation failed:', profileError)
+            // Ne prekidaj tok - korisnik može kasnije da dopuni profil
+          } else {
+            console.log('7. Profile created successfully:', newProfile.id)
           }
         }
 
-        // Redirect to dashboard sa welcome porukom za nove korisnike
-        const redirectUrl = existingProfile 
-          ? `${requestUrl.origin}/dashboard`
-          : `${requestUrl.origin}/dashboard?welcome=true`
+        // Redirect na odgovarajuću stranicu
+        const redirectUrl = isNewUser 
+          ? `${requestUrl.origin}/dashboard?welcome=true`
+          : `${requestUrl.origin}/dashboard`
         
+        console.log('8. Redirecting to:', redirectUrl)
         return NextResponse.redirect(redirectUrl)
       }
       
@@ -78,6 +120,7 @@ export async function GET(request) {
     }
   }
 
-  // Ako nema code, redirect na login
+  // Ako nema code, vrati na login
+  console.log('No auth code provided, redirecting to login')
   return NextResponse.redirect(`${requestUrl.origin}/login`)
 }
