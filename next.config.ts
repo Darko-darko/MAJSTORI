@@ -1,26 +1,37 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Disable ESLint during builds to prevent deployment failures
-  eslint: {
-    ignoreDuringBuilds: true
-  },
+  // ✅ NIŠTA SE NE IGNORIŠTE - sve greške će biti vidljive!
   
-  // Disable TypeScript checking during builds if needed
-  typescript: {
-    ignoreBuildErrors: true
-  },
-
-  // Image optimization settings
+  // ✅ Image optimization - standardno
   images: {
-    unoptimized: true,
-    domains: ['lh3.googleusercontent.com', 'storage.googleapis.com']
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+      }
+    ]
   },
 
-  // Experimental features
+  // ✅ Experimental features - samo potrebno za html2canvas
   experimental: {
     serverComponentsExternalPackages: ['html2canvas']
-  }
+  },
+
+  // ✅ Standard optimizations
+  swcMinify: true,
+  poweredByHeader: false,
+  
+  // ✅ Output configuration
+  output: 'standalone'
 };
 
 export default nextConfig;
