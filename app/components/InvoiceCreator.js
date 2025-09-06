@@ -1,7 +1,7 @@
-// app/components/InvoiceCreator.js - FIXED VERSION FOR DEPLOYMENT
+// components/InvoiceCreator.js - ISPRAVLJENA VERZIJA SA UČITAVANJEM MAJSTOR PODEŠAVANJA
 
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function InvoiceCreator({ 
@@ -10,8 +10,8 @@ export default function InvoiceCreator({
   type = 'quote', // 'quote' or 'invoice'
   majstor,
   onSuccess,
-  editData = null, // NOVO: data for editing
-  isEditMode = false // NOVO: edit mode flag
+  editData = null, // NOVO: data za edit mode
+  isEditMode = false // NOVO: flag za edit mode
 }) {
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -27,7 +27,7 @@ export default function InvoiceCreator({
     payment_terms_days: 14,
     valid_until: '', // nur für quotes
     issue_date: new Date().toISOString().split('T')[0],
-    is_kleinunternehmer: false
+    is_kleinunternehmer: false  // ISPRAVKA: Default vrednost
   })
   
   const [loading, setLoading] = useState(false)
@@ -35,10 +35,87 @@ export default function InvoiceCreator({
   const [customers, setCustomers] = useState([])
   const [showCustomerSelect, setShowCustomerSelect] = useState(false)
 
-  // NOVO: Load customers function
-  const loadCustomers = useCallback(async () => {
-    if (!majstor?.id) return
-    
+  // ISPRAVKA: Kombinovani useEffect za inicijalizaciju
+  useEffect(() => {
+    if (isOpen && majstor?.id) {
+      console.log('🔧 InvoiceCreator opened:', { type, isEditMode, editData: !!editData })
+      console.log('👤 Majstor settings:', {
+        is_kleinunternehmer: majstor.is_kleinunternehmer,
+        default_tax_rate: majstor.default_tax_rate,
+        payment_terms_days: majstor.payment_terms_days
+      })
+
+      loadCustomers()
+      initializeFormData()
+    }
+  }, [isOpen, majstor?.id, type, editData, isEditMode])
+
+  // NOVA: Funkcija za inicijalizaciju form data
+  const initializeFormData = () => {
+    // ISPRAVKA: Učitaj podešavanja iz majstor profila
+    const defaultSettings = {
+      is_kleinunternehmer: majstor?.is_kleinunternehmer || false,
+      tax_rate: majstor?.is_kleinunternehmer ? 0 : (majstor?.default_tax_rate || 19),
+      payment_terms_days: majstor?.payment_terms_days || 14
+    }
+
+    console.log('🔧 Using default settings:', defaultSettings)
+
+    if (isEditMode && editData) {
+      // EDIT MODE: Popuni postojeće podatke
+      console.log('✏️ Loading edit data:', editData.id)
+      
+      const parsedItems = editData.items ? JSON.parse(editData.items) : [{ description: '', quantity: 1, price: 0, total: 0 }]
+      
+      setFormData({
+        customer_name: editData.customer_name || '',
+        customer_email: editData.customer_email || '',
+        customer_address: editData.customer_address || '',
+        customer_phone: editData.customer_phone || '',
+        items: parsedItems,
+        subtotal: editData.subtotal || 0,
+        tax_rate: editData.tax_rate || defaultSettings.tax_rate,
+        tax_amount: editData.tax_amount || 0,
+        total_amount: editData.total_amount || 0,
+        notes: editData.notes || '',
+        payment_terms_days: editData.payment_terms_days || defaultSettings.payment_terms_days,
+        valid_until: editData.valid_until || '',
+        issue_date: editData.issue_date || new Date().toISOString().split('T')[0],
+        is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer
+      })
+    } else {
+      // CREATE MODE: Koristi default vrednosti iz majstor profila
+      console.log('➕ Setting up create mode with majstor defaults')
+      
+      const initialFormData = {
+        customer_name: '',
+        customer_email: '',
+        customer_address: '',
+        customer_phone: '',
+        items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+        subtotal: 0,
+        tax_rate: defaultSettings.tax_rate,
+        tax_amount: 0,
+        total_amount: 0,
+        notes: '',
+        payment_terms_days: defaultSettings.payment_terms_days,
+        valid_until: '',
+        issue_date: new Date().toISOString().split('T')[0],
+        is_kleinunternehmer: defaultSettings.is_kleinunternehmer // ISPRAVKA: Koristi majstor setting
+      }
+
+      // Set default valid_until for quotes (30 days from now)
+      if (type === 'quote') {
+        const validUntil = new Date()
+        validUntil.setDate(validUntil.getDate() + 30)
+        initialFormData.valid_until = validUntil.toISOString().split('T')[0]
+      }
+
+      setFormData(initialFormData)
+    }
+  }
+
+  const loadCustomers = async () => {
     try {
       // Load customers from inquiries
       const { data } = await supabase
@@ -58,70 +135,7 @@ export default function InvoiceCreator({
     } catch (err) {
       console.error('Error loading customers:', err)
     }
-  }, [majstor?.id])
-
-  // NOVO: Load edit data function
-  const loadEditData = useCallback(() => {
-    if (!editData || !isEditMode) return
-
-    try {
-      const items = editData.items ? JSON.parse(editData.items) : [{ description: '', quantity: 1, price: 0, total: 0 }]
-      
-      setFormData({
-        customer_name: editData.customer_name || '',
-        customer_email: editData.customer_email || '',
-        customer_address: editData.customer_address || '',
-        customer_phone: editData.customer_phone || '',
-        items: items,
-        subtotal: editData.subtotal || 0,
-        tax_rate: editData.tax_rate || 19,
-        tax_amount: editData.tax_amount || 0,
-        total_amount: editData.total_amount || 0,
-        notes: editData.notes || '',
-        payment_terms_days: editData.payment_terms_days || 14,
-        valid_until: editData.valid_until || '',
-        issue_date: editData.issue_date || new Date().toISOString().split('T')[0],
-        is_kleinunternehmer: editData.is_kleinunternehmer || false
-      })
-    } catch (err) {
-      console.error('Error loading edit data:', err)
-      setError('Fehler beim Laden der Bearbeitungsdaten')
-    }
-  }, [editData, isEditMode])
-
-  // NOVO: Reset form function
-  const resetForm = useCallback(() => {
-    if (isEditMode) return // Don't reset if editing
-    
-    setFormData({
-      customer_name: '',
-      customer_email: '',
-      customer_address: '',
-      customer_phone: '',
-      items: [{ description: '', quantity: 1, price: 0, total: 0 }],
-      subtotal: 0,
-      tax_rate: 19,
-      tax_amount: 0,
-      total_amount: 0,
-      notes: '',
-      payment_terms_days: 14,
-      valid_until: type === 'quote' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '',
-      issue_date: new Date().toISOString().split('T')[0],
-      is_kleinunternehmer: false
-    })
-  }, [isEditMode, type])
-
-  useEffect(() => {
-    if (isOpen && majstor?.id) {
-      loadCustomers()
-      
-      if (isEditMode && editData) {
-        loadEditData()
-      } else {
-        resetForm()
-      }
-    }
-  }, [isOpen, majstor?.id, type, isEditMode, editData, loadCustomers, loadEditData, resetForm])
+  }
 
   const handleCustomerSelect = (customer) => {
     setFormData(prev => ({
@@ -212,7 +226,7 @@ export default function InvoiceCreator({
       const dueDate = new Date(formData.issue_date)
       dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
-      const documentData = {
+      const invoiceData = {
         majstor_id: majstor.id,
         type: type,
         customer_name: formData.customer_name,
@@ -224,43 +238,66 @@ export default function InvoiceCreator({
         tax_rate: formData.tax_rate,
         tax_amount: formData.tax_amount,
         total_amount: formData.total_amount,
-        status: 'draft',
+        status: editData?.status || 'draft', // ISPRAVKA: Sačuvaj postojeći status u edit mode
         issue_date: formData.issue_date,
         due_date: dueDate.toISOString().split('T')[0],
         notes: formData.notes,
         payment_terms_days: formData.payment_terms_days,
         valid_until: type === 'quote' ? formData.valid_until : null,
-        is_kleinunternehmer: formData.is_kleinunternehmer
+        is_kleinunternehmer: formData.is_kleinunternehmer,
+        // ISPRAVKA: Sačuvaj referece u edit mode
+        converted_from_quote_id: editData?.converted_from_quote_id || null
       }
 
       let result
-      if (isEditMode && editData) {
-        // Update existing document
+      if (isEditMode && editData?.id) {
+        // UPDATE postojeći
+        console.log('📝 Updating existing document:', editData.id)
         result = await supabase
           .from('invoices')
           .update({
-            ...documentData,
+            ...invoiceData,
             updated_at: new Date().toISOString()
           })
           .eq('id', editData.id)
           .select()
           .single()
       } else {
-        // Create new document
+        // CREATE novi
+        console.log('➕ Creating new document')
         result = await supabase
           .from('invoices')
-          .insert(documentData)
+          .insert(invoiceData)
           .select()
           .single()
       }
 
       if (result.error) throw result.error
 
-      console.log(`${type} ${isEditMode ? 'updated' : 'created'} successfully:`, result.data.id)
+      const actionText = isEditMode ? 'aktualizovan' : 'kreiran'
+      const docNumber = result.data.quote_number || result.data.invoice_number
       
-      // Reset form only if not editing
+      console.log(`✅ ${type} ${actionText} successfully:`, result.data.id)
+      console.log(`📄 Document number: ${docNumber}`)
+      
+      // Reset form samo u create mode
       if (!isEditMode) {
-        resetForm()
+        setFormData({
+          customer_name: '',
+          customer_email: '',
+          customer_address: '',
+          customer_phone: '',
+          items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+          subtotal: 0,
+          tax_rate: majstor?.is_kleinunternehmer ? 0 : (majstor?.default_tax_rate || 19), // ISPRAVKA: Koristi majstor settings
+          tax_amount: 0,
+          total_amount: 0,
+          notes: '',
+          payment_terms_days: majstor?.payment_terms_days || 14, // ISPRAVKA: Koristi majstor settings
+          valid_until: '',
+          issue_date: new Date().toISOString().split('T')[0],
+          is_kleinunternehmer: majstor?.is_kleinunternehmer || false // ISPRAVKA: Koristi majstor settings
+        })
       }
 
       onSuccess(result.data)
@@ -289,10 +326,11 @@ export default function InvoiceCreator({
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-slate-700">
           <h3 className="text-xl font-semibold text-white">
-            {isEditMode 
-              ? `${type === 'quote' ? '📄 Angebot bearbeiten' : '🧾 Rechnung bearbeiten'}`
-              : `${type === 'quote' ? '📄 Neues Angebot erstellen' : '🧾 Neue Rechnung erstellen'}`
-            }
+            {isEditMode ? (
+              type === 'quote' ? '✏️ Angebot bearbeiten' : '✏️ Rechnung bearbeiten'
+            ) : (
+              type === 'quote' ? '📄 Neues Angebot erstellen' : '🧾 Neue Rechnung erstellen'
+            )}
           </h3>
           <button
             onClick={onClose}
@@ -304,6 +342,33 @@ export default function InvoiceCreator({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          
+          {/* PDV Status Information */}
+          <div className={`rounded-lg p-4 border ${formData.is_kleinunternehmer ? 'bg-green-500/10 border-green-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${formData.is_kleinunternehmer ? 'bg-green-500' : 'bg-blue-500'}`}>
+                  {formData.is_kleinunternehmer ? '✓' : '%'}
+                </div>
+                <div>
+                  <h4 className={`font-semibold ${formData.is_kleinunternehmer ? 'text-green-300' : 'text-blue-300'}`}>
+                    {formData.is_kleinunternehmer ? 'Kleinunternehmer (§19 UStG)' : 'Regulärer Steuerstatus'}
+                  </h4>
+                  <p className="text-slate-400 text-sm">
+                    {formData.is_kleinunternehmer 
+                      ? 'Keine Mehrwertsteuer wird berechnet' 
+                      : `${formData.tax_rate}% MwSt. wird hinzugefügt`
+                    }
+                  </p>
+                </div>
+              </div>
+              {!isEditMode && (
+                <div className="text-slate-400 text-xs">
+                  Kann in Einstellungen geändert werden
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* Customer Section */}
           <div className="bg-slate-900/50 rounded-lg p-4">
@@ -321,7 +386,7 @@ export default function InvoiceCreator({
             </div>
 
             {/* Customer Dropdown */}
-            {showCustomerSelect && (
+            {showCustomerSelect && !isEditMode && (
               <div className="mb-4 bg-slate-800 border border-slate-600 rounded-lg max-h-32 overflow-y-auto">
                 {customers.map((customer, index) => (
                   <button
@@ -434,8 +499,7 @@ export default function InvoiceCreator({
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-400 mb-1">
-                     // Encore sigurniji:
-                   {`Preis (€ ${formData.is_kleinunternehmer ? 'inkl.' : 'netto'})`} 
+                      Preis (€ {formData.is_kleinunternehmer ? 'inkl.' : 'netto'})
                     </label>
                     <input
                       type="number"
@@ -563,57 +627,73 @@ export default function InvoiceCreator({
               </div>
             </div>
             
-            {/* KLEINUNTERNEHMER SEKCIJA */}
-            <div className="mt-6 border-t border-slate-600 pt-6">
-              <h5 className="text-white font-medium mb-4">Steuer-Einstellungen</h5>
-              
-              <div className="flex items-center mb-4">
-                <input
-                  type="checkbox"
-                  id="kleinunternehmer"
-                  checked={formData.is_kleinunternehmer}
-                  onChange={(e) => {
-                    const isKleinunternehmer = e.target.checked
-                    setFormData(prev => ({
-                      ...prev,
-                      is_kleinunternehmer: isKleinunternehmer,
-                      tax_rate: isKleinunternehmer ? 0 : 19,
-                      tax_amount: 0  // Reset tax amount
-                    }))
-                    // Preračunaj totale sa novim tax_rate
-                    setTimeout(() => calculateTotals(formData.items), 0)
-                  }}
-                  className="mr-3 w-4 h-4 text-blue-600 bg-slate-700 border-slate-500 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="kleinunternehmer" className="text-slate-300 text-sm">
-                  Kleinunternehmer nach §19 UStG (keine Mehrwertsteuer)
-                </label>
-              </div>
-              
-              {!formData.is_kleinunternehmer && (
-                <div className="max-w-xs">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    MwSt. Satz (%)
-                  </label>
-                  <select
-                    value={formData.tax_rate}
+            {/* KLEINUNTERNEHMER SEKCIJA - SAMO U CREATE MODE */}
+            {!isEditMode && (
+              <div className="mt-6 border-t border-slate-600 pt-6">
+                <h5 className="text-white font-medium mb-4">Steuer-Einstellungen</h5>
+                
+                <div className="flex items-center mb-4">
+                  <input
+                    type="checkbox"
+                    id="kleinunternehmer"
+                    checked={formData.is_kleinunternehmer}
                     onChange={(e) => {
-                      const newTaxRate = parseFloat(e.target.value)
+                      const isKleinunternehmer = e.target.checked
                       setFormData(prev => ({
                         ...prev,
-                        tax_rate: newTaxRate
+                        is_kleinunternehmer: isKleinunternehmer,
+                        tax_rate: isKleinunternehmer ? 0 : (majstor?.default_tax_rate || 19),
+                        tax_amount: 0
                       }))
                       setTimeout(() => calculateTotals(formData.items), 0)
                     }}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
-                  >
-                    <option value="19">19% (Regelsteuersatz)</option>
-                    <option value="7">7% (ermäßigter Steuersatz)</option>
-                    <option value="0">0% (steuerbefreit)</option>
-                  </select>
+                    className="mr-3 w-4 h-4 text-blue-600 bg-slate-700 border-slate-500 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="kleinunternehmer" className="text-slate-300 text-sm">
+                    Kleinunternehmer nach §19 UStG (keine Mehrwertsteuer)
+                  </label>
                 </div>
-              )}
-            </div>
+                
+                {!formData.is_kleinunternehmer && (
+                  <div className="max-w-xs">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      MwSt. Satz (%)
+                    </label>
+                    <select
+                      value={formData.tax_rate}
+                      onChange={(e) => {
+                        const newTaxRate = parseFloat(e.target.value)
+                        setFormData(prev => ({
+                          ...prev,
+                          tax_rate: newTaxRate
+                        }))
+                        setTimeout(() => calculateTotals(formData.items), 0)
+                      }}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                    >
+                      <option value="19">19% (Regelsteuersatz)</option>
+                      <option value="7">7% (ermäßigter Steuersatz)</option>
+                      <option value="0">0% (steuerbefreit)</option>
+                    </select>
+                  </div>
+                )}
+                
+                <div className="mt-4 text-xs text-slate-500 bg-slate-800/50 rounded p-3">
+                  💡 <strong>Tipp:</strong> Diese Einstellung wird in Ihrem Profil für alle zukünftigen Dokumente gespeichert. 
+                  Sie können sie später in den Einstellungen ändern.
+                </div>
+              </div>
+            )}
+            
+            {/* INFO U EDIT MODE */}
+            {isEditMode && (
+              <div className="mt-6 border-t border-slate-600 pt-6">
+                <div className="text-xs text-slate-500 bg-slate-800/50 rounded p-3">
+                  ℹ️ <strong>Hinweis:</strong> PDV-Einstellungen können in diesem Modus nicht geändert werden. 
+                  Ändern Sie diese in Ihren Kontoeinstellungen für zukünftige Dokumente.
+                </div>
+              </div>
+            )}
             
             <div className="mt-4">
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -653,8 +733,8 @@ export default function InvoiceCreator({
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex-1"
             >
               {loading 
-                ? `${isEditMode ? 'Aktualisiere...' : 'Erstelle...'}` 
-                : `${isEditMode ? `${type === 'quote' ? 'Angebot' : 'Rechnung'} aktualisieren` : `${type === 'quote' ? 'Angebot' : 'Rechnung'} erstellen`}`
+                ? (isEditMode ? 'Speichern...' : 'Erstelle...') 
+                : (isEditMode ? 'Änderungen speichern' : `${type === 'quote' ? 'Angebot' : 'Rechnung'} erstellen`)
               }
             </button>
           </div>
