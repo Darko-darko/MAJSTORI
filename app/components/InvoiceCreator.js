@@ -116,26 +116,47 @@ export default function InvoiceCreator({
   }
 
   const loadCustomers = async () => {
-    try {
-      // Load customers from inquiries
-      const { data } = await supabase
-        .from('inquiries')
-        .select('customer_name, customer_email, customer_phone')
-        .eq('majstor_id', majstor.id)
-        .order('created_at', { ascending: false })
-        .limit(10)
+  try {
+    console.log('🔍 Loading customers for majstor:', majstor.id)
 
-      if (data) {
-        // Remove duplicates based on email
-        const uniqueCustomers = data.filter((customer, index, self) =>
-          index === self.findIndex(c => c.customer_email === customer.customer_email)
-        )
-        setCustomers(uniqueCustomers)
-      }
-    } catch (err) {
-      console.error('Error loading customers:', err)
+    // 1. Load customers from inquiries
+    const { data: inquiryData } = await supabase
+      .from('inquiries')
+      .select('customer_name, customer_email, customer_phone')
+      .eq('majstor_id', majstor.id)
+      .order('created_at', { ascending: false })
+
+    console.log('📊 Raw inquiry data:', inquiryData)
+
+    // 2. Load existing customers who already have invoices/quotes
+    const { data: existingCustomers } = await supabase
+      .from('invoices')
+      .select('customer_email')
+      .eq('majstor_id', majstor.id)
+
+    console.log('📋 Existing customers with invoices:', existingCustomers)
+
+    const existingEmails = new Set(existingCustomers?.map(c => c.customer_email) || [])
+    console.log('🚫 Emails to exclude:', Array.from(existingEmails))
+
+    if (inquiryData) {
+      // 3. Filter: remove duplicates and existing customers
+      const availableCustomers = inquiryData.filter((customer, index, self) =>
+        // Remove duplicates by email
+        index === self.findIndex(c => c.customer_email === customer.customer_email) &&
+        // Remove customers who already have invoices/quotes
+        !existingEmails.has(customer.customer_email)
+      )
+      
+      console.log('✅ Available customers (filtered):', availableCustomers)
+      console.log('✅ Available count:', availableCustomers.length)
+      
+      setCustomers(availableCustomers)
     }
+  } catch (err) {
+    console.error('❌ Error loading customers:', err)
   }
+}
 
   const handleCustomerSelect = (customer) => {
     setFormData(prev => ({
@@ -377,7 +398,13 @@ export default function InvoiceCreator({
               {customers.length > 0 && !isEditMode && (
                 <button
                   type="button"
-                  onClick={() => setShowCustomerSelect(!showCustomerSelect)}
+                  onClick={ () => 
+                    {
+      console.log('🔘 Button clicked! Current customers:', customers) // DODAJ
+      console.log('🔘 showCustomerSelect before:', showCustomerSelect) // DODAJ
+                    
+                    
+                    setShowCustomerSelect(!showCustomerSelect)}}
                   className="text-blue-400 text-sm hover:text-blue-300"
                 >
                   Aus Anfragen auswählen
