@@ -628,72 +628,10 @@ export default function InvoiceCreator({
             </div>
             
             {/* KLEINUNTERNEHMER SEKCIJA - SAMO U CREATE MODE */}
-            {!isEditMode && (
-              <div className="mt-6 border-t border-slate-600 pt-6">
-                <h5 className="text-white font-medium mb-4">Steuer-Einstellungen</h5>
-                
-                <div className="flex items-center mb-4">
-                  <input
-                    type="checkbox"
-                    id="kleinunternehmer"
-                    checked={formData.is_kleinunternehmer}
-                    onChange={(e) => {
-                      const isKleinunternehmer = e.target.checked
-                      setFormData(prev => ({
-                        ...prev,
-                        is_kleinunternehmer: isKleinunternehmer,
-                        tax_rate: isKleinunternehmer ? 0 : (majstor?.default_tax_rate || 19),
-                        tax_amount: 0
-                      }))
-                      setTimeout(() => calculateTotals(formData.items), 0)
-                    }}
-                    className="mr-3 w-4 h-4 text-blue-600 bg-slate-700 border-slate-500 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="kleinunternehmer" className="text-slate-300 text-sm">
-                    Kleinunternehmer nach §19 UStG (keine Mehrwertsteuer)
-                  </label>
-                </div>
-                
-                {!formData.is_kleinunternehmer && (
-                  <div className="max-w-xs">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      MwSt. Satz (%)
-                    </label>
-                    <select
-                      value={formData.tax_rate}
-                      onChange={(e) => {
-                        const newTaxRate = parseFloat(e.target.value)
-                        setFormData(prev => ({
-                          ...prev,
-                          tax_rate: newTaxRate
-                        }))
-                        setTimeout(() => calculateTotals(formData.items), 0)
-                      }}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
-                    >
-                      <option value="19">19% (Regelsteuersatz)</option>
-                      <option value="7">7% (ermäßigter Steuersatz)</option>
-                      <option value="0">0% (steuerbefreit)</option>
-                    </select>
-                  </div>
-                )}
-                
-                <div className="mt-4 text-xs text-slate-500 bg-slate-800/50 rounded p-3">
-                  💡 <strong>Tipp:</strong> Diese Einstellung wird in Ihrem Profil für alle zukünftigen Dokumente gespeichert. 
-                  Sie können sie später in den Einstellungen ändern.
-                </div>
-              </div>
-            )}
+           
             
             {/* INFO U EDIT MODE */}
-            {isEditMode && (
-              <div className="mt-6 border-t border-slate-600 pt-6">
-                <div className="text-xs text-slate-500 bg-slate-800/50 rounded p-3">
-                  ℹ️ <strong>Hinweis:</strong> PDV-Einstellungen können in diesem Modus nicht geändert werden. 
-                  Ändern Sie diese in Ihren Kontoeinstellungen für zukünftige Dokumente.
-                </div>
-              </div>
-            )}
+            
             
             <div className="mt-4">
               <label className="block text-sm font-medium text-slate-300 mb-2">
