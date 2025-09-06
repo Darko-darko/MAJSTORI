@@ -1,4 +1,4 @@
-// components/InvoiceCreator.js - KOMPLETNA VERZIJA SA KLEINUNTERNEHMER
+// components/InvoiceCreator.js - USES SETTINGS DATA FROM MAJSTOR
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -9,7 +9,9 @@ export default function InvoiceCreator({
   onClose, 
   type = 'quote', // 'quote' or 'invoice'
   majstor,
-  onSuccess 
+  onSuccess,
+  editData = null,
+  isEditMode = false
 }) {
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -23,9 +25,9 @@ export default function InvoiceCreator({
     total_amount: 0,
     notes: '',
     payment_terms_days: 14,
-    valid_until: '', // nur für quotes
+    valid_until: '',
     issue_date: new Date().toISOString().split('T')[0],
-    is_kleinunternehmer: false  // DODANO
+    is_kleinunternehmer: false
   })
   
   const [loading, setLoading] = useState(false)
@@ -33,25 +35,89 @@ export default function InvoiceCreator({
   const [customers, setCustomers] = useState([])
   const [showCustomerSelect, setShowCustomerSelect] = useState(false)
 
+  // NOVO: Get settings from majstor
+  const settingsFromMajstor = {
+    is_kleinunternehmer: majstor?.is_kleinunternehmer || false,
+    default_tax_rate: majstor?.default_tax_rate || 19,
+    payment_terms_days: majstor?.payment_terms_days || 14
+  }
+
   useEffect(() => {
-    if (isOpen && majstor?.id) {
+    if (isEditMode && editData) {
+      console.log('Loading edit data:', editData)
+      loadEditData(editData)
+    } else if (isOpen && majstor?.id) {
       loadCustomers()
-      
-      // Set default valid_until for quotes (30 days from now)
-      if (type === 'quote') {
-        const validUntil = new Date()
-        validUntil.setDate(validUntil.getDate() + 30)
-        setFormData(prev => ({
-          ...prev,
-          valid_until: validUntil.toISOString().split('T')[0]
-        }))
-      }
+      resetForm()
     }
-  }, [isOpen, majstor?.id, type])
+  }, [isOpen, isEditMode, editData, majstor?.id, type])
+
+  const loadEditData = (data) => {
+    try {
+      let parsedItems = []
+      if (data.items) {
+        if (typeof data.items === 'string') {
+          parsedItems = JSON.parse(data.items)
+        } else if (Array.isArray(data.items)) {
+          parsedItems = data.items
+        }
+      }
+      
+      if (parsedItems.length === 0) {
+        parsedItems = [{ description: '', quantity: 1, price: 0, total: 0 }]
+      }
+
+      setFormData({
+        customer_name: data.customer_name || '',
+        customer_email: data.customer_email || '',
+        customer_address: data.customer_address || '',
+        customer_phone: data.customer_phone || '',
+        items: parsedItems,
+        subtotal: data.subtotal || 0,
+        tax_rate: data.tax_rate || settingsFromMajstor.default_tax_rate,
+        tax_amount: data.tax_amount || 0,
+        total_amount: data.total_amount || 0,
+        notes: data.notes || '',
+        payment_terms_days: data.payment_terms_days || settingsFromMajstor.payment_terms_days,
+        valid_until: data.valid_until || '',
+        issue_date: data.issue_date || new Date().toISOString().split('T')[0],
+        is_kleinunternehmer: data.is_kleinunternehmer !== undefined ? data.is_kleinunternehmer : settingsFromMajstor.is_kleinunternehmer
+      })
+      
+      console.log('Edit data loaded successfully')
+    } catch (error) {
+      console.error('Error loading edit data:', error)
+      setError('Fehler beim Laden der Daten: ' + error.message)
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      customer_name: '',
+      customer_email: '',
+      customer_address: '',
+      customer_phone: '',
+      items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+      subtotal: 0,
+      tax_rate: settingsFromMajstor.default_tax_rate, // NOVO: From settings
+      tax_amount: 0,
+      total_amount: 0,
+      notes: '',
+      payment_terms_days: settingsFromMajstor.payment_terms_days, // NOVO: From settings
+      valid_until: type === 'quote' ? getDefaultValidUntil() : '',
+      issue_date: new Date().toISOString().split('T')[0],
+      is_kleinunternehmer: settingsFromMajstor.is_kleinunternehmer // NOVO: From settings
+    })
+  }
+
+  const getDefaultValidUntil = () => {
+    const validUntil = new Date()
+    validUntil.setDate(validUntil.getDate() + 30)
+    return validUntil.toISOString().split('T')[0]
+  }
 
   const loadCustomers = async () => {
     try {
-      // Load customers from inquiries
       const { data } = await supabase
         .from('inquiries')
         .select('customer_name, customer_email, customer_phone')
@@ -60,7 +126,6 @@ export default function InvoiceCreator({
         .limit(10)
 
       if (data) {
-        // Remove duplicates based on email
         const uniqueCustomers = data.filter((customer, index, self) =>
           index === self.findIndex(c => c.customer_email === customer.customer_email)
         )
@@ -93,7 +158,6 @@ export default function InvoiceCreator({
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
     
-    // Berechne total für diesen item
     if (field === 'quantity' || field === 'price') {
       const quantity = field === 'quantity' ? parseFloat(value) || 0 : newItems[index].quantity
       const price = field === 'price' ? parseFloat(value) || 0 : newItems[index].price
@@ -105,7 +169,6 @@ export default function InvoiceCreator({
       items: newItems
     }))
     
-    // Berechne totals
     calculateTotals(newItems)
   }
 
@@ -129,7 +192,7 @@ export default function InvoiceCreator({
 
   const calculateTotals = (items) => {
     const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0)
-    // AKO JE KLEINUNTERNEHMER, NEMA PDV
+    // NOVO: Use settings for tax calculation
     const taxAmount = formData.is_kleinunternehmer ? 0 : subtotal * (formData.tax_rate / 100)
     const totalAmount = subtotal + taxAmount
     
@@ -147,7 +210,6 @@ export default function InvoiceCreator({
     setError('')
 
     try {
-      // Validation
       if (!formData.customer_name || !formData.customer_email) {
         throw new Error('Kunde Name und E-Mail sind erforderlich')
       }
@@ -156,7 +218,6 @@ export default function InvoiceCreator({
         throw new Error('Alle Positionen müssen eine Beschreibung und einen Preis haben')
       }
 
-      // Due date calculation
       const dueDate = new Date(formData.issue_date)
       dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
@@ -172,49 +233,50 @@ export default function InvoiceCreator({
         tax_rate: formData.tax_rate,
         tax_amount: formData.tax_amount,
         total_amount: formData.total_amount,
-        status: 'draft',
+        status: isEditMode ? editData.status : 'draft',
         issue_date: formData.issue_date,
         due_date: dueDate.toISOString().split('T')[0],
         notes: formData.notes,
         payment_terms_days: formData.payment_terms_days,
         valid_until: type === 'quote' ? formData.valid_until : null,
-        is_kleinunternehmer: formData.is_kleinunternehmer  // DODANO
+        is_kleinunternehmer: formData.is_kleinunternehmer,
+        updated_at: new Date().toISOString()
       }
 
-      const { data, error } = await supabase
-        .from('invoices')
-        .insert(invoiceData)
-        .select()
-        .single()
+      let result
+      if (isEditMode && editData) {
+        console.log('Updating existing record:', editData.id)
+        result = await supabase
+          .from('invoices')
+          .update(invoiceData)
+          .eq('id', editData.id)
+          .select()
+          .single()
+      } else {
+        console.log('Creating new record')
+        result = await supabase
+          .from('invoices')
+          .insert(invoiceData)
+          .select()
+          .single()
+      }
 
-      if (error) throw error
+      if (result.error) throw result.error
 
-      console.log(`${type} created successfully:`, data.id)
-      console.log(`Generated number: ${data.quote_number || data.invoice_number}`)
+      const action = isEditMode ? 'aktualisiert' : 'erstellt'
+      const documentType = type === 'quote' ? 'Angebot' : 'Rechnung'
+      const documentNumber = result.data.quote_number || result.data.invoice_number
       
-      // Reset form
-      setFormData({
-        customer_name: '',
-        customer_email: '',
-        customer_address: '',
-        customer_phone: '',
-        items: [{ description: '', quantity: 1, price: 0, total: 0 }],
-        subtotal: 0,
-        tax_rate: 19,
-        tax_amount: 0,
-        total_amount: 0,
-        notes: '',
-        payment_terms_days: 14,
-        valid_until: '',
-        issue_date: new Date().toISOString().split('T')[0],
-        is_kleinunternehmer: false  // DODANO
-      })
+      if (!isEditMode) {
+        resetForm()
+      }
 
-      onSuccess(data)
+      alert(`✅ ${documentType} ${documentNumber} wurde erfolgreich ${action}!`)
+      onSuccess(result.data)
       onClose()
 
     } catch (err) {
-      console.error(`Error creating ${type}:`, err)
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -236,7 +298,18 @@ export default function InvoiceCreator({
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-slate-700">
           <h3 className="text-xl font-semibold text-white">
-            {type === 'quote' ? '📄 Neues Angebot erstellen' : '📋 Neue Rechnung erstellen'}
+            {isEditMode ? (
+              <>
+                {type === 'quote' ? '📝 Angebot bearbeiten' : '🧾 Rechnung bearbeiten'}
+                <span className="text-slate-400 text-sm ml-2">
+                  ({editData?.quote_number || editData?.invoice_number})
+                </span>
+              </>
+            ) : (
+              <>
+                {type === 'quote' ? '📄 Neues Angebot erstellen' : '🧾 Neue Rechnung erstellen'}
+              </>
+            )}
           </h3>
           <button
             onClick={onClose}
@@ -246,6 +319,20 @@ export default function InvoiceCreator({
           </button>
         </div>
 
+        {/* NOVO: Settings Info Banner */}
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg mx-6 mt-4 p-3">
+          <div className="flex items-center gap-2 text-blue-300 text-sm">
+            <span>ℹ️</span>
+            <span>
+              Steuer-Einstellungen: {formData.is_kleinunternehmer ? 'Kleinunternehmer (0% MwSt.)' : `${formData.tax_rate}% MwSt.`} | 
+              Zahlungsziel: {formData.payment_terms_days} Tage
+            </span>
+          </div>
+          <p className="text-blue-400 text-xs mt-1">
+            Diese werden aus Ihren Einstellungen übernommen. Ändern Sie sie im Tab "Einstellungen".
+          </p>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
@@ -253,7 +340,7 @@ export default function InvoiceCreator({
           <div className="bg-slate-900/50 rounded-lg p-4">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-white font-semibold">Kunde</h4>
-              {customers.length > 0 && (
+              {customers.length > 0 && !isEditMode && (
                 <button
                   type="button"
                   onClick={() => setShowCustomerSelect(!showCustomerSelect)}
@@ -264,8 +351,7 @@ export default function InvoiceCreator({
               )}
             </div>
 
-            {/* Customer Dropdown */}
-            {showCustomerSelect && (
+            {showCustomerSelect && !isEditMode && (
               <div className="mb-4 bg-slate-800 border border-slate-600 rounded-lg max-h-32 overflow-y-auto">
                 {customers.map((customer, index) => (
                   <button
@@ -283,9 +369,7 @@ export default function InvoiceCreator({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Name *
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Name *</label>
                 <input
                   type="text"
                   name="customer_name"
@@ -297,9 +381,7 @@ export default function InvoiceCreator({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  E-Mail *
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">E-Mail *</label>
                 <input
                   type="email"
                   name="customer_email"
@@ -311,9 +393,7 @@ export default function InvoiceCreator({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Telefon
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Telefon</label>
                 <input
                   type="tel"
                   name="customer_phone"
@@ -324,9 +404,7 @@ export default function InvoiceCreator({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Adresse
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Adresse</label>
                 <input
                   type="text"
                   name="customer_address"
@@ -411,7 +489,6 @@ export default function InvoiceCreator({
               ))}
             </div>
             
-            {/* Price info */}
             <div className="text-xs text-slate-500 mt-2">
               {formData.is_kleinunternehmer 
                 ? '* Gemäß §19 UStG werden alle Preise ohne Mehrwertsteuer berechnet'
@@ -446,20 +523,20 @@ export default function InvoiceCreator({
                 </div>
               )}
               
-              {!formData.is_kleinunternehmer && (
-                <div className="border-t border-slate-600 pt-2">
-                  <div className="flex justify-between font-semibold">
-                    <span className="text-white">Bruttobetrag:</span>
-                    <span className="text-white text-lg">{formatCurrency(formData.total_amount)}</span>
-                  </div>
+              <div className="border-t border-slate-600 pt-2">
+                <div className="flex justify-between font-semibold">
+                  <span className="text-white">
+                    {formData.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Bruttobetrag:'}
+                  </span>
+                  <span className="text-white text-lg">{formatCurrency(formData.total_amount)}</span>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
           {/* Settings Section */}
           <div className="bg-slate-900/50 rounded-lg p-4">
-            <h4 className="text-white font-semibold mb-4">Einstellungen</h4>
+            <h4 className="text-white font-semibold mb-4">Datum & Notizen</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -506,58 +583,6 @@ export default function InvoiceCreator({
               </div>
             </div>
             
-            {/* KLEINUNTERNEHMER SEKCIJA */}
-            <div className="mt-6 border-t border-slate-600 pt-6">
-              <h5 className="text-white font-medium mb-4">Steuer-Einstellungen</h5>
-              
-              <div className="flex items-center mb-4">
-                <input
-                  type="checkbox"
-                  id="kleinunternehmer"
-                  checked={formData.is_kleinunternehmer}
-                  onChange={(e) => {
-                    const isKleinunternehmer = e.target.checked
-                    setFormData(prev => ({
-                      ...prev,
-                      is_kleinunternehmer: isKleinunternehmer,
-                      tax_rate: isKleinunternehmer ? 0 : 19,
-                      tax_amount: 0  // Reset tax amount
-                    }))
-                    // Preračunaj totale sa novim tax_rate
-                    setTimeout(() => calculateTotals(formData.items), 0)
-                  }}
-                  className="mr-3 w-4 h-4 text-blue-600 bg-slate-700 border-slate-500 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="kleinunternehmer" className="text-slate-300 text-sm">
-                  Kleinunternehmer nach §19 UStG (keine Mehrwertsteuer)
-                </label>
-              </div>
-              
-              {!formData.is_kleinunternehmer && (
-                <div className="max-w-xs">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    MwSt. Satz (%)
-                  </label>
-                  <select
-                    value={formData.tax_rate}
-                    onChange={(e) => {
-                      const newTaxRate = parseFloat(e.target.value)
-                      setFormData(prev => ({
-                        ...prev,
-                        tax_rate: newTaxRate
-                      }))
-                      setTimeout(() => calculateTotals(formData.items), 0)
-                    }}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
-                  >
-                    <option value="19">19% (Regelsteuersatz)</option>
-                    <option value="7">7% (ermäßigter Steuersatz)</option>
-                    <option value="0">0% (steuerbefreit)</option>
-                  </select>
-                </div>
-              )}
-            </div>
-            
             <div className="mt-4">
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Notizen (intern)
@@ -596,8 +621,11 @@ export default function InvoiceCreator({
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex-1"
             >
               {loading 
-                ? 'Erstelle...' 
-                : `${type === 'quote' ? 'Angebot' : 'Rechnung'} erstellen`
+                ? (isEditMode ? 'Aktualisiere...' : 'Erstelle...') 
+                : (isEditMode 
+                    ? `${type === 'quote' ? 'Angebot' : 'Rechnung'} aktualisieren`
+                    : `${type === 'quote' ? 'Angebot' : 'Rechnung'} erstellen`
+                  )
               }
             </button>
           </div>
