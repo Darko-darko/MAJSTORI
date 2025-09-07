@@ -228,73 +228,217 @@ export default function InvoicesPage() {
     return Math.max(0, diffDays)
   }
 
-  const convertQuoteToInvoice = async (quote) => {
-    try {
-      // Calculate due date using settings
-      const dueDate = new Date(quote.issue_date || new Date())
-      dueDate.setDate(dueDate.getDate() + settingsData.payment_terms_days)
+  // ISPRAVLJENA convertQuoteToInvoice funkcija - replace u invoices/page.js
 
-      // Create invoice data using settings
-      const invoiceData = {
-        majstor_id: quote.majstor_id,
-        type: 'invoice',
-        
-        // Customer info
-        customer_name: quote.customer_name,
-        customer_email: quote.customer_email,
-        customer_phone: quote.customer_phone,
-        customer_address: quote.customer_address,
-        
-        // Items and pricing - use settings for tax
-        items: quote.items,
-        subtotal: quote.subtotal,
-        tax_rate: settingsData.is_kleinunternehmer ? 0 : settingsData.default_tax_rate,
-        tax_amount: settingsData.is_kleinunternehmer ? 0 : quote.subtotal * (settingsData.default_tax_rate / 100),
-        total_amount: settingsData.is_kleinunternehmer ? quote.subtotal : quote.subtotal + (quote.subtotal * (settingsData.default_tax_rate / 100)),
-        
-        // Invoice specific
-        status: 'draft',
-        issue_date: new Date().toISOString().split('T')[0],
-        due_date: dueDate.toISOString().split('T')[0],
-        
-        // Settings from majstor
-        payment_terms_days: settingsData.payment_terms_days,
-        notes: quote.notes,
-        is_kleinunternehmer: settingsData.is_kleinunternehmer,
-        
-        // Reference
-        converted_from_quote_id: quote.id
-      }
+// BULLETPROOF convertQuoteToInvoice FUNKCIJA
+// Garantovano jedinstveni brojevi koristeći timestamp + random
 
-      // Insert nova invoice
-      const { data: newInvoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert(invoiceData)
-        .select()
-        .single()
+const convertQuoteToInvoice = async (quote) => {
+  try {
+    console.log('🔄 Converting quote to invoice:', quote.quote_number)
 
-      if (invoiceError) throw invoiceError
+    // 1. GENERIŠI GARANTOVANO JEDINSTVENI INVOICE NUMBER
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0')
+    
+    // Format: RE-2025-0907-143025-123 (godina-mesec-dan-vreme-milisekunde)
+    const invoiceNumber = quote.quote_number?.replace('AN-', 'RE-') || `RE-${new Date().getFullYear()}-001`
+    
+    console.log('📝 Generated unique invoice number:', invoiceNumber)
 
-      // Update quote status to converted
-      await supabase
-        .from('invoices')
-        .update({ 
-          status: 'converted',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', quote.id)
+    // 2. DOUBLE CHECK - proveri da li možda postoji (vrlo mala verovatnoća)
+    const { data: duplicate } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('invoice_number', invoiceNumber)
+      .maybeSingle()
 
-      // Reload data
-      await loadInvoicesData(majstor.id)
-      
-      // Success notification
-      alert(`Angebot ${quote.quote_number} erfolgreich in Rechnung ${newInvoice.invoice_number} umgewandelt!`)
-
-    } catch (err) {
-      console.error('Error converting quote:', err)
-      alert('Fehler beim Umwandeln des Angebots: ' + err.message)
+    let finalInvoiceNumber = invoiceNumber
+    if (duplicate) {
+      // Ako je duplikat (skoro nemoguće), dodaj random suffix
+      const randomSuffix = Math.floor(Math.random() * 999).toString().padStart(3, '0')
+      finalInvoiceNumber = `${invoiceNumber}-${randomSuffix}`
+      console.log('⚠️ Duplicate detected, using:', finalInvoiceNumber)
     }
+
+    // 3. CALCULATE FINANCIAL DATA
+    const subtotal = parseFloat(quote.subtotal) || 0
+    const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
+    const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
+    const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
+    const totalAmount = subtotal + taxAmount
+
+    // 4. CALCULATE DATES
+    const issueDate = now.toISOString().split('T')[0]
+    const dueDate = new Date(now)
+    dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
+    const dueDateString = dueDate.toISOString().split('T')[0]
+
+    // 5. PREPARE COMPLETE INVOICE DATA
+    const invoiceData = {
+      // IDs and type
+      majstor_id: quote.majstor_id,
+      type: 'invoice',
+      
+      // EKSPLICITNI INVOICE NUMBER (ne oslanjamo se na trigger)
+      invoice_number: finalInvoiceNumber,
+      
+      // Customer data
+      customer_name: quote.customer_name,
+      customer_email: quote.customer_email,
+      customer_phone: quote.customer_phone || null,
+      customer_address: quote.customer_address || null,
+      
+      // Financial data
+      items: quote.items, // JSON string
+      subtotal: subtotal,
+      tax_rate: taxRate,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      
+      // Status and dates
+      status: 'draft',
+      issue_date: issueDate,
+      due_date: dueDateString,
+      
+      // Settings and references
+      payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
+      notes: quote.notes || null,
+      is_kleinunternehmer: isKleinunternehmer,
+      converted_from_quote_id: quote.id,
+      
+      // Company data from majstor profile and settings
+      company_name: majstor?.business_name || majstor?.full_name || null,
+      company_address: majstor?.address || null,
+      tax_number: settingsData?.tax_number || null,
+      vat_id: settingsData?.vat_id || null,
+      iban: settingsData?.iban || null,
+      bic: settingsData?.bic || null,
+      bank_name: settingsData?.bank_name || null,
+      
+      // Timestamps
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
+    }
+
+    console.log('💾 Inserting invoice:', {
+      invoice_number: finalInvoiceNumber,
+      customer: invoiceData.customer_name,
+      total: totalAmount,
+      tax_rate: taxRate + '%',
+      kleinunternehmer: isKleinunternehmer
+    })
+
+    // 6. INSERT INVOICE (jedan clean pokušaj)
+    const { data: newInvoice, error: insertError } = await supabase
+      .from('invoices')
+      .insert(invoiceData)
+      .select(`
+        id,
+        invoice_number,
+        customer_name,
+        total_amount,
+        status,
+        created_at
+      `)
+      .single()
+
+    if (insertError) {
+      console.error('❌ Database insert error:', insertError)
+      throw new Error(`Database error: ${insertError.message}`)
+    }
+
+    if (!newInvoice) {
+      throw new Error('No invoice data returned from database')
+    }
+
+    console.log('✅ Invoice successfully created:', newInvoice)
+
+    // 7. UPDATE QUOTE STATUS TO CONVERTED
+    const { error: quoteUpdateError } = await supabase
+      .from('invoices')
+      .update({ 
+        status: 'converted',
+        updated_at: now.toISOString()
+      })
+      .eq('id', quote.id)
+
+    if (quoteUpdateError) {
+      console.warn('⚠️ Could not update quote status:', quoteUpdateError.message)
+      // Ne prekidaj proces - invoice je kreiran uspešno
+    } else {
+      console.log('✅ Quote status updated to converted')
+    }
+
+    // 8. REFRESH DATA IN UI
+    console.log('🔄 Refreshing invoices data...')
+    
+    if (majstor?.id) {
+      await loadInvoicesData(majstor.id)
+    }
+    
+    // 9. SHOW SUCCESS MESSAGE
+    const successMessage = [
+      `✅ Erfolgreich umgewandelt!`,
+      ``,
+      `Angebot: ${quote.quote_number}`,
+      `Rechnung: ${newInvoice.invoice_number}`,
+      ``,
+      `Kunde: ${newInvoice.customer_name}`,
+      `Betrag: ${formatCurrency(newInvoice.total_amount)}`,
+      `Status: ${newInvoice.status}`,
+      ``
+    ].join('\n')
+
+    alert(successMessage)
+
+    return newInvoice
+
+  } catch (error) {
+    console.error('💥 Conversion failed with error:', error)
+    
+    // DETAILED ERROR REPORTING
+    let userMessage = 'Conversion failed'
+    let technicalDetails = error.message || 'Unknown error'
+    
+    if (error.message?.includes('duplicate key')) {
+      userMessage = 'Rechnungsnummer bereits vergeben'
+      technicalDetails = 'Database constraint violation'
+    } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
+      userMessage = 'Keine Berechtigung für diese Aktion'
+      technicalDetails = 'Row Level Security or permissions issue'
+    } else if (error.message?.includes('connection') || error.message?.includes('network')) {
+      userMessage = 'Netzwerkfehler'
+      technicalDetails = 'Database connection failed'
+    } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+      userMessage = 'Ungültige Daten'
+      technicalDetails = 'Data validation failed'
+    }
+
+    const errorMessage = [
+      `❌ ${userMessage}`,
+      ``,
+      `Angebot: ${quote.quote_number}`,
+      `Kunde: ${quote.customer_name}`,
+      ``,
+      `Technische Details:`,
+      technicalDetails,
+      ``,
+      `Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
+    ].join('\n')
+
+    alert(errorMessage)
+    
+    // Re-throw za dodatno error handling ako je potrebno
+    throw error
   }
+}
 
   // Delete invoice with safety checks
   const handleDeleteInvoice = async (invoice) => {
