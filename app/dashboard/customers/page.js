@@ -94,30 +94,26 @@ export default function CustomersPage() {
   }
 
   const loadCustomers = async () => {
-    if (!majstor?.id) return
+  if (!majstor?.id) return
+  
+  try {
+    // DIREKTAN SUPABASE POZIV:
+    const { data: freshData, error } = await supabase
+      .from('customers')
+      .select('name, email, total_quotes, total_invoices, total_revenue')
+      .eq('majstor_id', majstor.id)
     
-    try {
-      const options = {
-        search: searchTerm,
-        favorites: filterFavorites,
-        sortBy,
-        sortOrder,
-        limit: 100
-      }
-      
-      const { data, error } = await customersAPI.getAll(majstor.id, options)
-      
-      if (error) {
-        console.error('Error loading customers:', error)
-        setError('Fehler beim Laden der Kunden')
-      } else {
-        setCustomers(data || [])
-      }
-    } catch (err) {
-      console.error('Error loading customers:', err)
-      setError('Fehler beim Laden der Kunden')
+    console.log('DIRECT DATA:', freshData)
+    
+    if (error) {
+      console.error('Direct Supabase error:', error)
+    } else {
+      setCustomers(freshData || [])
     }
+  } catch (err) {
+    console.error('Error:', err)
   }
+}
 
   const resetForm = () => {
     setFormData({
@@ -493,6 +489,8 @@ export default function CustomersPage() {
         <div className="grid gap-4">
           {customers.map((customer) => (
             <div key={customer.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-slate-600 transition-colors">
+{console.log('Individual customer:', customer)} {/* DODAJ OVO */}
+
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -524,12 +522,21 @@ export default function CustomersPage() {
 
                 {/* Customer Stats */}
                 <div className="text-right text-sm">
-                  <div className="space-y-1">
-                    {customer.total_invoices > 0 && (
-                      <p className="text-slate-300">
-                        📋 {customer.total_invoices} Rechnungen
-                      </p>
-                    )}
+  <div className="space-y-1">
+    {(customer.total_invoices > 0 || customer.total_quotes > 0) && (
+      <>
+        {customer.total_quotes > 0 && (
+          <p className="text-slate-300 text-sm">
+            📄 {customer.total_quotes} Angebot{customer.total_quotes > 1 ? 'e' : ''}
+          </p>
+        )}
+        {customer.total_invoices > 0 && (
+          <p className="text-slate-300 text-sm">
+            📋 {customer.total_invoices} Rechnung{customer.total_invoices > 1 ? 'en' : ''}
+          </p>
+        )}
+      </>
+    )}
                     {customer.total_revenue > 0 && (
                       <p className="text-green-400 font-semibold">
                         💰 {formatCurrency(customer.total_revenue)}
