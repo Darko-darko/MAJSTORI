@@ -36,7 +36,27 @@ export default function InvoicesPage() {
   const [settingsError, setSettingsError] = useState('')
   
   const router = useRouter()
-
+// Dodajte ovo u useEffect koji se pokreće na početku
+useEffect(() => {
+  // Proveri URL parametre za customer podatke
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.has('customerName')) {
+      setCreateType('invoice')
+      setIsEditMode(false)
+      setEditingItem({
+        customer_name: urlParams.get('customerName'),
+        customer_email: urlParams.get('customerEmail'),
+        customer_phone: urlParams.get('customerPhone'),
+        customer_address: urlParams.get('customerAddress')
+      })
+      setShowCreateModal(true)
+      
+      // Očisti URL parametre
+      window.history.replaceState({}, '', '/dashboard/invoices')
+    }
+  }
+}, [])
   useEffect(() => {
     loadMajstorAndData()
   }, [])
@@ -233,26 +253,20 @@ export default function InvoicesPage() {
 // BULLETPROOF convertQuoteToInvoice FUNKCIJA
 // Garantovano jedinstveni brojevi koristeći timestamp + random
 
+// ZAMENI convertQuoteToInvoice funkciju u invoices/page.js
+
 const convertQuoteToInvoice = async (quote) => {
   try {
     console.log('🔄 Converting quote to invoice:', quote.quote_number)
 
-    // 1. GENERIŠI GARANTOVANO JEDINSTVENI INVOICE NUMBER
+    // 1. GENERIŠI JEDINSTVENI INVOICE NUMBER
     const now = new Date()
     const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    const hours = String(now.getHours()).padStart(2, '0')
-    const minutes = String(now.getMinutes()).padStart(2, '0')
-    const seconds = String(now.getSeconds()).padStart(2, '0')
-    const milliseconds = String(now.getMilliseconds()).padStart(3, '0')
+    const invoiceNumber = quote.quote_number?.replace('AN-', 'RE-') || `RE-${year}-001`
     
-    // Format: RE-2025-0907-143025-123 (godina-mesec-dan-vreme-milisekunde)
-    const invoiceNumber = quote.quote_number?.replace('AN-', 'RE-') || `RE-${new Date().getFullYear()}-001`
-    
-    console.log('📝 Generated unique invoice number:', invoiceNumber)
+    console.log('🔢 Generated invoice number:', invoiceNumber)
 
-    // 2. DOUBLE CHECK - proveri da li možda postoji (vrlo mala verovatnoća)
+    // 2. PROVJERI DUPLIKAT (vrlo mala verovatnoća)
     const { data: duplicate } = await supabase
       .from('invoices')
       .select('id')
@@ -261,7 +275,6 @@ const convertQuoteToInvoice = async (quote) => {
 
     let finalInvoiceNumber = invoiceNumber
     if (duplicate) {
-      // Ako je duplikat (skoro nemoguće), dodaj random suffix
       const randomSuffix = Math.floor(Math.random() * 999).toString().padStart(3, '0')
       finalInvoiceNumber = `${invoiceNumber}-${randomSuffix}`
       console.log('⚠️ Duplicate detected, using:', finalInvoiceNumber)
@@ -280,40 +293,40 @@ const convertQuoteToInvoice = async (quote) => {
     dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
     const dueDateString = dueDate.toISOString().split('T')[0]
 
-    // 5. PREPARE COMPLETE INVOICE DATA
+    // 5. 🔥 PREPARE INVOICE DATA - EKSPLICITNO NAVEDENE KOLONE
     const invoiceData = {
-      // IDs and type
+      // Core identifiers
       majstor_id: quote.majstor_id,
       type: 'invoice',
       
-      // EKSPLICITNI INVOICE NUMBER (ne oslanjamo se na trigger)
+      // 🔥 EKSPLICITNO NAVEDENI INVOICE NUMBER
       invoice_number: finalInvoiceNumber,
       
-      // Customer data
+      // Customer data - EKSPLICITNO
       customer_name: quote.customer_name,
       customer_email: quote.customer_email,
       customer_phone: quote.customer_phone || null,
       customer_address: quote.customer_address || null,
       
-      // Financial data
+      // Financial data - EKSPLICITNO
       items: quote.items, // JSON string
       subtotal: subtotal,
       tax_rate: taxRate,
       tax_amount: taxAmount,
       total_amount: totalAmount,
       
-      // Status and dates
+      // Status and dates - EKSPLICITNO
       status: 'draft',
       issue_date: issueDate,
       due_date: dueDateString,
       
-      // Settings and references
+      // Settings - EKSPLICITNO
       payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
       notes: quote.notes || null,
       is_kleinunternehmer: isKleinunternehmer,
       converted_from_quote_id: quote.id,
       
-      // Company data from majstor profile and settings
+      // Company data - EKSPLICITNO
       company_name: majstor?.business_name || majstor?.full_name || null,
       company_address: majstor?.address || null,
       tax_number: settingsData?.tax_number || null,
@@ -322,12 +335,12 @@ const convertQuoteToInvoice = async (quote) => {
       bic: settingsData?.bic || null,
       bank_name: settingsData?.bank_name || null,
       
-      // Timestamps
+      // Timestamps - EKSPLICITNO
       created_at: now.toISOString(),
       updated_at: now.toISOString()
     }
 
-    console.log('💾 Inserting invoice:', {
+    console.log('💾 Inserting invoice with explicit columns:', {
       invoice_number: finalInvoiceNumber,
       customer: invoiceData.customer_name,
       total: totalAmount,
@@ -335,7 +348,7 @@ const convertQuoteToInvoice = async (quote) => {
       kleinunternehmer: isKleinunternehmer
     })
 
-    // 6. INSERT INVOICE (jedan clean pokušaj)
+    // 6. 🔥 INSERT SA EKSPLICITNIM SELECT - IZBEGNI AMBIGUOUS COLUMNS
     const { data: newInvoice, error: insertError } = await supabase
       .from('invoices')
       .insert(invoiceData)
@@ -371,7 +384,6 @@ const convertQuoteToInvoice = async (quote) => {
 
     if (quoteUpdateError) {
       console.warn('⚠️ Could not update quote status:', quoteUpdateError.message)
-      // Ne prekidaj proces - invoice je kreiran uspešno
     } else {
       console.log('✅ Quote status updated to converted')
     }
@@ -419,6 +431,9 @@ const convertQuoteToInvoice = async (quote) => {
     } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
       userMessage = 'Ungültige Daten'
       technicalDetails = 'Data validation failed'
+    } else if (error.message?.includes('ambiguous')) {
+      userMessage = 'Datenbankfehler - Kolumnenproblem'
+      technicalDetails = 'Column reference ambiguity in database'
     }
 
     const errorMessage = [
@@ -435,7 +450,6 @@ const convertQuoteToInvoice = async (quote) => {
 
     alert(errorMessage)
     
-    // Re-throw za dodatno error handling ako je potrebno
     throw error
   }
 }

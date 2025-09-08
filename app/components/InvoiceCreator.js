@@ -1,4 +1,4 @@
-// components/InvoiceCreator.js - ISPRAVLJENA VERZIJA SA UČITAVANJEM MAJSTOR PODEŠAVANJA
+// components/InvoiceCreator.js - ISPRAVLJENA VERZIJA
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -10,8 +10,8 @@ export default function InvoiceCreator({
   type = 'quote', // 'quote' or 'invoice'
   majstor,
   onSuccess,
-  editData = null, // NOVO: data za edit mode
-  isEditMode = false // NOVO: flag za edit mode
+  editData = null,
+  isEditMode = false
 }) {
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -25,9 +25,9 @@ export default function InvoiceCreator({
     total_amount: 0,
     notes: '',
     payment_terms_days: 14,
-    valid_until: '', // nur für quotes
+    valid_until: '',
     issue_date: new Date().toISOString().split('T')[0],
-    is_kleinunternehmer: false  // ISPRAVKA: Default vrednost
+    is_kleinunternehmer: false
   })
   
   const [loading, setLoading] = useState(false)
@@ -35,36 +35,22 @@ export default function InvoiceCreator({
   const [customers, setCustomers] = useState([])
   const [showCustomerSelect, setShowCustomerSelect] = useState(false)
 
-  // ISPRAVKA: Kombinovani useEffect za inicijalizaciju
   useEffect(() => {
     if (isOpen && majstor?.id) {
-      console.log('🔧 InvoiceCreator opened:', { type, isEditMode, editData: !!editData })
-      console.log('👤 Majstor settings:', {
-        is_kleinunternehmer: majstor.is_kleinunternehmer,
-        default_tax_rate: majstor.default_tax_rate,
-        payment_terms_days: majstor.payment_terms_days
-      })
-
+      console.log('🔧 InvoiceCreator opened:', { type, isEditMode })
       loadCustomers()
       initializeFormData()
     }
   }, [isOpen, majstor?.id, type, editData, isEditMode])
 
-  // NOVA: Funkcija za inicijalizaciju form data
   const initializeFormData = () => {
-    // ISPRAVKA: Učitaj podešavanja iz majstor profila
     const defaultSettings = {
       is_kleinunternehmer: majstor?.is_kleinunternehmer || false,
       tax_rate: majstor?.is_kleinunternehmer ? 0 : (majstor?.default_tax_rate || 19),
       payment_terms_days: majstor?.payment_terms_days || 14
     }
 
-    console.log('🔧 Using default settings:', defaultSettings)
-
     if (isEditMode && editData) {
-      // EDIT MODE: Popuni postojeće podatke
-      console.log('✏️ Loading edit data:', editData.id)
-      
       const parsedItems = editData.items ? JSON.parse(editData.items) : [{ description: '', quantity: 1, price: 0, total: 0 }]
       
       setFormData({
@@ -84,9 +70,6 @@ export default function InvoiceCreator({
         is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer
       })
     } else {
-      // CREATE MODE: Koristi default vrednosti iz majstor profila
-      console.log('➕ Setting up create mode with majstor defaults')
-      
       const initialFormData = {
         customer_name: '',
         customer_email: '',
@@ -101,10 +84,9 @@ export default function InvoiceCreator({
         payment_terms_days: defaultSettings.payment_terms_days,
         valid_until: '',
         issue_date: new Date().toISOString().split('T')[0],
-        is_kleinunternehmer: defaultSettings.is_kleinunternehmer // ISPRAVKA: Koristi majstor setting
+        is_kleinunternehmer: defaultSettings.is_kleinunternehmer
       }
 
-      // Set default valid_until for quotes (30 days from now)
       if (type === 'quote') {
         const validUntil = new Date()
         validUntil.setDate(validUntil.getDate() + 30)
@@ -115,55 +97,56 @@ export default function InvoiceCreator({
     }
   }
 
+  // 🔥 POPRAVLJENA loadCustomers funkcija
   const loadCustomers = async () => {
-  try {
-    console.log('🔍 Loading customers for majstor:', majstor.id)
+    try {
+      console.log('🔍 Loading customers from NEW customers table for majstor:', majstor.id)
 
-    // 1. Load customers from inquiries
-    const { data: inquiryData } = await supabase
-      .from('inquiries')
-      .select('customer_name, customer_email, customer_phone')
-      .eq('majstor_id', majstor.id)
-      .order('created_at', { ascending: false })
+      // 1. Load all customers from customers table
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
+        .select('name, email, phone, company_name, total_invoices, total_revenue')
+        .eq('majstor_id', majstor.id)
+        .order('total_invoices', { ascending: false }) // Prioritiziraj česte kupce
 
-    console.log('📊 Raw inquiry data:', inquiryData)
+      if (customersError) {
+        console.error('❌ Error loading customers:', customersError)
+        return
+      }
 
-    // 2. Load existing customers who already have invoices/quotes
-    const { data: existingCustomers } = await supabase
-      .from('invoices')
-      .select('customer_email')
-      .eq('majstor_id', majstor.id)
+      console.log('📊 Loaded customers from table:', customersData?.length || 0)
 
-    console.log('📋 Existing customers with invoices:', existingCustomers)
+      // 2. Load customers koji već imaju invoices (treba da ih isključimo iz selekcije)
+      const { data: existingInvoiceCustomers } = await supabase
+        .from('invoices')
+        .select('customer_email')
+        .eq('majstor_id', majstor.id)
+        .eq('type', type) // Samo trenutni tip (quote ili invoice)
 
-    const existingEmails = new Set(existingCustomers?.map(c => c.customer_email) || [])
-    console.log('🚫 Emails to exclude:', Array.from(existingEmails))
+      const existingEmails = new Set(existingInvoiceCustomers?.map(c => c.customer_email) || [])
+      console.log('🚫 Emails to exclude (already have this type):', Array.from(existingEmails))
 
-    if (inquiryData) {
-      // 3. Filter: remove duplicates and existing customers
-      const availableCustomers = inquiryData.filter((customer, index, self) =>
-        // Remove duplicates by email
-        index === self.findIndex(c => c.customer_email === customer.customer_email) &&
-        // Remove customers who already have invoices/quotes
-        !existingEmails.has(customer.customer_email)
-      )
-      
-      console.log('✅ Available customers (filtered):', availableCustomers)
-      console.log('✅ Available count:', availableCustomers.length)
-      
-      setCustomers(availableCustomers)
+      if (customersData) {
+        // 3. Filter: ukloni duplikate i postojeće kupce za ovaj tip dokumenta
+        const availableCustomers = customersData.filter(customer =>
+          customer.email && !existingEmails.has(customer.email)
+        )
+        
+        console.log('✅ Available customers (filtered):', availableCustomers.length)
+        
+        setCustomers(availableCustomers)
+      }
+    } catch (err) {
+      console.error('❌ Error loading customers:', err)
     }
-  } catch (err) {
-    console.error('❌ Error loading customers:', err)
   }
-}
 
   const handleCustomerSelect = (customer) => {
     setFormData(prev => ({
       ...prev,
-      customer_name: customer.customer_name,
-      customer_email: customer.customer_email,
-      customer_phone: customer.customer_phone || ''
+      customer_name: customer.name,
+      customer_email: customer.email,
+      customer_phone: customer.phone || ''
     }))
     setShowCustomerSelect(false)
   }
@@ -180,7 +163,6 @@ export default function InvoiceCreator({
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
     
-    // Berechne total für diesen item
     if (field === 'quantity' || field === 'price') {
       const quantity = field === 'quantity' ? parseFloat(value) || 0 : newItems[index].quantity
       const price = field === 'price' ? parseFloat(value) || 0 : newItems[index].price
@@ -192,7 +174,6 @@ export default function InvoiceCreator({
       items: newItems
     }))
     
-    // Berechne totals
     calculateTotals(newItems)
   }
 
@@ -216,7 +197,6 @@ export default function InvoiceCreator({
 
   const calculateTotals = (items) => {
     const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0)
-    // AKO JE KLEINUNTERNEHMER, NEMA PDV
     const taxAmount = formData.is_kleinunternehmer ? 0 : subtotal * (formData.tax_rate / 100)
     const totalAmount = subtotal + taxAmount
     
@@ -234,7 +214,6 @@ export default function InvoiceCreator({
     setLoading(true)
 
     try {
-      // Validation
       if (!formData.customer_name || !formData.customer_email) {
         throw new Error('Kunde Name und E-Mail sind erforderlich')
       }
@@ -243,7 +222,6 @@ export default function InvoiceCreator({
         throw new Error('Alle Positionen müssen eine Beschreibung und einen Preis haben')
       }
 
-      // Due date calculation
       const dueDate = new Date(formData.issue_date)
       dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
@@ -259,21 +237,19 @@ export default function InvoiceCreator({
         tax_rate: formData.tax_rate,
         tax_amount: formData.tax_amount,
         total_amount: formData.total_amount,
-        status: editData?.status || 'draft', // ISPRAVKA: Sačuvaj postojeći status u edit mode
+        status: editData?.status || 'draft',
         issue_date: formData.issue_date,
         due_date: dueDate.toISOString().split('T')[0],
         notes: formData.notes,
         payment_terms_days: formData.payment_terms_days,
         valid_until: type === 'quote' ? formData.valid_until : null,
         is_kleinunternehmer: formData.is_kleinunternehmer,
-        // ISPRAVKA: Sačuvaj referece u edit mode
         converted_from_quote_id: editData?.converted_from_quote_id || null
       }
 
       let result
       if (isEditMode && editData?.id) {
-        // UPDATE postojeći
-        console.log('📝 Updating existing document:', editData.id)
+        console.log('🔄 Updating existing document:', editData.id)
         result = await supabase
           .from('invoices')
           .update({
@@ -284,7 +260,6 @@ export default function InvoiceCreator({
           .select()
           .single()
       } else {
-        // CREATE novi
         console.log('➕ Creating new document')
         result = await supabase
           .from('invoices')
@@ -295,13 +270,8 @@ export default function InvoiceCreator({
 
       if (result.error) throw result.error
 
-      const actionText = isEditMode ? 'aktualizovan' : 'kreiran'
-      const docNumber = result.data.quote_number || result.data.invoice_number
+      console.log(`✅ ${type} ${isEditMode ? 'updated' : 'created'} successfully:`, result.data.id)
       
-      console.log(`✅ ${type} ${actionText} successfully:`, result.data.id)
-      console.log(`📄 Document number: ${docNumber}`)
-      
-      // Reset form samo u create mode
       if (!isEditMode) {
         setFormData({
           customer_name: '',
@@ -310,14 +280,14 @@ export default function InvoiceCreator({
           customer_phone: '',
           items: [{ description: '', quantity: 1, price: 0, total: 0 }],
           subtotal: 0,
-          tax_rate: majstor?.is_kleinunternehmer ? 0 : (majstor?.default_tax_rate || 19), // ISPRAVKA: Koristi majstor settings
+          tax_rate: majstor?.is_kleinunternehmer ? 0 : (majstor?.default_tax_rate || 19),
           tax_amount: 0,
           total_amount: 0,
           notes: '',
-          payment_terms_days: majstor?.payment_terms_days || 14, // ISPRAVKA: Koristi majstor settings
+          payment_terms_days: majstor?.payment_terms_days || 14,
           valid_until: '',
           issue_date: new Date().toISOString().split('T')[0],
-          is_kleinunternehmer: majstor?.is_kleinunternehmer || false // ISPRAVKA: Koristi majstor settings
+          is_kleinunternehmer: majstor?.is_kleinunternehmer || false
         })
       }
 
@@ -364,7 +334,7 @@ export default function InvoiceCreator({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
-          {/* PDV Status Information */}
+          {/* Status Information */}
           <div className={`rounded-lg p-4 border ${formData.is_kleinunternehmer ? 'bg-green-500/10 border-green-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -383,11 +353,6 @@ export default function InvoiceCreator({
                   </p>
                 </div>
               </div>
-              {!isEditMode && (
-                <div className="text-slate-400 text-xs">
-                  Kann in Einstellungen geändert werden
-                </div>
-              )}
             </div>
           </div>
           
@@ -398,16 +363,13 @@ export default function InvoiceCreator({
               {customers.length > 0 && !isEditMode && (
                 <button
                   type="button"
-                  onClick={ () => 
-                    {
-      console.log('🔘 Button clicked! Current customers:', customers) // DODAJ
-      console.log('🔘 showCustomerSelect before:', showCustomerSelect) // DODAJ
-                    
-                    
-                    setShowCustomerSelect(!showCustomerSelect)}}
+                  onClick={() => {
+                    console.log('📘 Toggling customer select. Available customers:', customers.length)
+                    setShowCustomerSelect(!showCustomerSelect)
+                  }}
                   className="text-blue-400 text-sm hover:text-blue-300"
                 >
-                  Aus Anfragen auswählen
+                  Aus Kundenliste auswählen ({customers.length})
                 </button>
               )}
             </div>
@@ -422,8 +384,11 @@ export default function InvoiceCreator({
                     onClick={() => handleCustomerSelect(customer)}
                     className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0"
                   >
-                    <div className="font-medium">{customer.customer_name}</div>
-                    <div className="text-slate-400 text-xs">{customer.customer_email}</div>
+                    <div className="font-medium">{customer.name}</div>
+                    <div className="text-slate-400 text-xs">{customer.email}</div>
+                    {customer.total_revenue > 0 && (
+                      <div className="text-green-400 text-xs">💰 {formatCurrency(customer.total_revenue)}</div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -431,9 +396,7 @@ export default function InvoiceCreator({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Name *
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Name *</label>
                 <input
                   type="text"
                   name="customer_name"
@@ -445,9 +408,7 @@ export default function InvoiceCreator({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  E-Mail *
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">E-Mail *</label>
                 <input
                   type="email"
                   name="customer_email"
@@ -459,9 +420,7 @@ export default function InvoiceCreator({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Telefon
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Telefon</label>
                 <input
                   type="tel"
                   name="customer_phone"
@@ -472,9 +431,7 @@ export default function InvoiceCreator({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Adresse
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Adresse</label>
                 <input
                   type="text"
                   name="customer_address"
@@ -559,7 +516,6 @@ export default function InvoiceCreator({
               ))}
             </div>
             
-            {/* Price info */}
             <div className="text-xs text-slate-500 mt-2">
               {formData.is_kleinunternehmer 
                 ? '* Gemäß §19 UStG werden alle Preise ohne Mehrwertsteuer berechnet'
@@ -624,9 +580,7 @@ export default function InvoiceCreator({
               
               {type === 'quote' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Gültig bis
-                  </label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Gültig bis</label>
                   <input
                     type="date"
                     name="valid_until"
@@ -638,9 +592,7 @@ export default function InvoiceCreator({
               )}
               
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Zahlungsziel (Tage)
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Zahlungsziel (Tage)</label>
                 <select
                   name="payment_terms_days"
                   value={formData.payment_terms_days}
@@ -654,16 +606,8 @@ export default function InvoiceCreator({
               </div>
             </div>
             
-            {/* KLEINUNTERNEHMER SEKCIJA - SAMO U CREATE MODE */}
-           
-            
-            {/* INFO U EDIT MODE */}
-            
-            
             <div className="mt-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Notizen (intern)
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Notizen (intern)</label>
               <textarea
                 name="notes"
                 value={formData.notes}
