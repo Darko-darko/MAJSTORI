@@ -894,13 +894,7 @@ export default function CreateBusinessCardPage() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
-            >
-              {loading ? 'Speichern...' : 'Profil speichern'}
-            </button>
+            
           </form>
         </div>
 
@@ -1023,8 +1017,17 @@ export default function CreateBusinessCardPage() {
                 </p>
               </div>
             </div>
+          
           </div>
-
+<div className="text-center mt-4">
+  <button
+    onClick={handleSubmit}
+    disabled={loading}
+    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
+  >
+    {loading ? 'Speichern...' : 'Profil speichern'}
+  </button>
+</div>
           {majstor?.slug && (
             <div className="mt-3 text-center">
               <a
