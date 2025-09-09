@@ -1,10 +1,11 @@
-// app/dashboard/customers/page.js - KOMPLETNA CUSTOMERS STRANICA
+// app/dashboard/customers/page.js - SA INVOICE TYPE SELECTION MODAL
 
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { customersAPI } from '@/lib/customers'
+import InvoiceCreator from '@/app/components/InvoiceCreator'
 import Link from 'next/link'
 
 export default function CustomersPage() {
@@ -24,6 +25,11 @@ export default function CustomersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
+  
+  // 🔥 NOVO: Invoice modal states
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [selectedCustomerForInvoice, setSelectedCustomerForInvoice] = useState(null)
+  const [invoiceType, setInvoiceType] = useState(null) // null, 'quote', ili 'invoice'
   
   // Create/Edit form state
   const [formData, setFormData] = useState({
@@ -94,26 +100,25 @@ export default function CustomersPage() {
   }
 
   const loadCustomers = async () => {
-  if (!majstor?.id) return
-  
-  try {
-    // DIREKTAN SUPABASE POZIV:
-    const { data: freshData, error } = await supabase
-      .from('customers')
-      .select('name, email, total_quotes, total_invoices, total_revenue')
-      .eq('majstor_id', majstor.id)
+    if (!majstor?.id) return
     
-    console.log('DIRECT DATA:', freshData)
-    
-    if (error) {
-      console.error('Direct Supabase error:', error)
-    } else {
-      setCustomers(freshData || [])
+    try {
+      const { data: freshData, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('majstor_id', majstor.id)
+      
+      console.log('DIRECT DATA:', freshData)
+      
+      if (error) {
+        console.error('Direct Supabase error:', error)
+      } else {
+        setCustomers(freshData || [])
+      }
+    } catch (err) {
+      console.error('Error:', err)
     }
-  } catch (err) {
-    console.error('Error:', err)
   }
-}
 
   const resetForm = () => {
     setFormData({
@@ -152,6 +157,39 @@ export default function CustomersPage() {
     setFormError('')
     setShowCreateModal(true)
   }
+
+  // 🔥 NOVO: Handler za New Invoice click
+  const handleNewInvoiceClick = (customer) => {
+    console.log('🚀 New Invoice clicked for:', customer.name)
+    setSelectedCustomerForInvoice(customer)
+    setInvoiceType(null) // Reset type selection
+    setShowInvoiceModal(true)
+  }
+
+  // 🔥 NOVO: Handler za type selection
+  const handleInvoiceTypeSelect = (type) => {
+    console.log('📄 Invoice type selected:', type)
+    setInvoiceType(type)
+  }
+
+  // 🔥 NOVO: Handler za zatvaranje invoice modala
+  const handleInvoiceModalClose = () => {
+    setShowInvoiceModal(false)
+    setSelectedCustomerForInvoice(null)
+    setInvoiceType(null)
+  }
+
+  // 🔥 NOVO: Handler za success invoice creation
+  // 🔥 NOVO: Handler za success invoice creation
+const handleInvoiceSuccess = (createdInvoice) => {
+  console.log('✅ Invoice created:', createdInvoice)
+  handleInvoiceModalClose()
+  
+  // 🚀 Redirect to invoices page after successful creation
+  router.push('/dashboard/invoices')
+}
+    // Možete dodati toast notification ovde
+  
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
@@ -257,7 +295,6 @@ export default function CustomersPage() {
 
     setImportLoading(true)
     try {
-      // Parse Excel/CSV file
       const Papa = await import('papaparse')
       
       const text = await new Promise((resolve, reject) => {
@@ -277,7 +314,6 @@ export default function CustomersPage() {
         throw new Error('Fehler beim Lesen der Datei: ' + parsed.errors[0].message)
       }
 
-      // Import customers
       const { imported, skipped, error } = await customersAPI.bulkImport(majstor.id, parsed.data)
       
       if (error) throw error
@@ -303,6 +339,16 @@ export default function CustomersPage() {
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('de-DE')
+  }
+
+  // 🔥 NOVO: Helper function for prefilledCustomer format
+  const formatCustomerForInvoice = (customer) => {
+    return {
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone || '',
+      address: [customer.street, customer.postal_code, customer.city].filter(Boolean).join(', ')
+    }
   }
 
   if (loading) {
@@ -489,7 +535,6 @@ export default function CustomersPage() {
         <div className="grid gap-4">
           {customers.map((customer) => (
             <div key={customer.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-slate-600 transition-colors">
-{console.log('Individual customer:', customer)} {/* DODAJ OVO */}
 
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
@@ -522,21 +567,21 @@ export default function CustomersPage() {
 
                 {/* Customer Stats */}
                 <div className="text-right text-sm">
-  <div className="space-y-1">
-    {(customer.total_invoices > 0 || customer.total_quotes > 0) && (
-      <>
-        {customer.total_quotes > 0 && (
-          <p className="text-slate-300 text-sm">
-            📄 {customer.total_quotes} Angebot{customer.total_quotes > 1 ? 'e' : ''}
-          </p>
-        )}
-        {customer.total_invoices > 0 && (
-          <p className="text-slate-300 text-sm">
-            📋 {customer.total_invoices} Rechnung{customer.total_invoices > 1 ? 'en' : ''}
-          </p>
-        )}
-      </>
-    )}
+                  <div className="space-y-1">
+                    {(customer.total_invoices > 0 || customer.total_quotes > 0) && (
+                      <>
+                        {customer.total_quotes > 0 && (
+                          <p className="text-slate-300 text-sm">
+                            📄 {customer.total_quotes} Angebot{customer.total_quotes > 1 ? 'e' : ''}
+                          </p>
+                        )}
+                        {customer.total_invoices > 0 && (
+                          <p className="text-slate-300 text-sm">
+                            📋 {customer.total_invoices} Rechnung{customer.total_invoices > 1 ? 'en' : ''}
+                          </p>
+                        )}
+                      </>
+                    )}
                     {customer.total_revenue > 0 && (
                       <p className="text-green-400 font-semibold">
                         💰 {formatCurrency(customer.total_revenue)}
@@ -578,12 +623,13 @@ export default function CustomersPage() {
                   {customer.is_favorite ? '⭐ Favorit entfernen' : '⭐ Als Favorit'}
                 </button>
 
-                <Link
-                  href={`/dashboard/invoices?customer=${customer.email}`}
+                {/* 🔥 NOVO: Neue Rechnung Button */}
+                <button
+                  onClick={() => handleNewInvoiceClick(customer)}
                   className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
                 >
                   💼 Neue Rechnung
-                </Link>
+                </button>
 
                 <button
                   onClick={() => handleDeleteCustomer(customer)}
@@ -821,6 +867,49 @@ export default function CustomersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🔥 NOVO: Invoice Type Selection Modal */}
+      {showInvoiceModal && selectedCustomerForInvoice && !invoiceType && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">
+              Was möchten Sie für <span className="text-blue-400">{selectedCustomerForInvoice.name}</span> erstellen?
+            </h3>
+            <div className="space-y-3">
+              <button
+                onClick={() => handleInvoiceTypeSelect('quote')}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                📄 Angebot erstellen
+              </button>
+              <button
+                onClick={() => handleInvoiceTypeSelect('invoice')}
+                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                🧾 Rechnung erstellen
+              </button>
+              <button
+                onClick={handleInvoiceModalClose}
+                className="w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 NOVO: Invoice Creator Modal */}
+      {showInvoiceModal && selectedCustomerForInvoice && invoiceType && (
+        <InvoiceCreator
+          isOpen={true}
+          onClose={handleInvoiceModalClose}
+          type={invoiceType}
+          majstor={majstor}
+          prefilledCustomer={formatCustomerForInvoice(selectedCustomerForInvoice)}
+          onSuccess={handleInvoiceSuccess}
+        />
       )}
     </div>
   )

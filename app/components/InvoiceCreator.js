@@ -11,7 +11,8 @@ export default function InvoiceCreator({
   majstor,
   onSuccess,
   editData = null,
-  isEditMode = false
+  isEditMode = false,
+  prefilledCustomer = null // 🔥 DODATI OVO
 }) {
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -103,11 +104,27 @@ export default function InvoiceCreator({
       // Set search term for edit mode
       setCustomerSearchTerm(editData.customer_name || '')
     } else {
-      const initialFormData = {
+      // 🔥 NOVO: Use prefilledCustomer data if available
+      let initialCustomerData = {
         customer_name: '',
         customer_email: '',
         customer_address: '',
-        customer_phone: '',
+        customer_phone: ''
+      }
+
+      if (prefilledCustomer) {
+        console.log('🎯 Using prefilled customer:', prefilledCustomer)
+        initialCustomerData = {
+          customer_name: prefilledCustomer.name || '',
+          customer_email: prefilledCustomer.email || '',
+          customer_address: prefilledCustomer.address || '',
+          customer_phone: prefilledCustomer.phone || ''
+        }
+        setCustomerSearchTerm(prefilledCustomer.name || '')
+      }
+
+      const initialFormData = {
+        ...initialCustomerData,
         items: [{ description: '', quantity: 1, price: 0, total: 0 }],
         subtotal: 0,
         tax_rate: defaultSettings.tax_rate,
@@ -127,23 +144,22 @@ export default function InvoiceCreator({
       }
 
       setFormData(initialFormData)
-      setCustomerSearchTerm('')
     }
   }
 
   // 🔥 NOVO: Customer search with debouncing
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (customerSearchTerm.length >= 2 && !isEditMode) {
-        searchCustomers(customerSearchTerm)
-      } else {
-        setCustomerSuggestions([])
-        setShowCustomerDropdown(false)
-      }
-    }, 300) // 300ms debounce
+  const timeoutId = setTimeout(() => {
+    if (customerSearchTerm.length >= 2 && !isEditMode && !prefilledCustomer) {
+      searchCustomers(customerSearchTerm)
+    } else {
+      setCustomerSuggestions([])
+      setShowCustomerDropdown(false)
+    }
+  }, 300)
 
-    return () => clearTimeout(timeoutId)
-  }, [customerSearchTerm, isEditMode])
+  return () => clearTimeout(timeoutId)
+}, [customerSearchTerm, isEditMode, prefilledCustomer])
 
   const searchCustomers = async (searchTerm) => {
     if (!majstor?.id || searchTerm.length < 2) return
@@ -439,12 +455,6 @@ export default function InvoiceCreator({
                         >
                           <div className="font-medium">{customer.name}</div>
                           <div className="text-slate-400 text-xs">{customer.email}</div>
-                          <div className="flex justify-between items-center mt-1">
-                            <span className="text-slate-500 text-xs">
-                             {customer.street && customer.city && `${customer.street}, ${customer.city}`}
-                            </span>
-                            
-                          </div>
                         </button>
                       ))
                     )}
