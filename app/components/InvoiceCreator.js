@@ -1,13 +1,13 @@
-// components/InvoiceCreator.js - ISPRAVLJENA VERZIJA
+// components/InvoiceCreator.js - UPGRADED SA AUTOCOMPLETE CUSTOMER SEARCH
 
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function InvoiceCreator({ 
   isOpen, 
   onClose, 
-  type = 'quote', // 'quote' or 'invoice'
+  type = 'quote', 
   majstor,
   onSuccess,
   editData = null,
@@ -32,16 +32,46 @@ export default function InvoiceCreator({
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [customers, setCustomers] = useState([])
-  const [showCustomerSelect, setShowCustomerSelect] = useState(false)
+  
+  // 🔥 NOVO: Autocomplete states
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('')
+  const [customerSuggestions, setCustomerSuggestions] = useState([])
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  
+  // 🔥 NOVO: Services states  
+  const [services, setServices] = useState([])
+  const [showServicesDropdown, setShowServicesDropdown] = useState(null) // koji item index
+  
+  const customerInputRef = useRef(null)
+  const servicesDropdownRef = useRef(null)
 
   useEffect(() => {
     if (isOpen && majstor?.id) {
-      console.log('🔧 InvoiceCreator opened:', { type, isEditMode })
-      loadCustomers()
+      console.log('🛠️ Enhanced InvoiceCreator opened:', { type, isEditMode })
+      loadServices()
       initializeFormData()
     }
   }, [isOpen, majstor?.id, type, editData, isEditMode])
+
+  // 🔥 NOVO: Load majstor's services
+  const loadServices = async () => {
+    try {
+      const { data: servicesData, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('majstor_id', majstor.id)
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+
+      if (!error) {
+        setServices(servicesData || [])
+        console.log('📋 Loaded services:', servicesData?.length || 0)
+      }
+    } catch (err) {
+      console.error('Error loading services:', err)
+    }
+  }
 
   const initializeFormData = () => {
     const defaultSettings = {
@@ -69,6 +99,9 @@ export default function InvoiceCreator({
         issue_date: editData.issue_date || new Date().toISOString().split('T')[0],
         is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer
       })
+      
+      // Set search term for edit mode
+      setCustomerSearchTerm(editData.customer_name || '')
     } else {
       const initialFormData = {
         customer_name: '',
@@ -94,69 +127,105 @@ export default function InvoiceCreator({
       }
 
       setFormData(initialFormData)
+      setCustomerSearchTerm('')
     }
   }
 
-  // 🔥 POPRAVLJENA loadCustomers funkcija
-  const loadCustomers = async () => {
-    try {
-      console.log('🔍 Loading customers from NEW customers table for majstor:', majstor.id)
-
-      // 1. Load all customers from customers table
-      const { data: customersData, error: customersError } = await supabase
-        .from('customers')
-        .select('name, email, phone, company_name, total_invoices, total_revenue')
-        .eq('majstor_id', majstor.id)
-        .order('total_invoices', { ascending: false }) // Prioritiziraj česte kupce
-
-      if (customersError) {
-        console.error('❌ Error loading customers:', customersError)
-        return
+  // 🔥 NOVO: Customer search with debouncing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (customerSearchTerm.length >= 2 && !isEditMode) {
+        searchCustomers(customerSearchTerm)
+      } else {
+        setCustomerSuggestions([])
+        setShowCustomerDropdown(false)
       }
+    }, 300) // 300ms debounce
 
-      console.log('📊 Loaded customers from table:', customersData?.length || 0)
+    return () => clearTimeout(timeoutId)
+  }, [customerSearchTerm, isEditMode])
 
-      // 2. Load customers koji već imaju invoices (treba da ih isključimo iz selekcije)
-      const { data: existingInvoiceCustomers } = await supabase
-        .from('invoices')
-        .select('customer_email')
+  const searchCustomers = async (searchTerm) => {
+    if (!majstor?.id || searchTerm.length < 2) return
+
+    setSearchLoading(true)
+    try {
+      const { data: customers, error } = await supabase
+        .from('customers')
+        .select('name, email, phone, street, city, postal_code, total_revenue, total_invoices')
         .eq('majstor_id', majstor.id)
-        .eq('type', type) // Samo trenutni tip (quote ili invoice)
+        .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+        .order('total_revenue', { ascending: false }) // Najbolji klijenti prvi
+        .limit(8) // Maksimalno 8 predloga
 
-      const existingEmails = new Set(existingInvoiceCustomers?.map(c => c.customer_email) || [])
-      console.log('🚫 Emails to exclude (already have this type):', Array.from(existingEmails))
-
-      if (customersData) {
-        // 3. Filter: ukloni duplikate i postojeće kupce za ovaj tip dokumenta
-        const availableCustomers = customersData.filter(customer =>
-          customer.email && !existingEmails.has(customer.email)
-        )
-        
-        console.log('✅ Available customers (filtered):', availableCustomers.length)
-        
-        setCustomers(availableCustomers)
+      if (!error && customers) {
+        setCustomerSuggestions(customers)
+        setShowCustomerDropdown(customers.length > 0)
+        console.log('🔍 Found customers:', customers.length)
       }
     } catch (err) {
-      console.error('❌ Error loading customers:', err)
+      console.error('Customer search error:', err)
+    } finally {
+      setSearchLoading(false)
     }
   }
 
+  // 🔥 NOVO: Select customer from dropdown
   const handleCustomerSelect = (customer) => {
+    console.log('👤 Selected customer:', customer)
+    
+    // Konstruiši punu adresu
+    const addressParts = [customer.street, customer.postal_code, customer.city].filter(Boolean)
+    const fullAddress = addressParts.join(', ')
+    
     setFormData(prev => ({
       ...prev,
       customer_name: customer.name,
       customer_email: customer.email,
-      customer_phone: customer.phone || ''
+      customer_phone: customer.phone || '',
+      customer_address: fullAddress // 🔥 POPUNI ADRESU!
     }))
-    setShowCustomerSelect(false)
+    
+    setCustomerSearchTerm(customer.name)
+    setShowCustomerDropdown(false)
+  }
+
+  // 🔥 NOVO: Service selection for items
+  const handleServiceSelect = (itemIndex, service) => {
+    const newItems = [...formData.items]
+    newItems[itemIndex] = {
+      ...newItems[itemIndex],
+      description: service.name,
+      price: service.default_price || 0,
+      total: (newItems[itemIndex].quantity || 1) * (service.default_price || 0)
+    }
+    
+    setFormData(prev => ({ ...prev, items: newItems }))
+    setShowServicesDropdown(null)
+    
+    calculateTotals(newItems)
+  }
+
+  const handleCustomerNameChange = (e) => {
+    const value = e.target.value
+    setCustomerSearchTerm(value)
+    setFormData(prev => ({ ...prev, customer_name: value }))
+    
+    // Ako briše tekst, obriši i ostala polja
+    if (value.length === 0) {
+      setFormData(prev => ({
+        ...prev,
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        customer_address: ''
+      }))
+    }
   }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const handleItemChange = (index, field, value) => {
@@ -169,11 +238,7 @@ export default function InvoiceCreator({
       newItems[index].total = quantity * price
     }
     
-    setFormData(prev => ({
-      ...prev,
-      items: newItems
-    }))
-    
+    setFormData(prev => ({ ...prev, items: newItems }))
     calculateTotals(newItems)
   }
 
@@ -187,10 +252,7 @@ export default function InvoiceCreator({
   const removeItem = (index) => {
     if (formData.items.length > 1) {
       const newItems = formData.items.filter((_, i) => i !== index)
-      setFormData(prev => ({
-        ...prev,
-        items: newItems
-      }))
+      setFormData(prev => ({ ...prev, items: newItems }))
       calculateTotals(newItems)
     }
   }
@@ -249,18 +311,13 @@ export default function InvoiceCreator({
 
       let result
       if (isEditMode && editData?.id) {
-        console.log('🔄 Updating existing document:', editData.id)
         result = await supabase
           .from('invoices')
-          .update({
-            ...invoiceData,
-            updated_at: new Date().toISOString()
-          })
+          .update({ ...invoiceData, updated_at: new Date().toISOString() })
           .eq('id', editData.id)
           .select()
           .single()
       } else {
-        console.log('➕ Creating new document')
         result = await supabase
           .from('invoices')
           .insert(invoiceData)
@@ -272,25 +329,6 @@ export default function InvoiceCreator({
 
       console.log(`✅ ${type} ${isEditMode ? 'updated' : 'created'} successfully:`, result.data.id)
       
-      if (!isEditMode) {
-        setFormData({
-          customer_name: '',
-          customer_email: '',
-          customer_address: '',
-          customer_phone: '',
-          items: [{ description: '', quantity: 1, price: 0, total: 0 }],
-          subtotal: 0,
-          tax_rate: majstor?.is_kleinunternehmer ? 0 : (majstor?.default_tax_rate || 19),
-          tax_amount: 0,
-          total_amount: 0,
-          notes: '',
-          payment_terms_days: majstor?.payment_terms_days || 14,
-          valid_until: '',
-          issue_date: new Date().toISOString().split('T')[0],
-          is_kleinunternehmer: majstor?.is_kleinunternehmer || false
-        })
-      }
-
       onSuccess(result.data)
       onClose()
 
@@ -309,6 +347,21 @@ export default function InvoiceCreator({
     }).format(amount)
   }
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (customerInputRef.current && !customerInputRef.current.contains(event.target)) {
+        setShowCustomerDropdown(false)
+      }
+      if (servicesDropdownRef.current && !servicesDropdownRef.current.contains(event.target)) {
+        setShowServicesDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   if (!isOpen) return null
 
   return (
@@ -323,12 +376,7 @@ export default function InvoiceCreator({
               type === 'quote' ? '📄 Neues Angebot erstellen' : '🧾 Neue Rechnung erstellen'
             )}
           </h3>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white text-2xl"
-          >
-            ×
-          </button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl">×</button>
         </div>
 
         {/* Form */}
@@ -356,57 +404,54 @@ export default function InvoiceCreator({
             </div>
           </div>
           
-          {/* Customer Section */}
+          {/* 🔥 Customer Section with Autocomplete */}
           <div className="bg-slate-900/50 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-white font-semibold">Kunde</h4>
-              {customers.length > 0 && !isEditMode && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('📘 Toggling customer select. Available customers:', customers.length)
-                    setShowCustomerSelect(!showCustomerSelect)
-                  }}
-                  className="text-blue-400 text-sm hover:text-blue-300"
-                >
-                  Aus Kundenliste auswählen ({customers.length})
-                </button>
-              )}
-            </div>
-
-            {/* Customer Dropdown */}
-            {showCustomerSelect && !isEditMode && (
-              <div className="mb-4 bg-slate-800 border border-slate-600 rounded-lg max-h-32 overflow-y-auto">
-                {customers.map((customer, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleCustomerSelect(customer)}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0"
-                  >
-                    <div className="font-medium">{customer.name}</div>
-                    <div className="text-slate-400 text-xs">{customer.email}</div>
-                    {customer.total_revenue > 0 && (
-                      <div className="text-green-400 text-xs">💰 {formatCurrency(customer.total_revenue)}</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
+            <h4 className="text-white font-semibold mb-4">Kunde</h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              {/* 🔥 Customer Name with Autocomplete */}
+              <div className="relative" ref={customerInputRef}>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Name *</label>
                 <input
                   type="text"
-                  name="customer_name"
-                  value={formData.customer_name}
-                  onChange={handleInputChange}
+                  value={customerSearchTerm}
+                  onChange={handleCustomerNameChange}
+                  onFocus={() => customerSearchTerm.length >= 2 && setShowCustomerDropdown(customerSuggestions.length > 0)}
                   required
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                  placeholder="Max Mustermann"
+                  placeholder="Kunde eingeben... (min. 2 Zeichen)"
                 />
+                
+                {/* 🔥 Customer Suggestions Dropdown */}
+                {showCustomerDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+                    {searchLoading ? (
+                      <div className="p-3 text-slate-400 text-center">Suche...</div>
+                    ) : customerSuggestions.length === 0 ? (
+                      <div className="p-3 text-slate-400 text-center">Keine Kunden gefunden</div>
+                    ) : (
+                      customerSuggestions.map((customer, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleCustomerSelect(customer)}
+                          className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0 focus:outline-none focus:bg-slate-700"
+                        >
+                          <div className="font-medium">{customer.name}</div>
+                          <div className="text-slate-400 text-xs">{customer.email}</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-slate-500 text-xs">
+                             {customer.street && customer.city && `${customer.street}, ${customer.city}`}
+                            </span>
+                            
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">E-Mail *</label>
                 <input
@@ -419,6 +464,7 @@ export default function InvoiceCreator({
                   placeholder="max@example.com"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Telefon</label>
                 <input
@@ -430,6 +476,7 @@ export default function InvoiceCreator({
                   placeholder="+49 123 456789"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Adresse</label>
                 <input
@@ -444,7 +491,7 @@ export default function InvoiceCreator({
             </div>
           </div>
 
-          {/* Items Section */}
+          {/* 🔥 Items Section with Services Dropdown */}
           <div className="bg-slate-900/50 rounded-lg p-4">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-white font-semibold">Positionen</h4>
@@ -460,16 +507,42 @@ export default function InvoiceCreator({
             <div className="space-y-3">
               {formData.items.map((item, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                  <div className="md:col-span-5">
+                  <div className="md:col-span-5 relative">
                     <label className="block text-sm text-slate-400 mb-1">Beschreibung</label>
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                      placeholder="z.B. Wasserrohr reparieren"
-                    />
+                    <div className="relative" ref={showServicesDropdown === index ? servicesDropdownRef : null}>
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                        onFocus={() => services.length > 0 && setShowServicesDropdown(index)}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                        placeholder="z.B. Wasserrohr reparieren"
+                      />
+                      
+                      {/* 🔥 Services Dropdown */}
+                      {showServicesDropdown === index && services.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {services.map((service, serviceIndex) => (
+                            <button
+                              key={serviceIndex}
+                              type="button"
+                              onClick={() => handleServiceSelect(index, service)}
+                              className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0"
+                            >
+                              <div className="font-medium">{service.name}</div>
+                              <div className="flex justify-between items-center text-xs text-slate-400">
+                                <span>{service.description || 'Keine Beschreibung'}</span>
+                                <span className="text-green-400 font-medium">
+                                  {formatCurrency(service.default_price || 0)}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-400 mb-1">Menge</label>
                     <input
@@ -481,6 +554,7 @@ export default function InvoiceCreator({
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                     />
                   </div>
+                  
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-400 mb-1">
                       Preis (€ {formData.is_kleinunternehmer ? 'inkl.' : 'netto'})
@@ -495,12 +569,14 @@ export default function InvoiceCreator({
                       placeholder="100.00"
                     />
                   </div>
+                  
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-400 mb-1">Gesamt</label>
                     <div className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm">
                       {formatCurrency(item.total)}
                     </div>
                   </div>
+                  
                   <div className="md:col-span-1">
                     {formData.items.length > 1 && (
                       <button
@@ -537,9 +613,7 @@ export default function InvoiceCreator({
               
               {!formData.is_kleinunternehmer && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400">
-                    zzgl. MwSt ({formData.tax_rate}%):
-                  </span>
+                  <span className="text-slate-400">zzgl. MwSt ({formData.tax_rate}%):</span>
                   <span className="text-white">{formatCurrency(formData.tax_amount)}</span>
                 </div>
               )}
