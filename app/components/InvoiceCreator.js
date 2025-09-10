@@ -585,7 +585,7 @@ export default function InvoiceCreator({
                       {showServicesDropdown === index && item.description.length >= 2 && filteredServices.length === 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10">
                           <div className="p-3 text-slate-400 text-center text-sm">
-                            Keine passenden Usluge gefunden für "{item.description}"
+                         Keine passenden Usluge gefunden für '{item.description}'
                           </div>
                         </div>
                       )}
