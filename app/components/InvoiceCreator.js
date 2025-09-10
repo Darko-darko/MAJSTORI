@@ -75,6 +75,38 @@ export default function InvoiceCreator({
     }
   }
 
+  // 🔥 NOVO: Auto-save service when used in invoice
+const autoSaveServiceFromInvoice = async (serviceName) => {
+  try {
+    if (!serviceName || !majstor?.id) return
+
+    // Check if service already exists
+    const { data: existing } = await supabase
+      .from('services')
+      .select('id')
+      .eq('majstor_id', majstor.id)
+      .eq('is_active', true)
+      .ilike('name', serviceName.trim())
+
+    if (existing && existing.length > 0) return // Already exists
+
+    // Create new service
+    await supabase
+      .from('services')
+      .insert({
+        majstor_id: majstor.id,
+        name: serviceName.trim(),
+        source: 'invoice', // Mark as created from invoice
+        usage_count: 1
+      })
+
+    console.log(`✅ Auto-saved service: ${serviceName}`)
+
+  } catch (error) {
+    console.warn('Auto-save service failed:', error)
+    // Don't throw error - invoice creation should continue
+  }
+}
   // 🔥 NOVO: Filter services based on search term
   const filterServicesByTerm = (searchTerm, allServices) => {
     if (!searchTerm || searchTerm.length < 2) {
@@ -331,6 +363,16 @@ export default function InvoiceCreator({
         throw new Error('Alle Positionen müssen eine Beschreibung und einen Preis haben')
       }
 
+      // 🔥 NOVO: Auto-save new services
+    const serviceNames = formData.items
+      .map(item => item.description?.trim())
+      .filter(desc => desc && desc.length > 0)
+
+    // Save each unique service
+    const uniqueServices = [...new Set(serviceNames)]
+    await Promise.all(
+      uniqueServices.map(serviceName => autoSaveServiceFromInvoice(serviceName))
+    )
       const dueDate = new Date(formData.issue_date)
       dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
