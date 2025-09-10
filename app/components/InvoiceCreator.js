@@ -1,4 +1,4 @@
-// components/InvoiceCreator.js - UPGRADED SA AUTOCOMPLETE CUSTOMER SEARCH
+// components/InvoiceCreator.js - FIXED Services Dropdown with Proper Filtering
 
 'use client'
 import { useState, useEffect, useRef } from 'react'
@@ -12,7 +12,7 @@ export default function InvoiceCreator({
   onSuccess,
   editData = null,
   isEditMode = false,
-  prefilledCustomer = null // 🔥 DODATI OVO
+  prefilledCustomer = null
 }) {
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -34,15 +34,16 @@ export default function InvoiceCreator({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   
-  // 🔥 NOVO: Autocomplete states
+  // Customer autocomplete states
   const [customerSearchTerm, setCustomerSearchTerm] = useState('')
   const [customerSuggestions, setCustomerSuggestions] = useState([])
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
   
-  // 🔥 NOVO: Services states  
+  // 🔥 FIXED: Services states with proper filtering
   const [services, setServices] = useState([])
-  const [showServicesDropdown, setShowServicesDropdown] = useState(null) // koji item index
+  const [showServicesDropdown, setShowServicesDropdown] = useState(null)
+  const [filteredServices, setFilteredServices] = useState([]) // ← NOVO za filtrirane usluge
   
   const customerInputRef = useRef(null)
   const servicesDropdownRef = useRef(null)
@@ -55,7 +56,7 @@ export default function InvoiceCreator({
     }
   }, [isOpen, majstor?.id, type, editData, isEditMode])
 
-  // 🔥 NOVO: Load majstor's services
+  // Load majstor's services
   const loadServices = async () => {
     try {
       const { data: servicesData, error } = await supabase
@@ -72,6 +73,19 @@ export default function InvoiceCreator({
     } catch (err) {
       console.error('Error loading services:', err)
     }
+  }
+
+  // 🔥 NOVO: Filter services based on search term
+  const filterServicesByTerm = (searchTerm, allServices) => {
+    if (!searchTerm || searchTerm.length < 2) {
+      return []
+    }
+    
+    const term = searchTerm.toLowerCase()
+    return allServices.filter(service => 
+      service.name.toLowerCase().includes(term) ||
+      (service.description && service.description.toLowerCase().includes(term))
+    )
   }
 
   const initializeFormData = () => {
@@ -101,10 +115,8 @@ export default function InvoiceCreator({
         is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer
       })
       
-      // Set search term for edit mode
       setCustomerSearchTerm(editData.customer_name || '')
     } else {
-      // 🔥 NOVO: Use prefilledCustomer data if available
       let initialCustomerData = {
         customer_name: '',
         customer_email: '',
@@ -147,19 +159,19 @@ export default function InvoiceCreator({
     }
   }
 
-  // 🔥 NOVO: Customer search with debouncing
+  // Customer search with debouncing
   useEffect(() => {
-  const timeoutId = setTimeout(() => {
-    if (customerSearchTerm.length >= 2 && !isEditMode && !prefilledCustomer) {
-      searchCustomers(customerSearchTerm)
-    } else {
-      setCustomerSuggestions([])
-      setShowCustomerDropdown(false)
-    }
-  }, 300)
+    const timeoutId = setTimeout(() => {
+      if (customerSearchTerm.length >= 2 && !isEditMode && !prefilledCustomer) {
+        searchCustomers(customerSearchTerm)
+      } else {
+        setCustomerSuggestions([])
+        setShowCustomerDropdown(false)
+      }
+    }, 300)
 
-  return () => clearTimeout(timeoutId)
-}, [customerSearchTerm, isEditMode, prefilledCustomer])
+    return () => clearTimeout(timeoutId)
+  }, [customerSearchTerm, isEditMode, prefilledCustomer])
 
   const searchCustomers = async (searchTerm) => {
     if (!majstor?.id || searchTerm.length < 2) return
@@ -171,8 +183,8 @@ export default function InvoiceCreator({
         .select('name, email, phone, street, city, postal_code, total_revenue, total_invoices')
         .eq('majstor_id', majstor.id)
         .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-        .order('total_revenue', { ascending: false }) // Najbolji klijenti prvi
-        .limit(8) // Maksimalno 8 predloga
+        .order('total_revenue', { ascending: false })
+        .limit(8)
 
       if (!error && customers) {
         setCustomerSuggestions(customers)
@@ -186,11 +198,10 @@ export default function InvoiceCreator({
     }
   }
 
-  // 🔥 NOVO: Select customer from dropdown
+  // Select customer from dropdown
   const handleCustomerSelect = (customer) => {
     console.log('👤 Selected customer:', customer)
     
-    // Konstruiši punu adresu
     const addressParts = [customer.street, customer.postal_code, customer.city].filter(Boolean)
     const fullAddress = addressParts.join(', ')
     
@@ -199,25 +210,26 @@ export default function InvoiceCreator({
       customer_name: customer.name,
       customer_email: customer.email,
       customer_phone: customer.phone || '',
-      customer_address: fullAddress // 🔥 POPUNI ADRESU!
+      customer_address: fullAddress
     }))
     
     setCustomerSearchTerm(customer.name)
     setShowCustomerDropdown(false)
   }
 
-  // 🔥 NOVO: Service selection for items
+  // 🔥 FIXED: Service selection for items
   const handleServiceSelect = (itemIndex, service) => {
     const newItems = [...formData.items]
     newItems[itemIndex] = {
       ...newItems[itemIndex],
       description: service.name,
-      price: service.default_price || 0,
+    
       total: (newItems[itemIndex].quantity || 1) * (service.default_price || 0)
     }
     
     setFormData(prev => ({ ...prev, items: newItems }))
     setShowServicesDropdown(null)
+    setFilteredServices([]) // ← CLEAR filtered services
     
     calculateTotals(newItems)
   }
@@ -227,7 +239,6 @@ export default function InvoiceCreator({
     setCustomerSearchTerm(value)
     setFormData(prev => ({ ...prev, customer_name: value }))
     
-    // Ako briše tekst, obriši i ostala polja
     if (value.length === 0) {
       setFormData(prev => ({
         ...prev,
@@ -244,6 +255,7 @@ export default function InvoiceCreator({
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  // 🔥 FIXED: Handle item changes with proper service filtering
   const handleItemChange = (index, field, value) => {
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
@@ -256,6 +268,19 @@ export default function InvoiceCreator({
     
     setFormData(prev => ({ ...prev, items: newItems }))
     calculateTotals(newItems)
+
+    // 🔥 FIXED: Proper services filtering logic
+    if (field === 'description') {
+      if (value.length >= 2) {
+        const filtered = filterServicesByTerm(value, services)
+        setFilteredServices(filtered)
+        setShowServicesDropdown(filtered.length > 0 ? index : null)
+        console.log(`🔍 Filtering services for "${value}":`, filtered.length, 'found')
+      } else {
+        setFilteredServices([])
+        setShowServicesDropdown(null)
+      }
+    }
   }
 
   const addItem = () => {
@@ -270,6 +295,12 @@ export default function InvoiceCreator({
       const newItems = formData.items.filter((_, i) => i !== index)
       setFormData(prev => ({ ...prev, items: newItems }))
       calculateTotals(newItems)
+      
+      // Clear dropdown if removing active item
+      if (showServicesDropdown === index) {
+        setShowServicesDropdown(null)
+        setFilteredServices([])
+      }
     }
   }
 
@@ -371,6 +402,7 @@ export default function InvoiceCreator({
       }
       if (servicesDropdownRef.current && !servicesDropdownRef.current.contains(event.target)) {
         setShowServicesDropdown(null)
+        setFilteredServices([])
       }
     }
 
@@ -420,12 +452,12 @@ export default function InvoiceCreator({
             </div>
           </div>
           
-          {/* 🔥 Customer Section with Autocomplete */}
+          {/* Customer Section with Autocomplete */}
           <div className="bg-slate-900/50 rounded-lg p-4">
             <h4 className="text-white font-semibold mb-4">Kunde</h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 🔥 Customer Name with Autocomplete */}
+              {/* Customer Name with Autocomplete */}
               <div className="relative" ref={customerInputRef}>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Name *</label>
                 <input
@@ -438,7 +470,7 @@ export default function InvoiceCreator({
                   placeholder="Kunde eingeben... (min. 2 Zeichen)"
                 />
                 
-                {/* 🔥 Customer Suggestions Dropdown */}
+                {/* Customer Suggestions Dropdown */}
                 {showCustomerDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
                     {searchLoading ? (
@@ -501,7 +533,7 @@ export default function InvoiceCreator({
             </div>
           </div>
 
-          {/* 🔥 Items Section with Services Dropdown */}
+          {/* 🔥 FIXED: Items Section with Improved Services Dropdown */}
           <div className="bg-slate-900/50 rounded-lg p-4">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-white font-semibold">Positionen</h4>
@@ -524,30 +556,37 @@ export default function InvoiceCreator({
                         type="text"
                         value={item.description}
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        onFocus={() => services.length > 0 && setShowServicesDropdown(index)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                        placeholder="z.B. Wasserrohr reparieren"
+                        placeholder="z.B. Wasserrohr reparieren (min. 2 Zeichen für Vorschläge)"
                       />
                       
-                      {/* 🔥 Services Dropdown */}
-                      {showServicesDropdown === index && services.length > 0 && (
+                      {/* 🔥 FIXED: Services Dropdown with Filtered Results */}
+                      {showServicesDropdown === index && filteredServices.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                          {services.map((service, serviceIndex) => (
+                          <div className="p-2 border-b border-slate-700 bg-slate-900">
+                            <div className="text-xs text-slate-400">
+                              {filteredServices.length} Vorschlag{filteredServices.length > 1 ? 'e' : ''} gefunden
+                            </div>
+                          </div>
+                          {filteredServices.map((service, serviceIndex) => (
                             <button
                               key={serviceIndex}
                               type="button"
                               onClick={() => handleServiceSelect(index, service)}
-                              className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0"
+                              className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0 focus:outline-none focus:bg-slate-700"
                             >
                               <div className="font-medium">{service.name}</div>
-                              <div className="flex justify-between items-center text-xs text-slate-400">
-                                <span>{service.description || 'Keine Beschreibung'}</span>
-                                <span className="text-green-400 font-medium">
-                                  {formatCurrency(service.default_price || 0)}
-                                </span>
-                              </div>
                             </button>
                           ))}
+                        </div>
+                      )}
+                      
+                      {/* 🔥 NUOVO: No results message */}
+                      {showServicesDropdown === index && item.description.length >= 2 && filteredServices.length === 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10">
+                          <div className="p-3 text-slate-400 text-center text-sm">
+                            Keine passenden Usluge gefunden für "{item.description}"
+                          </div>
                         </div>
                       )}
                     </div>

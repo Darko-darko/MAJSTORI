@@ -211,11 +211,12 @@ export default function DashboardLayout({ children }) {
   const navigation = [
     { name: 'Übersicht', href: '/dashboard', icon: '📊' },
     { name: 'Meine Kunden', href: '/dashboard/customers', icon: '👥' },
+    { name: 'Meine Services', href: '/dashboard/services', icon: '🔧' }, // NOVO
     { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱' },
     { 
       name: 'Kundenanfragen', 
       href: '/dashboard/inquiries', 
-      icon: '🔧', 
+      icon: '📧', 
       badge: formatBadgeCount(badges.inquiries),
       badgeColor: 'bg-red-500' // crvena za nove upite
     },
