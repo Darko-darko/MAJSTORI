@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
 
-export default function InvoicesPage() {
+function DashboardPageContent() {
   const [activeTab, setActiveTab] = useState('quotes') // quotes, invoices, settings
   const [quotes, setQuotes] = useState([])
   const [invoices, setInvoices] = useState([])
@@ -1468,5 +1468,12 @@ export default function InvoicesPage() {
         />
       )}
     </div>
+  )
+}
+export default function DashboardPage() {  // ili InvoicesPage
+  return (
+    <Suspense fallback={<div className="text-white">Laden...</div>}>
+      <DashboardPageContent />
+    </Suspense>
   )
 }

@@ -1,12 +1,12 @@
 // app/dashboard/layout.js - UPDATED FOR TRIAL STRATEGY
 
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect , Suspense } from 'react'
+import { useRouter, useSearchParams} from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-export default function DashboardLayout({ children }) {
+function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -541,5 +541,12 @@ export default function DashboardLayout({ children }) {
         </main>
       </div>
     </div>
+  )
+}
+export default function DashboardLayout({ children }) {  // <- children prop
+  return (
+    <Suspense fallback={<div className="text-white">Laden...</div>}>
+      <DashboardLayoutContent children={children} />  
+    </Suspense>
   )
 }
