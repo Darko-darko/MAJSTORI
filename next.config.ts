@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // ✅ NIŠTA SE NE IGNORIŠTE - sve greške će biti vidljive!
-  
-  // ✅ Image optimization - standardno
+  // Image optimization - standardno
   images: {
     remotePatterns: [
       {
@@ -21,16 +19,13 @@ const nextConfig: NextConfig = {
     ]
   },
 
-  // ✅ Experimental features - samo potrebno za html2canvas
-  experimental: {
-    serverComponentsExternalPackages: ['html2canvas']
-  },
+  // FIXED: Moved serverComponentsExternalPackages to serverExternalPackages
+  serverExternalPackages: ['html2canvas'],
 
-  // ✅ Standard optimizations
-  swcMinify: true,
+  // REMOVED: swcMinify (deprecated in Next.js 15)
   poweredByHeader: false,
   
-  // ✅ Output configuration
+  // Output configuration
   output: 'standalone'
 };
 
