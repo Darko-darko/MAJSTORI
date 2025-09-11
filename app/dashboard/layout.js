@@ -1,8 +1,8 @@
-// app/dashboard/layout.js - VERZIJA SA DINAMIČKIM BADGE BROJEVIMA
+// app/dashboard/layout.js - UPDATED FOR TRIAL STRATEGY
 
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -13,7 +13,14 @@ export default function DashboardLayout({ children }) {
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
-  // NOVO: State za badge brojeve
+  // Trial tracking states
+  const [trialInfo, setTrialInfo] = useState({
+    isTrialUser: false,
+    daysRemaining: 0,
+    expiresAt: null
+  })
+  
+  // Badge states
   const [badges, setBadges] = useState({
     inquiries: 0,
     invoices: 0,
@@ -21,46 +28,68 @@ export default function DashboardLayout({ children }) {
   })
   
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     checkUser()
   }, [])
 
-  // NOVO: Hook za učitavanje badge brojeva
   useEffect(() => {
     if (majstor?.id) {
       loadBadgeCounts()
+      calculateTrialInfo()
       
-      // Refresh badge counts svake 2 minute
-      const interval = setInterval(loadBadgeCounts, 2 * 60 * 1000)
+      // Refresh every 2 minutes
+      const interval = setInterval(() => {
+        loadBadgeCounts()
+        calculateTrialInfo()
+      }, 2 * 60 * 1000)
+      
       return () => clearInterval(interval)
     }
   }, [majstor?.id])
 
-  // NOVO: Funkcija za učitavanje badge brojeva
+  // 🎯 Calculate trial information
+  const calculateTrialInfo = () => {
+    if (!majstor) return
+
+    const isTrialUser = majstor.subscription_status === 'trial'
+    if (!isTrialUser) {
+      setTrialInfo({ isTrialUser: false, daysRemaining: 0, expiresAt: null })
+      return
+    }
+
+    const now = new Date()
+    const expiresAt = new Date(majstor.subscription_ends_at)
+    const diffTime = expiresAt.getTime() - now.getTime()
+    const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+
+    setTrialInfo({
+      isTrialUser: true,
+      daysRemaining,
+      expiresAt: majstor.subscription_ends_at
+    })
+
+    console.log('🎯 Trial info calculated:', { daysRemaining, expiresAt: majstor.subscription_ends_at })
+  }
+
   const loadBadgeCounts = async () => {
     if (!majstor?.id) return
 
     try {
-      console.log('🔢 Loading badge counts for majstor:', majstor.id)
-
-      // Paralelno učitavanje svih brojeva
       const [inquiriesResult, invoicesResult, warrantiesResult] = await Promise.all([
-        // Broj novih inquiries (status: 'new')
         supabase
           .from('inquiries')
           .select('id', { count: 'exact', head: true })
           .eq('majstor_id', majstor.id)
           .eq('status', 'new'),
 
-        // Broj draft invoices
         supabase
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('majstor_id', majstor.id)
           .eq('status', 'draft'),
 
-        // Broj warranties koji ističu u sledećih 30 dana
         supabase
           .from('warranties')
           .select('id', { count: 'exact', head: true })
@@ -69,18 +98,14 @@ export default function DashboardLayout({ children }) {
           .lte('end_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       ])
 
-      const newCounts = {
+      setBadges({
         inquiries: inquiriesResult.count || 0,
         invoices: invoicesResult.count || 0, 
         warranties: warrantiesResult.count || 0
-      }
-
-      console.log('🔢 Badge counts loaded:', newCounts)
-      setBadges(newCounts)
+      })
 
     } catch (error) {
       console.error('❌ Error loading badge counts:', error)
-      // Ne mijenjaj badges ako je greška - ostavi postojeće vrednosti
     }
   }
 
@@ -92,7 +117,6 @@ export default function DashboardLayout({ children }) {
       
       if (authError) {
         console.error('❌ Auth error:', authError)
-        setError('Authentication error: ' + authError.message)
         router.push('/login')
         return
       }
@@ -106,20 +130,17 @@ export default function DashboardLayout({ children }) {
       console.log('✅ User authenticated:', currentUser.email)
       setUser(currentUser)
 
-      // Pokušaj da učitaš majstor profil
-      console.log('🔍 Fetching majstor profile for:', currentUser.id)
-      
+      // Load majstor profile
       const { data: majstorData, error: majstorError } = await majstorsAPI.getById(currentUser.id)
       
       if (majstorError) {
         console.error('❌ Majstor profile error:', majstorError)
         
         if (majstorError.code === 'PGRST116' || majstorError.message?.includes('0 rows')) {
-          // Profil ne postoji - pokušaj da ga kreiraš
-          console.log('🛠️ Creating missing majstor profile...')
+          // No profile - create one
+          console.log('🛠️ Creating missing profile...')
           await createMissingProfile(currentUser)
         } else {
-          console.error('❌ Other majstor error:', majstorError)
           setError('Profile access error: ' + majstorError.message)
         }
       } else {
@@ -144,13 +165,6 @@ export default function DashboardLayout({ children }) {
                          user.email?.split('@')[0] || 
                          'Handwerker'
       
-      const slug = displayName
-        .toLowerCase()
-        .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '')
-        .substring(0, 40) + '-' + Date.now()
-
       const profileData = {
         id: user.id,
         email: user.email,
@@ -158,13 +172,13 @@ export default function DashboardLayout({ children }) {
         business_name: user.user_metadata?.business_name || null,
         phone: user.user_metadata?.phone || null,
         city: user.user_metadata?.city || null,
-        slug: slug,
         subscription_status: 'trial',
         subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        is_active: true
+        is_active: true,
+        profile_completed: false,
+        profile_source: user.user_metadata?.provider === 'google' ? 'google_oauth' : 'missing_profile'
       }
 
-      // Pozovi API route za kreiranje profila
       const response = await fetch('/api/create-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,15 +187,12 @@ export default function DashboardLayout({ children }) {
 
       if (response.ok) {
         const result = await response.json()
-        console.log('✅ Profile created successfully via API')
+        console.log('✅ Missing profile created successfully')
         setMajstor(result.profile)
-        setError('') // Obriši grešku
-        
-        // Refresh stranica da učita novi profil
-        setTimeout(() => window.location.reload(), 1000)
+        setError('')
       } else {
         const errorData = await response.json()
-        console.error('❌ Profile creation via API failed:', errorData)
+        console.error('❌ Profile creation failed:', errorData)
         setError('Failed to create profile: ' + errorData.error)
       }
       
@@ -200,44 +211,111 @@ export default function DashboardLayout({ children }) {
     }
   }
 
-  // NOVO: Funkcija za formatiranje badge brojeva
   const formatBadgeCount = (count) => {
-    if (count === 0) return null // Ne prikazuj badge ako je 0
+    if (count === 0) return null
     if (count > 99) return '99+'
     return count.toString()
   }
 
-  // AŽURIRANO: Navigation sa dinamičkim badge brojevima
-  const navigation = [
-    { name: 'Übersicht', href: '/dashboard', icon: '📊' },
-    { name: 'Meine Kunden', href: '/dashboard/customers', icon: '👥' },
-    { name: 'Meine Services', href: '/dashboard/services', icon: '🔧' }, // NOVO
-    { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱' },
-    { 
-      name: 'Kundenanfragen', 
-      href: '/dashboard/inquiries', 
-      icon: '📧', 
-      badge: formatBadgeCount(badges.inquiries),
-      badgeColor: 'bg-red-500' // crvena za nove upite
-    },
-    { 
-      name: 'Rechnungen', 
-      href: '/dashboard/invoices', 
-      icon: '📄',
-      badge: formatBadgeCount(badges.invoices),
-      badgeColor: 'bg-yellow-500' // žuta za draft račune
-    },
-    { 
-      name: 'Garantien', 
-      href: '/dashboard/warranties', 
-      icon: '🛡️',
-      badge: formatBadgeCount(badges.warranties),
-      badgeColor: 'bg-orange-500' // narandžasta za uskoro istiću
-    },
-    { name: 'Empfehlungen', href: '/dashboard/referrals', icon: '🎯' },
-    { name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
-    { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️' }
-  ]
+  // 🔥 SMART NAVIGATION - different for trial users
+  const getNavigation = () => {
+    const baseNavigation = [
+      { name: 'Übersicht', href: '/dashboard', icon: '📊' },
+      { name: 'Meine Kunden', href: '/dashboard/customers', icon: '👥' },
+      { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱' },
+    ]
+
+    // Core features available in trial
+    const coreFeatures = [
+      { 
+        name: 'Kundenanfragen', 
+        href: '/dashboard/inquiries', 
+        icon: '📧', 
+        badge: formatBadgeCount(badges.inquiries),
+        badgeColor: 'bg-red-500'
+      },
+      { 
+        name: 'Rechnungen', 
+        href: '/dashboard/invoices', 
+        icon: '📄',
+        badge: formatBadgeCount(badges.invoices),
+        badgeColor: 'bg-yellow-500'
+      }
+    ]
+
+    // Advanced features (limited in trial)
+    const advancedFeatures = [
+      { name: 'Meine Services', href: '/dashboard/services', icon: '🔧' },
+      { 
+        name: 'Garantien', 
+        href: '/dashboard/warranties', 
+        icon: '🛡️',
+        badge: formatBadgeCount(badges.warranties),
+        badgeColor: 'bg-orange-500'
+      },
+      { name: 'Empfehlungen', href: '/dashboard/referrals', icon: '🎯' },
+      { name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
+      { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️' }
+    ]
+
+    return [...baseNavigation, ...coreFeatures, ...advancedFeatures]
+  }
+
+  // 🎯 Trial Banner Component
+  const TrialBanner = () => {
+    if (!trialInfo.isTrialUser) return null
+
+    const isExpiringSoon = trialInfo.daysRemaining <= 2
+    const bannerColor = isExpiringSoon ? 'from-red-500/20 to-orange-500/20' : 'from-blue-500/20 to-purple-500/20'
+    const textColor = isExpiringSoon ? 'text-red-300' : 'text-blue-300'
+
+    return (
+      <div className={`bg-gradient-to-r ${bannerColor} border ${isExpiringSoon ? 'border-red-500/30' : 'border-blue-500/30'} rounded-lg p-4 mb-6`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isExpiringSoon ? 'bg-red-500' : 'bg-blue-500'}`}>
+              {isExpiringSoon ? '⚠️' : '🎯'}
+            </div>
+            <div>
+              <h4 className={`font-semibold ${textColor}`}>
+                {isExpiringSoon ? '⚠️ Trial läuft bald ab!' : '🎯 Kostenlose Testphase aktiv'}
+              </h4>
+              <p className="text-slate-400 text-sm">
+                {trialInfo.daysRemaining > 0 
+                  ? `Noch ${trialInfo.daysRemaining} Tag${trialInfo.daysRemaining > 1 ? 'e' : ''} kostenlos` 
+                  : 'Trial ist abgelaufen'
+                }
+              </p>
+            </div>
+          </div>
+          <button className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+            isExpiringSoon 
+              ? 'bg-red-600 hover:bg-red-700 text-white' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}>
+            {isExpiringSoon ? 'Jetzt upgraden' : 'Mehr erfahren'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const NavigationItem = ({ item, isMobile = false }) => (
+    <Link
+      key={item.name}
+      href={item.href}
+      onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+      className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+    >
+      <span className="mr-3 text-lg">{item.icon}</span>
+      <span className="flex-1">{item.name}</span>
+      {item.badge && (
+        <span className={`ml-2 px-2 py-1 text-xs ${item.badgeColor || 'bg-red-500'} text-white rounded-full font-medium`}>
+          {item.badge}
+        </span>
+      )}
+    </Link>
+  )
 
   if (loading) {
     return (
@@ -270,42 +348,12 @@ export default function DashboardLayout({ children }) {
               Zurück zur Anmeldung
             </button>
           </div>
-          
-          {user && !majstor && (
-            <div className="mt-4 text-center">
-              <p className="text-yellow-300 text-sm mb-2">
-                Ihr Profil fehlt möglicherweise. Soll ich es erstellen?
-              </p>
-              <button
-                onClick={() => createMissingProfile(user)}
-                className="bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700"
-              >
-                Profil erstellen
-              </button>
-            </div>
-          )}
         </div>
       </div>
     )
   }
 
-  // NOVA: Komponenta za rendering navigation item-a sa badge
-  const NavigationItem = ({ item, isMobile = false }) => (
-    <Link
-      key={item.name}
-      href={item.href}
-      onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-      className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-    >
-      <span className="mr-3 text-lg">{item.icon}</span>
-      <span className="flex-1">{item.name}</span>
-      {item.badge && (
-        <span className={`ml-2 px-2 py-1 text-xs ${item.badgeColor || 'bg-red-500'} text-white rounded-full font-medium`}>
-          {item.badge}
-        </span>
-      )}
-    </Link>
-  )
+  const navigation = getNavigation()
 
   return (
     <div className="min-h-screen bg-slate-900 flex">
@@ -346,10 +394,10 @@ export default function DashboardLayout({ children }) {
             </div>
 
             {/* Trial Status */}
-            {majstor?.subscription_status === 'trial' && (
-              <div className="mt-3 px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded text-center">
-                <p className="text-xs text-yellow-300 font-medium">
-                  🎯 Trial: 7 Tage übrig
+            {trialInfo.isTrialUser && (
+              <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+                <p className="text-xs text-blue-300 font-medium">
+                  🎯 Trial: {trialInfo.daysRemaining} Tag{trialInfo.daysRemaining !== 1 ? 'e' : ''} übrig
                 </p>
               </div>
             )}
@@ -450,23 +498,19 @@ export default function DashboardLayout({ children }) {
                   Handwerker Dashboard
                 </h1>
                 <p className="text-sm text-slate-400 hidden sm:block">
-                  Verwalten Sie Ihre Kunden und Aufträge
+                  {trialInfo.isTrialUser 
+                    ? `Kostenlose Testphase - noch ${trialInfo.daysRemaining} Tage` 
+                    : 'Verwalten Sie Ihre Kunden und Aufträge'
+                  }
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
-              {/* Debug info */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="text-xs text-slate-500 hidden md:block">
-                  ID: {user?.id?.slice(-8)} | B: {badges.inquiries}|{badges.invoices}|{badges.warranties}
-                </div>
-              )}
-
               {/* Notifications */}
               <button 
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
-                onClick={loadBadgeCounts} // NOVO: Refresh badge counts na klik
+                onClick={loadBadgeCounts}
                 title="Refresh notifications"
               >
                 <span className="text-xl">🔔</span>
@@ -490,6 +534,9 @@ export default function DashboardLayout({ children }) {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
+          {/* Trial Banner */}
+          <TrialBanner />
+          
           {children}
         </main>
       </div>

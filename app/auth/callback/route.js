@@ -1,126 +1,76 @@
-// app/auth/callback/route.js
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+// app/auth/callback/route.js - GOOGLE OAUTH CALLBACK HANDLER
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-
-// Service role client za bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 export async function GET(request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  
-  console.log('1. Auth callback triggered with code:', !!code)
+  const origin = requestUrl.origin
 
   if (code) {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-    
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+
     try {
       // Exchange code for session
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+      const { data: { user }, error: authError } = await supabase.auth.exchangeCodeForSession(code)
       
-      console.log('2. Auth exchange result:', {
-        user: data?.user?.email,
-        error: error?.message
-      })
-      
-      if (error) {
-        console.error('Auth callback error:', error)
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=auth_failed`)
+      if (authError) {
+        console.error('❌ Auth callback error:', authError)
+        return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
       }
 
-      if (data.user) {
-        console.log('3. User authenticated successfully')
-        
-        // Proverite da li profil već postoji
-        const { data: existingProfile, error: checkError } = await supabaseAdmin
+      if (user) {
+        console.log('✅ Google OAuth successful for:', user.email)
+
+        // 🔥 Check if profile already exists
+        const { data: existingProfile } = await supabase
           .from('majstors')
-          .select('id, slug')
-          .eq('id', data.user.id)
+          .select('id, profile_completed, subscription_status')
+          .eq('id', user.id)
           .single()
 
-        console.log('4. Profile check result:', {
-          exists: !!existingProfile,
-          error: checkError?.message
-        })
-
-        let isNewUser = false
-
-        // Ako profil ne postoji, kreiraj ga
-        if (!existingProfile) {
-          console.log('5. Creating new profile for user...')
-          isNewUser = true
+        if (existingProfile) {
+          // Existing user - redirect to dashboard
+          console.log('👤 Existing user logged in:', user.email)
+          return NextResponse.redirect(`${origin}/dashboard`)
+        } else {
+          // 🎯 NEW GOOGLE USER - Create profile with real data
+          console.log('🆕 Creating new Google OAuth profile for:', user.email)
           
-          const displayName = data.user.user_metadata?.full_name || 
-                            data.user.user_metadata?.name || 
-                            data.user.email?.split('@')[0] || 
-                            'Handwerker'
-          
-          // Generiši unique slug
-          const baseSlug = displayName
-            .toLowerCase()
-            .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '')
-            .substring(0, 40)
-          
-          const slug = `${baseSlug}-${Date.now()}`
-
-          const profileData = {
-            id: data.user.id,
-            email: data.user.email,
-            full_name: displayName,
-            business_name: data.user.user_metadata?.business_name || null,
-            phone: data.user.user_metadata?.phone || null,
-            city: data.user.user_metadata?.city || null,
-            slug: slug,
-            subscription_status: 'trial',
-            subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            is_active: true
+          const googleProfileData = {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0],
+            phone: user.user_metadata?.phone || null,
+            profile_source: 'google_oauth'
           }
 
-          console.log('6. Creating profile with data:', {
-            email: profileData.email,
-            name: profileData.full_name,
-            slug: profileData.slug
+          // Create profile via API
+          const response = await fetch(`${origin}/api/create-profile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(googleProfileData)
           })
 
-          // Koristi service role da bypasses RLS
-          const { data: newProfile, error: profileError } = await supabaseAdmin
-            .from('majstors')
-            .insert(profileData)
-            .select('id, slug')
-            .single()
-
-          if (profileError) {
-            console.error('7. Profile creation failed:', profileError)
-            // Ne prekidaj tok - korisnik može kasnije da dopuni profil
+          if (response.ok) {
+            console.log('✅ Google OAuth profile created successfully')
+            return NextResponse.redirect(`${origin}/dashboard?welcome=true&trial=true&source=google`)
           } else {
-            console.log('7. Profile created successfully:', newProfile.id)
+            console.error('❌ Failed to create Google OAuth profile')
+            return NextResponse.redirect(`${origin}/login?error=profile_creation_failed`)
           }
         }
-
-        // Redirect na odgovarajuću stranicu
-        const redirectUrl = isNewUser 
-          ? `${requestUrl.origin}/dashboard?welcome=true`
-          : `${requestUrl.origin}/dashboard`
-        
-        console.log('8. Redirecting to:', redirectUrl)
-        return NextResponse.redirect(redirectUrl)
       }
-      
-    } catch (err) {
-      console.error('Auth callback exception:', err)
-      return NextResponse.redirect(`${requestUrl.origin}/login?error=callback_error`)
+
+    } catch (error) {
+      console.error('❌ Callback processing error:', error)
+      return NextResponse.redirect(`${origin}/login?error=callback_processing_failed`)
     }
   }
 
-  // Ako nema code, vrati na login
-  console.log('No auth code provided, redirecting to login')
-  return NextResponse.redirect(`${requestUrl.origin}/login`)
+  // No code parameter - redirect to login
+  return NextResponse.redirect(`${origin}/login?error=no_auth_code`)
 }

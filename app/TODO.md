@@ -15,3 +15,8 @@
 - [ ] Pametno automatsko dopunjavanje klijenata
 - [ x] Excel uvoz za usluge
 - [ x] Uvoz Nove usluge iz profakture 
+
+
+## razno
+- compete profil/page treba kasnije obrisati
+- profil nakon plaćanja

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
@@ -16,47 +16,138 @@ export default function InvoicesPage() {
   const [createType, setCreateType] = useState('quote') // quote or invoice
   const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({}) // mapping quotes to invoices
   
-  // NOVO: Edit functionality states
+  // Edit functionality states
   const [editingItem, setEditingItem] = useState(null) // item being edited
   const [isEditMode, setIsEditMode] = useState(false)
 
-  // Settings state
+  // State for tracking if user comes from invoice creation
+  const [pendingInvoiceCreation, setPendingInvoiceCreation] = useState(false)
+  const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
+
+  // ENHANCED: Settings state with business profile fields
   const [settingsData, setSettingsData] = useState({
+    // Tax settings
     is_kleinunternehmer: false,
     tax_number: '',
     vat_id: '',
     default_tax_rate: 19.00,
+    // Bank data
     iban: '',
     bic: '',
     bank_name: '',
+    // Payment settings
     payment_terms_days: 14,
-    invoice_footer: ''
+    invoice_footer: '',
+    // ENHANCED: Business profile data
+    business_name: '',
+    phone: '',
+    city: '',
+    address: ''
   })
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [settingsError, setSettingsError] = useState('')
   
   const router = useRouter()
-// Dodajte ovo u useEffect koji se pokreće na početku
-useEffect(() => {
-  // Proveri URL parametre za customer podatke
-  if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.has('customerName')) {
-      setCreateType('invoice')
-      setIsEditMode(false)
-      setEditingItem({
-        customer_name: urlParams.get('customerName'),
-        customer_email: urlParams.get('customerEmail'),
-        customer_phone: urlParams.get('customerPhone'),
-        customer_address: urlParams.get('customerAddress')
+  const searchParams = useSearchParams()
+
+  // Handle URL tab parameter AND redirect from invoice creation
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab')
+    const fromInvoice = searchParams.get('from') // new parameter
+    
+    if (tabFromUrl && ['quotes', 'invoices', 'settings'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+      console.log('Setting active tab from URL:', tabFromUrl)
+    }
+
+    // If coming from invoice creation
+    if (fromInvoice === 'invoice-creation') {
+      setPendingInvoiceCreation(true)
+      setPendingInvoiceType(searchParams.get('type') || 'quote')
+      console.log('User came from invoice creation, will redirect back after settings', {
+        type: searchParams.get('type'),
+        pending: true
       })
+    }
+  }, [searchParams])
+
+  // useEffect for monitoring business data completion
+  useEffect(() => {
+    if (pendingInvoiceCreation && majstor && isBusinessDataComplete(majstor)) {
+      console.log('Business data now complete, redirecting back to invoice creation')
+      
+      // Clear pending state
+      setPendingInvoiceCreation(false)
+      
+      // Switch to appropriate tab and open modal
+      setActiveTab(pendingInvoiceType === 'invoice' ? 'invoices' : 'quotes')
+      setCreateType(pendingInvoiceType)
+      setIsEditMode(false)
+      setEditingItem(null)
       setShowCreateModal(true)
       
-      // Očisti URL parametre
-      window.history.replaceState({}, '', '/dashboard/invoices')
+      // Clean URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete('from')
+      url.searchParams.delete('type')
+      url.searchParams.set('tab', pendingInvoiceType === 'invoice' ? 'invoices' : 'quotes')
+      window.history.replaceState({}, '', url.toString())
+      
+      console.log('Opened invoice creation modal automatically')
     }
+  }, [majstor, pendingInvoiceCreation, pendingInvoiceType])
+
+  // ENHANCED: Business data validation logic
+  const isBusinessDataComplete = (majstorData) => {
+    if (!majstorData) return false
+    
+    const requiredFields = ['full_name', 'email']
+    const recommendedFields = ['business_name', 'phone', 'city']
+    
+    const isRequiredComplete = requiredFields.every(field => 
+      majstorData[field] && majstorData[field].trim().length > 0
+    )
+    
+    // Need AT LEAST 2 out of 3 recommended fields
+    const validRecommendedCount = recommendedFields.filter(field => 
+      majstorData[field] && majstorData[field].trim().length > 0
+    ).length
+    
+    const isRecommendedSufficient = validRecommendedCount >= 2
+    const result = isRequiredComplete && isRecommendedSufficient
+    
+    console.log('Business data check in invoices page:', {
+      requiredFields: requiredFields.map(f => ({ [f]: majstorData[f] || 'MISSING' })),
+      validRecommendedCount,
+      isRequiredComplete,
+      isRecommendedSufficient,
+      finalResult: result
+    })
+    
+    return result
   }
-}, [])
+
+  // Customer data from URL handling
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.has('customerName')) {
+        setCreateType('invoice')
+        setIsEditMode(false)
+        setEditingItem({
+          customer_name: urlParams.get('customerName'),
+          customer_email: urlParams.get('customerEmail'),
+          customer_phone: urlParams.get('customerPhone'),
+          customer_address: urlParams.get('customerAddress')
+        })
+        setShowCreateModal(true)
+        
+        // Clear URL parameters
+        window.history.replaceState({}, '', '/dashboard/invoices')
+      }
+    }
+  }, [])
+
   useEffect(() => {
     loadMajstorAndData()
   }, [])
@@ -86,17 +177,25 @@ useEffect(() => {
 
       setMajstor(majstorData)
       
-      // Load settings from majstor data
+      // ENHANCED: Load settings including business profile data
       setSettingsData({
+        // Tax settings
         is_kleinunternehmer: majstorData.is_kleinunternehmer || false,
         tax_number: majstorData.tax_number || '',
         vat_id: majstorData.vat_id || '',
         default_tax_rate: majstorData.default_tax_rate || 19.00,
+        // Bank data
         iban: majstorData.iban || '',
         bic: majstorData.bic || '',
         bank_name: majstorData.bank_name || '',
+        // Payment settings
         payment_terms_days: majstorData.payment_terms_days || 14,
-        invoice_footer: majstorData.invoice_footer || ''
+        invoice_footer: majstorData.invoice_footer || '',
+        // ENHANCED: Business profile data
+        business_name: majstorData.business_name || '',
+        phone: majstorData.phone || '',
+        city: majstorData.city || '',
+        address: majstorData.address || ''
       })
       
       await loadInvoicesData(majstorData.id)
@@ -157,7 +256,7 @@ useEffect(() => {
     return quoteInvoiceMap.hasOwnProperty(quoteId)
   }
 
-  // NOVO: Handle edit button click
+  // Handle edit button click
   const handleEditClick = (item) => {
     console.log('Editing item:', item)
     setEditingItem(item)
@@ -166,7 +265,7 @@ useEffect(() => {
     setShowCreateModal(true)
   }
 
-  // NOVO: Handle create success (both create and edit)
+  // Handle create success (both create and edit)
   const handleCreateSuccess = (newData) => {
     console.log('Operation successful:', newData)
     
@@ -180,7 +279,7 @@ useEffect(() => {
     }
   }
 
-  // NOVO: Handle modal close
+  // Handle modal close
   const handleModalClose = () => {
     setShowCreateModal(false)
     setEditingItem(null)
@@ -212,7 +311,6 @@ useEffect(() => {
 
   // Helper funkcija za proveru da li je faktura prestara  
   const isInvoiceOverdue = (invoice) => {
-    // Prihvata 'draft' i 'sent' status
     if (invoice.status !== 'sent' && invoice.status !== 'draft') {
       return false
     }
@@ -248,211 +346,189 @@ useEffect(() => {
     return Math.max(0, diffDays)
   }
 
-  // ISPRAVLJENA convertQuoteToInvoice funkcija - replace u invoices/page.js
+  // Convert quote to invoice
+  const convertQuoteToInvoice = async (quote) => {
+    try {
+      console.log('Converting quote to invoice:', quote.quote_number)
 
-// BULLETPROOF convertQuoteToInvoice FUNKCIJA
-// Garantovano jedinstveni brojevi koristeći timestamp + random
-
-// ZAMENI convertQuoteToInvoice funkciju u invoices/page.js
-
-const convertQuoteToInvoice = async (quote) => {
-  try {
-    console.log('🔄 Converting quote to invoice:', quote.quote_number)
-
-    // 1. GENERIŠI JEDINSTVENI INVOICE NUMBER
-    const now = new Date()
-    const year = now.getFullYear()
-    const invoiceNumber = quote.quote_number?.replace('AN-', 'RE-') || `RE-${year}-001`
-    
-    console.log('🔢 Generated invoice number:', invoiceNumber)
-
-    // 2. PROVJERI DUPLIKAT (vrlo mala verovatnoća)
-    const { data: duplicate } = await supabase
-      .from('invoices')
-      .select('id')
-      .eq('invoice_number', invoiceNumber)
-      .maybeSingle()
-
-    let finalInvoiceNumber = invoiceNumber
-    if (duplicate) {
-      const randomSuffix = Math.floor(Math.random() * 999).toString().padStart(3, '0')
-      finalInvoiceNumber = `${invoiceNumber}-${randomSuffix}`
-      console.log('⚠️ Duplicate detected, using:', finalInvoiceNumber)
-    }
-
-    // 3. CALCULATE FINANCIAL DATA
-    const subtotal = parseFloat(quote.subtotal) || 0
-    const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
-    const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
-    const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
-    const totalAmount = subtotal + taxAmount
-
-    // 4. CALCULATE DATES
-    const issueDate = now.toISOString().split('T')[0]
-    const dueDate = new Date(now)
-    dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
-    const dueDateString = dueDate.toISOString().split('T')[0]
-
-    // 5. 🔥 PREPARE INVOICE DATA - EKSPLICITNO NAVEDENE KOLONE
-    const invoiceData = {
-      // Core identifiers
-      majstor_id: quote.majstor_id,
-      type: 'invoice',
+      // Generate unique invoice number
+      const now = new Date()
+      const year = now.getFullYear()
+      const invoiceNumber = quote.quote_number?.replace('AN-', 'RE-') || `RE-${year}-001`
       
-      // 🔥 EKSPLICITNO NAVEDENI INVOICE NUMBER
-      invoice_number: finalInvoiceNumber,
-      
-      // Customer data - EKSPLICITNO
-      customer_name: quote.customer_name,
-      customer_email: quote.customer_email,
-      customer_phone: quote.customer_phone || null,
-      customer_address: quote.customer_address || null,
-      
-      // Financial data - EKSPLICITNO
-      items: quote.items, // JSON string
-      subtotal: subtotal,
-      tax_rate: taxRate,
-      tax_amount: taxAmount,
-      total_amount: totalAmount,
-      
-      // Status and dates - EKSPLICITNO
-      status: 'draft',
-      issue_date: issueDate,
-      due_date: dueDateString,
-      
-      // Settings - EKSPLICITNO
-      payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
-      notes: quote.notes || null,
-      is_kleinunternehmer: isKleinunternehmer,
-      converted_from_quote_id: quote.id,
-      
-      // Company data - EKSPLICITNO
-      company_name: majstor?.business_name || majstor?.full_name || null,
-      company_address: majstor?.address || null,
-      tax_number: settingsData?.tax_number || null,
-      vat_id: settingsData?.vat_id || null,
-      iban: settingsData?.iban || null,
-      bic: settingsData?.bic || null,
-      bank_name: settingsData?.bank_name || null,
-      
-      // Timestamps - EKSPLICITNO
-      created_at: now.toISOString(),
-      updated_at: now.toISOString()
-    }
+      console.log('Generated invoice number:', invoiceNumber)
 
-    console.log('💾 Inserting invoice with explicit columns:', {
-      invoice_number: finalInvoiceNumber,
-      customer: invoiceData.customer_name,
-      total: totalAmount,
-      tax_rate: taxRate + '%',
-      kleinunternehmer: isKleinunternehmer
-    })
+      // Check for duplicates
+      const { data: duplicate } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('invoice_number', invoiceNumber)
+        .maybeSingle()
 
-    // 6. 🔥 INSERT SA EKSPLICITNIM SELECT - IZBEGNI AMBIGUOUS COLUMNS
-    const { data: newInvoice, error: insertError } = await supabase
-      .from('invoices')
-      .insert(invoiceData)
-      .select(`
-        id,
-        invoice_number,
-        customer_name,
-        total_amount,
-        status,
-        created_at
-      `)
-      .single()
+      let finalInvoiceNumber = invoiceNumber
+      if (duplicate) {
+        const randomSuffix = Math.floor(Math.random() * 999).toString().padStart(3, '0')
+        finalInvoiceNumber = `${invoiceNumber}-${randomSuffix}`
+        console.log('Duplicate detected, using:', finalInvoiceNumber)
+      }
 
-    if (insertError) {
-      console.error('❌ Database insert error:', insertError)
-      throw new Error(`Database error: ${insertError.message}`)
-    }
+      // Calculate financial data
+      const subtotal = parseFloat(quote.subtotal) || 0
+      const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
+      const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
+      const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
+      const totalAmount = subtotal + taxAmount
 
-    if (!newInvoice) {
-      throw new Error('No invoice data returned from database')
-    }
+      // Calculate dates
+      const issueDate = now.toISOString().split('T')[0]
+      const dueDate = new Date(now)
+      dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
+      const dueDateString = dueDate.toISOString().split('T')[0]
 
-    console.log('✅ Invoice successfully created:', newInvoice)
-
-    // 7. UPDATE QUOTE STATUS TO CONVERTED
-    const { error: quoteUpdateError } = await supabase
-      .from('invoices')
-      .update({ 
-        status: 'converted',
+      // Prepare invoice data
+      const invoiceData = {
+        majstor_id: quote.majstor_id,
+        type: 'invoice',
+        invoice_number: finalInvoiceNumber,
+        customer_name: quote.customer_name,
+        customer_email: quote.customer_email,
+        customer_phone: quote.customer_phone || null,
+        customer_address: quote.customer_address || null,
+        items: quote.items,
+        subtotal: subtotal,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total_amount: totalAmount,
+        status: 'draft',
+        issue_date: issueDate,
+        due_date: dueDateString,
+        payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
+        notes: quote.notes || null,
+        is_kleinunternehmer: isKleinunternehmer,
+        converted_from_quote_id: quote.id,
+        company_name: majstor?.business_name || majstor?.full_name || null,
+        company_address: majstor?.address || null,
+        tax_number: settingsData?.tax_number || null,
+        vat_id: settingsData?.vat_id || null,
+        iban: settingsData?.iban || null,
+        bic: settingsData?.bic || null,
+        bank_name: settingsData?.bank_name || null,
+        created_at: now.toISOString(),
         updated_at: now.toISOString()
+      }
+
+      console.log('Inserting invoice with explicit columns:', {
+        invoice_number: finalInvoiceNumber,
+        customer: invoiceData.customer_name,
+        total: totalAmount,
+        tax_rate: taxRate + '%',
+        kleinunternehmer: isKleinunternehmer
       })
-      .eq('id', quote.id)
 
-    if (quoteUpdateError) {
-      console.warn('⚠️ Could not update quote status:', quoteUpdateError.message)
-    } else {
-      console.log('✅ Quote status updated to converted')
+      // Insert with explicit select
+      const { data: newInvoice, error: insertError } = await supabase
+        .from('invoices')
+        .insert(invoiceData)
+        .select(`
+          id,
+          invoice_number,
+          customer_name,
+          total_amount,
+          status,
+          created_at
+        `)
+        .single()
+
+      if (insertError) {
+        console.error('Database insert error:', insertError)
+        throw new Error(`Database error: ${insertError.message}`)
+      }
+
+      if (!newInvoice) {
+        throw new Error('No invoice data returned from database')
+      }
+
+      console.log('Invoice successfully created:', newInvoice)
+
+      // Update quote status to converted
+      const { error: quoteUpdateError } = await supabase
+        .from('invoices')
+        .update({ 
+          status: 'converted',
+          updated_at: now.toISOString()
+        })
+        .eq('id', quote.id)
+
+      if (quoteUpdateError) {
+        console.warn('Could not update quote status:', quoteUpdateError.message)
+      } else {
+        console.log('Quote status updated to converted')
+      }
+
+      // Refresh data in UI
+      console.log('Refreshing invoices data...')
+      
+      if (majstor?.id) {
+        await loadInvoicesData(majstor.id)
+      }
+      
+      // Show success message
+      const successMessage = [
+        `Erfolgreich umgewandelt!`,
+        ``,
+        `Angebot: ${quote.quote_number}`,
+        `Rechnung: ${newInvoice.invoice_number}`,
+        ``,
+        `Kunde: ${newInvoice.customer_name}`,
+        `Betrag: ${formatCurrency(newInvoice.total_amount)}`,
+        `Status: ${newInvoice.status}`,
+        ``
+      ].join('\n')
+
+      alert(successMessage)
+
+      return newInvoice
+
+    } catch (error) {
+      console.error('Conversion failed with error:', error)
+      
+      let userMessage = 'Conversion failed'
+      let technicalDetails = error.message || 'Unknown error'
+      
+      if (error.message?.includes('duplicate key')) {
+        userMessage = 'Rechnungsnummer bereits vergeben'
+        technicalDetails = 'Database constraint violation'
+      } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
+        userMessage = 'Keine Berechtigung für diese Aktion'
+        technicalDetails = 'Row Level Security or permissions issue'
+      } else if (error.message?.includes('connection') || error.message?.includes('network')) {
+        userMessage = 'Netzwerkfehler'
+        technicalDetails = 'Database connection failed'
+      } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+        userMessage = 'Ungültige Daten'
+        technicalDetails = 'Data validation failed'
+      } else if (error.message?.includes('ambiguous')) {
+        userMessage = 'Datenbankfehler - Kolumnenproblem'
+        technicalDetails = 'Column reference ambiguity in database'
+      }
+
+      const errorMessage = [
+        `${userMessage}`,
+        ``,
+        `Angebot: ${quote.quote_number}`,
+        `Kunde: ${quote.customer_name}`,
+        ``,
+        `Technische Details:`,
+        technicalDetails,
+        ``,
+        `Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
+      ].join('\n')
+
+      alert(errorMessage)
+      
+      throw error
     }
-
-    // 8. REFRESH DATA IN UI
-    console.log('🔄 Refreshing invoices data...')
-    
-    if (majstor?.id) {
-      await loadInvoicesData(majstor.id)
-    }
-    
-    // 9. SHOW SUCCESS MESSAGE
-    const successMessage = [
-      `✅ Erfolgreich umgewandelt!`,
-      ``,
-      `Angebot: ${quote.quote_number}`,
-      `Rechnung: ${newInvoice.invoice_number}`,
-      ``,
-      `Kunde: ${newInvoice.customer_name}`,
-      `Betrag: ${formatCurrency(newInvoice.total_amount)}`,
-      `Status: ${newInvoice.status}`,
-      ``
-    ].join('\n')
-
-    alert(successMessage)
-
-    return newInvoice
-
-  } catch (error) {
-    console.error('💥 Conversion failed with error:', error)
-    
-    // DETAILED ERROR REPORTING
-    let userMessage = 'Conversion failed'
-    let technicalDetails = error.message || 'Unknown error'
-    
-    if (error.message?.includes('duplicate key')) {
-      userMessage = 'Rechnungsnummer bereits vergeben'
-      technicalDetails = 'Database constraint violation'
-    } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
-      userMessage = 'Keine Berechtigung für diese Aktion'
-      technicalDetails = 'Row Level Security or permissions issue'
-    } else if (error.message?.includes('connection') || error.message?.includes('network')) {
-      userMessage = 'Netzwerkfehler'
-      technicalDetails = 'Database connection failed'
-    } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
-      userMessage = 'Ungültige Daten'
-      technicalDetails = 'Data validation failed'
-    } else if (error.message?.includes('ambiguous')) {
-      userMessage = 'Datenbankfehler - Kolumnenproblem'
-      technicalDetails = 'Column reference ambiguity in database'
-    }
-
-    const errorMessage = [
-      `❌ ${userMessage}`,
-      ``,
-      `Angebot: ${quote.quote_number}`,
-      `Kunde: ${quote.customer_name}`,
-      ``,
-      `Technische Details:`,
-      technicalDetails,
-      ``,
-      `Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
-    ].join('\n')
-
-    alert(errorMessage)
-    
-    throw error
   }
-}
 
   // Delete invoice with safety checks
   const handleDeleteInvoice = async (invoice) => {
@@ -460,13 +536,11 @@ const convertQuoteToInvoice = async (quote) => {
     const documentType = isQuote ? 'Angebot' : 'Rechnung'
     const documentNumber = isQuote ? invoice.quote_number : invoice.invoice_number
     
-    // Za quote - proveravaj da li ima fakturu (ne sme da se briše)
     if (isQuote && quoteHasInvoice(invoice.id)) {
-      alert('⚠ Dieses Angebot kann nicht gelöscht werden da bereits eine Rechnung daraus erstellt wurde.\n\nLöschen Sie zuerst die Rechnung.')
+      alert('Dieses Angebot kann nicht gelöscht werden da bereits eine Rechnung daraus erstellt wurde.\n\nLöschen Sie zuerst die Rechnung.')
       return
     }
     
-    // Za invoice - proveravaj da li postoji quote
     let linkedQuote = null
     if (!isQuote && invoice.converted_from_quote_id) {
       try {
@@ -485,7 +559,7 @@ const convertQuoteToInvoice = async (quote) => {
     let confirmMessage = `Möchten Sie die ${documentType} ${documentNumber} wirklich löschen?\n\n`
     
     if (linkedQuote) {
-      confirmMessage += `⚠️ Diese Rechnung wurde aus dem Angebot ${linkedQuote.quote_number} erstellt.\n\n`
+      confirmMessage += `Diese Rechnung wurde aus dem Angebot ${linkedQuote.quote_number} erstellt.\n\n`
     }
     
     confirmMessage += `Diese Aktion kann NICHT rückgängig gemacht werden!\n\n`
@@ -495,7 +569,7 @@ const convertQuoteToInvoice = async (quote) => {
     
     if (userInput !== documentNumber) {
       if (userInput !== null) {
-        alert('⚠ Bestätigung fehlgeschlagen. Löschen abgebrochen.')
+        alert('Bestätigung fehlgeschlagen. Löschen abgebrochen.')
       }
       return
     }
@@ -532,16 +606,16 @@ const convertQuoteToInvoice = async (quote) => {
       }
       
       if (deletedCount === 1) {
-        alert(`✅ ${documentType} ${documentNumber} wurde gelöscht.`)
+        alert(`${documentType} ${documentNumber} wurde gelöscht.`)
       } else {
-        alert(`✅ ${deletedCount} Dokumente wurden gelöscht: ${deletedDocs.join(', ')}`)
+        alert(`${deletedCount} Dokumente wurden gelöscht: ${deletedDocs.join(', ')}`)
       }
       
       await loadInvoicesData(majstor.id)
       
     } catch (err) {
       console.error('Error deleting invoice:', err)
-      alert('⚠ Fehler beim Löschen: ' + err.message)
+      alert('Fehler beim Löschen: ' + err.message)
     }
   }
 
@@ -559,12 +633,12 @@ const convertQuoteToInvoice = async (quote) => {
       
       if (error) throw error
       
-      alert(`✅ Rechnung ${invoice.invoice_number} wurde als bezahlt markiert.`)
+      alert(`Rechnung ${invoice.invoice_number} wurde als bezahlt markiert.`)
       await loadInvoicesData(majstor.id)
       
     } catch (err) {
       console.error('Error marking as paid:', err)
-      alert('⚠ Fehler: ' + err.message)
+      alert('Fehler: ' + err.message)
     }
   }
 
@@ -589,52 +663,12 @@ const convertQuoteToInvoice = async (quote) => {
       
       if (error) throw error
       
-      alert(`✅ Rechnung ${invoice.invoice_number} wurde als "Gesendet" markiert.`)
+      alert(`Rechnung ${invoice.invoice_number} wurde als "Gesendet" markiert.`)
       await loadInvoicesData(majstor.id)
       
     } catch (err) {
       console.error('Error undoing paid status:', err)
-      alert('⚠ Fehler: ' + err.message)
-    }
-  }
-
-  // Save settings
-  const handleSaveSettings = async () => {
-    setSettingsLoading(true)
-    setSettingsError('')
-
-    try {
-      const { error } = await supabase
-        .from('majstors')
-        .update({
-          is_kleinunternehmer: settingsData.is_kleinunternehmer,
-          tax_number: settingsData.tax_number || null,
-          vat_id: settingsData.vat_id || null,
-          default_tax_rate: settingsData.default_tax_rate,
-          iban: settingsData.iban || null,
-          bic: settingsData.bic || null,
-          bank_name: settingsData.bank_name || null,
-          payment_terms_days: settingsData.payment_terms_days,
-          invoice_footer: settingsData.invoice_footer || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', majstor.id)
-
-      if (error) throw error
-
-      // Update local majstor state
-      setMajstor(prev => ({
-        ...prev,
-        ...settingsData
-      }))
-
-      alert('✅ Einstellungen erfolgreich gespeichert!')
-
-    } catch (err) {
-      console.error('Error saving settings:', err)
-      setSettingsError('Fehler beim Speichern: ' + err.message)
-    } finally {
-      setSettingsLoading(false)
+      alert('Fehler: ' + err.message)
     }
   }
 
@@ -695,7 +729,7 @@ const convertQuoteToInvoice = async (quote) => {
                     {hasInvoice && (
                       <div className="mt-2">
                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300 text-xs">
-                          🔗 Hat zugehörige Rechnung
+                          Hat zugehörige Rechnung
                         </span>
                       </div>
                     )}
@@ -729,46 +763,42 @@ const convertQuoteToInvoice = async (quote) => {
 
                 <div className="flex gap-3 flex-wrap">
                   <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    📄 PDF ansehen
+                    PDF ansehen
                   </button>
                   
-                  {/* NOVO: Edit button */}
                   <button 
                     onClick={() => handleEditClick(quote)}
                     className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                   >
-                    ✏️ Bearbeiten
+                    Bearbeiten
                   </button>
                   
                   <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    📧 Per E-Mail senden
+                    Per E-Mail senden
                   </button>
                   
-                  {/* Convert to invoice - samo ako nije converted */}
                   {quote.status !== 'converted' && !hasInvoice && (
                     <button
                       onClick={() => convertQuoteToInvoice(quote)}
                       className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
                     >
-                      📄 In Rechnung umwandeln
+                      In Rechnung umwandeln
                     </button>
                   )}
                   
-                  {/* Delete button - SAMO AKO NEMA FAKTURU */}
                   {!hasInvoice && (
                     <button 
                       onClick={() => handleDeleteInvoice(quote)}
                       className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
                       title="Angebot löschen"
                     >
-                      🗑️ Löschen
+                      Löschen
                     </button>
                   )}
                   
-                  {/* Info ako ima fakturu */}
                   {hasInvoice && (
                     <div className="text-slate-400 text-xs italic px-3 py-2">
-                      ℹ️ Kann nicht gelöscht werden - hat zugehörige Rechnung
+                      Kann nicht gelöscht werden - hat zugehörige Rechnung
                     </div>
                   )}
                 </div>
@@ -816,13 +846,12 @@ const convertQuoteToInvoice = async (quote) => {
                     <div className="flex items-center gap-2">
                       <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
                       
-                      {/* Overdue ikonica */}
                       {overdueStatus && (
                         <div 
                           className="flex items-center gap-1 text-orange-400 text-sm cursor-help bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20"
                           title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
                         >
-                          🕐 <span className="text-xs font-medium">{daysOverdue}d</span>
+                          <span className="text-xs font-medium">{daysOverdue}d</span>
                         </div>
                       )}
                     </div>
@@ -831,7 +860,7 @@ const convertQuoteToInvoice = async (quote) => {
                     {invoice.converted_from_quote_id && (
                       <div className="mt-2">
                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-green-300 text-xs">
-                          📋 Aus Angebot erstellt
+                          Aus Angebot erstellt
                         </span>
                       </div>
                     )}
@@ -866,28 +895,26 @@ const convertQuoteToInvoice = async (quote) => {
 
                 <div className="flex gap-3 flex-wrap">
                   <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    📄 PDF ansehen
+                    PDF ansehen
                   </button>
                   
-                  {/* NOVO: Edit button */}
                   <button 
                     onClick={() => handleEditClick(invoice)}
                     className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                   >
-                    ✏️ Bearbeiten
+                    Bearbeiten
                   </button>
                   
                   <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    📧 Per E-Mail senden
+                    Per E-Mail senden
                   </button>
                   
-                  {/* Payment buttons - simple logic */}
                   {(invoice.status === 'draft' || invoice.status === 'sent') && (
                     <button
                       onClick={() => handleMarkAsPaid(invoice)}
                       className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
                     >
-                      ✅ Als bezahlt markieren
+                      Als bezahlt markieren
                     </button>
                   )}
 
@@ -896,17 +923,16 @@ const convertQuoteToInvoice = async (quote) => {
                       onClick={() => handleUndoPaid(invoice)}
                       className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
                     >
-                      🔄 Bezahlung rückgängig
+                      Bezahlung rückgängig
                     </button>
                   )}
                   
-                  {/* Delete button */}
                   <button 
                     onClick={() => handleDeleteInvoice(invoice)}
                     className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
                     title="Rechnung löschen"
                   >
-                    🗑️ Löschen
+                    Löschen
                   </button>
                 </div>
               </div>
@@ -917,256 +943,382 @@ const convertQuoteToInvoice = async (quote) => {
     </div>
   )
 
-// FIXED SETTINGS TAB - Zamenjuje SettingsTab funkciju u invoices/page.js
+  // ENHANCED: UPDATED SETTINGS TAB with business profile fields
+  const SettingsTab = () => {
+    const [localSettings, setLocalSettings] = useState(settingsData)
+    const [hasChanges, setHasChanges] = useState(false)
 
-const SettingsTab = () => {
-  // NOVO: Lokalni state za form kontrolu
-  const [localSettings, setLocalSettings] = useState(settingsData)
-  const [hasChanges, setHasChanges] = useState(false)
+    useEffect(() => {
+      setLocalSettings(settingsData)
+      setHasChanges(false)
+    }, [settingsData])
 
-  // Update lokalni state kad se glavni settingsData promeni
-  useEffect(() => {
-    setLocalSettings(settingsData)
-    setHasChanges(false)
-  }, [settingsData])
+    const handleLocalChange = (e) => {
+      const { name, value, type, checked } = e.target
+      const newValue = type === 'checkbox' ? checked : value
+      
+      setLocalSettings(prev => ({
+        ...prev,
+        [name]: newValue
+      }))
+      setHasChanges(true)
+    }
 
-  // NOVO: Handler za lokalne promene
-  const handleLocalChange = (e) => {
-    const { name, value, type, checked } = e.target
-    const newValue = type === 'checkbox' ? checked : value
-    
-    setLocalSettings(prev => ({
-      ...prev,
-      [name]: newValue
-    }))
-    setHasChanges(true)
-  }
+    // ENHANCED: Save function with proper state synchronization
+    const handleLocalSave = async () => {
+      setSettingsLoading(true)
+      setSettingsError('')
 
-  // NOVO: Save function koja koristi lokalni state
-  const handleLocalSave = async () => {
-    setSettingsLoading(true)
-    setSettingsError('')
-
-    try {
-      const { error } = await supabase
-        .from('majstors')
-        .update({
+      try {
+        const updateData = {
+          // Tax settings
           is_kleinunternehmer: localSettings.is_kleinunternehmer,
           tax_number: localSettings.tax_number || null,
           vat_id: localSettings.vat_id || null,
           default_tax_rate: localSettings.default_tax_rate,
+          // Bank data
           iban: localSettings.iban || null,
           bic: localSettings.bic || null,
           bank_name: localSettings.bank_name || null,
+          // Payment settings
           payment_terms_days: localSettings.payment_terms_days,
           invoice_footer: localSettings.invoice_footer || null,
+          // ENHANCED: Business profile data
+          business_name: localSettings.business_name || null,
+          phone: localSettings.phone || null,
+          city: localSettings.city || null,
+          address: localSettings.address || null,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', majstor.id)
+        }
 
-      if (error) throw error
+        const { error } = await supabase
+          .from('majstors')
+          .update(updateData)
+          .eq('id', majstor.id)
 
-      // Update glavni state
-      setSettingsData(localSettings)
-      setMajstor(prev => ({
-        ...prev,
-        ...localSettings
-      }))
+        if (error) throw error
 
-      setHasChanges(false)
-      alert('✅ Einstellungen erfolgreich gespeichert!')
-
-    } catch (err) {
-      console.error('Error saving settings:', err)
-      setSettingsError('Fehler beim Speichern: ' + err.message)
-    } finally {
-      setSettingsLoading(false)
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-white">Rechnungseinstellungen</h3>
-      
-      <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
+        // CRITICAL: Properly sync ALL state
+        const newMajstorData = { ...majstor, ...localSettings }
         
-        {/* Steuer Einstellungen */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
-          <h4 className="text-white font-semibold mb-4">Steuer-Einstellungen</h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Kleinunternehmer Checkbox */}
-            <div className="md:col-span-2">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="local_kleinunternehmer"
-                  name="is_kleinunternehmer"
-                  checked={localSettings.is_kleinunternehmer}
-                  onChange={handleLocalChange}
-                  className="mr-3 w-4 h-4 text-blue-600 bg-slate-700 border-slate-500 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="local_kleinunternehmer" className="text-slate-300">
-                  Kleinunternehmer nach §19 UStG (keine Mehrwertsteuer)
-                </label>
-              </div>
-              <p className="text-xs text-slate-500 mt-2">
-                Diese Einstellung wird automatisch für alle neuen Rechnungen verwendet
+        setSettingsData(localSettings)
+        setMajstor(newMajstorData)  // This triggers business data recheck!
+
+        setHasChanges(false)
+        
+        // Check completion with updated data
+        const isNowComplete = isBusinessDataComplete(newMajstorData)
+        
+        console.log('Settings saved and states synchronized:', {
+          pendingInvoiceCreation,
+          pendingInvoiceType,
+          businessDataWasComplete: isBusinessDataComplete(majstor),
+          businessDataNowComplete: isNowComplete,
+          updatedFields: Object.keys(updateData)
+        })
+        
+        if (pendingInvoiceCreation) {
+          if (isNowComplete) {
+            alert('Einstellungen gespeichert!\n\nSie werden jetzt zur Rechnungserstellung weitergeleitet...')
+          } else {
+            alert('Einstellungen gespeichert!\n\nFür professionelle Rechnungen fehlen noch einige Daten.')
+          }
+        } else {
+          alert('Einstellungen erfolgreich gespeichert!')
+        }
+
+      } catch (err) {
+        console.error('Error saving settings:', err)
+        setSettingsError('Fehler beim Speichern: ' + err.message)
+      } finally {
+        setSettingsLoading(false)
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">Rechnungseinstellungen</h3>
+          {pendingInvoiceCreation && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-2">
+              <p className="text-blue-300 text-sm">
+                Nach dem Speichern wird automatisch zur Rechnungserstellung zurückgekehrt
               </p>
             </div>
+          )}
+        </div>
+        
+        <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
+          
+          {/* ENHANCED: Geschäftsprofil Section */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
+            <h4 className="text-white font-semibold mb-2">Geschäftsprofil</h4>
+            <p className="text-slate-400 text-sm mb-4">
+              Diese Daten erscheinen auf Ihren Rechnungen und sind für professionelle Dokumente erforderlich.
+            </p>
             
-            {/* Tax Rate - nur ako nije Kleinunternehmer */}
-            {!localSettings.is_kleinunternehmer && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Business Name */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Firmenname *
+                  <span className="text-slate-500 text-xs ml-1">(erscheint auf Rechnungen)</span>
+                </label>
+                <input
+                  type="text"
+                  name="business_name"
+                  value={localSettings.business_name || ''}
+                  onChange={handleLocalChange}
+                  placeholder="z.B. Mustermann Handwerk GmbH"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
+                />
+              </div>
+              
+              {/* Phone */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Standard MwSt. Satz (%)</label>
-                <select
-                  name="default_tax_rate"
-                  value={localSettings.default_tax_rate}
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Telefonnummer *
+                  <span className="text-slate-500 text-xs ml-1">(für Kundenanfragen)</span>
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={localSettings.phone || ''}
+                  onChange={handleLocalChange}
+                  placeholder="+49 123 456789"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
+                />
+              </div>
+              
+              {/* City */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Stadt/Ort *
+                  <span className="text-slate-500 text-xs ml-1">(Geschäftssitz)</span>
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={localSettings.city || ''}
+                  onChange={handleLocalChange}
+                  placeholder="Berlin"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
+                />
+              </div>
+              
+              {/* Optional: Address */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Geschäftsadresse (optional)
+                  <span className="text-slate-500 text-xs ml-1">(vollständige Adresse für Rechnungen)</span>
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={localSettings.address || ''}
+                  onChange={handleLocalChange}
+                  placeholder="Musterstraße 123, 10115 Berlin"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            
+            {/* Info Box */}
+            <div className="mt-4 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <span className="text-blue-400 text-sm">💡</span>
+                <div>
+                  <p className="text-blue-300 text-sm font-medium mb-1">
+                    Warum sind diese Daten wichtig?
+                  </p>
+                  <ul className="text-blue-200 text-xs space-y-1">
+                    <li>• Firmenname erscheint als Absender auf allen Rechnungen</li>
+                    <li>• Telefonnummer ermöglicht Kunden direkten Kontakt</li>
+                    <li>• Stadt/Ort wird für lokale Auffindbarkeit benötigt</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Steuer Einstellungen */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
+            <h4 className="text-white font-semibold mb-4">Steuer-Einstellungen</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="local_kleinunternehmer"
+                    name="is_kleinunternehmer"
+                    checked={localSettings.is_kleinunternehmer}
+                    onChange={handleLocalChange}
+                    className="mr-3 w-4 h-4 text-blue-600 bg-slate-700 border-slate-500 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="local_kleinunternehmer" className="text-slate-300">
+                    Kleinunternehmer nach §19 UStG (keine Mehrwertsteuer)
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Diese Einstellung wird automatisch für alle neuen Rechnungen verwendet
+                </p>
+              </div>
+              
+              {!localSettings.is_kleinunternehmer && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Standard MwSt. Satz (%)</label>
+                  <select
+                    name="default_tax_rate"
+                    value={localSettings.default_tax_rate}
+                    onChange={handleLocalChange}
+                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  >
+                    <option value="19">19% (Regelsteuersatz)</option>
+                    <option value="7">7% (ermäßigter Steuersatz)</option>
+                    <option value="0">0% (steuerbefreit)</option>
+                  </select>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Steuernummer</label>
+                <input
+                  type="text"
+                  name="tax_number"
+                  value={localSettings.tax_number}
+                  onChange={handleLocalChange}
+                  placeholder="12/345/67890"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">USt-IdNr (optional)</label>
+                <input
+                  type="text"
+                  name="vat_id"
+                  value={localSettings.vat_id}
+                  onChange={handleLocalChange}
+                  placeholder="DE123456789"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bankdaten */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
+            <h4 className="text-white font-semibold mb-4">Bankdaten</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">IBAN</label>
+                <input
+                  type="text"
+                  name="iban"
+                  value={localSettings.iban}
+                  onChange={handleLocalChange}
+                  placeholder="DE89 3704 0044 0532 0130 00"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">BIC</label>
+                <input
+                  type="text"
+                  name="bic"
+                  value={localSettings.bic}
+                  onChange={handleLocalChange}
+                  placeholder="COBADEFFXXX"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">Bank</label>
+                <input
+                  type="text"
+                  name="bank_name"
+                  value={localSettings.bank_name}
+                  onChange={handleLocalChange}
+                  placeholder="Commerzbank Berlin"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Zahlungsbedingungen */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
+            <h4 className="text-white font-semibold mb-4">Zahlungsbedingungen</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Standard Zahlungsziel</label>
+                <select 
+                  name="payment_terms_days"
+                  value={localSettings.payment_terms_days}
                   onChange={handleLocalChange}
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                 >
-                  <option value="19">19% (Regelsteuersatz)</option>
-                  <option value="7">7% (ermäßigter Steuersatz)</option>
-                  <option value="0">0% (steuerbefreit)</option>
+                  <option value="7">7 Tage</option>
+                  <option value="14">14 Tage</option>
+                  <option value="30">30 Tage</option>
                 </select>
               </div>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Steuernummer</label>
-              <input
-                type="text"
-                name="tax_number"
-                value={localSettings.tax_number}
-                onChange={handleLocalChange}
-                placeholder="12/345/67890"
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">USt-IdNr (optional)</label>
-              <input
-                type="text"
-                name="vat_id"
-                value={localSettings.vat_id}
-                onChange={handleLocalChange}
-                placeholder="DE123456789"
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              />
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Rechnungs-Fußzeile</label>
+                <textarea
+                  name="invoice_footer"
+                  value={localSettings.invoice_footer}
+                  onChange={handleLocalChange}
+                  placeholder="z.B. Vielen Dank für Ihr Vertrauen!"
+                  rows={2}
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Bankdaten */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
-          <h4 className="text-white font-semibold mb-4">Bankdaten</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">IBAN</label>
-              <input
-                type="text"
-                name="iban"
-                value={localSettings.iban}
-                onChange={handleLocalChange}
-                placeholder="DE89 3704 0044 0532 0130 00"
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              />
+          {/* Error Display */}
+          {settingsError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+              <p className="text-red-400">{settingsError}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">BIC</label>
-              <input
-                type="text"
-                name="bic"
-                value={localSettings.bic}
-                onChange={handleLocalChange}
-                placeholder="COBADEFFXXX"
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-300 mb-2">Bank</label>
-              <input
-                type="text"
-                name="bank_name"
-                value={localSettings.bank_name}
-                onChange={handleLocalChange}
-                placeholder="Commerzbank Berlin"
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              />
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Zahlungsbedingungen */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
-          <h4 className="text-white font-semibold mb-4">Zahlungsbedingungen</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Standard Zahlungsziel</label>
-              <select 
-                name="payment_terms_days"
-                value={localSettings.payment_terms_days}
-                onChange={handleLocalChange}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              >
-                <option value="7">7 Tage</option>
-                <option value="14">14 Tage</option>
-                <option value="30">30 Tage</option>
-              </select>
+          {/* Changes Indicator */}
+          {hasChanges && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-400">⚠️</span>
+                <p className="text-yellow-300">Sie haben ungespeicherte Änderungen.</p>
+              </div>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Rechnungs-Fußzeile</label>
-              <textarea
-                name="invoice_footer"
-                value={localSettings.invoice_footer}
-                onChange={handleLocalChange}
-                placeholder="z.B. Vielen Dank für Ihr Vertrauen!"
-                rows={2}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              />
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Error Display */}
-        {settingsError && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-            <p className="text-red-400">{settingsError}</p>
-          </div>
-        )}
-
-        {/* Changes Indicator */}
-        {hasChanges && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-400">⚠️</span>
-              <p className="text-yellow-300">Sie haben ungespeicherte Änderungen.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Save Button */}
-        <button 
-          type="submit"
-          disabled={settingsLoading || !hasChanges}
-          className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-            hasChanges
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-slate-600 text-slate-400 cursor-not-allowed'
-          } disabled:opacity-50`}
-        >
-          {settingsLoading ? 'Speichern...' : 'Einstellungen speichern'}
-        </button>
-        
-        <p className="text-xs text-slate-500 mt-2">
-          Diese Einstellungen werden automatisch für alle neuen Rechnungen und Angebote verwendet.
-        </p>
-      </form>
-    </div>
-  )
-}
+          {/* Save Button */}
+          <button 
+            type="submit"
+            disabled={settingsLoading || !hasChanges}
+            className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+              hasChanges
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+            } disabled:opacity-50`}
+          >
+            {settingsLoading ? 'Speichern...' : 'Einstellungen speichern'}
+          </button>
+          
+          <p className="text-xs text-slate-500 mt-2">
+            Diese Einstellungen werden automatisch für alle neuen Rechnungen und Angebote verwendet.
+          </p>
+        </form>
+      </div>
+    )
+  }
 
   const tabs = [
     { id: 'quotes', name: 'Angebote', count: quotes.length },
@@ -1266,13 +1418,19 @@ const SettingsTab = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* TABS with URL parameter handling */}
       <div className="border-b border-slate-700">
         <nav className="flex space-x-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                // Update URL without refresh
+                const url = new URL(window.location.href)
+                url.searchParams.set('tab', tab.id)
+                window.history.replaceState({}, '', url.toString())
+              }}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-400'
@@ -1297,7 +1455,7 @@ const SettingsTab = () => {
         {activeTab === 'settings' && <SettingsTab />}
       </div>
 
-      {/* NOVO: Create/Edit Modal */}
+      {/* Create/Edit Modal */}
       {showCreateModal && (
         <InvoiceCreator
           isOpen={showCreateModal}
@@ -1305,8 +1463,8 @@ const SettingsTab = () => {
           type={createType}
           majstor={majstor}
           onSuccess={handleCreateSuccess}
-          editData={editingItem} // NOVO: pass editing data
-          isEditMode={isEditMode} // NOVO: pass edit mode flag
+          editData={editingItem}
+          isEditMode={isEditMode}
         />
       )}
     </div>
