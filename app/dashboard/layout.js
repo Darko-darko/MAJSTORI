@@ -546,7 +546,7 @@ function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
 export default function DashboardLayout({ children }) {  // <- children prop
   return (
     <Suspense fallback={<div className="text-white">Laden...</div>}>
-      <DashboardLayoutContent children={children} />  
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
     </Suspense>
   )
 }
