@@ -1,18 +1,18 @@
-// app/dashboard/services/page.js - COMPLETE WITH WORKING STATS
+// app/dashboard/services/page.js - SUSPENSE WRAPPED WITH ALL FUNCTIONALITY
 
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-export default function ServicesPage() {
+function ServicesPageContent() {
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [majstor, setMajstor] = useState(null)
   
-  // 🔥 NOVO: Service stats state
+  // Service stats state
   const [serviceStats, setServiceStats] = useState({
     totalServices: 0,
     mostPopular: null,
@@ -55,14 +55,14 @@ export default function ServicesPage() {
     }
   }, [searchTerm, sortBy, sortOrder, filterBySource, majstor?.id])
 
-  // 🔥 NOVO: Calculate stats when services change
+  // Calculate stats when services change
   useEffect(() => {
     if (majstor?.id && services.length >= 0) {
       calculateServiceStats()
     }
   }, [services, majstor?.id])
 
-  // 🔥 NOVO: Function to calculate service statistics
+  // Function to calculate service statistics
   const calculateServiceStats = async () => {
   try {
     if (!majstor?.id || services.length === 0) {
@@ -77,7 +77,7 @@ export default function ServicesPage() {
     // 1. Total services
     const totalServices = services.length
 
-    // 🔥 PRVO dohvati samo PLAĆENE FAKTURE
+    // Fetch only PAID invoices
 const { data: invoices, error } = await supabase
   .from('invoices')
   .select('items')
@@ -138,7 +138,7 @@ const { data: invoices, error } = await supabase
       averagePrice
     })
 
-    console.log('📊 Service stats calculated:', {
+    console.log('Service stats calculated:', {
       totalServices,
       mostPopular,
       averagePrice
@@ -153,7 +153,8 @@ const { data: invoices, error } = await supabase
     })
   }
 }
-  // 🔥 NOVO: Format currency function
+
+  // Format currency function
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -483,7 +484,7 @@ const { data: invoices, error } = await supabase
         </div>
       )}
 
-      {/* 🔥 NOVO: Updated Stats Cards */}
+      {/* Updated Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Services */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
@@ -811,5 +812,17 @@ const { data: invoices, error } = await supabase
         </div>
       )}
     </div>
+  )
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white text-xl">Laden...</div>
+      </div>
+    }>
+      <ServicesPageContent />
+    </Suspense>
   )
 }
