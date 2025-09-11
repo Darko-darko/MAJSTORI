@@ -1,14 +1,14 @@
 // app/dashboard/customers/page.js - SA INVOICE TYPE SELECTION MODAL
 
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { customersAPI } from '@/lib/customers'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
 import Link from 'next/link'
 
-export default function CustomersPage() {
+function CustomersPageContent() {
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -912,5 +912,12 @@ const handleInvoiceSuccess = (createdInvoice) => {
         />
       )}
     </div>
+  )
+}
+export default function CustomersPage() {
+  return (
+    <Suspense fallback={<div className="text-white">Laden...</div>}>
+      <CustomersPageContent />
+    </Suspense>
   )
 }
