@@ -7,23 +7,33 @@ import QRCode from 'qrcode'
 import Link from 'next/link'
 
 export default function CreateBusinessCardPage() {
-  // Helper function za cache-busting (definisano na početku)
+  // Helper function za cache-busting
   const getCacheBustedUrl = (url) => {
     if (!url) return ''
     const separator = url.includes('?') ? '&' : '?'
     return `${url}${separator}cb=${Date.now()}`
   }
 
+  // 🔥 REFAKTORISANO: Svi podaci za vizit kartu u formi
   const [formData, setFormData] = useState({
+    // Osnovni podaci vizit karte - NEZAVISNO od majstor profila
+    card_name: '',           // Ime na karti
+    card_business_name: '',  // Firma na karti  
+    card_phone: '',          // Telefon na karti
+    card_email: '',          // Email na karti
+    card_city: '',           // Grad na karti
+    
+    // Ostali postojeći podaci
     title: 'Meine Visitenkarte',
     description: '',
     services: [],
     background_color: '#1e293b',
-    text_color: '#ffffff',
+    text_color: '#ffffff', 
     website: '',
     logo_url: '',
     gallery_images: []
   })
+
   const [newService, setNewService] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -38,12 +48,16 @@ export default function CreateBusinessCardPage() {
   const galleryInputRef = useRef(null)
   const router = useRouter()
 
-  // Print formats
   const printFormats = [
     { name: 'QR Nalepnice - Klein', size: '50x50mm', width: 189, height: 189 },
     { name: 'QR Nalepnice - Mittel', size: '70x70mm', width: 264, height: 264 },
     { name: 'QR Nalepnice - Groß', size: '100x100mm', width: 378, height: 378 },
     { name: 'Business Card', size: '85x55mm', width: 323, height: 204 }
+  ]
+
+  const colorPresets = [
+    '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
+    '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4338ca'
   ]
 
   useEffect(() => {
@@ -93,6 +107,17 @@ export default function CreateBusinessCardPage() {
         }
         
         setMajstor(majstorData)
+
+        // 🔥 NOVO: Auto-popuni card podatke SAMO AKO SU PRAZNI
+        setFormData(prev => ({
+          ...prev,
+          // Popuni samo ako je prazan
+          card_name: prev.card_name || majstorData.full_name || '',
+          card_business_name: prev.card_business_name || majstorData.business_name || '',
+          card_phone: prev.card_phone || majstorData.phone || '',
+          card_email: prev.card_email || majstorData.email || '',
+          card_city: prev.card_city || majstorData.city || ''
+        }))
       }
     } catch (error) {
       console.error('Auth error:', error)
@@ -113,6 +138,14 @@ export default function CreateBusinessCardPage() {
 
       if (existingCard) {
         setFormData({
+          // 🔥 NOVO: Load card-specific data
+          card_name: existingCard.card_name || '',
+          card_business_name: existingCard.card_business_name || '',
+          card_phone: existingCard.card_phone || '',
+          card_email: existingCard.card_email || '',
+          card_city: existingCard.card_city || '',
+          
+          // Existing fields
           title: existingCard.title || 'Meine Visitenkarte',
           description: existingCard.description || '',
           services: existingCard.services || [],
@@ -151,6 +184,30 @@ export default function CreateBusinessCardPage() {
     }
   }
 
+  // 🔥 NOVO: Funkcija za čuvanje kontakta
+  const handleSaveContact = () => {
+    const vCardData = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${formData.card_name}`,
+      `ORG:${formData.card_business_name || ''}`,
+      `TEL:${formData.card_phone}`,
+      `EMAIL:${formData.card_email}`,
+      `ADR:;;;${formData.card_city || ''};;;;`,
+      formData.website ? `URL:${formData.website}` : '',
+      'END:VCARD'
+    ].filter(line => line && !line.endsWith(':'))
+     .join('\n')
+
+    const blob = new Blob([vCardData], { type: 'text/vcard;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${formData.card_name?.replace(/\s+/g, '_') || 'kontakt'}.vcf`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   const handleChange = (e) => {
     setFormData(prev => ({
       ...prev,
@@ -177,7 +234,6 @@ export default function CreateBusinessCardPage() {
 
   const removeLogo = async () => {
     try {
-      // Briši logo iz storage-a
       if (formData.logo_url && majstor?.id) {
         const cleanUrl = formData.logo_url.split('?')[0]
         const urlParts = cleanUrl.split('/')
@@ -241,7 +297,6 @@ export default function CreateBusinessCardPage() {
 
     setLogoUploading(true)
     try {
-      // Prvo obriši stari logo
       if (formData.logo_url && majstor?.id) {
         const oldUrl = formData.logo_url.split('?')[0]
         const oldFileName = oldUrl.split('/').slice(-2).join('/')
@@ -366,6 +421,23 @@ export default function CreateBusinessCardPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    // 🔥 NOVA VALIDACIJA: obavezna polja za karticu
+    if (!formData.card_name.trim()) {
+      setError('Name auf der Karte ist erforderlich')
+      return
+    }
+
+    if (!formData.card_phone.trim()) {
+      setError('Telefon ist erforderlich')
+      return  
+    }
+
+    if (!formData.card_email.trim()) {
+      setError('E-Mail ist erforderlich')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -416,7 +488,6 @@ export default function CreateBusinessCardPage() {
     }
   }
 
-// SAVRŠENO CENTRISANI Print layout
   const downloadPrintCard = async (format) => {
     try {
       console.log('Starting print download for format:', format)
@@ -448,7 +519,6 @@ export default function CreateBusinessCardPage() {
         ctx.fillText(text, x, y)
       }
       
-      // Izračunaj ukupnu visinu sadržaja da možeš centrirati
       let totalHeight = 0
       let logoHeight = 0
       let nameHeight = 0
@@ -458,7 +528,6 @@ export default function CreateBusinessCardPage() {
       let ctaHeight = 0
       let contactHeight = 0
       
-      // Računaj visine
       if (formData.logo_url) {
         logoHeight = isSmall ? 30 : isLarge ? 45 : 35
         totalHeight += logoHeight + 8
@@ -467,7 +536,7 @@ export default function CreateBusinessCardPage() {
       nameHeight = isSmall ? 14 : isLarge ? 18 : 16
       totalHeight += nameHeight + 4
       
-      if (majstor.business_name && !isSmall) {
+      if (formData.card_business_name && !isSmall) {
         businessHeight = isLarge ? 12 : 10
         totalHeight += businessHeight + 6
       }
@@ -477,9 +546,8 @@ export default function CreateBusinessCardPage() {
         totalHeight += descHeight + 8
       }
       
-      // QR kod - glavni element
       qrHeight = isBusinessCard ? 
-        Math.min(format.height - 40, 50) : // Business card - ograniči QR
+        Math.min(format.height - 40, 50) : 
         (isSmall ? Math.min(format.width - 40, 80) : 
          isLarge ? Math.min(format.width - 60, 100) : 
          Math.min(format.width - 50, 85))
@@ -494,7 +562,6 @@ export default function CreateBusinessCardPage() {
         totalHeight += contactHeight
       }
       
-      // Početna Y pozicija za centrisanje
       let startY = centerY - totalHeight / 2
       let currentY = startY
       
@@ -520,9 +587,9 @@ export default function CreateBusinessCardPage() {
         }
       }
       
-      // Ime - glavno
+      // 🔥 KORISTI FORM PODATKE umesto majstor objekta
       drawCenteredText(
-        majstor.full_name || 'Handwerker', 
+        formData.card_name || 'Handwerker', 
         centerX, 
         currentY + nameHeight, 
         nameHeight, 
@@ -530,10 +597,9 @@ export default function CreateBusinessCardPage() {
       )
       currentY += nameHeight + 4
       
-      // Business name
-      if (majstor.business_name && !isSmall) {
+      if (formData.card_business_name && !isSmall) {
         drawCenteredText(
-          majstor.business_name, 
+          formData.card_business_name, 
           centerX, 
           currentY + businessHeight, 
           businessHeight, 
@@ -542,7 +608,6 @@ export default function CreateBusinessCardPage() {
         currentY += businessHeight + 6
       }
       
-      // Opis (samo za velike)
       if (formData.description && isLarge) {
         const description = formData.description.length > 60 ? 
           formData.description.substring(0, 60) + '...' : 
@@ -558,7 +623,7 @@ export default function CreateBusinessCardPage() {
         currentY += descHeight + 8
       }
       
-      // QR kod - centrisan
+      // QR kod
       if (qrCodeUrl) {
         try {
           const qrImg = new Image()
@@ -576,7 +641,6 @@ export default function CreateBusinessCardPage() {
       }
       currentY += qrHeight + 8
       
-      // Call to action
       drawCenteredText(
         'Scannen für Kontakt & Anfragen', 
         centerX, 
@@ -586,22 +650,21 @@ export default function CreateBusinessCardPage() {
       )
       currentY += ctaHeight + 4
       
-      // Kontakt info - samo ako nije mali format
+      // 🔥 KORISTI FORM PODATKE za kontakt info
       if (!isSmall && currentY < format.height - 20) {
         ctx.fillStyle = '#666666'
         
         if (isLarge) {
-          // Za velike formate - više informacija
-          if (majstor.phone && majstor.email) {
+          if (formData.card_phone && formData.card_email) {
             drawCenteredText(
-              `${majstor.phone} • ${majstor.email}`, 
+              `${formData.card_phone} • ${formData.card_email}`, 
               centerX, 
               currentY + contactHeight, 
               contactHeight
             )
-            if (majstor.city) {
+            if (formData.card_city) {
               drawCenteredText(
-                majstor.city, 
+                formData.card_city, 
                 centerX, 
                 currentY + contactHeight * 2 + 2, 
                 contactHeight - 1
@@ -609,16 +672,15 @@ export default function CreateBusinessCardPage() {
             }
           } else {
             drawCenteredText(
-              majstor.email || majstor.phone || '', 
+              formData.card_email || formData.card_phone || '', 
               centerX, 
               currentY + contactHeight, 
               contactHeight
             )
           }
         } else {
-          // Za srednje formate - jedna linija
           drawCenteredText(
-            majstor.email || majstor.phone || '', 
+            formData.card_email || formData.card_phone || '', 
             centerX, 
             currentY + contactHeight, 
             contactHeight
@@ -626,9 +688,8 @@ export default function CreateBusinessCardPage() {
         }
       }
       
-      // Download
       const link = document.createElement('a')
-      link.download = `print-visitenkarte-${format.size}-${majstor?.full_name?.replace(/\s+/g, '-').toLowerCase() || 'majstor'}.png`
+      link.download = `print-visitenkarte-${format.size}-${formData.card_name?.replace(/\s+/g, '-').toLowerCase() || 'majstor'}.png`
       link.href = canvas.toDataURL('image/png', 1.0)
       link.click()
       
@@ -640,6 +701,7 @@ export default function CreateBusinessCardPage() {
       alert('Download fehlgeschlagen. Bitte versuchen Sie es erneut.')
     }
   }
+
   const downloadQRCode = () => {
     if (!qrCodeUrl) return
 
@@ -651,10 +713,134 @@ export default function CreateBusinessCardPage() {
     link.remove()
   }
 
-  const colorPresets = [
-    '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
-    '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4338ca'
-  ]
+  // 🔥 NOVA KOMPONENTA: Preview Visitenkarte
+  const PreviewCard = ({ isMobile = false }) => (
+    <div 
+      className={`rounded-lg p-${isMobile ? '4' : '6'} text-center shadow-lg mx-auto`}
+      style={{ 
+        backgroundColor: formData.background_color,
+        color: formData.text_color,
+        width: '100%',
+        maxWidth: isMobile ? '300px' : '400px'
+      }}
+    >
+      {/* Logo */}
+      {formData.logo_url && (
+        <div className={`mb-${isMobile ? '3' : '4'}`}>
+          <img 
+            src={getCacheBustedUrl(formData.logo_url)} 
+            alt="Logo" 
+            className={`w-${isMobile ? '16 h-16' : '20 h-20'} mx-auto object-cover rounded-lg border border-white/20`}
+            key={forceImageRefresh}
+          />
+        </div>
+      )}
+
+      {/* Header - 🔥 KORISTI FORM PODATKE */}
+      <div className={`mb-${isMobile ? '3' : '4'}`}>
+        <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>{formData.title}</h1>
+        <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>{formData.card_name}</h2>
+        {formData.card_business_name && (
+          <p className="text-sm opacity-80">{formData.card_business_name}</p>
+        )}
+      </div>
+
+      {/* Description */}
+      {formData.description && (
+        <p className={`text-sm opacity-90 mb-${isMobile ? '3' : '4'} italic leading-tight`}>{formData.description}</p>
+      )}
+
+      {/* Contact Info - 🔥 KORISTI FORM PODATKE */}
+      <div className={`space-y-1 mb-${isMobile ? '3' : '4'} text-sm opacity-90`}>
+        {formData.card_phone && <p>📞 {formData.card_phone}</p>}
+        <p>✉️ {formData.card_email}</p>
+        {formData.card_city && <p>📍 {formData.card_city}</p>}
+        {formData.website && (
+          <a 
+            href={formData.website}
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-300 underline hover:text-blue-200 cursor-pointer"
+          >
+            🌐 Website besuchen →
+          </a>
+        )}
+      </div>
+
+      {/* Services */}
+      {formData.services.length > 0 && (
+        <div className={`mb-${isMobile ? '3' : '4'}`}>
+          <h3 className="text-sm font-semibold mb-2 opacity-90">Unsere Dienstleistungen:</h3>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {formData.services.map((service, index) => (
+              <span
+                key={index}
+                className="px-3 py-1 rounded-full text-xs font-medium opacity-90"
+                style={{ 
+                  backgroundColor: formData.text_color + '20',
+                  border: `1px solid ${formData.text_color}40`
+                }}
+              >
+                {service}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Gallery Preview */}
+      {formData.gallery_images.length > 0 && (
+        <div className={`mb-${isMobile ? '4' : '5'}`}>
+          <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Arbeiten:</h3>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {formData.gallery_images.slice(0, 3).map((imageUrl, index) => (
+              <img 
+                key={index} 
+                src={imageUrl} 
+                alt={`Work ${index}`} 
+                className={`w-full h-${isMobile ? '16' : '20'} object-cover rounded border border-white/20`}
+              />
+            ))}
+          </div>
+          {formData.gallery_images.length > 3 && (
+            <button 
+              onClick={() => setShowGalleryModal(true)}
+              className="text-xs underline opacity-80 hover:opacity-100"
+            >
+              + {formData.gallery_images.length - 3} weitere Bilder ansehen
+            </button>
+          )}
+        </div>
+      )}
+
+      
+
+      {/* 🔥 KONTAKT SPEICHERN DUGME */}
+      <div className={`mb-${isMobile ? '3' : '4'}`}>
+        <button 
+          onClick={handleSaveContact}
+          className="bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          📱 Kontakt speichern
+        </button>
+      </div>
+
+      {/* 🔥 POWERED BY MAJSTORI.DE */}
+      <div className="pt-2 border-t border-white/20">
+        <p className="text-xs opacity-50">
+          Powered by{' '}
+          <a 
+            href="https://majstori.de" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="underline hover:opacity-75"
+          >
+            Majstori.de
+          </a>
+        </p>
+      </div>
+    </div>
+  )
 
   if (!majstor) {
     return (
@@ -689,6 +875,88 @@ export default function CreateBusinessCardPage() {
           <h2 className="text-lg font-semibold text-white mb-4">Profil bearbeiten</h2>
           
           <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* 🔥 NOVO: Podaci za vizit kartu */}
+            <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
+              <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Name auf Karte *
+                  </label>
+                  <input
+                    type="text"
+                    name="card_name"
+                    value={formData.card_name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ihr Name wie er auf der Karte stehen soll"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Firmenname (optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="card_business_name"
+                    value={formData.card_business_name}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Firma auf der Karte"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Telefon *
+                  </label>
+                  <input
+                    type="tel"
+                    name="card_phone"
+                    value={formData.card_phone}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="+49 123 456789"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    E-Mail *
+                  </label>
+                  <input
+                    type="email"
+                    name="card_email"
+                    value={formData.card_email}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="ihre@email.de"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Stadt (optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="card_city"
+                    value={formData.card_city}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Berlin"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Basic Info */}
             <div className="grid grid-cols-1 gap-4">
               <div>
@@ -903,131 +1171,18 @@ export default function CreateBusinessCardPage() {
           <h2 className="text-lg font-semibold text-white mb-3">Öffentliches Profil Vorschau</h2>
           
           <div className="border border-slate-600 rounded-lg p-3 bg-white overflow-hidden">
-            <div 
-              className="rounded-lg p-4 text-center shadow-lg mx-auto"
-              style={{ 
-                backgroundColor: formData.background_color,
-                color: formData.text_color,
-                width: '100%',
-                maxWidth: '300px'
-              }}
-            >
-              {/* Logo */}
-              {formData.logo_url && (
-                <div className="mb-3">
-                  <img 
-                    src={getCacheBustedUrl(formData.logo_url)} 
-                    alt="Logo" 
-                    className="w-16 h-16 mx-auto object-cover rounded-lg border border-white/20" 
-                    key={forceImageRefresh}
-                  />
-                </div>
-              )}
-
-              {/* Header */}
-              <div className="mb-3">
-                <h1 className="text-lg font-bold leading-tight">{formData.title}</h1>
-                <h2 className="text-base font-semibold opacity-90">{majstor.full_name}</h2>
-                {majstor.business_name && (
-                  <p className="text-sm opacity-80">{majstor.business_name}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              {formData.description && (
-                <p className="text-sm opacity-90 mb-3 italic leading-tight">{formData.description}</p>
-              )}
-
-              {/* Contact Info */}
-              <div className="space-y-1 mb-3 text-sm opacity-90">
-                {majstor.phone && <p>📞 {majstor.phone}</p>}
-                <p>✉️ {majstor.email}</p>
-                {majstor.city && <p>📍 {majstor.city}</p>}
-                {formData.website && (
-  <a 
-    href={formData.website}
-    target="_blank" 
-    rel="noopener noreferrer"
-    className="text-blue-300 underline hover:text-blue-200 cursor-pointer"
-  >
-    🌐 Website besuchen →
-  </a>
-)}
-              </div>
-
-              {/* Services */}
-              {formData.services.length > 0 && (
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold mb-2 opacity-90">Unsere Dienstleistungen:</h3>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {formData.services.map((service, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 rounded-full text-xs font-medium opacity-90"
-                        style={{ 
-                          backgroundColor: formData.text_color + '20',
-                          border: `1px solid ${formData.text_color}40`
-                        }}
-                      >
-                        {service}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Gallery Preview */}
-              {formData.gallery_images.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Arbeiten:</h3>
-                  <div className="grid grid-cols-3 gap-2 mb-2">
-                    {formData.gallery_images.slice(0, 3).map((imageUrl, index) => (
-                      <img 
-                        key={index} 
-                        src={imageUrl} 
-                        alt={`Work ${index}`} 
-                        className="w-full h-16 object-cover rounded border border-white/20" 
-                      />
-                    ))}
-                  </div>
-                  {formData.gallery_images.length > 3 && (
-                    <button 
-                      onClick={() => setShowGalleryModal(true)}
-                      className="text-xs underline opacity-80 hover:opacity-100"
-                    >
-                      + {formData.gallery_images.length - 3} weitere Bilder ansehen
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Contact Button */}
-              <div className="mt-4 pt-3 border-t border-white/20">
-                <button 
-                  className="w-full py-3 px-4 rounded-lg font-semibold text-sm transition-colors"
-                  style={{
-                    backgroundColor: formData.text_color,
-                    color: formData.background_color
-                  }}
-                >
-                  📧 Anfrage senden
-                </button>
-                <p className="text-xs opacity-70 mt-2">
-                  Scannen Sie unseren QR-Code für direkten Kontakt
-                </p>
-              </div>
-            </div>
-          
+            <PreviewCard isMobile={true} />
           </div>
-<div className="text-center mt-4">
-  <button
-    onClick={handleSubmit}
-    disabled={loading}
-    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
-  >
-    {loading ? 'Speichern...' : 'Profil speichern'}
-  </button>
-</div>
+          
+          <div className="text-center mt-4">
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
+            >
+              {loading ? 'Speichern...' : 'Profil speichern'}
+            </button>
+          </div>
           {majstor?.slug && (
             <div className="mt-3 text-center">
               <a
@@ -1063,7 +1218,7 @@ export default function CreateBusinessCardPage() {
         </div>
       </div>
 
-      {/* Desktop Layout */}
+      {/* 🔥 KOMPLETNA DESKTOP VERZIJA */}
       <div className="hidden lg:grid lg:grid-cols-2 gap-6">
         {/* Desktop Form */}
         <div className="space-y-6">
@@ -1071,6 +1226,88 @@ export default function CreateBusinessCardPage() {
             <h2 className="text-lg font-semibold text-white mb-4">Profil bearbeiten</h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* 🔥 DESKTOP: Podaci za vizit kartu */}
+              <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
+                <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
+                <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Name auf Karte *
+                    </label>
+                    <input
+                      type="text"
+                      name="card_name"
+                      value={formData.card_name}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ihr Name wie er auf der Karte stehen soll"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Firmenname (optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="card_business_name"
+                      value={formData.card_business_name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Firma auf der Karte"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Telefon *
+                    </label>
+                    <input
+                      type="tel"
+                      name="card_phone"
+                      value={formData.card_phone}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="+49 123 456789"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      E-Mail *
+                    </label>
+                    <input
+                      type="email"
+                      name="card_email"
+                      value={formData.card_email}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="ihre@email.de"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Stadt (optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="card_city"
+                      value={formData.card_city}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Berlin"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Basic Info - Desktop */}
               <div className="grid grid-cols-1 gap-4">
                 <div>
@@ -1307,124 +1544,12 @@ export default function CreateBusinessCardPage() {
           </div>
         </div>
 
-        {/* Desktop Preview */}
+        {/* Desktop Preview - 🔥 KORISTI FORM PODATKE */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Öffentliches Profil Vorschau</h2>
           
           <div className="border border-slate-600 rounded-lg p-4 bg-white overflow-hidden">
-            <div 
-              className="rounded-lg p-6 text-center shadow-lg mx-auto"
-              style={{ 
-                backgroundColor: formData.background_color,
-                color: formData.text_color,
-                maxWidth: '400px'
-              }}
-            >
-              {/* Logo - Desktop */}
-              {formData.logo_url && (
-                <div className="mb-4">
-                  <img 
-                    src={getCacheBustedUrl(formData.logo_url)} 
-                    alt="Logo" 
-                    className="w-20 h-20 mx-auto object-cover rounded-lg border border-white/20" 
-                    key={forceImageRefresh}
-                  />
-                </div>
-              )}
-
-              {/* Header - Desktop */}
-              <div className="mb-4">
-                <h1 className="text-xl font-bold leading-tight">{formData.title}</h1>
-                <h2 className="text-lg font-semibold opacity-90">{majstor.full_name}</h2>
-                {majstor.business_name && (
-                  <p className="text-sm opacity-80">{majstor.business_name}</p>
-                )}
-              </div>
-
-              {/* Description - Desktop */}
-              {formData.description && (
-                <p className="text-sm opacity-90 mb-4 italic leading-tight">{formData.description}</p>
-              )}
-
-              {/* Contact Info - Desktop */}
-              <div className="space-y-1 mb-4 text-sm opacity-90">
-                {majstor.phone && <p>📞 {majstor.phone}</p>}
-                <p>✉️ {majstor.email}</p>
-                {majstor.city && <p>📍 {majstor.city}</p>}
-               {formData.website && (
-  <a 
-    href={formData.website}
-    target="_blank" 
-    rel="noopener noreferrer"
-    className="text-blue-300 underline hover:text-blue-200 cursor-pointer"
-  >
-    🌐 Website besuchen →
-  </a>
-)}
-              </div>
-
-              {/* Services - Desktop */}
-              {formData.services.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Dienstleistungen:</h3>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {formData.services.map((service, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 rounded-full text-xs font-medium opacity-90"
-                        style={{ 
-                          backgroundColor: formData.text_color + '20',
-                          border: `1px solid ${formData.text_color}40`
-                        }}
-                      >
-                        {service}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Gallery Preview - Desktop */}
-              {formData.gallery_images.length > 0 && (
-                <div className="mb-5">
-                  <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Arbeiten:</h3>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {formData.gallery_images.slice(0, 3).map((imageUrl, index) => (
-                      <img 
-                        key={index} 
-                        src={imageUrl} 
-                        alt={`Work ${index}`} 
-                        className="w-full h-20 object-cover rounded border border-white/20" 
-                      />
-                    ))}
-                  </div>
-                  {formData.gallery_images.length > 3 && (
-                    <button 
-                      onClick={() => setShowGalleryModal(true)}
-                      className="text-xs underline opacity-80 hover:opacity-100"
-                    >
-                      + {formData.gallery_images.length - 3} weitere Bilder ansehen
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Contact Button - Desktop */}
-              <div className="mt-5 pt-4 border-t border-white/20">
-                <button 
-                  className="w-full py-3 px-4 rounded-lg font-semibold text-sm transition-colors"
-                  style={{
-                    backgroundColor: formData.text_color,
-                    color: formData.background_color
-                  }}
-                >
-                  📧 Anfrage senden
-                </button>
-                <p className="text-xs opacity-70 mt-2">
-                  Scannen Sie unseren QR-Code für direkten Kontakt
-                </p>
-              </div>
-            </div>
+            <PreviewCard isMobile={false} />
           </div>
 
           {majstor?.slug && (

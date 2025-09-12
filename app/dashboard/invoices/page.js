@@ -471,6 +471,9 @@ function DashboardPageContent() {
       if (majstor?.id) {
         await loadInvoicesData(majstor.id)
       }
+
+      
+      setActiveTab('invoices')
       
       // Show success message
       const successMessage = [

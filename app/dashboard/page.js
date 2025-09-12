@@ -114,7 +114,7 @@ function DashboardPageContent() {
       if (invoices) {
         setStats(prev => ({
           ...prev,
-          totalInvoices: invoices.length
+         totalInvoices: invoices.filter(inv => inv.type === 'invoice').length
         }))
       }
 
@@ -285,10 +285,15 @@ function DashboardPageContent() {
             <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-2xl mb-4">
               📄
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Erste Rechnung</h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden
-            </p>
+            <h3 className="text-lg font-semibold text-white mb-2">
+  {stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
+</h3>
+<p className="text-slate-400 text-sm mb-4">
+  {stats.totalInvoices === 0 
+    ? 'Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden'
+    : 'Erstellen Sie eine neue Rechnung oder ein Angebot'
+  }
+</p>
             <Link
               href="/dashboard/invoices"
               className="inline-block bg-purple-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-purple-700 transition-colors"

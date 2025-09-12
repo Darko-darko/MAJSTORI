@@ -804,7 +804,7 @@ export default function InvoiceCreator({
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="1"
                         value={item.quantity}
                         onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
@@ -818,7 +818,7 @@ export default function InvoiceCreator({
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="0.1"
                         value={item.price}
                         onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
