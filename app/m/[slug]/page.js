@@ -1,4 +1,4 @@
-// app/m/[slug]/page.js - JEDNOSTAVNO REŠENJE
+// app/m/[slug]/page.js - PERFECT VERSION WITH PHOTO UPLOAD
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -12,20 +12,28 @@ export default function PublicBusinessCardPage({ params }) {
   // Gallery modal state
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   
-  // Inquiry form states
+  // 🔥 ENHANCED: Inquiry form states with photo upload
   const [showInquiryForm, setShowInquiryForm] = useState(false)
   const [inquiryData, setInquiryData] = useState({
     customer_name: '',
     customer_email: '',
     customer_phone: '',
     service_type: '',
-    description: ''
+    description: '',
+    urgency: 'normal',
+    preferred_contact: 'email'
   })
   const [inquiryLoading, setInquiryLoading] = useState(false)
   const [inquirySuccess, setInquirySuccess] = useState(false)
   const [inquiryError, setInquiryError] = useState('')
   
+  // 🔥 PHOTO UPLOAD: Using your existing 'inquiries' bucket
+  const [uploadedImages, setUploadedImages] = useState([])
+  const [imageUploading, setImageUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  
   const inquiryFormRef = useRef(null)
+  const imageInputRef = useRef(null)
 
   useEffect(() => {
     if (params.slug) {
@@ -87,7 +95,7 @@ export default function PublicBusinessCardPage({ params }) {
     return `${url}${separator}cb=${Date.now()}`
   }
 
-  // 🔥 FUNKCIJA ZA ČUVANJE KONTAKTA - COPY-PASTE IZ BUILDER-A
+  // 🔥 SAVE CONTACT TO PHONE
   const handleSaveContact = () => {
     if (!businessCard) return
     
@@ -121,13 +129,207 @@ export default function PublicBusinessCardPage({ params }) {
     }))
   }
 
-  // Handle inquiry submission
+  // 🔥 IMAGE COMPRESSION - Optimized for mobile
+  const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+      
+      img.onload = () => {
+        let { width, height } = img
+        
+        // Smart resizing
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          } else {
+            width = (width * maxWidth) / height
+            height = maxWidth
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        
+        // Better image quality
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, 0, 0, width, height)
+        
+        canvas.toBlob(resolve, 'image/jpeg', quality)
+      }
+      
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  // 🔥 PHOTO UPLOAD - Using your 'inquiries' bucket
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    console.log('📷 Starting photo upload:', files.length, 'files')
+
+    // Enhanced validation
+    const validFiles = files.filter((file, index) => {
+      if (!file.type.startsWith('image/')) {
+        alert(`❌ ${file.name} ist keine Bilddatei`)
+        return false
+      }
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert(`❌ ${file.name} ist zu groß (max 10MB)`)
+        return false
+      }
+      return true
+    })
+
+    if (validFiles.length === 0) {
+      console.log('❌ No valid files to upload')
+      return
+    }
+
+    if (uploadedImages.length + validFiles.length > 5) {
+      alert('⚠️ Maximal 5 Bilder erlaubt')
+      return
+    }
+
+    setImageUploading(true)
+    setUploadProgress(0)
+    setInquiryError('') // Clear any previous errors
+
+    try {
+      console.log('🔧 Processing', validFiles.length, 'images for majstor:', majstor.id)
+
+      const uploadPromises = validFiles.map(async (file, index) => {
+        try {
+          // Progress simulation
+          const progressIncrement = 100 / validFiles.length
+          setUploadProgress(prev => Math.min(prev + progressIncrement * 0.3, 95))
+          
+          console.log(`📤 Compressing image ${index + 1}:`, file.name)
+          
+          // Compress image
+          const compressedFile = await compressImage(file, 1200, 0.85)
+          
+          if (!compressedFile) {
+            throw new Error(`Failed to compress ${file.name}`)
+          }
+
+          // Generate unique filename with majstor folder structure
+          const fileExt = 'jpg'
+          const timestamp = Date.now()
+          const randomId = Math.random().toString(36).substring(2, 8)
+          const fileName = `${majstor.id}/${timestamp}_${randomId}.${fileExt}`
+          
+          console.log(`☁️ Uploading to inquiries bucket:`, fileName)
+          
+          // 🔥 UPLOAD TO YOUR 'inquiries' BUCKET
+          const { data, error } = await supabase.storage
+            .from('inquiries')
+            .upload(fileName, compressedFile, {
+              cacheControl: '3600',
+              upsert: false
+            })
+
+          if (error) {
+            console.error('❌ Upload error for', file.name, ':', error)
+            throw new Error(`Upload fehlgeschlagen für ${file.name}: ${error.message}`)
+          }
+
+          console.log('✅ Upload successful:', data.path)
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('inquiries')
+            .getPublicUrl(fileName)
+
+          if (!publicUrl) {
+            throw new Error(`Failed to get public URL for ${file.name}`)
+          }
+
+          // Progress update
+          setUploadProgress(prev => Math.min(prev + progressIncrement * 0.7, 100))
+
+          return {
+            url: publicUrl,
+            filename: file.name,
+            uploadPath: fileName,
+            size: compressedFile.size,
+            originalSize: file.size
+          }
+
+        } catch (uploadError) {
+          console.error('❌ Individual upload failed:', uploadError)
+          throw uploadError
+        }
+      })
+
+      console.log('⏳ Waiting for all uploads to complete...')
+      const uploadResults = await Promise.all(uploadPromises)
+      
+      console.log('✅ All uploads successful:', uploadResults.length, 'images')
+      
+      setUploadedImages(prev => [...prev, ...uploadResults])
+      setUploadProgress(100)
+
+      // Show success message briefly
+      setTimeout(() => setUploadProgress(0), 1500)
+
+    } catch (err) {
+      console.error('💥 Photo upload error:', err)
+      setInquiryError(`Fehler beim Hochladen der Bilder: ${err.message}`)
+      setUploadProgress(0)
+    } finally {
+      setImageUploading(false)
+      
+      // Clear file input
+      if (imageInputRef.current) {
+        imageInputRef.current.value = ''
+      }
+    }
+  }
+
+  // 🔥 REMOVE UPLOADED IMAGE
+  const removeUploadedImage = async (imageIndex) => {
+    try {
+      const imageToRemove = uploadedImages[imageIndex]
+      console.log('🗑️ Removing image:', imageToRemove.filename)
+      
+      // Remove from Supabase storage
+      if (imageToRemove.uploadPath) {
+        const { error } = await supabase.storage
+          .from('inquiries')
+          .remove([imageToRemove.uploadPath])
+        
+        if (error) {
+          console.warn('⚠️ Storage removal failed:', error.message)
+        } else {
+          console.log('✅ Image removed from storage')
+        }
+      }
+      
+      // Remove from local state
+      setUploadedImages(prev => prev.filter((_, index) => index !== imageIndex))
+      
+    } catch (error) {
+      console.error('❌ Error removing image:', error)
+      // Remove from local state anyway
+      setUploadedImages(prev => prev.filter((_, index) => index !== imageIndex))
+    }
+  }
+
+  // 🔥 ENHANCED INQUIRY SUBMISSION
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
     setInquiryLoading(true)
 
     try {
+      console.log('📤 Submitting inquiry for majstor:', majstor.id)
+
+      // Enhanced validation
       if (!inquiryData.customer_name.trim()) {
         throw new Error('Name ist erforderlich')
       }
@@ -138,42 +340,104 @@ export default function PublicBusinessCardPage({ params }) {
         throw new Error('Beschreibung ist erforderlich')
       }
 
-      const { data, error } = await supabase
-        .from('inquiries')
-        .insert({
-          majstor_id: majstor.id,
-          customer_name: inquiryData.customer_name.trim(),
-          customer_email: inquiryData.customer_email.trim(),
-          customer_phone: inquiryData.customer_phone.trim() || null,
-          service_type: inquiryData.service_type.trim() || null,
-          description: inquiryData.description.trim(),
-          status: 'new'
-        })
-        .select()
-        .single()
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(inquiryData.customer_email)) {
+        throw new Error('Ungültige E-Mail-Adresse')
+      }
 
-      if (error) throw error
+      // Prepare inquiry payload for your existing API
+      const inquiryPayload = {
+        majstor_id: majstor.id,
+        customer_name: inquiryData.customer_name.trim(),
+        customer_email: inquiryData.customer_email.trim(),
+        customer_phone: inquiryData.customer_phone.trim() || null,
+        
+        // 🔥 NEW FIELDS (with fallbacks for old API)
+        service_type: inquiryData.service_type.trim() || null,
+        description: inquiryData.description.trim(),
+        urgency: inquiryData.urgency,
+        preferred_contact: inquiryData.preferred_contact,
+        source: 'business_card',
+        
+        // 🔥 OLD FIELDS for backward compatibility
+        subject: inquiryData.service_type.trim() || 'Kundenanfrage',
+        message: inquiryData.description.trim(),
+        
+        // 🔥 IMAGES - Support both approaches
+        images: uploadedImages.map(img => img.url), // Old format
+        photo_urls: uploadedImages.map(img => img.url) // New format
+      }
 
-      console.log('✅ Inquiry created:', data.id)
+      console.log('📋 Submitting with payload:', {
+        customer: inquiryPayload.customer_name,
+        service: inquiryPayload.service_type,
+        urgency: inquiryPayload.urgency,
+        images: inquiryPayload.images.length
+      })
+
+      // Call your existing API
+      const response = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(inquiryPayload)
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('❌ API error:', result)
+        throw new Error(result.error || `HTTP ${response.status}`)
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown API error')
+      }
+
+      console.log('✅ Inquiry submitted successfully:', result.inquiry?.id)
       
+      // Success state
       setInquirySuccess(true)
+      
+      // Reset form
       setInquiryData({
         customer_name: '',
         customer_email: '',
         customer_phone: '',
         service_type: '',
-        description: ''
+        description: '',
+        urgency: 'normal',
+        preferred_contact: 'email'
       })
       
-      // Hide form after 3 seconds
+      // Clear uploaded images
+      setUploadedImages([])
+      
+      // Auto-hide form after success
       setTimeout(() => {
         setShowInquiryForm(false)
         setInquirySuccess(false)
-      }, 3000)
+      }, 5000)
 
     } catch (err) {
-      console.error('❌ Inquiry submission error:', err)
-      setInquiryError(err.message || 'Fehler beim Senden der Anfrage')
+      console.error('💥 Inquiry submission error:', err)
+      
+      // User-friendly error messages
+      let errorMessage = err.message || 'Ein unerwarteter Fehler ist aufgetreten'
+      
+      if (err.message?.includes('permission denied') || err.message?.includes('RLS')) {
+        errorMessage = 'Berechtigung verweigert - bitte versuchen Sie es später erneut'
+      } else if (err.message?.includes('connection') || err.message?.includes('network')) {
+        errorMessage = 'Netzwerkfehler - bitte überprüfen Sie Ihre Internetverbindung'
+      } else if (err.message?.includes('timeout')) {
+        errorMessage = 'Zeitüberschreitung - bitte versuchen Sie es erneut'
+      } else if (err.message?.includes('404')) {
+        errorMessage = 'Service nicht verfügbar - bitte kontaktieren Sie den Support'
+      }
+      
+      setInquiryError(errorMessage)
     } finally {
       setInquiryLoading(false)
     }
@@ -182,6 +446,9 @@ export default function PublicBusinessCardPage({ params }) {
   // Handle inquiry button click
   const handleInquiryClick = () => {
     setShowInquiryForm(true)
+    setInquiryError('')
+    setInquirySuccess(false)
+    
     setTimeout(() => {
       inquiryFormRef.current?.scrollIntoView({ 
         behavior: 'smooth', 
@@ -190,7 +457,7 @@ export default function PublicBusinessCardPage({ params }) {
     }, 100)
   }
 
-  // 🔥 IDENTIČNA PREVIEW CARD - COPY-PASTE IZ BUILDER-A
+  // 🔥 PERFECT PREVIEW CARD COMPONENT
   const PreviewCard = ({ isMobile = false }) => {
     if (!businessCard) return null
 
@@ -215,7 +482,7 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
         )}
 
-        {/* Header - 🔥 KORISTI BUSINESS CARD PODATKE */}
+        {/* Header */}
         <div className={`mb-${isMobile ? '3' : '4'}`}>
           <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>
             {businessCard.title || 'Meine Visitenkarte'}
@@ -235,7 +502,7 @@ export default function PublicBusinessCardPage({ params }) {
           </p>
         )}
 
-        {/* Contact Info - 🔥 KORISTI BUSINESS CARD PODATKE */}
+        {/* Contact Info */}
         <div className={`space-y-1 mb-${isMobile ? '3' : '4'} text-sm opacity-90`}>
           {businessCard.card_phone && <p>📞 {businessCard.card_phone}</p>}
           <p>✉️ {businessCard.card_email}</p>
@@ -301,7 +568,7 @@ export default function PublicBusinessCardPage({ params }) {
 
         {/* Action Buttons */}
         <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
-          {/* 🔥 KONTAKT SPEICHERN DUGME */}
+          {/* Save Contact Button */}
           <button 
             onClick={handleSaveContact}
             className="bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full"
@@ -309,16 +576,16 @@ export default function PublicBusinessCardPage({ params }) {
             📱 Kontakt speichern
           </button>
 
-          {/* 🔥 INQUIRY BUTTON */}
+          {/* Inquiry Button */}
           <button 
             onClick={handleInquiryClick}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full"
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
           >
             📧 Anfrage senden
           </button>
         </div>
 
-        {/* 🔥 POWERED BY MAJSTORI.DE */}
+        {/* Powered By */}
         <div className="pt-2 border-t border-white/20">
           <p className="text-xs opacity-50">
             Powered by{' '}
@@ -395,43 +662,68 @@ export default function PublicBusinessCardPage({ params }) {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
         <div className="max-w-2xl mx-auto space-y-8">
           
-          {/* 🔥 IDENTIČNA PREVIEW KOMPONENTA */}
+          {/* Business Card Display */}
           <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
             <PreviewCard isMobile={false} />
           </div>
 
-          {/* 🔥 INQUIRY FORMA - ZADRŽANA POSTOJEĆA */}
+          {/* 🔥 PERFECT INQUIRY FORM */}
           {showInquiryForm && (
             <div 
               ref={inquiryFormRef}
-              className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6"
+              className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 shadow-2xl"
             >
-              <h2 className="text-2xl font-bold text-white mb-2">Anfrage senden</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-white">Anfrage senden</h2>
+                <button
+                  onClick={() => setShowInquiryForm(false)}
+                  className="text-slate-400 hover:text-white text-2xl transition-colors"
+                  title="Schließen"
+                >
+                  ×
+                </button>
+              </div>
+              
               <p className="text-slate-400 mb-6">
-                Kontaktieren Sie {businessCard.card_name} direkt für ein Angebot oder weitere Informationen.
+                Kontaktieren Sie <strong className="text-white">{businessCard.card_name}</strong> direkt für ein Angebot oder weitere Informationen.
               </p>
 
+              {/* Success Message */}
               {inquirySuccess && (
                 <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">✅</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">✅</span>
                     <div>
                       <p className="text-green-400 font-semibold">Anfrage erfolgreich gesendet!</p>
-                      <p className="text-green-300 text-sm">
+                      <p className="text-green-300 text-sm mt-1">
                         {businessCard.card_name} wird sich schnellstmöglich bei Ihnen melden.
                       </p>
+                      {uploadedImages.length > 0 && (
+                        <p className="text-green-300 text-sm mt-1">
+                          📷 {uploadedImages.length} Foto{uploadedImages.length > 1 ? 's' : ''} wurden mitgesendet.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Error Message */}
               {inquiryError && (
                 <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-                  <p className="text-red-400">{inquiryError}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-red-400 text-xl">⚠️</span>
+                    <div>
+                      <p className="text-red-400 font-semibold">Fehler beim Senden</p>
+                      <p className="text-red-300 text-sm mt-1">{inquiryError}</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <form onSubmit={handleInquirySubmit} className="space-y-4">
+              <form onSubmit={handleInquirySubmit} className="space-y-6">
+                
+                {/* Basic Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -443,7 +735,7 @@ export default function PublicBusinessCardPage({ params }) {
                       value={inquiryData.customer_name}
                       onChange={handleInquiryChange}
                       required
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="Max Mustermann"
                     />
                   </div>
@@ -458,7 +750,7 @@ export default function PublicBusinessCardPage({ params }) {
                       value={inquiryData.customer_email}
                       onChange={handleInquiryChange}
                       required
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="max@example.com"
                     />
                   </div>
@@ -472,7 +764,7 @@ export default function PublicBusinessCardPage({ params }) {
                       name="customer_phone"
                       value={inquiryData.customer_phone}
                       onChange={handleInquiryChange}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="+49 123 456789"
                     />
                   </div>
@@ -485,17 +777,60 @@ export default function PublicBusinessCardPage({ params }) {
                       name="service_type"
                       value={inquiryData.service_type}
                       onChange={handleInquiryChange}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     >
                       <option value="">Bitte wählen...</option>
                       {businessCard.services?.map((service, index) => (
                         <option key={index} value={service}>{service}</option>
                       ))}
+                      <option value="Notfall">🚨 Notfall</option>
+                      <option value="Beratung">💬 Beratung</option>
+                      <option value="Kostenvoranschlag">📋 Kostenvoranschlag</option>
+                      <option value="Reparatur">🔧 Reparatur</option>
+                      <option value="Installation">⚙️ Installation</option>
+                      <option value="Wartung">🛠️ Wartung</option>
                       <option value="Andere">Andere</option>
                     </select>
                   </div>
                 </div>
 
+                {/* Urgency and Contact Preference */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Dringlichkeit
+                    </label>
+                    <select
+                      name="urgency"
+                      value={inquiryData.urgency}
+                      onChange={handleInquiryChange}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    >
+                      <option value="low">⬇️ Niedrig - Zeit lassen</option>
+                      <option value="normal">➡️ Normal - in den nächsten Tagen</option>
+                      <option value="high">⬆️ Hoch - schnellstmöglich</option>
+                      <option value="emergency">🚨 Notfall - sofort!</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Bevorzugter Kontakt
+                    </label>
+                    <select
+                      name="preferred_contact"
+                      value={inquiryData.preferred_contact}
+                      onChange={handleInquiryChange}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    >
+                      <option value="email">📧 E-Mail</option>
+                      <option value="phone">📞 Telefon</option>
+                      <option value="both">📧📞 E-Mail und Telefon</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Beschreibung Ihres Anliegens *
@@ -506,23 +841,103 @@ export default function PublicBusinessCardPage({ params }) {
                     onChange={handleInquiryChange}
                     required
                     rows={4}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Beschreiben Sie bitte Ihr Anliegen oder den gewünschten Service..."
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                    placeholder="Beschreiben Sie bitte Ihr Anliegen oder den gewünschten Service detailliert..."
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
+                {/* 🔥 PHOTO UPLOAD SECTION */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    📷 Fotos hinzufügen (optional)
+                  </label>
+                  <p className="text-xs text-slate-400 mb-3">
+                    Zeigen Sie uns das Problem oder Ihre Wünsche - max. 5 Bilder, je max. 10MB
+                  </p>
+                  
+                  <div className="space-y-4">
+                    {/* File Input */}
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handlePhotoUpload}
+                      disabled={imageUploading || uploadedImages.length >= 5}
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50 transition-all"
+                    />
+                    
+                    {/* Upload Progress */}
+                    {imageUploading && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-sm text-green-400">Bilder werden hochgeladen... {Math.round(uploadProgress)}%</span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-green-500 to-green-400 h-2 transition-all duration-500 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Uploaded Images Preview */}
+                    {uploadedImages.length > 0 && (
+                      <div>
+                        <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
+                          <span className="text-green-400">📎</span>
+                          Hochgeladene Bilder ({uploadedImages.length}/5):
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {uploadedImages.map((image, index) => (
+                            <div key={index} className="relative group">
+                              <img 
+                                src={image.url} 
+                                alt={`Upload ${index}`} 
+                                className="w-full h-24 object-cover rounded-lg border border-slate-600 group-hover:border-slate-500 transition-colors" 
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeUploadedImage(index)}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center transition-colors shadow-lg"
+                                title="Bild entfernen"
+                              >
+                                ×
+                              </button>
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 rounded-b-lg">
+                                <p className="truncate" title={image.filename}>
+                                  {image.filename}
+                                </p>
+                                {image.originalSize && image.size && (
+                                  <p className="text-green-300">
+                                    {Math.round((image.originalSize - image.size) / image.originalSize * 100)}% komprimiert
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex gap-3 pt-6 border-t border-slate-700">
                   <button
                     type="button"
                     onClick={() => setShowInquiryForm(false)}
-                    className="px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                    disabled={inquiryLoading}
+                    className="px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="submit"
-                    disabled={inquiryLoading}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all disabled:opacity-50"
+                    disabled={inquiryLoading || imageUploading}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-semibold transition-all disabled:opacity-50 shadow-lg hover:shadow-green-500/25"
                   >
                     {inquiryLoading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -530,19 +945,29 @@ export default function PublicBusinessCardPage({ params }) {
                         Wird gesendet...
                       </span>
                     ) : (
-                      '📧 Anfrage senden'
+                      <>
+                        📧 Anfrage senden
+                        {uploadedImages.length > 0 && (
+                          <span className="text-sm opacity-90 ml-2">
+                            (+{uploadedImages.length} Foto{uploadedImages.length > 1 ? 's' : ''})
+                          </span>
+                        )}
+                      </>
                     )}
                   </button>
                 </div>
               </form>
 
-              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-400 text-lg">ℹ️</span>
+              {/* Privacy Notice */}
+              <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <span className="text-blue-400 text-lg flex-shrink-0">ℹ️</span>
                   <div className="text-sm">
-                    <p className="text-blue-300 font-medium">Datenschutz-Hinweis</p>
-                    <p className="text-blue-200/80 text-xs">
-                      Ihre Daten werden nur zur Bearbeitung Ihrer Anfrage verwendet und nicht an Dritte weitergegeben.
+                    <p className="text-blue-300 font-medium mb-1">Datenschutz-Hinweis</p>
+                    <p className="text-blue-200/90 text-xs leading-relaxed">
+                      Ihre Daten und hochgeladenen Bilder werden nur zur Bearbeitung Ihrer Anfrage verwendet 
+                      und nicht an Dritte weitergegeben. Bilder werden sicher in unserem System gespeichert und können 
+                      jederzeit auf Anfrage gelöscht werden.
                     </p>
                   </div>
                 </div>
@@ -558,7 +983,7 @@ export default function PublicBusinessCardPage({ params }) {
                 href="https://majstori.de" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline"
+                className="text-blue-400 hover:text-blue-300 underline transition-colors"
               >
                 Majstori.de
               </a>
@@ -574,7 +999,7 @@ export default function PublicBusinessCardPage({ params }) {
                   <h3 className="text-xl font-bold text-white">Alle Arbeiten</h3>
                   <button
                     onClick={() => setShowGalleryModal(false)}
-                    className="text-slate-400 hover:text-white text-2xl"
+                    className="text-slate-400 hover:text-white text-2xl transition-colors"
                   >
                     ×
                   </button>
@@ -585,7 +1010,7 @@ export default function PublicBusinessCardPage({ params }) {
                       key={index} 
                       src={imageUrl} 
                       alt={`Work ${index}`} 
-                      className="w-full h-32 object-cover rounded-lg" 
+                      className="w-full h-32 object-cover rounded-lg hover:scale-105 transition-transform cursor-pointer" 
                     />
                   ))}
                 </div>
