@@ -1,9 +1,13 @@
-// app/m/[slug]/page.js - PERFECT VERSION WITH PHOTO UPLOAD
+// app/m/[slug]/page.js - FIXED VERSION
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, use } from 'react'
 import { supabase } from '@/lib/supabase'
+import Head from 'next/head'
 
 export default function PublicBusinessCardPage({ params }) {
+  // 🔥 FIX: Next.js 15 params handling
+  const resolvedParams = use(params)
+  
   const [businessCard, setBusinessCard] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -12,7 +16,7 @@ export default function PublicBusinessCardPage({ params }) {
   // Gallery modal state
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   
-  // 🔥 ENHANCED: Inquiry form states with photo upload
+  // Inquiry form states
   const [showInquiryForm, setShowInquiryForm] = useState(false)
   const [inquiryData, setInquiryData] = useState({
     customer_name: '',
@@ -27,7 +31,7 @@ export default function PublicBusinessCardPage({ params }) {
   const [inquirySuccess, setInquirySuccess] = useState(false)
   const [inquiryError, setInquiryError] = useState('')
   
-  // 🔥 PHOTO UPLOAD: Using your existing 'inquiries' bucket
+  // Photo upload states
   const [uploadedImages, setUploadedImages] = useState([])
   const [imageUploading, setImageUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -36,21 +40,20 @@ export default function PublicBusinessCardPage({ params }) {
   const imageInputRef = useRef(null)
 
   useEffect(() => {
-    if (params.slug) {
+    if (resolvedParams.slug) {
       loadBusinessCard()
     }
-  }, [params.slug])
+  }, [resolvedParams.slug])
 
   const loadBusinessCard = async () => {
     try {
       setLoading(true)
-      console.log('🔍 Loading business card for slug:', params.slug)
+      console.log('🔍 Loading business card for slug:', resolvedParams.slug)
 
-      // Load majstor by slug
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
         .select('*')
-        .eq('slug', params.slug)
+        .eq('slug', resolvedParams.slug)
         .eq('is_active', true)
         .single()
 
@@ -63,7 +66,6 @@ export default function PublicBusinessCardPage({ params }) {
       setMajstor(majstorData)
       console.log('✅ Majstor loaded:', majstorData.full_name)
 
-      // Load business card
       const { data: cardData, error: cardError } = await supabase
         .from('business_cards')
         .select('*')
@@ -88,26 +90,40 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // Helper function za cache-busting
   const getCacheBustedUrl = (url) => {
     if (!url) return ''
     const separator = url.includes('?') ? '&' : '?'
     return `${url}${separator}cb=${Date.now()}`
   }
 
-  // 🔥 SAVE CONTACT TO PHONE
+  // 🔥 FIX: Use majstor data instead of missing business card fields
+  const getContactInfo = () => {
+    if (!majstor) return {}
+    
+    return {
+      name: majstor.full_name || 'Handwerker',
+      businessName: majstor.business_name || '',
+      phone: majstor.phone || '',
+      email: majstor.email || '',
+      city: majstor.city || '',
+      address: majstor.address || ''
+    }
+  }
+
   const handleSaveContact = () => {
-    if (!businessCard) return
+    if (!majstor) return
+    
+    const contact = getContactInfo()
     
     const vCardData = [
       'BEGIN:VCARD',
       'VERSION:3.0',
-      `FN:${businessCard.card_name || 'Handwerker'}`,
-      `ORG:${businessCard.card_business_name || ''}`,
-      `TEL:${businessCard.card_phone || ''}`,
-      `EMAIL:${businessCard.card_email || ''}`,
-      `ADR:;;;${businessCard.card_city || ''};;;;`,
-      businessCard.website ? `URL:${businessCard.website}` : '',
+      `FN:${contact.name}`,
+      `ORG:${contact.businessName}`,
+      `TEL:${contact.phone}`,
+      `EMAIL:${contact.email}`,
+      `ADR:;;;${contact.city};;;;`,
+      businessCard?.website ? `URL:${businessCard.website}` : '',
       'END:VCARD'
     ].filter(line => line && !line.endsWith(':'))
      .join('\n')
@@ -116,12 +132,11 @@ export default function PublicBusinessCardPage({ params }) {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${businessCard.card_name?.replace(/\s+/g, '_') || 'kontakt'}.vcf`
+    link.download = `${contact.name.replace(/\s+/g, '_') || 'kontakt'}.vcf`
     link.click()
     window.URL.revokeObjectURL(url)
   }
 
-  // Handle inquiry form changes
   const handleInquiryChange = (e) => {
     setInquiryData(prev => ({
       ...prev,
@@ -129,7 +144,6 @@ export default function PublicBusinessCardPage({ params }) {
     }))
   }
 
-  // 🔥 IMAGE COMPRESSION - Optimized for mobile
   const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas')
@@ -139,7 +153,6 @@ export default function PublicBusinessCardPage({ params }) {
       img.onload = () => {
         let { width, height } = img
         
-        // Smart resizing
         if (width > maxWidth || height > maxWidth) {
           if (width > height) {
             height = (height * maxWidth) / width
@@ -153,7 +166,6 @@ export default function PublicBusinessCardPage({ params }) {
         canvas.width = width
         canvas.height = height
         
-        // Better image quality
         ctx.imageSmoothingEnabled = true
         ctx.imageSmoothingQuality = 'high'
         ctx.drawImage(img, 0, 0, width, height)
@@ -165,31 +177,25 @@ export default function PublicBusinessCardPage({ params }) {
     })
   }
 
-  // 🔥 PHOTO UPLOAD - Using your 'inquiries' bucket
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
     console.log('📷 Starting photo upload:', files.length, 'files')
 
-    // Enhanced validation
-    const validFiles = files.filter((file, index) => {
+    const validFiles = files.filter((file) => {
       if (!file.type.startsWith('image/')) {
         alert(`❌ ${file.name} ist keine Bilddatei`)
         return false
       }
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) {
         alert(`❌ ${file.name} ist zu groß (max 10MB)`)
         return false
       }
       return true
     })
 
-    if (validFiles.length === 0) {
-      console.log('❌ No valid files to upload')
-      return
-    }
-
+    if (validFiles.length === 0) return
     if (uploadedImages.length + validFiles.length > 5) {
       alert('⚠️ Maximal 5 Bilder erlaubt')
       return
@@ -197,35 +203,24 @@ export default function PublicBusinessCardPage({ params }) {
 
     setImageUploading(true)
     setUploadProgress(0)
-    setInquiryError('') // Clear any previous errors
+    setInquiryError('')
 
     try {
-      console.log('🔧 Processing', validFiles.length, 'images for majstor:', majstor.id)
-
       const uploadPromises = validFiles.map(async (file, index) => {
         try {
-          // Progress simulation
           const progressIncrement = 100 / validFiles.length
           setUploadProgress(prev => Math.min(prev + progressIncrement * 0.3, 95))
           
-          console.log(`📤 Compressing image ${index + 1}:`, file.name)
-          
-          // Compress image
           const compressedFile = await compressImage(file, 1200, 0.85)
-          
           if (!compressedFile) {
             throw new Error(`Failed to compress ${file.name}`)
           }
 
-          // Generate unique filename with majstor folder structure
           const fileExt = 'jpg'
           const timestamp = Date.now()
           const randomId = Math.random().toString(36).substring(2, 8)
           const fileName = `${majstor.id}/${timestamp}_${randomId}.${fileExt}`
           
-          console.log(`☁️ Uploading to inquiries bucket:`, fileName)
-          
-          // 🔥 UPLOAD TO YOUR 'inquiries' BUCKET
           const { data, error } = await supabase.storage
             .from('inquiries')
             .upload(fileName, compressedFile, {
@@ -234,13 +229,9 @@ export default function PublicBusinessCardPage({ params }) {
             })
 
           if (error) {
-            console.error('❌ Upload error for', file.name, ':', error)
             throw new Error(`Upload fehlgeschlagen für ${file.name}: ${error.message}`)
           }
 
-          console.log('✅ Upload successful:', data.path)
-
-          // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('inquiries')
             .getPublicUrl(fileName)
@@ -249,7 +240,6 @@ export default function PublicBusinessCardPage({ params }) {
             throw new Error(`Failed to get public URL for ${file.name}`)
           }
 
-          // Progress update
           setUploadProgress(prev => Math.min(prev + progressIncrement * 0.7, 100))
 
           return {
@@ -266,15 +256,9 @@ export default function PublicBusinessCardPage({ params }) {
         }
       })
 
-      console.log('⏳ Waiting for all uploads to complete...')
       const uploadResults = await Promise.all(uploadPromises)
-      
-      console.log('✅ All uploads successful:', uploadResults.length, 'images')
-      
       setUploadedImages(prev => [...prev, ...uploadResults])
       setUploadProgress(100)
-
-      // Show success message briefly
       setTimeout(() => setUploadProgress(0), 1500)
 
     } catch (err) {
@@ -283,21 +267,16 @@ export default function PublicBusinessCardPage({ params }) {
       setUploadProgress(0)
     } finally {
       setImageUploading(false)
-      
-      // Clear file input
       if (imageInputRef.current) {
         imageInputRef.current.value = ''
       }
     }
   }
 
-  // 🔥 REMOVE UPLOADED IMAGE
   const removeUploadedImage = async (imageIndex) => {
     try {
       const imageToRemove = uploadedImages[imageIndex]
-      console.log('🗑️ Removing image:', imageToRemove.filename)
       
-      // Remove from Supabase storage
       if (imageToRemove.uploadPath) {
         const { error } = await supabase.storage
           .from('inquiries')
@@ -305,29 +284,25 @@ export default function PublicBusinessCardPage({ params }) {
         
         if (error) {
           console.warn('⚠️ Storage removal failed:', error.message)
-        } else {
-          console.log('✅ Image removed from storage')
         }
       }
       
-      // Remove from local state
       setUploadedImages(prev => prev.filter((_, index) => index !== imageIndex))
       
     } catch (error) {
       console.error('❌ Error removing image:', error)
-      // Remove from local state anyway
       setUploadedImages(prev => prev.filter((_, index) => index !== imageIndex))
     }
   }
 
-  // 🔥 ENHANCED INQUIRY SUBMISSION
+  // 🔥 FIXED: Inquiry submission with correct field mapping
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
     setInquiryLoading(true)
 
     try {
-      console.log('📤 Submitting inquiry for majstor:', majstor.id)
+      console.log('📤 Starting inquiry submission...')
 
       // Enhanced validation
       if (!inquiryData.customer_name.trim()) {
@@ -340,65 +315,86 @@ export default function PublicBusinessCardPage({ params }) {
         throw new Error('Beschreibung ist erforderlich')
       }
 
-      // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(inquiryData.customer_email)) {
         throw new Error('Ungültige E-Mail-Adresse')
       }
 
-      // Prepare inquiry payload for your existing API
+      // 🔥 FIXED: Use correct database field mapping
+      console.log('💾 Inserting directly to database...')
+      
       const inquiryPayload = {
         majstor_id: majstor.id,
         customer_name: inquiryData.customer_name.trim(),
         customer_email: inquiryData.customer_email.trim(),
         customer_phone: inquiryData.customer_phone.trim() || null,
         
-        // 🔥 NEW FIELDS (with fallbacks for old API)
-        service_type: inquiryData.service_type.trim() || null,
-        description: inquiryData.description.trim(),
-        urgency: inquiryData.urgency,
-        preferred_contact: inquiryData.preferred_contact,
-        source: 'business_card',
-        
-        // 🔥 OLD FIELDS for backward compatibility
+        // 🔥 FIXED: Map to actual database fields
         subject: inquiryData.service_type.trim() || 'Kundenanfrage',
         message: inquiryData.description.trim(),
         
-        // 🔥 IMAGES - Support both approaches
-        images: uploadedImages.map(img => img.url), // Old format
-        photo_urls: uploadedImages.map(img => img.url) // New format
+        status: 'new',
+        priority: inquiryData.urgency === 'emergency' ? 'urgent' : 
+                 inquiryData.urgency === 'high' ? 'high' : 
+                 inquiryData.urgency === 'low' ? 'low' : 'normal',
+        
+        is_urgent: inquiryData.urgency === 'emergency',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
-      console.log('📋 Submitting with payload:', {
+      console.log('📋 Database insert payload:', {
         customer: inquiryPayload.customer_name,
-        service: inquiryPayload.service_type,
-        urgency: inquiryPayload.urgency,
-        images: inquiryPayload.images.length
+        majstor_id: inquiryPayload.majstor_id,
+        urgency: inquiryData.urgency,
+        priority: inquiryPayload.priority
       })
 
-      // Call your existing API
-      const response = await fetch('/api/inquiries', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(inquiryPayload)
-      })
+      // Insert inquiry directly
+      const { data: inquiry, error: inquiryError } = await supabase
+        .from('inquiries')
+        .insert(inquiryPayload)
+        .select()
+        .single()
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        console.error('❌ API error:', result)
-        throw new Error(result.error || `HTTP ${response.status}`)
+      if (inquiryError) {
+        console.error('❌ Database insert error:', inquiryError)
+        throw new Error(`Datenbankfehler: ${inquiryError.message}`)
       }
 
-      if (!result.success) {
-        throw new Error(result.error || 'Unknown API error')
+      if (!inquiry) {
+        throw new Error('Keine Daten von der Datenbank erhalten')
       }
 
-      console.log('✅ Inquiry submitted successfully:', result.inquiry?.id)
-      
-      // Success state
+      console.log('✅ Inquiry created successfully:', inquiry.id)
+
+      // Handle images if any
+      if (uploadedImages.length > 0) {
+        console.log('📷 Processing', uploadedImages.length, 'images...')
+
+        try {
+          const imageData = uploadedImages.map(image => ({
+            inquiry_id: inquiry.id,
+            image_url: image.url,
+            filename: image.filename
+          }))
+
+          const { error: imagesError } = await supabase
+            .from('inquiry_images')
+            .insert(imageData)
+
+          if (imagesError) {
+            console.warn('⚠️ Error saving images to inquiry_images:', imagesError)
+          } else {
+            console.log('✅ Images saved to inquiry_images table')
+          }
+        } catch (imageError) {
+          console.error('❌ Image processing error:', imageError)
+          // Don't fail the whole process
+        }
+      }
+
+      // Success handling
       setInquirySuccess(true)
       
       // Reset form
@@ -412,10 +408,9 @@ export default function PublicBusinessCardPage({ params }) {
         preferred_contact: 'email'
       })
       
-      // Clear uploaded images
       setUploadedImages([])
       
-      // Auto-hide form after success
+      // Auto-hide after success
       setTimeout(() => {
         setShowInquiryForm(false)
         setInquirySuccess(false)
@@ -424,26 +419,23 @@ export default function PublicBusinessCardPage({ params }) {
     } catch (err) {
       console.error('💥 Inquiry submission error:', err)
       
-      // User-friendly error messages
       let errorMessage = err.message || 'Ein unerwarteter Fehler ist aufgetreten'
       
       if (err.message?.includes('permission denied') || err.message?.includes('RLS')) {
-        errorMessage = 'Berechtigung verweigert - bitte versuchen Sie es später erneut'
+        errorMessage = '🔒 Berechtigung verweigert - bitte versuchen Sie es später erneut'
       } else if (err.message?.includes('connection') || err.message?.includes('network')) {
-        errorMessage = 'Netzwerkfehler - bitte überprüfen Sie Ihre Internetverbindung'
-      } else if (err.message?.includes('timeout')) {
-        errorMessage = 'Zeitüberschreitung - bitte versuchen Sie es erneut'
-      } else if (err.message?.includes('404')) {
-        errorMessage = 'Service nicht verfügbar - bitte kontaktieren Sie den Support'
+        errorMessage = '🌐 Netzwerkfehler - bitte überprüfen Sie Ihre Internetverbindung'
+      } else if (err.message?.includes('Datenbankfehler')) {
+        errorMessage = '💾 ' + err.message
       }
       
       setInquiryError(errorMessage)
+      
     } finally {
       setInquiryLoading(false)
     }
   }
 
-  // Handle inquiry button click
   const handleInquiryClick = () => {
     setShowInquiryForm(true)
     setInquiryError('')
@@ -457,9 +449,11 @@ export default function PublicBusinessCardPage({ params }) {
     }, 100)
   }
 
-  // 🔥 PERFECT PREVIEW CARD COMPONENT
+  // 🔥 FIXED: Use majstor data with fallbacks for missing business card fields
   const PreviewCard = ({ isMobile = false }) => {
-    if (!businessCard) return null
+    if (!businessCard || !majstor) return null
+    
+    const contact = getContactInfo()
 
     return (
       <div 
@@ -471,7 +465,6 @@ export default function PublicBusinessCardPage({ params }) {
           maxWidth: isMobile ? '300px' : '400px'
         }}
       >
-        {/* Logo */}
         {businessCard.logo_url && (
           <div className={`mb-${isMobile ? '3' : '4'}`}>
             <img 
@@ -482,31 +475,28 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
         )}
 
-        {/* Header */}
         <div className={`mb-${isMobile ? '3' : '4'}`}>
           <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>
             {businessCard.title || 'Meine Visitenkarte'}
           </h1>
           <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>
-            {businessCard.card_name}
+            {contact.name}
           </h2>
-          {businessCard.card_business_name && (
-            <p className="text-sm opacity-80">{businessCard.card_business_name}</p>
+          {contact.businessName && (
+            <p className="text-sm opacity-80">{contact.businessName}</p>
           )}
         </div>
 
-        {/* Description */}
         {businessCard.description && (
           <p className={`text-sm opacity-90 mb-${isMobile ? '3' : '4'} italic leading-tight`}>
             {businessCard.description}
           </p>
         )}
 
-        {/* Contact Info */}
         <div className={`space-y-1 mb-${isMobile ? '3' : '4'} text-sm opacity-90`}>
-          {businessCard.card_phone && <p>📞 {businessCard.card_phone}</p>}
-          <p>✉️ {businessCard.card_email}</p>
-          {businessCard.card_city && <p>📍 {businessCard.card_city}</p>}
+          {contact.phone && <p>📞 {contact.phone}</p>}
+          <p>✉️ {contact.email}</p>
+          {contact.city && <p>📍 {contact.city}</p>}
           {businessCard.website && (
             <a 
               href={businessCard.website}
@@ -519,7 +509,6 @@ export default function PublicBusinessCardPage({ params }) {
           )}
         </div>
 
-        {/* Services */}
         {businessCard.services && businessCard.services.length > 0 && (
           <div className={`mb-${isMobile ? '3' : '4'}`}>
             <h3 className="text-sm font-semibold mb-2 opacity-90">Unsere Dienstleistungen:</h3>
@@ -540,7 +529,6 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
         )}
 
-        {/* Gallery Preview */}
         {businessCard.gallery_images && businessCard.gallery_images.length > 0 && (
           <div className={`mb-${isMobile ? '4' : '5'}`}>
             <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Arbeiten:</h3>
@@ -566,9 +554,7 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
-          {/* Save Contact Button */}
           <button 
             onClick={handleSaveContact}
             className="bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full"
@@ -576,7 +562,6 @@ export default function PublicBusinessCardPage({ params }) {
             📱 Kontakt speichern
           </button>
 
-          {/* Inquiry Button */}
           <button 
             onClick={handleInquiryClick}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
@@ -585,7 +570,6 @@ export default function PublicBusinessCardPage({ params }) {
           </button>
         </div>
 
-        {/* Powered By */}
         <div className="pt-2 border-t border-white/20">
           <p className="text-xs opacity-50">
             Powered by{' '}
@@ -603,14 +587,14 @@ export default function PublicBusinessCardPage({ params }) {
     )
   }
 
-  // Generate page title and meta description
-  const pageTitle = businessCard?.card_name 
-    ? `${businessCard.card_name} - ${businessCard.card_business_name || 'Handwerker'}`
+  // 🔥 FIXED: Generate proper meta data
+  const pageTitle = majstor?.full_name 
+    ? `${majstor.full_name} - ${majstor.business_name || 'Handwerker'}`
     : 'Handwerker Profil'
   
   const pageDescription = businessCard?.description 
     ? businessCard.description 
-    : `Kontaktieren Sie ${businessCard?.card_name || 'unseren Handwerker'} für professionelle Dienstleistungen`
+    : `Kontaktieren Sie ${majstor?.full_name || 'unseren Handwerker'} für professionelle Dienstleistungen`
 
   if (loading) {
     return (
@@ -645,8 +629,8 @@ export default function PublicBusinessCardPage({ params }) {
 
   return (
     <>
-      {/* SEO Meta Tags */}
-      <head>
+      {/* 🔥 FIXED: Proper Next.js Head usage */}
+      <Head>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
         <meta property="og:title" content={pageTitle} />
@@ -656,18 +640,16 @@ export default function PublicBusinessCardPage({ params }) {
           <meta property="og:image" content={businessCard.logo_url} />
         )}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="canonical" href={`https://majstori.de/m/${params.slug}`} />
-      </head>
+        <link rel="canonical" href={`https://majstori.de/m/${resolvedParams.slug}`} />
+      </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
         <div className="max-w-2xl mx-auto space-y-8">
           
-          {/* Business Card Display */}
           <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
             <PreviewCard isMobile={false} />
           </div>
 
-          {/* 🔥 PERFECT INQUIRY FORM */}
           {showInquiryForm && (
             <div 
               ref={inquiryFormRef}
@@ -685,10 +667,9 @@ export default function PublicBusinessCardPage({ params }) {
               </div>
               
               <p className="text-slate-400 mb-6">
-                Kontaktieren Sie <strong className="text-white">{businessCard.card_name}</strong> direkt für ein Angebot oder weitere Informationen.
+                Kontaktieren Sie <strong className="text-white">{getContactInfo().name}</strong> direkt für ein Angebot oder weitere Informationen.
               </p>
 
-              {/* Success Message */}
               {inquirySuccess && (
                 <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
                   <div className="flex items-center gap-3">
@@ -696,7 +677,7 @@ export default function PublicBusinessCardPage({ params }) {
                     <div>
                       <p className="text-green-400 font-semibold">Anfrage erfolgreich gesendet!</p>
                       <p className="text-green-300 text-sm mt-1">
-                        {businessCard.card_name} wird sich schnellstmöglich bei Ihnen melden.
+                        {getContactInfo().name} wird sich schnellstmöglich bei Ihnen melden.
                       </p>
                       {uploadedImages.length > 0 && (
                         <p className="text-green-300 text-sm mt-1">
@@ -708,14 +689,15 @@ export default function PublicBusinessCardPage({ params }) {
                 </div>
               )}
 
-              {/* Error Message */}
               {inquiryError && (
                 <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
                   <div className="flex items-center gap-3">
                     <span className="text-red-400 text-xl">⚠️</span>
                     <div>
                       <p className="text-red-400 font-semibold">Fehler beim Senden</p>
-                      <p className="text-red-300 text-sm mt-1">{inquiryError}</p>
+                      <pre className="text-red-300 text-sm mt-1 whitespace-pre-wrap">
+                        {inquiryError}
+                      </pre>
                     </div>
                   </div>
                 </div>
@@ -723,7 +705,6 @@ export default function PublicBusinessCardPage({ params }) {
 
               <form onSubmit={handleInquirySubmit} className="space-y-6">
                 
-                {/* Basic Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -794,7 +775,6 @@ export default function PublicBusinessCardPage({ params }) {
                   </div>
                 </div>
 
-                {/* Urgency and Contact Preference */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -830,7 +810,6 @@ export default function PublicBusinessCardPage({ params }) {
                   </div>
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Beschreibung Ihres Anliegens *
@@ -846,7 +825,6 @@ export default function PublicBusinessCardPage({ params }) {
                   />
                 </div>
 
-                {/* 🔥 PHOTO UPLOAD SECTION */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     📷 Fotos hinzufügen (optional)
@@ -856,7 +834,6 @@ export default function PublicBusinessCardPage({ params }) {
                   </p>
                   
                   <div className="space-y-4">
-                    {/* File Input */}
                     <input
                       ref={imageInputRef}
                       type="file"
@@ -867,7 +844,6 @@ export default function PublicBusinessCardPage({ params }) {
                       className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50 transition-all"
                     />
                     
-                    {/* Upload Progress */}
                     {imageUploading && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -883,11 +859,10 @@ export default function PublicBusinessCardPage({ params }) {
                       </div>
                     )}
 
-                    {/* Uploaded Images Preview */}
                     {uploadedImages.length > 0 && (
                       <div>
                         <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
-                          <span className="text-green-400">📎</span>
+                          <span className="text-green-400">🔍</span>
                           Hochgeladene Bilder ({uploadedImages.length}/5):
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -910,11 +885,6 @@ export default function PublicBusinessCardPage({ params }) {
                                 <p className="truncate" title={image.filename}>
                                   {image.filename}
                                 </p>
-                                {image.originalSize && image.size && (
-                                  <p className="text-green-300">
-                                    {Math.round((image.originalSize - image.size) / image.originalSize * 100)}% komprimiert
-                                  </p>
-                                )}
                               </div>
                             </div>
                           ))}
@@ -924,7 +894,6 @@ export default function PublicBusinessCardPage({ params }) {
                   </div>
                 </div>
 
-                {/* Submit Buttons */}
                 <div className="flex gap-3 pt-6 border-t border-slate-700">
                   <button
                     type="button"
@@ -958,7 +927,6 @@ export default function PublicBusinessCardPage({ params }) {
                 </div>
               </form>
 
-              {/* Privacy Notice */}
               <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                 <div className="flex items-start gap-3">
                   <span className="text-blue-400 text-lg flex-shrink-0">ℹ️</span>
@@ -966,8 +934,7 @@ export default function PublicBusinessCardPage({ params }) {
                     <p className="text-blue-300 font-medium mb-1">Datenschutz-Hinweis</p>
                     <p className="text-blue-200/90 text-xs leading-relaxed">
                       Ihre Daten und hochgeladenen Bilder werden nur zur Bearbeitung Ihrer Anfrage verwendet 
-                      und nicht an Dritte weitergegeben. Bilder werden sicher in unserem System gespeichert und können 
-                      jederzeit auf Anfrage gelöscht werden.
+                      und nicht an Dritte weitergegeben.
                     </p>
                   </div>
                 </div>
@@ -975,7 +942,6 @@ export default function PublicBusinessCardPage({ params }) {
             </div>
           )}
 
-          {/* Footer */}
           <div className="text-center text-slate-500 text-sm">
             <p>
               Erstellt mit{' '}
@@ -991,7 +957,6 @@ export default function PublicBusinessCardPage({ params }) {
             </p>
           </div>
 
-          {/* Gallery Modal */}
           {showGalleryModal && businessCard.gallery_images && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
               <div className="bg-slate-800 rounded-xl max-w-4xl max-h-[90vh] overflow-y-auto p-6">
