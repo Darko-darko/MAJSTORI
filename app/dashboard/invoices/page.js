@@ -41,6 +41,7 @@ function DashboardPageContent() {
     payment_terms_days: 14,
     invoice_footer: '',
     // ENHANCED: Business profile data
+    full_name: '',                    // DODAJ OVO
     business_name: '',
     phone: '',
     city: '',
@@ -194,6 +195,9 @@ function DashboardPageContent() {
         payment_terms_days: majstorData.payment_terms_days || 14,
         invoice_footer: majstorData.invoice_footer || '',
         // ENHANCED: Business profile data
+       full_name: (majstorData.business_name || (majstorData.full_name && majstorData.full_name !== majstorData.email?.split('@')[0])) 
+    ? majstorData.full_name || '' 
+    : '',  // PROMENI OVU LINIJU
         business_name: majstorData.business_name || '',
         phone: majstorData.phone || '',
         city: majstorData.city || '',
@@ -209,6 +213,11 @@ function DashboardPageContent() {
       setLoading(false)
     }
   }
+
+
+
+
+
 
   const loadInvoicesData = async (majstorId) => {
     try {
@@ -989,6 +998,7 @@ function DashboardPageContent() {
           payment_terms_days: localSettings.payment_terms_days,
           invoice_footer: localSettings.invoice_footer || null,
           // ENHANCED: Business profile data
+          full_name: localSettings.full_name || null,        // DODAJ OVO
           business_name: localSettings.business_name || null,
           phone: localSettings.phone || null,
           city: localSettings.city || null,
@@ -1063,6 +1073,24 @@ function DashboardPageContent() {
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* NOVO POLJE - VOLLSTÄNDIGER NAME */}
+    <div className="md:col-span-2">
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Vollständiger Name *
+        <span className="text-slate-500 text-xs ml-1">(Ihr persönlicher Name)</span>
+      </label>
+      <input
+        type="text"
+        name="full_name"
+        value={localSettings.full_name || ''}
+        onChange={handleLocalChange}
+        placeholder="Max Müller"
+        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+        required
+      />
+    </div>
+
               {/* Business Name */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
