@@ -1,8 +1,9 @@
-// app/components/InvoiceCreator.js - FIXED COMPLETE WITH BUSINESS DATA VALIDATION
+// app/components/InvoiceCreator.js - COMPLETE WITH NUMBERS SETUP INTEGRATION
 
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
 
 export default function InvoiceCreator({ 
   isOpen, 
@@ -17,6 +18,10 @@ export default function InvoiceCreator({
   // Business data completion check
   const [businessDataComplete, setBusinessDataComplete] = useState(false)
   const [showBusinessDataModal, setShowBusinessDataModal] = useState(false)
+
+  // 🔢 NEW: Numbers setup states
+  const [numbersInitialized, setNumbersInitialized] = useState(false)
+  const [showNumbersSetupModal, setShowNumbersSetupModal] = useState(false)
 
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -56,20 +61,28 @@ export default function InvoiceCreator({
   useEffect(() => {
     if (isOpen && majstor?.id) {
       checkBusinessDataCompleteness()
+      // 🔢 Only check numbers AFTER business data is complete
+      if (businessDataComplete) {
+        checkNumbersInitialization()
+      }
       loadServices()
       initializeFormData()
     }
-  }, [isOpen, majstor?.id, type, editData, isEditMode])
+  }, [isOpen, majstor?.id, type, editData, isEditMode, businessDataComplete])
 
-  // FIXED: Monitor majstor changes to recheck business data completeness
+  // Monitor majstor changes to recheck business data completeness AND numbers
   useEffect(() => {
     if (majstor) {
-      console.log('👂 Majstor data updated, rechecking business completeness')
+      console.log('👂 Majstor data updated, rechecking business completeness and numbers')
       checkBusinessDataCompleteness()
+      // 🔢 Only check numbers AFTER business data is complete
+      if (businessDataComplete) {
+        checkNumbersInitialization()
+      }
     }
-  }, [majstor, isEditMode])
+  }, [majstor, isEditMode, businessDataComplete])
 
-  // FIXED: Unified business data validation logic
+  // EXISTING: Unified business data validation logic
   const checkBusinessDataCompleteness = () => {
     if (!majstor) {
       setBusinessDataComplete(false)
@@ -108,10 +121,48 @@ export default function InvoiceCreator({
     if (!isEditMode && !isCompleteEnough) {
       console.log('📋 Showing business data modal - data incomplete')
       setShowBusinessDataModal(true)
+      // 🔢 Don't check numbers until business data is complete
+      return
     }
   }
 
-  // Business Data Completion Modal
+  // 🔢 NEW: Check numbers initialization
+  const checkNumbersInitialization = () => {
+    if (!majstor) {
+      setNumbersInitialized(false)
+      return
+    }
+
+    const isInitialized = majstor.numbers_initialized === true
+    setNumbersInitialized(isInitialized)
+
+    console.log('🔢 Numbers check in InvoiceCreator:', {
+      majstorId: majstor.id,
+      numbersInitialized: isInitialized,
+      isEditMode
+    })
+
+    // Show numbers setup modal if not initialized and trying to create first invoice
+    if (!isEditMode && !isInitialized) {
+      console.log('📋 Showing numbers setup modal - numbers not initialized')
+      setShowNumbersSetupModal(true)
+    }
+  }
+
+  // 🔢 NEW: Handle successful numbers setup
+  const handleNumbersSetupSuccess = () => {
+    console.log('✅ Numbers setup completed successfully')
+    setShowNumbersSetupModal(false)
+    setNumbersInitialized(true)
+    
+    // Update majstor object to reflect the change
+    if (majstor) {
+      const updatedMajstor = { ...majstor, numbers_initialized: true }
+      console.log('📊 Numbers setup complete, majstor updated')
+    }
+  }
+
+  // EXISTING: Business Data Completion Modal
   const BusinessDataModal = () => {
     if (!showBusinessDataModal) return null
 
@@ -203,6 +254,7 @@ export default function InvoiceCreator({
     )
   }
 
+  // EXISTING: Load services function
   const loadServices = async () => {
     try {
       const { data: servicesData, error } = await supabase
@@ -220,6 +272,7 @@ export default function InvoiceCreator({
     }
   }
 
+  // EXISTING: Auto-save service function
   const autoSaveServiceFromInvoice = async (serviceName) => {
     try {
       if (!serviceName || !majstor?.id) return
@@ -247,6 +300,7 @@ export default function InvoiceCreator({
     }
   }
 
+  // EXISTING: Filter services function
   const filterServicesByTerm = (searchTerm, allServices) => {
     if (!searchTerm || searchTerm.length < 2) {
       return []
@@ -259,6 +313,7 @@ export default function InvoiceCreator({
     )
   }
 
+  // EXISTING: Initialize form data
   const initializeFormData = () => {
     const defaultSettings = {
       is_kleinunternehmer: majstor?.is_kleinunternehmer || false,
@@ -329,7 +384,7 @@ export default function InvoiceCreator({
     }
   }
 
-  // Customer search with debouncing
+  // EXISTING: Customer search with debouncing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (customerSearchTerm.length >= 2 && !isEditMode && !prefilledCustomer) {
@@ -343,6 +398,7 @@ export default function InvoiceCreator({
     return () => clearTimeout(timeoutId)
   }, [customerSearchTerm, isEditMode, prefilledCustomer])
 
+  // EXISTING: Search customers function
   const searchCustomers = async (searchTerm) => {
     if (!majstor?.id || searchTerm.length < 2) return
 
@@ -367,7 +423,7 @@ export default function InvoiceCreator({
     }
   }
 
-  // Select customer from dropdown
+  // EXISTING: Select customer from dropdown
   const handleCustomerSelect = (customer) => {
     const addressParts = [customer.street, customer.postal_code, customer.city].filter(Boolean)
     const fullAddress = addressParts.join(', ')
@@ -384,7 +440,7 @@ export default function InvoiceCreator({
     setShowCustomerDropdown(false)
   }
 
-  // Service selection for items
+  // EXISTING: Service selection for items
   const handleServiceSelect = (itemIndex, service) => {
     const newItems = [...formData.items]
     newItems[itemIndex] = {
@@ -401,6 +457,7 @@ export default function InvoiceCreator({
     calculateTotals(newItems)
   }
 
+  // EXISTING: Handle customer name change
   const handleCustomerNameChange = (e) => {
     const value = e.target.value
     setCustomerSearchTerm(value)
@@ -417,12 +474,13 @@ export default function InvoiceCreator({
     }
   }
 
+  // EXISTING: Handle input change
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  // Handle item changes with proper service filtering
+  // EXISTING: Handle item changes with proper service filtering
   const handleItemChange = (index, field, value) => {
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
@@ -449,6 +507,7 @@ export default function InvoiceCreator({
     }
   }
 
+  // EXISTING: Add item
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
@@ -456,6 +515,7 @@ export default function InvoiceCreator({
     }))
   }
 
+  // EXISTING: Remove item
   const removeItem = (index) => {
     if (formData.items.length > 1) {
       const newItems = formData.items.filter((_, i) => i !== index)
@@ -469,6 +529,7 @@ export default function InvoiceCreator({
     }
   }
 
+  // EXISTING: Calculate totals
   const calculateTotals = (items) => {
     const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0)
     const taxAmount = formData.is_kleinunternehmer ? 0 : subtotal * (formData.tax_rate / 100)
@@ -482,12 +543,18 @@ export default function InvoiceCreator({
     }))
   }
 
+  // EXISTING: Handle submit with UPDATED validation
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Block submission if business data incomplete
+    // 🔢 NEW: Block submission if business data incomplete OR numbers not initialized
     if (!businessDataComplete) {
       setShowBusinessDataModal(true)
+      return
+    }
+
+    if (!numbersInitialized) {
+      setShowNumbersSetupModal(true)
       return
     }
 
@@ -567,6 +634,7 @@ export default function InvoiceCreator({
     }
   }
 
+  // EXISTING: Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -574,7 +642,7 @@ export default function InvoiceCreator({
     }).format(amount)
   }
 
-  // Close dropdowns when clicking outside
+  // EXISTING: Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (customerInputRef.current && !customerInputRef.current.contains(event.target)) {
@@ -594,10 +662,18 @@ export default function InvoiceCreator({
 
   return (
     <>
-      {/* Business Data Modal */}
+      {/* EXISTING: Business Data Modal */}
       <BusinessDataModal />
       
-      {/* Main Invoice Creator Modal */}
+      {/* 🔢 NEW: Numbers Setup Modal */}
+      <InvoiceNumbersSetupModal
+        isOpen={showNumbersSetupModal}
+        onClose={() => setShowNumbersSetupModal(false)}
+        majstor={majstor}
+        onSuccess={handleNumbersSetupSuccess}
+      />
+      
+      {/* EXISTING: Main Invoice Creator Modal */}
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-slate-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
           {/* Header */}
@@ -615,7 +691,7 @@ export default function InvoiceCreator({
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             
-            {/* Business Data Warning */}
+            {/* EXISTING: Business Data Warning */}
             {!businessDataComplete && (
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -637,7 +713,29 @@ export default function InvoiceCreator({
               </div>
             )}
 
-            {/* Status Information */}
+            {/* 🔢 NEW: Numbers Not Initialized Warning - ONLY show if business data is complete */}
+            {businessDataComplete && !numbersInitialized && (
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-orange-400 text-xl">🔢</span>
+                  <div>
+                    <h4 className="text-orange-300 font-medium mb-2">Rechnungsnummern einrichten</h4>
+                    <p className="text-orange-200 text-sm mb-3">
+                      Bevor Sie Ihre erste Rechnung erstellen, müssen Sie die Startnummern für Angebote und Rechnungen festlegen.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowNumbersSetupModal(true)}
+                      className="bg-orange-600 text-white px-4 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
+                    >
+                      Nummern einrichten
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* EXISTING: Status Information */}
             <div className={`rounded-lg p-4 border ${formData.is_kleinunternehmer ? 'bg-green-500/10 border-green-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -659,7 +757,7 @@ export default function InvoiceCreator({
               </div>
             </div>
             
-            {/* Customer Section with Autocomplete */}
+            {/* EXISTING: Customer Section with Autocomplete */}
             <div className="bg-slate-900/50 rounded-lg p-4">
               <h4 className="text-white font-semibold mb-4">Kunde</h4>
 
@@ -740,7 +838,7 @@ export default function InvoiceCreator({
               </div>
             </div>
 
-            {/* Items Section with Services Dropdown */}
+            {/* EXISTING: Items Section with Services Dropdown */}
             <div className="bg-slate-900/50 rounded-lg p-4">
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-white font-semibold">Positionen</h4>
@@ -856,7 +954,7 @@ export default function InvoiceCreator({
               </div>
             </div>
 
-            {/* Totals Section */}
+            {/* EXISTING: Totals Section */}
             <div className="bg-slate-900/50 rounded-lg p-4">
               <h4 className="text-white font-semibold mb-4">Berechnung</h4>
               <div className="space-y-2 max-w-md ml-auto">
@@ -891,7 +989,7 @@ export default function InvoiceCreator({
               </div>
             </div>
 
-            {/* Settings Section */}
+            {/* EXISTING: Settings Section */}
             <div className="bg-slate-900/50 rounded-lg p-4">
               <h4 className="text-white font-semibold mb-4">Einstellungen</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -949,14 +1047,14 @@ export default function InvoiceCreator({
               </div>
             </div>
 
-            {/* Error */}
+            {/* EXISTING: Error */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
                 <p className="text-red-400">{error}</p>
               </div>
             )}
 
-            {/* Footer */}
+            {/* EXISTING: Footer with UPDATED button text */}
             <div className="flex gap-3 pt-4 border-t border-slate-700">
               <button
                 type="button"
@@ -968,7 +1066,7 @@ export default function InvoiceCreator({
               </button>
               <button
                 type="submit"
-                disabled={loading || formData.total_amount <= 0}
+                disabled={loading || formData.total_amount <= 0 || !businessDataComplete || !numbersInitialized}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex-1"
               >
                 {loading 

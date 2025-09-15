@@ -219,34 +219,36 @@ function DashboardPageContent() {
 
 
 
-  const loadInvoicesData = async (majstorId) => {
-    try {
-      // Load quotes (type: 'quote')
-      const { data: quotesData, error: quotesError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('majstor_id', majstorId)
-        .eq('type', 'quote')
-        .order('created_at', { ascending: false })
+const loadInvoicesData = async (majstorId) => {
+  try {
+    // Load quotes (type: 'quote') - FILTER OUT DUMMY ENTRIES
+    const { data: quotesData, error: quotesError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('majstor_id', majstorId)
+      .eq('type', 'quote')
+      .neq('status', 'dummy') // 🔢 NEW: Exclude dummy entries
+      .order('created_at', { ascending: false })
 
-      // Load invoices (type: 'invoice')  
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('majstor_id', majstorId)
-        .eq('type', 'invoice')
-        .order('created_at', { ascending: false })
+    // Load invoices (type: 'invoice') - FILTER OUT DUMMY ENTRIES  
+    const { data: invoicesData, error: invoicesError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('majstor_id', majstorId)
+      .eq('type', 'invoice')
+      .neq('status', 'dummy') // 🔢 NEW: Exclude dummy entries
+      .order('created_at', { ascending: false })
 
-      if (!quotesError) setQuotes(quotesData || [])
-      if (!invoicesError) setInvoices(invoicesData || [])
-      
-      // Build mapping između quotes i invoices
-      buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
+    if (!quotesError) setQuotes(quotesData || [])
+    if (!invoicesError) setInvoices(invoicesData || [])
+    
+    // Build mapping između quotes i invoices
+    buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
 
-    } catch (err) {
-      console.error('Error loading invoices:', err)
-    }
+  } catch (err) {
+    console.error('Error loading invoices:', err)
   }
+}
 
   // Build mapping between quotes and invoices
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
@@ -910,14 +912,23 @@ const convertQuoteToInvoice = async (quote) => {
                       </div>
                     )}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
-                    {invoice.status === 'draft' && 'Entwurf'}
-                    {invoice.status === 'sent' && 'Gesendet'}
-                    {invoice.status === 'paid' && 'Bezahlt'}
-                    {invoice.status === 'overdue' && 'Überfällig'}
-                    {invoice.status === 'cancelled' && 'Storniert'}
-                  </span>
+                 <div className="text-right">
+                    <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
+                      {invoice.status === 'draft' && 'Entwurf'}
+                      {invoice.status === 'sent' && 'Gesendet'}
+                      {invoice.status === 'paid' && 'Bezahlt'}
+                      {invoice.status === 'overdue' && 'Überfällig'}
+                      {invoice.status === 'cancelled' && 'Storniert'}
+                    </span>
+                    {invoice.status === 'paid' && (
+                      <div className="text-green-400 font-semibold text-sm mt-1">
+                        💰 {formatCurrency(invoice.total_amount)}
+                      </div>
+                    )}
+                  </div>
+                  
                 </div>
+
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
                   <div>

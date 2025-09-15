@@ -107,6 +107,7 @@ function CustomersPageContent() {
         .from('customers')
         .select('*')
         .eq('majstor_id', majstor.id)
+        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING') // 🔢 DODAJ OVU LINIJU
       
       console.log('DIRECT DATA:', freshData)
       
