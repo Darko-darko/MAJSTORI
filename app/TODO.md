@@ -37,3 +37,5 @@
 - ANTI SPAM!!!
 - email verifikacija -ne zaboraviti
 - isproveravati Google registraciju
+- redni brojevi faktura
+- vcf fajl.. preuzmi kontakt (ako nema imena da uzme ime firme)

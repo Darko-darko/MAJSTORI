@@ -358,191 +358,222 @@ function DashboardPageContent() {
   }
 
   // Convert quote to invoice
-  const convertQuoteToInvoice = async (quote) => {
-    try {
-      console.log('Converting quote to invoice:', quote.quote_number)
+// POTPUNO ZAMENI postojeću convertQuoteToInvoice funkciju u /app/dashboard/invoices/page.js
 
-      // Generate unique invoice number
-      const now = new Date()
-      const year = now.getFullYear()
-      const invoiceNumber = quote.quote_number?.replace('AN-', 'RE-') || `RE-${year}-001`
-      
-      console.log('Generated invoice number:', invoiceNumber)
+const convertQuoteToInvoice = async (quote) => {
+  try {
+    console.log('Converting quote to invoice:', quote.quote_number)
 
-      // Check for duplicates
-      const { data: duplicate } = await supabase
-        .from('invoices')
-        .select('id')
-        .eq('invoice_number', invoiceNumber)
-        .maybeSingle()
+    // 🔥 NOVA LOGIKA: Umesto AN-2025-001 → RE-2025-001
+    // Pronađi sledeći dostupan broj fakture u nizu
+    const year = new Date().getFullYear()
+    
+    console.log('🔍 Searching for next available invoice number for year:', year)
+    
+    // Pronađi sve postojeće fakture za trenutnu godinu
+    const { data: existingInvoices, error: searchError } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .eq('majstor_id', majstor.id)
+      .eq('type', 'invoice')  // Samo fakture, ne profakture
+      .like('invoice_number', `RE-${year}-%`)
+      .order('invoice_number', { ascending: false })
 
-      let finalInvoiceNumber = invoiceNumber
-      if (duplicate) {
-        const randomSuffix = Math.floor(Math.random() * 999).toString().padStart(3, '0')
-        finalInvoiceNumber = `${invoiceNumber}-${randomSuffix}`
-        console.log('Duplicate detected, using:', finalInvoiceNumber)
-      }
-
-      // Calculate financial data
-      const subtotal = parseFloat(quote.subtotal) || 0
-      const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
-      const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
-      const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
-      const totalAmount = subtotal + taxAmount
-
-      // Calculate dates
-      const issueDate = now.toISOString().split('T')[0]
-      const dueDate = new Date(now)
-      dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
-      const dueDateString = dueDate.toISOString().split('T')[0]
-
-      // Prepare invoice data
-      const invoiceData = {
-        majstor_id: quote.majstor_id,
-        type: 'invoice',
-        invoice_number: finalInvoiceNumber,
-        customer_name: quote.customer_name,
-        customer_email: quote.customer_email,
-        customer_phone: quote.customer_phone || null,
-        customer_address: quote.customer_address || null,
-        items: quote.items,
-        subtotal: subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
-        total_amount: totalAmount,
-        status: 'draft',
-        issue_date: issueDate,
-        due_date: dueDateString,
-        payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
-        notes: quote.notes || null,
-        is_kleinunternehmer: isKleinunternehmer,
-        converted_from_quote_id: quote.id,
-        company_name: majstor?.business_name || majstor?.full_name || null,
-        company_address: majstor?.address || null,
-        tax_number: settingsData?.tax_number || null,
-        vat_id: settingsData?.vat_id || null,
-        iban: settingsData?.iban || null,
-        bic: settingsData?.bic || null,
-        bank_name: settingsData?.bank_name || null,
-        created_at: now.toISOString(),
-        updated_at: now.toISOString()
-      }
-
-      console.log('Inserting invoice with explicit columns:', {
-        invoice_number: finalInvoiceNumber,
-        customer: invoiceData.customer_name,
-        total: totalAmount,
-        tax_rate: taxRate + '%',
-        kleinunternehmer: isKleinunternehmer
-      })
-
-      // Insert with explicit select
-      const { data: newInvoice, error: insertError } = await supabase
-        .from('invoices')
-        .insert(invoiceData)
-        .select(`
-          id,
-          invoice_number,
-          customer_name,
-          total_amount,
-          status,
-          created_at
-        `)
-        .single()
-
-      if (insertError) {
-        console.error('Database insert error:', insertError)
-        throw new Error(`Database error: ${insertError.message}`)
-      }
-
-      if (!newInvoice) {
-        throw new Error('No invoice data returned from database')
-      }
-
-      console.log('Invoice successfully created:', newInvoice)
-
-      // Update quote status to converted
-      const { error: quoteUpdateError } = await supabase
-        .from('invoices')
-        .update({ 
-          status: 'converted',
-          updated_at: now.toISOString()
-        })
-        .eq('id', quote.id)
-
-      if (quoteUpdateError) {
-        console.warn('Could not update quote status:', quoteUpdateError.message)
-      } else {
-        console.log('Quote status updated to converted')
-      }
-
-      // Refresh data in UI
-      console.log('Refreshing invoices data...')
-      
-      if (majstor?.id) {
-        await loadInvoicesData(majstor.id)
-      }
-
-      
-      setActiveTab('invoices')
-      
-      // Show success message
-      const successMessage = [
-        `Erfolgreich umgewandelt!`,
-        ``,
-        `Angebot: ${quote.quote_number}`,
-        `Rechnung: ${newInvoice.invoice_number}`,
-        ``,
-        `Kunde: ${newInvoice.customer_name}`,
-        `Betrag: ${formatCurrency(newInvoice.total_amount)}`,
-        `Status: ${newInvoice.status}`,
-        ``
-      ].join('\n')
-
-      alert(successMessage)
-
-      return newInvoice
-
-    } catch (error) {
-      console.error('Conversion failed with error:', error)
-      
-      let userMessage = 'Conversion failed'
-      let technicalDetails = error.message || 'Unknown error'
-      
-      if (error.message?.includes('duplicate key')) {
-        userMessage = 'Rechnungsnummer bereits vergeben'
-        technicalDetails = 'Database constraint violation'
-      } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
-        userMessage = 'Keine Berechtigung für diese Aktion'
-        technicalDetails = 'Row Level Security or permissions issue'
-      } else if (error.message?.includes('connection') || error.message?.includes('network')) {
-        userMessage = 'Netzwerkfehler'
-        technicalDetails = 'Database connection failed'
-      } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
-        userMessage = 'Ungültige Daten'
-        technicalDetails = 'Data validation failed'
-      } else if (error.message?.includes('ambiguous')) {
-        userMessage = 'Datenbankfehler - Kolumnenproblem'
-        technicalDetails = 'Column reference ambiguity in database'
-      }
-
-      const errorMessage = [
-        `${userMessage}`,
-        ``,
-        `Angebot: ${quote.quote_number}`,
-        `Kunde: ${quote.customer_name}`,
-        ``,
-        `Technische Details:`,
-        technicalDetails,
-        ``,
-        `Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
-      ].join('\n')
-
-      alert(errorMessage)
-      
-      throw error
+    if (searchError) {
+      console.error('Error searching existing invoices:', searchError)
+      throw new Error('Fehler beim Suchen bestehender Rechnungen')
     }
+
+    let nextNumber = 1  // Default: prva faktura
+
+    if (existingInvoices && existingInvoices.length > 0) {
+      console.log('📊 Found existing invoices:', existingInvoices.map(inv => inv.invoice_number))
+      
+      // Izvuci brojeve iz svih postojećih faktura
+      const numbers = existingInvoices
+        .map(invoice => {
+          // RE-2025-003 → 3
+          const match = invoice.invoice_number.match(/RE-\d{4}-(\d+)/)
+          return match ? parseInt(match[1], 10) : 0
+        })
+        .filter(num => !isNaN(num) && num > 0)  // Samo validni brojevi
+      
+      console.log('🔢 Extracted numbers from existing invoices:', numbers)
+      
+      if (numbers.length > 0) {
+        const maxNumber = Math.max(...numbers)
+        nextNumber = maxNumber + 1
+        console.log('📈 Max existing number:', maxNumber, '→ Next number:', nextNumber)
+      }
+    } else {
+      console.log('📝 No existing invoices found, starting with 001')
+    }
+
+    // Generiši finalni broj fakture
+    const finalInvoiceNumber = `RE-${year}-${nextNumber.toString().padStart(3, '0')}`
+    
+    console.log('✅ Generated sequential invoice number:', finalInvoiceNumber)
+
+    // Ostatak koda ostaje isti kao pre
+    // Calculate financial data
+    const subtotal = parseFloat(quote.subtotal) || 0
+    const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
+    const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
+    const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
+    const totalAmount = subtotal + taxAmount
+
+    // Calculate dates
+    const now = new Date()
+    const issueDate = now.toISOString().split('T')[0]
+    const dueDate = new Date(now)
+    dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
+    const dueDateString = dueDate.toISOString().split('T')[0]
+
+    // Prepare invoice data
+    const invoiceData = {
+      majstor_id: quote.majstor_id,
+      type: 'invoice',
+      invoice_number: finalInvoiceNumber, // 🔥 KORISTIMO SEKVENCIJALNI BROJ
+      customer_name: quote.customer_name,
+      customer_email: quote.customer_email,
+      customer_phone: quote.customer_phone || null,
+      customer_address: quote.customer_address || null,
+      items: quote.items,
+      subtotal: subtotal,
+      tax_rate: taxRate,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      status: 'draft',
+      issue_date: issueDate,
+      due_date: dueDateString,
+      payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
+      notes: quote.notes || null,
+      is_kleinunternehmer: isKleinunternehmer,
+      converted_from_quote_id: quote.id,
+      company_name: majstor?.business_name || majstor?.full_name || null,
+      company_address: majstor?.address || null,
+      tax_number: settingsData?.tax_number || null,
+      vat_id: settingsData?.vat_id || null,
+      iban: settingsData?.iban || null,
+      bic: settingsData?.bic || null,
+      bank_name: settingsData?.bank_name || null,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
+    }
+
+    console.log('💾 Inserting invoice with data:', {
+      invoice_number: finalInvoiceNumber,
+      customer: invoiceData.customer_name,
+      total: totalAmount,
+      tax_rate: taxRate + '%',
+      kleinunternehmer: isKleinunternehmer,
+      sequence_number: nextNumber
+    })
+
+    // Insert invoice into database
+    const { data: newInvoice, error: insertError } = await supabase
+      .from('invoices')
+      .insert(invoiceData)
+      .select(`
+        id,
+        invoice_number,
+        customer_name,
+        total_amount,
+        status,
+        created_at
+      `)
+      .single()
+
+    if (insertError) {
+      console.error('Database insert error:', insertError)
+      throw new Error(`Database error: ${insertError.message}`)
+    }
+
+    if (!newInvoice) {
+      throw new Error('No invoice data returned from database')
+    }
+
+    console.log('✅ Invoice successfully created:', newInvoice)
+
+    // Update quote status to converted
+    const { error: quoteUpdateError } = await supabase
+      .from('invoices')
+      .update({ 
+        status: 'converted',
+        updated_at: now.toISOString()
+      })
+      .eq('id', quote.id)
+
+    if (quoteUpdateError) {
+      console.warn('Could not update quote status:', quoteUpdateError.message)
+    } else {
+      console.log('📝 Quote status updated to converted')
+    }
+
+    // Refresh data in UI
+    console.log('🔄 Refreshing invoices data...')
+    
+    if (majstor?.id) {
+      await loadInvoicesData(majstor.id)
+    }
+
+    setActiveTab('invoices')
+    
+    // Show success message
+    const successMessage = [
+      `✅ Erfolgreich umgewandelt!`,
+      ``,
+      `📄 Angebot: ${quote.quote_number}`,
+      `🧾 Rechnung: ${newInvoice.invoice_number}`,
+      ``,
+      `👤 Kunde: ${newInvoice.customer_name}`,
+      `💰 Betrag: ${formatCurrency(newInvoice.total_amount)}`,
+      `📊 Status: ${newInvoice.status}`,
+      ``,
+      `🔢 Automatische Nummerierung: ${nextNumber}. Rechnung für ${year}`
+    ].join('\n')
+
+    alert(successMessage)
+
+    return newInvoice
+
+  } catch (error) {
+    console.error('❌ Conversion failed with error:', error)
+    
+    let userMessage = 'Conversion failed'
+    let technicalDetails = error.message || 'Unknown error'
+    
+    if (error.message?.includes('duplicate key')) {
+      userMessage = 'Rechnungsnummer bereits vergeben'
+      technicalDetails = 'Database constraint violation'
+    } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
+      userMessage = 'Keine Berechtigung für diese Aktion'
+      technicalDetails = 'Row Level Security or permissions issue'
+    } else if (error.message?.includes('connection') || error.message?.includes('network')) {
+      userMessage = 'Netzwerkfehler'
+      technicalDetails = 'Database connection failed'
+    } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+      userMessage = 'Ungültige Daten'
+      technicalDetails = 'Data validation failed'
+    }
+
+    const errorMessage = [
+      `❌ ${userMessage}`,
+      ``,
+      `📄 Angebot: ${quote.quote_number}`,
+      `👤 Kunde: ${quote.customer_name}`,
+      ``,
+      `🔧 Technische Details:`,
+      technicalDetails,
+      ``,
+      `🔄 Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
+    ].join('\n')
+
+    alert(errorMessage)
+    
+    throw error
   }
+}
 
   // Delete invoice with safety checks
   const handleDeleteInvoice = async (invoice) => {
