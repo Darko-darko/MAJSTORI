@@ -15,6 +15,8 @@ function DashboardPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createType, setCreateType] = useState('quote') // quote or invoice
   const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({}) // mapping quotes to invoices
+
+  
   
   // Edit functionality states
   const [editingItem, setEditingItem] = useState(null) // item being edited

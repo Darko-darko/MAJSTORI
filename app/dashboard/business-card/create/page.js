@@ -112,7 +112,7 @@ export default function CreateBusinessCardPage() {
         setFormData(prev => ({
           ...prev,
           // Popuni samo ako je prazan
-          card_name: prev.card_name || majstorData.full_name || '',
+          // card_name: prev.card_name || majstorData.full_name || '',
           card_business_name: prev.card_business_name || majstorData.business_name || '',
           card_phone: prev.card_phone || majstorData.phone || '',
           card_email: prev.card_email || majstorData.email || '',
@@ -423,10 +423,10 @@ export default function CreateBusinessCardPage() {
     setError('')
 
     // 🔥 NOVA VALIDACIJA: obavezna polja za karticu
-    if (!formData.card_name.trim()) {
-      setError('Name auf der Karte ist erforderlich')
-      return
-    }
+   if (!formData.card_name.trim() && !formData.card_business_name.trim()) {
+  setError('Mindestens Name oder Firmenname ist erforderlich')
+  return
+}
 
     if (!formData.card_phone.trim()) {
       setError('Telefon ist erforderlich')
@@ -738,12 +738,32 @@ export default function CreateBusinessCardPage() {
 
       {/* Header - 🔥 KORISTI FORM PODATKE */}
       <div className={`mb-${isMobile ? '3' : '4'}`}>
-        <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>{formData.title}</h1>
-        <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>{formData.card_name}</h2>
-        {formData.card_business_name && (
-          <p className="text-sm opacity-80">{formData.card_business_name}</p>
-        )}
-      </div>
+  {/* Titel - kao main header */}
+  <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight mb-2`}>
+    {formData.title}
+  </h1>
+  
+  {/* 🔥 FIRMENNAME - GLAVNO IME, VELIKO I ISTAKNUTO */}
+  {formData.card_business_name && (
+    <h2 className={`text-${isMobile ? 'xl' : '2xl'} font-black opacity-95 mb-1 text-center`}>
+      {formData.card_business_name}
+    </h2>
+  )}
+  
+  {/* 🔥 NAME AUF KARTE - sekundarno, manje */}
+  {formData.card_name && (
+    <h3 className={`text-${isMobile ? 'sm' : 'base'} font-medium opacity-75 italic`}>
+      {formData.card_name}
+    </h3>
+  )}
+  
+  {/* Fallback ako ni firma ni ime nisu unešeni */}
+  {!formData.card_business_name && !formData.card_name && (
+    <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-70 italic`}>
+      Ihr Name/Firma hier
+    </h2>
+  )}
+</div>
 
       {/* Description */}
       {formData.description && (
@@ -877,122 +897,155 @@ export default function CreateBusinessCardPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             
             {/* 🔥 NOVO: Podaci za vizit kartu */}
-            <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
-              <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
-              <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
-              
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Name auf Karte *
-                  </label>
-                  <input
-                    type="text"
-                    name="card_name"
-                    value={formData.card_name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ihr Name wie er auf der Karte stehen soll"
-                  />
-                </div>
+       
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Firmenname (optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="card_business_name"
-                    value={formData.card_business_name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Firma auf der Karte"
-                  />
-                </div>
+{/* ðŸ"¥ NOVO: Podaci za vizit kartu */}
+<div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
+  <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
+  <p className="text-slate-400 text-sm mb-4">
+    Diese Daten erscheinen auf Ihrer Visitenkarte
+  </p>
+  
+  <div className="space-y-4">
+    {/* 1. TITEL NA VRHU */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Titel
+      </label>
+      <input
+        type="text"
+        name="title"
+        value={formData.title}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Meine Visitenkarte"
+      />
+    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Telefon *
-                  </label>
-                  <input
-                    type="tel"
-                    name="card_phone"
-                    value={formData.card_phone}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="+49 123 456789"
-                  />
-                </div>
+    {/* 2. FIRMA */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Firmenname
+        <span className="text-slate-500 text-xs ml-1">(wird prominent angezeigt)</span>
+      </label>
+      <input
+        type="text"
+        name="card_business_name"
+        value={formData.card_business_name}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Müller Handwerk GmbH"
+      />
+    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    E-Mail *
-                  </label>
-                  <input
-                    type="email"
-                    name="card_email"
-                    value={formData.card_email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="ihre@email.de"
-                  />
-                </div>
+    {/* 3. IME OSOBE - BEZ ZVEZDICE */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Name auf Karte
+        
+      </label>
+      <input
+        type="text"
+        name="card_name"
+        value={formData.card_name}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Max Müller"
+      />
+    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Stadt (optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="card_city"
-                    value={formData.card_city}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Berlin"
-                  />
-                </div>
-              </div>
-            </div>
+    {/* 4. KONTAKT PODACI U 2 KOLONE */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Telefon *
+        </label>
+        <input
+          type="tel"
+          name="card_phone"
+          value={formData.card_phone}
+          onChange={handleChange}
+          required
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="+49 123 456789"
+        />
+      </div>
 
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Titel</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
-                <input
-                  type="url"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://ihre-website.de"
-                />
-              </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          E-Mail *
+        </label>
+        <input
+          type="email"
+          name="card_email"
+          value={formData.card_email}
+          onChange={handleChange}
+          required
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="kontakt@mueller-handwerk.de"
+        />
+      </div>
+    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
+    {/* 5. STADT */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Stadt 
+        <span className="text-slate-500 text-xs ml-1">(wird auf Karte angezeigt)</span>
+      </label>
+      <input
+        type="text"
+        name="card_city"
+        value={formData.card_city}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Berlin"
+      />
+    </div>
+
+    {/* 6. INFO BOX - objašnjava logiku */}
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <span className="text-blue-400 text-lg">💡</span>
+        <div className="text-sm">
+          <p className="text-blue-300 font-medium mb-1">Hinweis:</p>
+          <p className="text-blue-200/90 text-xs leading-relaxed">
+            Sie können nur den Firmennamen, nur Ihren Namen oder beides verwenden. 
+            Mindestens eines davon sollte ausgefüllt sein.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* UKLONI POSTOJEĆE "Titel" POLJE KOJE JE BILO ISPOD - jer je sada na vrhu */}
+
+{/* Website ostaje gde jeste */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
+  <input
+    type="url"
+    name="website"
+    value={formData.website}
+    onChange={handleChange}
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="https://ihre-website.de"
+  />
+</div>
+
+{/* Beschreibung ostaje gde jeste */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
+  <textarea
+    name="description"
+    value={formData.description}
+    onChange={handleChange}
+    rows={2}
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Kurze Beschreibung Ihrer Dienstleistungen..."
+  />
+</div>
 
             {/* Logo Upload */}
             <div>
@@ -1228,122 +1281,155 @@ export default function CreateBusinessCardPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               
               {/* 🔥 DESKTOP: Podaci za vizit kartu */}
-              <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
-                <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
-                <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Name auf Karte *
-                    </label>
-                    <input
-                      type="text"
-                      name="card_name"
-                      value={formData.card_name}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Ihr Name wie er auf der Karte stehen soll"
-                    />
-                  </div>
+             
 
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Firmenname (optional)
-                    </label>
-                    <input
-                      type="text"
-                      name="card_business_name"
-                      value={formData.card_business_name}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Firma auf der Karte"
-                    />
-                  </div>
+{/* ðŸ"¥ NOVO: Podaci za vizit kartu */}
+<div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
+  <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
+  <p className="text-slate-400 text-sm mb-4">
+    Diese Daten erscheinen auf Ihrer Visitenkarte
+  </p>
+  
+  <div className="space-y-4">
+    {/* 1. TITEL NA VRHU */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Titel
+      </label>
+      <input
+        type="text"
+        name="title"
+        value={formData.title}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Meine Visitenkarte"
+      />
+    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Telefon *
-                    </label>
-                    <input
-                      type="tel"
-                      name="card_phone"
-                      value={formData.card_phone}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="+49 123 456789"
-                    />
-                  </div>
+    {/* 2. FIRMA */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Firmenname
+        <span className="text-slate-500 text-xs ml-1">(wird prominent angezeigt)</span>
+      </label>
+      <input
+        type="text"
+        name="card_business_name"
+        value={formData.card_business_name}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Müller Handwerk GmbH"
+      />
+    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      E-Mail *
-                    </label>
-                    <input
-                      type="email"
-                      name="card_email"
-                      value={formData.card_email}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="ihre@email.de"
-                    />
-                  </div>
+    {/* 3. IME OSOBE - BEZ ZVEZDICE */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Name auf Karte
+        
+      </label>
+      <input
+        type="text"
+        name="card_name"
+        value={formData.card_name}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Max Müller"
+      />
+    </div>
 
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Stadt (optional)
-                    </label>
-                    <input
-                      type="text"
-                      name="card_city"
-                      value={formData.card_city}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Berlin"
-                    />
-                  </div>
-                </div>
-              </div>
+    {/* 4. KONTAKT PODACI U 2 KOLONE */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Telefon *
+        </label>
+        <input
+          type="tel"
+          name="card_phone"
+          value={formData.card_phone}
+          onChange={handleChange}
+          required
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="+49 123 456789"
+        />
+      </div>
 
-              {/* Basic Info - Desktop */}
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Titel</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
-                  <input
-                    type="url"
-                    name="website"
-                    value={formData.website}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://ihre-website.de"
-                  />
-                </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          E-Mail *
+        </label>
+        <input
+          type="email"
+          name="card_email"
+          value={formData.card_email}
+          onChange={handleChange}
+          required
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="kontakt@mueller-handwerk.de"
+        />
+      </div>
+    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows={2}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+    {/* 5. STADT */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Stadt 
+        <span className="text-slate-500 text-xs ml-1">(wird auf Karte angezeigt)</span>
+      </label>
+      <input
+        type="text"
+        name="card_city"
+        value={formData.card_city}
+        onChange={handleChange}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="z.B. Berlin"
+      />
+    </div>
+
+    {/* 6. INFO BOX - objašnjava logiku */}
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <span className="text-blue-400 text-lg">💡</span>
+        <div className="text-sm">
+          <p className="text-blue-300 font-medium mb-1">Hinweis:</p>
+          <p className="text-blue-200/90 text-xs leading-relaxed">
+            Sie können nur den Firmennamen, nur Ihren Namen oder beides verwenden. 
+            Mindestens eines davon sollte ausgefüllt sein.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* UKLONI POSTOJEĆE "Titel" POLJE KOJE JE BILO ISPOD - jer je sada na vrhu */}
+
+{/* Website ostaje gde jeste */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
+  <input
+    type="url"
+    name="website"
+    value={formData.website}
+    onChange={handleChange}
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="https://ihre-website.de"
+  />
+</div>
+
+{/* Beschreibung ostaje gde jeste */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
+  <textarea
+    name="description"
+    value={formData.description}
+    onChange={handleChange}
+    rows={2}
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Kurze Beschreibung Ihrer Dienstleistungen..."
+  />
+</div>
 
               {/* Logo Upload - Desktop */}
               <div>

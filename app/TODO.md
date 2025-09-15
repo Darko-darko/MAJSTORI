@@ -25,6 +25,7 @@
 - profil nakon plaćanja
 - kao testirati istek 7 dana
 - iz an u re... da ode na tab re ✅
+- pre prvog računa na podešavanje
 - oznaka kako treba da izgleda tabela za uvoz
 - pusup
 - šta označavati u sajd baru, glupo je novi računi, možda samo istekle valute
@@ -33,3 +34,6 @@
 - paketi? možda vizit karte freemium
 - posle prve fakture da se dugme pretvori u nova faktura
 - izbaciti nalepnice zadržati samo qr kode i ubaciti link za šerovanje
+- ANTI SPAM!!!
+- email verifikacija -ne zaboraviti
+- isproveravati Google registraciju
