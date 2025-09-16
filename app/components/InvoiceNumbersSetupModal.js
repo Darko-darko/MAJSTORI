@@ -45,7 +45,6 @@ Nächstes Angebot: AN-${new Date().getFullYear()}-${String(quoteNumber).padStart
 Nächste Rechnung: RE-${new Date().getFullYear()}-${String(invoiceNumber).padStart(3, '0')}
 
 ACHTUNG: Diese Aktion ist DAUERHAFT und kann nicht rückgängig gemacht werden!
-Das System wird Dummy-Einträge erstellen, um die Nummerierung zu ermöglichen.
 
 Sind Sie sicher, dass Sie fortfahren möchten?`
 

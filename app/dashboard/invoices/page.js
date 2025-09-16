@@ -1268,6 +1268,7 @@ const convertQuoteToInvoice = async (quote) => {
                   onChange={handleLocalChange}
                   placeholder="12/345/67890"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
                 />
               </div>
               
@@ -1280,6 +1281,7 @@ const convertQuoteToInvoice = async (quote) => {
                   onChange={handleLocalChange}
                   placeholder="DE123456789"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
                 />
               </div>
             </div>
@@ -1298,6 +1300,7 @@ const convertQuoteToInvoice = async (quote) => {
                   onChange={handleLocalChange}
                   placeholder="DE89 3704 0044 0532 0130 00"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
                 />
               </div>
               <div>
@@ -1320,6 +1323,7 @@ const convertQuoteToInvoice = async (quote) => {
                   onChange={handleLocalChange}
                   placeholder="Commerzbank Berlin"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
                 />
               </div>
             </div>
