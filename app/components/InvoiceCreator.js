@@ -408,6 +408,7 @@ export default function InvoiceCreator({
         .from('customers')
         .select('name, email, phone, street, city, postal_code, total_revenue, total_invoices')
         .eq('majstor_id', majstor.id)
+        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING') // DODAJ OVU LINIJU
         .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
         .order('total_revenue', { ascending: false })
         .limit(8)

@@ -10,8 +10,8 @@ export default function InvoiceNumbersSetupModal({
   onSuccess 
 }) {
   const [formData, setFormData] = useState({
-    next_quote_number: 1,
-    next_invoice_number: 1
+    next_quote_number: '', // Prazan string za lakše brisanje
+    next_invoice_number: '' // Prazan string za lakše brisanje
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -20,15 +20,39 @@ export default function InvoiceNumbersSetupModal({
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    const numValue = parseInt(value) || 1
+    
+    // Dozvoli samo brojeve
+    const cleanValue = value.replace(/[^0-9]/g, '')
+    
     setFormData(prev => ({
       ...prev,
-      [name]: Math.max(1, numValue)
+      [name]: cleanValue // Ostavi kao string
     }))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Parse brojeve ili koristi 1 kao default
+    const quoteNumber = parseInt(formData.next_quote_number) || 1
+    const invoiceNumber = parseInt(formData.next_invoice_number) || 1
+
+    // NEMAČKO BEZBEDNOSNO PITANJE SA VALIDIRANIM BROJEVIMA
+    const confirmMessage = `
+Bestätigung: Rechnungsnummern einrichten
+
+Nächstes Angebot: AN-${new Date().getFullYear()}-${String(quoteNumber).padStart(3, '0')}
+Nächste Rechnung: RE-${new Date().getFullYear()}-${String(invoiceNumber).padStart(3, '0')}
+
+ACHTUNG: Diese Aktion ist DAUERHAFT und kann nicht rückgängig gemacht werden!
+Das System wird Dummy-Einträge erstellen, um die Nummerierung zu ermöglichen.
+
+Sind Sie sicher, dass Sie fortfahren möchten?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
     setError('')
     setLoading(true)
 
@@ -39,8 +63,8 @@ export default function InvoiceNumbersSetupModal({
       const dummyEntries = []
       
       // Create dummy quote if next number > 1
-      if (formData.next_quote_number > 1) {
-        const dummyQuoteNumber = `AN-${currentYear}-${String(formData.next_quote_number - 1).padStart(3, '0')}`
+      if (quoteNumber > 1) {
+        const dummyQuoteNumber = `AN-${currentYear}-${String(quoteNumber - 1).padStart(3, '0')}`
         dummyEntries.push({
           majstor_id: majstor.id,
           type: 'quote',
@@ -55,13 +79,12 @@ export default function InvoiceNumbersSetupModal({
           status: 'dummy',
           issue_date: new Date().toISOString().split('T')[0],
           due_date: new Date().toISOString().split('T')[0],
-
         })
       }
       
       // Create dummy invoice if next number > 1
-      if (formData.next_invoice_number > 1) {
-        const dummyInvoiceNumber = `RE-${currentYear}-${String(formData.next_invoice_number - 1).padStart(3, '0')}`
+      if (invoiceNumber > 1) {
+        const dummyInvoiceNumber = `RE-${currentYear}-${String(invoiceNumber - 1).padStart(3, '0')}`
         dummyEntries.push({
           majstor_id: majstor.id,
           type: 'invoice',
@@ -111,8 +134,8 @@ export default function InvoiceNumbersSetupModal({
   }
 
   const currentYear = new Date().getFullYear()
-  const previewQuoteNumber = `AN-${currentYear}-${String(formData.next_quote_number).padStart(3, '0')}`
-  const previewInvoiceNumber = `RE-${currentYear}-${String(formData.next_invoice_number).padStart(3, '0')}`
+  const previewQuoteNumber = `AN-${currentYear}-${String(formData.next_quote_number || '1').padStart(3, '0')}`
+  const previewInvoiceNumber = `RE-${currentYear}-${String(formData.next_invoice_number || '1').padStart(3, '0')}`
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
@@ -142,15 +165,17 @@ export default function InvoiceNumbersSetupModal({
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Nächste Angebotsnummer
               </label>
+              
               <input
-                type="number"
+                type="tel"
                 name="next_quote_number"
                 value={formData.next_quote_number}
                 onChange={handleInputChange}
-                min="1"
-                max="999"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                placeholder="1"
+                placeholder="z.B. 21"
+                onFocus={(e) => e.target.select()}
               />
               <p className="text-xs text-slate-500 mt-1">
                 Vorschau: <span className="text-blue-400 font-mono">{previewQuoteNumber}</span>
@@ -163,14 +188,15 @@ export default function InvoiceNumbersSetupModal({
                 Nächste Rechnungsnummer
               </label>
               <input
-                type="number"
+                type="tel"
                 name="next_invoice_number"
                 value={formData.next_invoice_number}
                 onChange={handleInputChange}
-                min="1"
-                max="999"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                placeholder="1"
+                placeholder="z.B. 32"
+                onFocus={(e) => e.target.select()}
               />
               <p className="text-xs text-slate-500 mt-1">
                 Vorschau: <span className="text-purple-400 font-mono">{previewInvoiceNumber}</span>
