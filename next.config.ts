@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // 🔥 EXTENSION COMPATIBILITY: Disable strict mode temporarily
+  reactStrictMode: false,
+  
   // Image optimization - standardno
   images: {
     remotePatterns: [

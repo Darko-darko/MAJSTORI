@@ -666,7 +666,7 @@ export default function PublicBusinessCardPage({ params }) {
         <link rel="canonical" href={`https://majstori.de/m/${params.slug}`} />
       </head>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4" suppressHydrationWarning>
         <div className="max-w-2xl mx-auto space-y-8">
           
           {/* Business Card Display */}
