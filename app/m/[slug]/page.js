@@ -8,7 +8,9 @@ export default function PublicBusinessCardPage({ params }) {
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+
+
   // Gallery modal state
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   
@@ -398,6 +400,8 @@ export default function PublicBusinessCardPage({ params }) {
 
       console.log('✅ Inquiry submitted successfully:', result.inquiry?.id)
       
+      // ODMAH prikaži popup (pre sistemske greške na Xiaomi)
+      setShowSuccessPopup(true)
       // Success state
       setInquirySuccess(true)
       
@@ -1018,6 +1022,16 @@ export default function PublicBusinessCardPage({ params }) {
             </div>
           )}
         </div>
+        {/* Xiaomi Success Popup Override */}
+{showSuccessPopup && (
+  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+    <div className="bg-green-600 text-white p-8 rounded-xl text-center shadow-2xl">
+      <div className="text-6xl mb-4">✅</div>
+      <h3 className="text-2xl font-bold mb-2">Erfolgreich gesendet!</h3>
+      <p className="text-sm opacity-90">Ihre Anfrage wurde übermittelt.</p>
+    </div>
+  </div>
+)}
       </div>
     </>
   )
