@@ -419,11 +419,16 @@ export default function PublicBusinessCardPage({ params }) {
       // Clear uploaded images
       setUploadedImages([])
       
+      setTimeout(() => {
+      setShowSuccessPopup(true)
+      }, 100) // Kratko kašnjenje
+      
       // Auto-hide form after success
       setTimeout(() => {
         setShowInquiryForm(false)
         setInquirySuccess(false)
-      }, 5000)
+        setShowSuccessPopup(false) // Dodaj ovo
+      }, 6000)
 
     } catch (err) {
       console.error('💥 Inquiry submission error:', err)
