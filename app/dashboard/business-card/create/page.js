@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import html2canvas from 'html2canvas'
 import QRCode from 'qrcode'
 import Link from 'next/link'
 
@@ -43,17 +42,10 @@ export default function CreateBusinessCardPage() {
   const [galleryUploading, setGalleryUploading] = useState(false)
   const [forceImageRefresh, setForceImageRefresh] = useState(0)
   const [showGalleryModal, setShowGalleryModal] = useState(false)
-  const [showPrintModal, setShowPrintModal] = useState(false)
+  const [copyLinkStatus, setCopyLinkStatus] = useState('')
   const logoInputRef = useRef(null)
   const galleryInputRef = useRef(null)
   const router = useRouter()
-
-  const printFormats = [
-    { name: 'QR Nalepnice - Klein', size: '50x50mm', width: 189, height: 189 },
-    { name: 'QR Nalepnice - Mittel', size: '70x70mm', width: 264, height: 264 },
-    { name: 'QR Nalepnice - Groß', size: '100x100mm', width: 378, height: 378 },
-    { name: 'Business Card', size: '85x55mm', width: 323, height: 204 }
-  ]
 
   const colorPresets = [
     '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
@@ -112,7 +104,7 @@ export default function CreateBusinessCardPage() {
         setFormData(prev => ({
           ...prev,
           // Popuni samo ako je prazan
-          // card_name: prev.card_name || majstorData.full_name || '',
+          card_name: prev.card_name || majstorData.full_name || '',
           card_business_name: prev.card_business_name || majstorData.business_name || '',
           card_phone: prev.card_phone || majstorData.phone || '',
           card_email: prev.card_email || majstorData.email || '',
@@ -184,7 +176,28 @@ export default function CreateBusinessCardPage() {
     }
   }
 
-  // 🔥 NOVO: Funkcija za čuvanje kontakta
+  // 🔥 NOVO: Funkcija za copy link
+  const handleCopyLink = async () => {
+    try {
+      if (!majstor?.slug) return
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://majstori.de'
+      const fullUrl = `${baseUrl}/m/${majstor.slug}`
+      await navigator.clipboard.writeText(fullUrl)
+      setCopyLinkStatus('copied')
+      setTimeout(() => setCopyLinkStatus(''), 2000)
+    } catch (err) {
+      console.error('Error copying link:', err)
+      setCopyLinkStatus('error')
+      setTimeout(() => setCopyLinkStatus(''), 2000)
+    }
+  }
+
+  // 🔥 NOVO: Funkcija za email placeholder
+  const handleSendEmail = () => {
+    alert('Email funkcionalnost će biti dostupna uskoro!')
+  }
+
+  // 🔥 NOVO: Funkcija za Čuvanje kontakta
   const handleSaveContact = () => {
     const vCardData = [
       'BEGIN:VCARD',
@@ -424,7 +437,7 @@ export default function CreateBusinessCardPage() {
 
     // 🔥 NOVA VALIDACIJA: obavezna polja za karticu
    if (!formData.card_name.trim() && !formData.card_business_name.trim()) {
-  setError('Mindestens Name oder Firmenname ist erforderlich')
+  setError('Name auf Karte oder Firmenname ist erforderlich')
   return
 }
 
@@ -488,220 +501,6 @@ export default function CreateBusinessCardPage() {
     }
   }
 
-  const downloadPrintCard = async (format) => {
-    try {
-      console.log('Starting print download for format:', format)
-      
-      const isSquare = format.width === format.height
-      const isLarge = format.width > 300
-      const isSmall = format.width < 250
-      const isBusinessCard = format.width > format.height
-      
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      
-      const scale = 3
-      canvas.width = format.width * scale
-      canvas.height = format.height * scale
-      ctx.scale(scale, scale)
-      
-      // Bela pozadina
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, format.width, format.height)
-      
-      const centerX = format.width / 2
-      const centerY = format.height / 2
-      
-      const drawCenteredText = (text, x, y, fontSize, fontWeight = 'normal', color = '#000000') => {
-        ctx.font = `${fontWeight} ${fontSize}px Arial`
-        ctx.fillStyle = color
-        ctx.textAlign = 'center'
-        ctx.fillText(text, x, y)
-      }
-      
-      let totalHeight = 0
-      let logoHeight = 0
-      let nameHeight = 0
-      let businessHeight = 0
-      let descHeight = 0
-      let qrHeight = 0
-      let ctaHeight = 0
-      let contactHeight = 0
-      
-      if (formData.logo_url) {
-        logoHeight = isSmall ? 30 : isLarge ? 45 : 35
-        totalHeight += logoHeight + 8
-      }
-      
-      nameHeight = isSmall ? 14 : isLarge ? 18 : 16
-      totalHeight += nameHeight + 4
-      
-      if (formData.card_business_name && !isSmall) {
-        businessHeight = isLarge ? 12 : 10
-        totalHeight += businessHeight + 6
-      }
-      
-      if (formData.description && isLarge) {
-        descHeight = 10
-        totalHeight += descHeight + 8
-      }
-      
-      qrHeight = isBusinessCard ? 
-        Math.min(format.height - 40, 50) : 
-        (isSmall ? Math.min(format.width - 40, 80) : 
-         isLarge ? Math.min(format.width - 60, 100) : 
-         Math.min(format.width - 50, 85))
-      
-      totalHeight += qrHeight + 8
-      
-      ctaHeight = isSmall ? 8 : isLarge ? 11 : 9
-      totalHeight += ctaHeight + 4
-      
-      if (!isSmall) {
-        contactHeight = isLarge ? 8 : 7
-        totalHeight += contactHeight
-      }
-      
-      let startY = centerY - totalHeight / 2
-      let currentY = startY
-      
-      // Logo
-      if (formData.logo_url) {
-        try {
-          const logoImg = new Image()
-          logoImg.crossOrigin = 'anonymous'
-          
-          await new Promise((resolve) => {
-            logoImg.onload = () => {
-              const logoSize = isSmall ? 25 : isLarge ? 40 : 30
-              ctx.drawImage(logoImg, centerX - logoSize/2, currentY, logoSize, logoSize)
-              resolve()
-            }
-            logoImg.onerror = resolve
-            logoImg.src = getCacheBustedUrl(formData.logo_url)
-          })
-          
-          currentY += logoHeight + 8
-        } catch (error) {
-          console.log('Logo failed to load')
-        }
-      }
-      
-      // 🔥 KORISTI FORM PODATKE umesto majstor objekta
-      drawCenteredText(
-        formData.card_name || 'Handwerker', 
-        centerX, 
-        currentY + nameHeight, 
-        nameHeight, 
-        'bold'
-      )
-      currentY += nameHeight + 4
-      
-      if (formData.card_business_name && !isSmall) {
-        drawCenteredText(
-          formData.card_business_name, 
-          centerX, 
-          currentY + businessHeight, 
-          businessHeight, 
-          '500'
-        )
-        currentY += businessHeight + 6
-      }
-      
-      if (formData.description && isLarge) {
-        const description = formData.description.length > 60 ? 
-          formData.description.substring(0, 60) + '...' : 
-          formData.description
-        drawCenteredText(
-          description, 
-          centerX, 
-          currentY + descHeight, 
-          descHeight, 
-          'normal', 
-          '#666666'
-        )
-        currentY += descHeight + 8
-      }
-      
-      // QR kod
-      if (qrCodeUrl) {
-        try {
-          const qrImg = new Image()
-          await new Promise((resolve) => {
-            qrImg.onload = () => {
-              ctx.drawImage(qrImg, centerX - qrHeight/2, currentY, qrHeight, qrHeight)
-              resolve()
-            }
-            qrImg.onerror = resolve
-            qrImg.src = qrCodeUrl
-          })
-        } catch (error) {
-          console.log('QR code failed to load')
-        }
-      }
-      currentY += qrHeight + 8
-      
-      drawCenteredText(
-        'Scannen für Kontakt & Anfragen', 
-        centerX, 
-        currentY + ctaHeight, 
-        ctaHeight, 
-        'bold'
-      )
-      currentY += ctaHeight + 4
-      
-      // 🔥 KORISTI FORM PODATKE za kontakt info
-      if (!isSmall && currentY < format.height - 20) {
-        ctx.fillStyle = '#666666'
-        
-        if (isLarge) {
-          if (formData.card_phone && formData.card_email) {
-            drawCenteredText(
-              `${formData.card_phone} • ${formData.card_email}`, 
-              centerX, 
-              currentY + contactHeight, 
-              contactHeight
-            )
-            if (formData.card_city) {
-              drawCenteredText(
-                formData.card_city, 
-                centerX, 
-                currentY + contactHeight * 2 + 2, 
-                contactHeight - 1
-              )
-            }
-          } else {
-            drawCenteredText(
-              formData.card_email || formData.card_phone || '', 
-              centerX, 
-              currentY + contactHeight, 
-              contactHeight
-            )
-          }
-        } else {
-          drawCenteredText(
-            formData.card_email || formData.card_phone || '', 
-            centerX, 
-            currentY + contactHeight, 
-            contactHeight
-          )
-        }
-      }
-      
-      const link = document.createElement('a')
-      link.download = `print-visitenkarte-${format.size}-${formData.card_name?.replace(/\s+/g, '-').toLowerCase() || 'majstor'}.png`
-      link.href = canvas.toDataURL('image/png', 1.0)
-      link.click()
-      
-      setShowPrintModal(false)
-      console.log('Print download completed successfully')
-      
-    } catch (error) {
-      console.error('Print download failed:', error)
-      alert('Download fehlgeschlagen. Bitte versuchen Sie es erneut.')
-    }
-  }
-
   const downloadQRCode = () => {
     if (!qrCodeUrl) return
 
@@ -738,32 +537,12 @@ export default function CreateBusinessCardPage() {
 
       {/* Header - 🔥 KORISTI FORM PODATKE */}
       <div className={`mb-${isMobile ? '3' : '4'}`}>
-  {/* Titel - kao main header */}
-  <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight mb-2`}>
-    {formData.title}
-  </h1>
-  
-  {/* 🔥 FIRMENNAME - GLAVNO IME, VELIKO I ISTAKNUTO */}
-  {formData.card_business_name && (
-    <h2 className={`text-${isMobile ? 'xl' : '2xl'} font-black opacity-95 mb-1 text-center`}>
-      {formData.card_business_name}
-    </h2>
-  )}
-  
-  {/* 🔥 NAME AUF KARTE - sekundarno, manje */}
-  {formData.card_name && (
-    <h3 className={`text-${isMobile ? 'sm' : 'base'} font-medium opacity-75 italic`}>
-      {formData.card_name}
-    </h3>
-  )}
-  
-  {/* Fallback ako ni firma ni ime nisu unešeni */}
-  {!formData.card_business_name && !formData.card_name && (
-    <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-70 italic`}>
-      Ihr Name/Firma hier
-    </h2>
-  )}
-</div>
+        <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>{formData.title}</h1>
+        <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>{formData.card_name}</h2>
+        {formData.card_business_name && (
+          <p className="text-sm opacity-80">{formData.card_business_name}</p>
+        )}
+      </div>
 
       {/* Description */}
       {formData.description && (
@@ -833,8 +612,6 @@ export default function CreateBusinessCardPage() {
         </div>
       )}
 
-      
-
       {/* 🔥 KONTAKT SPEICHERN DUGME */}
       <div className={`mb-${isMobile ? '3' : '4'}`}>
         <button 
@@ -896,37 +673,26 @@ export default function CreateBusinessCardPage() {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* 🔥 NOVO: Podaci za vizit kartu */}
-       
-
-{/* ðŸ"¥ NOVO: Podaci za vizit kartu */}
+         {/* 🔥 NOVO: Podaci za vizit kartu - NA VRH! */}
 <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
   <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
-  <p className="text-slate-400 text-sm mb-4">
-    Diese Daten erscheinen auf Ihrer Visitenkarte
-  </p>
+  <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
   
-  <div className="space-y-4">
-    {/* 1. TITEL NA VRHU */}
+  <div className="grid grid-cols-1 gap-4">
     <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Titel
-      </label>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Titel</label>
       <input
         type="text"
         name="title"
         value={formData.title}
         onChange={handleChange}
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Meine Visitenkarte"
       />
     </div>
 
-    {/* 2. FIRMA */}
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
-        Firmenname
-        <span className="text-slate-500 text-xs ml-1">(wird prominent angezeigt)</span>
+        Firmenname (wird prominent angezeigt)
       </label>
       <input
         type="text"
@@ -934,28 +700,26 @@ export default function CreateBusinessCardPage() {
         value={formData.card_business_name}
         onChange={handleChange}
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Müller Handwerk GmbH"
+        placeholder="Müller Handwerk GmbH"
       />
     </div>
 
-    {/* 3. IME OSOBE - BEZ ZVEZDICE */}
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
         Name auf Karte
-        
       </label>
       <input
         type="text"
         name="card_name"
         value={formData.card_name}
         onChange={handleChange}
+        
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Max Müller"
+        placeholder="Hans Müller"
       />
     </div>
 
-    {/* 4. KONTAKT PODACI U 2 KOLONE */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">
           Telefon *
@@ -967,7 +731,7 @@ export default function CreateBusinessCardPage() {
           onChange={handleChange}
           required
           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="+49 123 456789"
+          placeholder="+49 123 4567890"
         />
       </div>
 
@@ -982,16 +746,14 @@ export default function CreateBusinessCardPage() {
           onChange={handleChange}
           required
           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="kontakt@mueller-handwerk.de"
+          placeholder="hans@mueller-handwerk.de"
         />
       </div>
     </div>
 
-    {/* 5. STADT */}
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
-        Stadt 
-        <span className="text-slate-500 text-xs ml-1">(wird auf Karte angezeigt)</span>
+        Stadt (wird auf Karte angezeigt)
       </label>
       <input
         type="text"
@@ -999,17 +761,19 @@ export default function CreateBusinessCardPage() {
         value={formData.card_city}
         onChange={handleChange}
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Berlin"
+        placeholder="München"
       />
     </div>
 
-    {/* 6. INFO BOX - objašnjava logiku */}
+    {/* Hinweis Box */}
     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
       <div className="flex items-start gap-2">
-        <span className="text-blue-400 text-lg">💡</span>
-        <div className="text-sm">
-          <p className="text-blue-300 font-medium mb-1">Hinweis:</p>
-          <p className="text-blue-200/90 text-xs leading-relaxed">
+        <span className="text-blue-400 text-sm">💡</span>
+        <div>
+          <p className="text-blue-300 text-sm">
+            <strong>Hinweis:</strong>
+          </p>
+          <p className="text-blue-200 text-xs mt-1">
             Sie können nur den Firmennamen, nur Ihren Namen oder beides verwenden. 
             Mindestens eines davon sollte ausgefüllt sein.
           </p>
@@ -1019,9 +783,7 @@ export default function CreateBusinessCardPage() {
   </div>
 </div>
 
-{/* UKLONI POSTOJEĆE "Titel" POLJE KOJE JE BILO ISPOD - jer je sada na vrhu */}
-
-{/* Website ostaje gde jeste */}
+{/* Website - VAN sekcije */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
   <input
@@ -1034,7 +796,7 @@ export default function CreateBusinessCardPage() {
   />
 </div>
 
-{/* Beschreibung ostaje gde jeste */}
+{/* Beschreibung - VAN sekcije */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
   <textarea
@@ -1043,9 +805,11 @@ export default function CreateBusinessCardPage() {
     onChange={handleChange}
     rows={2}
     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-    placeholder="Kurze Beschreibung Ihrer Dienstleistungen..."
+    placeholder="Ihr zuverlässiger Partner für alle Handwerksarbeiten..."
   />
 </div>
+
+{/* Ostatak ostaje isto - Logo, Gallery, Services, Colors... */}
 
             {/* Logo Upload */}
             <div>
@@ -1209,11 +973,7 @@ export default function CreateBusinessCardPage() {
               </div>
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            )}
+         
 
             
           </form>
@@ -1226,6 +986,11 @@ export default function CreateBusinessCardPage() {
           <div className="border border-slate-600 rounded-lg p-3 bg-white overflow-hidden">
             <PreviewCard isMobile={true} />
           </div>
+             {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
           
           <div className="text-center mt-4">
             <button
@@ -1255,15 +1020,27 @@ export default function CreateBusinessCardPage() {
           <h3 className="text-lg font-semibold text-white mb-4">Downloads</h3>
           <div className="space-y-3">
             <button
-              onClick={() => setShowPrintModal(true)}
-              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors"
+              onClick={handleCopyLink}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg transition-colors ${
+                copyLinkStatus === 'copied' 
+                  ? 'bg-green-600 text-white' 
+                  : copyLinkStatus === 'error'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              🖨️ Print Visitenkarte
+              🔗 {copyLinkStatus === 'copied' ? 'Link kopiert!' : copyLinkStatus === 'error' ? 'Fehler' : 'Kopiraj link'}
+            </button>
+            <button
+              onClick={handleSendEmail}
+              className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              📧 Pošalji email
             </button>
             <button
               onClick={downloadQRCode}
               disabled={!qrCodeUrl}
-              className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
             >
               📱 QR Code
             </button>
@@ -1280,37 +1057,26 @@ export default function CreateBusinessCardPage() {
             
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* 🔥 DESKTOP: Podaci za vizit kartu */}
-             
-
-{/* ðŸ"¥ NOVO: Podaci za vizit kartu */}
+              {/* 🔥 NOVO: Podaci za vizit kartu - NA VRH! */}
 <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
   <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
-  <p className="text-slate-400 text-sm mb-4">
-    Diese Daten erscheinen auf Ihrer Visitenkarte
-  </p>
+  <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
   
-  <div className="space-y-4">
-    {/* 1. TITEL NA VRHU */}
+  <div className="grid grid-cols-1 gap-4">
     <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Titel
-      </label>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Titel</label>
       <input
         type="text"
         name="title"
         value={formData.title}
         onChange={handleChange}
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Meine Visitenkarte"
       />
     </div>
 
-    {/* 2. FIRMA */}
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
-        Firmenname
-        <span className="text-slate-500 text-xs ml-1">(wird prominent angezeigt)</span>
+        Firmenname (wird prominent angezeigt)
       </label>
       <input
         type="text"
@@ -1318,28 +1084,26 @@ export default function CreateBusinessCardPage() {
         value={formData.card_business_name}
         onChange={handleChange}
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Müller Handwerk GmbH"
+        placeholder="Müller Handwerk GmbH"
       />
     </div>
 
-    {/* 3. IME OSOBE - BEZ ZVEZDICE */}
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
         Name auf Karte
-        
       </label>
       <input
         type="text"
         name="card_name"
         value={formData.card_name}
         onChange={handleChange}
+       
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Max Müller"
+        placeholder="Hans Müller"
       />
     </div>
 
-    {/* 4. KONTAKT PODACI U 2 KOLONE */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">
           Telefon *
@@ -1351,7 +1115,7 @@ export default function CreateBusinessCardPage() {
           onChange={handleChange}
           required
           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="+49 123 456789"
+          placeholder="+49 123 4567890"
         />
       </div>
 
@@ -1366,16 +1130,14 @@ export default function CreateBusinessCardPage() {
           onChange={handleChange}
           required
           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="kontakt@mueller-handwerk.de"
+          placeholder="hans@mueller-handwerk.de"
         />
       </div>
     </div>
 
-    {/* 5. STADT */}
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
-        Stadt 
-        <span className="text-slate-500 text-xs ml-1">(wird auf Karte angezeigt)</span>
+        Stadt (wird auf Karte angezeigt)
       </label>
       <input
         type="text"
@@ -1383,17 +1145,19 @@ export default function CreateBusinessCardPage() {
         value={formData.card_city}
         onChange={handleChange}
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="z.B. Berlin"
+        placeholder="München"
       />
     </div>
 
-    {/* 6. INFO BOX - objašnjava logiku */}
+    {/* Hinweis Box */}
     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
       <div className="flex items-start gap-2">
-        <span className="text-blue-400 text-lg">💡</span>
-        <div className="text-sm">
-          <p className="text-blue-300 font-medium mb-1">Hinweis:</p>
-          <p className="text-blue-200/90 text-xs leading-relaxed">
+        <span className="text-blue-400 text-sm">💡</span>
+        <div>
+          <p className="text-blue-300 text-sm">
+            <strong>Hinweis:</strong>
+          </p>
+          <p className="text-blue-200 text-xs mt-1">
             Sie können nur den Firmennamen, nur Ihren Namen oder beides verwenden. 
             Mindestens eines davon sollte ausgefüllt sein.
           </p>
@@ -1403,9 +1167,7 @@ export default function CreateBusinessCardPage() {
   </div>
 </div>
 
-{/* UKLONI POSTOJEĆE "Titel" POLJE KOJE JE BILO ISPOD - jer je sada na vrhu */}
-
-{/* Website ostaje gde jeste */}
+{/* Website - VAN sekcije */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
   <input
@@ -1418,7 +1180,7 @@ export default function CreateBusinessCardPage() {
   />
 </div>
 
-{/* Beschreibung ostaje gde jeste */}
+{/* Beschreibung - VAN sekcije */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
   <textarea
@@ -1427,9 +1189,11 @@ export default function CreateBusinessCardPage() {
     onChange={handleChange}
     rows={2}
     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-    placeholder="Kurze Beschreibung Ihrer Dienstleistungen..."
+    placeholder="Ihr zuverlässiger Partner für alle Handwerksarbeiten..."
   />
 </div>
+
+{/* Ostatak ostaje isto - Logo, Gallery, Services, Colors... */}
 
               {/* Logo Upload - Desktop */}
               <div>
@@ -1612,19 +1376,31 @@ export default function CreateBusinessCardPage() {
           {/* Desktop Downloads */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Downloads</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <button
-                onClick={() => setShowPrintModal(true)}
-                className="flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors"
+                onClick={handleCopyLink}
+                className={`flex items-center justify-center gap-2 py-3 rounded-lg transition-colors ${
+                  copyLinkStatus === 'copied' 
+                    ? 'bg-green-600 text-white' 
+                    : copyLinkStatus === 'error'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
               >
-                🖨️ Print
+                🔗 {copyLinkStatus === 'copied' ? 'Kopiert!' : copyLinkStatus === 'error' ? 'Fehler' : 'Link'}
+              </button>
+              <button
+                onClick={handleSendEmail}
+                className="flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                📧 Email
               </button>
               <button
                 onClick={downloadQRCode}
                 disabled={!qrCodeUrl}
-                className="flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
-                📱 QR Code
+                📱 QR
               </button>
             </div>
           </div>
@@ -1674,38 +1450,6 @@ export default function CreateBusinessCardPage() {
                   alt={`Work ${index}`} 
                   className="w-full h-32 object-cover rounded-lg" 
                 />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Print Modal */}
-      {showPrintModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-white">Print Format wählen</h3>
-              <button
-                onClick={() => setShowPrintModal(false)}
-                className="text-slate-400 hover:text-white text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-3">
-              {printFormats.map((format, index) => (
-                <button
-                  key={index}
-                  onClick={() => downloadPrintCard(format)}
-                  className="w-full flex justify-between items-center p-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-left transition-colors"
-                >
-                  <div>
-                    <div className="text-white font-medium">{format.name}</div>
-                    <div className="text-slate-400 text-sm">{format.size}</div>
-                  </div>
-                  <div className="text-blue-400">📄</div>
-                </button>
               ))}
             </div>
           </div>
