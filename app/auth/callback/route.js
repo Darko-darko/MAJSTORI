@@ -1,4 +1,3 @@
-// app/auth/callback/route.js
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -24,7 +23,6 @@ export async function GET(request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (error) {
-      console.error('Session exchange error:', error)
       return NextResponse.redirect(new URL('/login?error=session_failed', requestUrl.origin))
     }
 
@@ -37,7 +35,7 @@ export async function GET(request) {
         .single()
 
       if (!existingProfile) {
-        // Kreiraj profil preko service role
+        // Kreiraj profil
         await supabaseAdmin
           .from('majstors')
           .insert({
