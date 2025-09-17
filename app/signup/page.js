@@ -44,29 +44,29 @@ export default function SignupPage() {
   }
 
   // 🔥 Google OAuth signup
-  const handleGoogleSignup = async () => {
-    try {
-      setGoogleLoading(true)
-      setError('')
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      })
-
-      if (error) {
-        console.error('Google OAuth error:', error)
-        setError('Fehler bei Google Anmeldung: ' + error.message)
+const handleGoogleSignup = async () => {
+  try {
+    setGoogleLoading(true)
+    setError('')
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://pro-meister.de/auth/callback' // Isti hardkodirani URL
       }
-    } catch (err) {
-      console.error('Google signup error:', err)
-      setError('Ein unerwarteter Fehler ist aufgetreten')
-    } finally {
-      setGoogleLoading(false)
+    })
+
+    if (error) {
+      console.error('Google OAuth error:', error)
+      setError('Fehler bei Google Anmeldung: ' + error.message)
     }
+  } catch (err) {
+    console.error('Google signup error:', err)
+    setError('Ein unerwarteter Fehler ist aufgetreten')
+  } finally {
+    setGoogleLoading(false)
   }
+}
 
   // 🔥 Email/Password signup - MINIMAL
   const handleEmailSignup = async (e) => {

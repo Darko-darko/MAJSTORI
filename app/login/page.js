@@ -25,28 +25,26 @@ export default function LoginPage() {
   }
 
   // Google OAuth Login
-  const handleGoogleLogin = async () => {
+const handleGoogleLogin = async () => {
   try {
-    console.log('1. Starting Google OAuth...') // DODAJ
+    console.log('🔍 Current window.location.origin:', window.location.origin)
+    console.log('🔍 Full redirect URL:', `${window.location.origin}/auth/callback`)
     setGoogleLoading(true)
     setError('')
     
-    console.log('2. Calling supabase.auth.signInWithOAuth...') // DODAJ
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: 'https://pro-meister.de/auth/callback' // Hardkodiraj production URL
       }
     })
-
-    console.log('3. OAuth result:', data, error) // DODAJ
 
     if (error) {
       console.error('Google OAuth error:', error)
       setError('Fehler bei Google Anmeldung: ' + error.message)
     }
   } catch (err) {
-    console.error('4. Catch block error:', err) // DODAJ
+    console.error('Google signup error:', err)
     setError('Ein unerwarteter Fehler ist aufgetreten')
   } finally {
     setGoogleLoading(false)

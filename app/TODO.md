@@ -39,3 +39,4 @@
 - isproveravati Google registraciju
 - redni brojevi faktura
 - vcf fajl.. preuzmi kontakt (ako nema imena da uzme ime firme)
+- NE TREBA da se vidi koliko je kopresovana slika u upitu 
