@@ -1,13 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function AuthCallback() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const router = useRouter()
-  const searchParams = useSearchParams()
+  // Ukloni ovu liniju: const searchParams = useSearchParams()
 
   useEffect(() => {
     handleCallback()
@@ -30,7 +30,7 @@ export default function AuthCallback() {
         console.log('User authenticated:', data.session.user.email)
         
         // Check if majstor profile exists
-        const { data: profile, error: profileError } = await supabase
+        const { data: existingProfile, error: profileError } = await supabase
           .from('majstors')
           .select('id')
           .eq('id', data.session.user.id)
