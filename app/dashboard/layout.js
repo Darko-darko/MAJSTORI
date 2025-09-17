@@ -373,7 +373,7 @@ function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
           {/* Logo */}
           <div className="flex items-center h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
-              Majstori<span className="text-blue-400">.de</span>
+              Pro-meister<span className="text-blue-400">.de</span>
             </Link>
           </div>
 
@@ -431,7 +431,7 @@ function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
           {/* Mobile Header */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
-              Majstori<span className="text-blue-400">.de</span>
+              Pro-meister<span className="text-blue-400">.de</span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}

@@ -17,7 +17,7 @@ export default function OnboardingWizard({ majstor, trialInfo }) {
     const baseSteps = [
       {
         id: 'welcome',
-        title: '👋 Willkommen bei Majstori.de!',
+        title: '👋 Willkommen bei pro-meister.de!',
         description: 'Lassen Sie uns Ihre digitale Handwerker-Präsenz aufbauen',
         action: 'Los geht\'s!',
         href: '/dashboard',

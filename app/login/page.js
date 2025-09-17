@@ -93,7 +93,7 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold text-white hover:text-blue-400 transition-colors">
-            Majstori<span className="text-blue-400">.de</span>
+            Pro-meister<span className="text-blue-400">.de</span>
           </Link>
           <h1 className="text-3xl font-bold text-white mt-6 mb-2">Willkommen zurück</h1>
           <p className="text-slate-300">Melden Sie sich in Ihr Konto an</p>
@@ -187,7 +187,7 @@ export default function LoginPage() {
             <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
               <p className="text-green-300 text-sm">
                 <strong>Demo Account:</strong><br/>
-                E-Mail: demo@majstori.de<br/>
+                E-Mail: demo@pro-meister.de<br/>
                 Passwort: demo123
               </p>
             </div>
@@ -206,7 +206,7 @@ export default function LoginPage() {
 
         {/* Benefits */}
         <div className="mt-8 text-center">
-          <p className="text-slate-400 text-sm mb-4">Mit Majstori.de erhalten Sie:</p>
+          <p className="text-slate-400 text-sm mb-4">Mit pro-meister.de erhalten Sie:</p>
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div className="bg-slate-800/30 rounded-lg p-3">
               <div className="text-blue-400 mb-1">📱</div>

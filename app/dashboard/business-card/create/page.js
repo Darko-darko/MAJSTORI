@@ -157,7 +157,7 @@ export default function CreateBusinessCardPage() {
     try {
       if (!majstor?.slug) return
       
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://majstori.de'
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pro-meister.de'
       const fullUrl = `${baseUrl}/m/${majstor.slug}`
       
       const qrDataUrl = await QRCode.toDataURL(fullUrl, {
@@ -180,7 +180,7 @@ export default function CreateBusinessCardPage() {
   const handleCopyLink = async () => {
     try {
       if (!majstor?.slug) return
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://majstori.de'
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pro-meister.de'
       const fullUrl = `${baseUrl}/m/${majstor.slug}`
       await navigator.clipboard.writeText(fullUrl)
       setCopyLinkStatus('copied')
@@ -622,17 +622,17 @@ export default function CreateBusinessCardPage() {
         </button>
       </div>
 
-      {/* 🔥 POWERED BY MAJSTORI.DE */}
+      {/* 🔥 POWERED BY pro-meister.de */}
       <div className="pt-2 border-t border-white/20">
         <p className="text-xs opacity-50">
           Powered by{' '}
           <a 
-            href="https://majstori.de" 
+            href="https://pro-meister.de" 
             target="_blank" 
             rel="noopener noreferrer"
             className="underline hover:opacity-75"
           >
-            Majstori.de
+            pro-meister.de
           </a>
         </p>
       </div>
@@ -1009,7 +1009,7 @@ export default function CreateBusinessCardPage() {
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 text-xs"
               >
-                Öffentliche Seite: majstori.de/m/{majstor.slug} →
+                Öffentliche Seite: pro-meister.de/m/{majstor.slug} →
               </a>
             </div>
           )}
@@ -1422,7 +1422,7 @@ export default function CreateBusinessCardPage() {
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 text-sm"
               >
-                Öffentliche Seite ansehen: majstori.de/m/{majstor.slug} →
+                Öffentliche Seite ansehen: pro-meister.de/m/{majstor.slug} →
               </a>
             </div>
           )}

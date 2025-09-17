@@ -144,7 +144,7 @@ function DashboardPageContent() {
           <div className="text-4xl">🎉</div>
           <div className="flex-1">
             <h3 className="text-xl font-bold text-white mb-2">
-              {isGoogleUser ? 'Willkommen bei Majstori.de!' : 'Registrierung erfolgreich!'}
+              {isGoogleUser ? 'Willkommen bei pro-meister.de!' : 'Registrierung erfolgreich!'}
             </h3>
             <div className="space-y-2 text-slate-300">
               <p>

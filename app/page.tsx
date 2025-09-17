@@ -5,7 +5,7 @@ export default function Home() {
       <nav className="fixed top-0 w-full bg-white/10 backdrop-blur-md border-b border-white/10 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="text-2xl font-bold text-white">
-            Majstori<span className="text-blue-400">.de</span>
+            Pro-meister<span className="text-blue-400">.de</span>
           </div>
           <div className="flex gap-4">
             <a
@@ -317,7 +317,7 @@ export default function Home() {
               Kostenlos registrieren
             </a>
             <a
-              href="mailto:support@majstori.de"
+              href="mailto:support@pro-meister.de"
               className="border-2 border-slate-600 text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-slate-800 transition-all duration-300"
             >
               Fragen? Kontaktieren Sie uns
@@ -332,7 +332,7 @@ export default function Home() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="text-2xl font-bold text-white mb-4">
-                Majstori<span className="text-blue-400">.de</span>
+                Pro-meister<span className="text-blue-400">.de</span>
               </div>
               <p className="text-slate-400">
                 Die digitale Plattform für moderne Handwerker in Deutschland.
@@ -368,7 +368,7 @@ export default function Home() {
           </div>
           
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; {new Date().getFullYear()} Majstori.de - Alle Rechte vorbehalten.</p>
+            <p>&copy; {new Date().getFullYear()} pro-meister.de - Alle Rechte vorbehalten.</p>
           </div>
         </div>
       </footer>

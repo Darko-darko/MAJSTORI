@@ -138,7 +138,7 @@ export default function SignupPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold text-white mb-6 block">
-            Majstori<span className="text-blue-400">.de</span>
+            Pro-meister<span className="text-blue-400">.de</span>
           </Link>
           <h1 className="text-2xl font-bold text-white mb-2">Kostenlos registrieren</h1>
           <p className="text-slate-400">7 Tage kostenlos testen, jederzeit kündbar</p>

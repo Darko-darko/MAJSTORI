@@ -399,34 +399,33 @@ export default function PublicBusinessCardPage({ params }) {
       }
 
       console.log('✅ Inquiry submitted successfully:', result.inquiry?.id)
-      
-      // ODMAH prikaži popup (pre sistemske greške na Xiaomi)
-      setShowSuccessPopup(true)
-      // Success state
-      setInquirySuccess(true)
-      
-      // Reset form
-      setInquiryData({
-        customer_name: '',
-        customer_email: '',
-        customer_phone: '',
-        service_type: '',
-        description: '',
-        urgency: 'normal',
-        preferred_contact: 'email'
-      })
-      
-      // Clear uploaded images
-      setUploadedImages([])
-      
-    
-      
-      // Auto-hide form after success
-      setTimeout(() => {
-        setShowInquiryForm(false)
-        setInquirySuccess(false)
-        setShowSuccessPopup(false) // Dodaj ovo
-      }, 6000)
+
+// 🔥 ADD 100ms delay to prevent extension conflicts
+setTimeout(() => {
+  setInquirySuccess(true)
+  setShowSuccessPopup(true)
+}, 100)
+
+// Delay form reset to prevent hydration issues
+setTimeout(() => {
+  setInquiryData({
+    customer_name: '',
+    customer_email: '',
+    customer_phone: '',
+    service_type: '',
+    description: '',
+    urgency: 'normal',
+    preferred_contact: 'email'
+  })
+  setUploadedImages([])
+}, 200)
+
+// Auto-hide form after success
+setTimeout(() => {
+  setInquirySuccess(false)
+  setShowInquiryForm(false)
+  setShowSuccessPopup(false)
+}, 5000)
 
     } catch (err) {
       console.error('💥 Inquiry submission error:', err)
@@ -597,12 +596,12 @@ export default function PublicBusinessCardPage({ params }) {
           <p className="text-xs opacity-50">
             Powered by{' '}
             <a 
-              href="https://majstori.de" 
+              href="https://pro-meister.de" 
               target="_blank" 
               rel="noopener noreferrer"
               className="underline hover:opacity-75"
             >
-              Majstori.de
+              pro-meister.de
             </a>
           </p>
         </div>
@@ -640,7 +639,7 @@ export default function PublicBusinessCardPage({ params }) {
             {error || 'Das gesuchte Profil existiert nicht oder ist nicht verfügbar.'}
           </p>
           <a 
-            href="https://majstori.de" 
+            href="https://pro-meister.de" 
             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Zurück zur Hauptseite
@@ -663,7 +662,7 @@ export default function PublicBusinessCardPage({ params }) {
           <meta property="og:image" content={businessCard.logo_url} />
         )}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="canonical" href={`https://majstori.de/m/${params.slug}`} />
+        <link rel="canonical" href={`https://pro-meister.de/m/${params.slug}`} />
       </head>
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4" suppressHydrationWarning>
@@ -987,12 +986,12 @@ export default function PublicBusinessCardPage({ params }) {
             <p>
               Erstellt mit{' '}
               <a 
-                href="https://majstori.de" 
+                href="https://pro-meister.de" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
               >
-                Majstori.de
+                pro-meister.de
               </a>
               {' '}- Die Handwerker-Plattform
             </p>
