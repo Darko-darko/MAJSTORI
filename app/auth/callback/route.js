@@ -1,52 +1,64 @@
 // app/auth/callback/route.js
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request) {
-  console.log('🔥 Auth callback started')
-  
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const error = requestUrl.searchParams.get('error')
-
-  console.log('📋 Callback params:', { code: !!code, error })
-
-  if (error) {
-    console.error('OAuth error:', error)
-    return NextResponse.redirect(new URL('/login?error=oauth_error', requestUrl.origin))
-  }
 
   if (!code) {
-    console.error('No code provided')
     return NextResponse.redirect(new URL('/login?error=no_code', requestUrl.origin))
   }
 
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
 
   try {
-    console.log('🔄 Exchanging code for session...')
-    const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    if (sessionError) {
-      console.error('Session exchange error:', sessionError)
+    if (error) {
+      console.error('Session exchange error:', error)
       return NextResponse.redirect(new URL('/login?error=session_failed', requestUrl.origin))
     }
 
     if (data.user) {
-      console.log('✅ User authenticated:', data.user.email)
+      // Proveri da li profil postoji
+      const { data: existingProfile } = await supabaseAdmin
+        .from('majstors')
+        .select('id')
+        .eq('id', data.user.id)
+        .single()
+
+      if (!existingProfile) {
+        // Kreiraj profil preko service role
+        await supabaseAdmin
+          .from('majstors')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            full_name: data.user.user_metadata?.name || data.user.email.split('@')[0],
+            slug: `google-${data.user.id.slice(-8)}-${Date.now()}`,
+            is_active: true,
+            subscription_status: 'trial',
+            subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            profile_source: 'google_oauth',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+      }
       
-      // Čekaj da trigger kreira profil
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      console.log('🏠 Redirecting to dashboard')
       return NextResponse.redirect(new URL('/dashboard?welcome=true', requestUrl.origin))
     }
 
-    return NextResponse.redirect(new URL('/login?error=no_user', requestUrl.origin))
-
   } catch (error) {
-    console.error('Callback processing error:', error)
+    console.error('Callback error:', error)
     return NextResponse.redirect(new URL('/login?error=callback_failed', requestUrl.origin))
   }
 }
