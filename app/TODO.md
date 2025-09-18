@@ -40,4 +40,5 @@
 - redni brojevi faktura
 - vcf fajl.. preuzmi kontakt (ako nema imena da uzme ime firme)
 - NE TREBA da se vidi koliko je kopresovana slika u upitu
-- doterati privacy page
+- doterati privacy i terms page
+- kada se registruje gore levo piše prvi deo maila, da se to automatski zameni kada se ime promeni u bazi (nakon prvog rechtung)

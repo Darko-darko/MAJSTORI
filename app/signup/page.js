@@ -1,4 +1,4 @@
-// app/signup/page.js - MINIMAL CLEAN VERSION + Google OAuth
+// app/signup/page.js - UPDATED sa boljom password validacijom
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -15,6 +15,13 @@ export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  })
   const router = useRouter()
 
   const handleChange = (e) => {
@@ -22,6 +29,47 @@ export default function SignupPage() {
       ...prev,
       [e.target.name]: e.target.value
     }))
+
+    // Real-time password strength check
+    if (e.target.name === 'password') {
+      checkPasswordStrength(e.target.value)
+    }
+  }
+
+  const checkPasswordStrength = (password) => {
+    setPasswordStrength({
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /\d/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    })
+  }
+
+  const validatePassword = (password) => {
+    const errors = []
+    
+    if (password.length < 8) {
+      errors.push('Passwort muss mindestens 8 Zeichen lang sein')
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+      errors.push('Passwort muss mindestens einen Großbuchstaben enthalten')
+    }
+    
+    if (!/[a-z]/.test(password)) {
+      errors.push('Passwort muss mindestens einen Kleinbuchstaben enthalten')
+    }
+    
+    if (!/\d/.test(password)) {
+      errors.push('Passwort muss mindestens eine Zahl enthalten')
+    }
+    
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      errors.push('Passwort muss mindestens ein Sonderzeichen enthalten (!@#$%^&* etc.)')
+    }
+    
+    return errors
   }
 
   const validateForm = () => {
@@ -29,8 +77,10 @@ export default function SignupPage() {
       throw new Error('Alle Felder sind erforderlich')
     }
 
-    if (formData.password.length < 6) {
-      throw new Error('Passwort muss mindestens 6 Zeichen lang sein')
+    // Neue komplexe password validacija
+    const passwordErrors = validatePassword(formData.password)
+    if (passwordErrors.length > 0) {
+      throw new Error(passwordErrors[0]) // Prikaži prvi error
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -43,32 +93,36 @@ export default function SignupPage() {
     }
   }
 
-  // 🔥 Google OAuth signup
-const handleGoogleSignup = async () => {
-  try {
-    setGoogleLoading(true)
-    setError('')
-    
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'https://pro-meister.de/auth/callback' // Isti hardkodirani URL
+  // Google OAuth signup
+  const handleGoogleSignup = async () => {
+    try {
+      setGoogleLoading(true)
+      setError('')
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      })
+
+      if (error) {
+        console.error('Google OAuth error:', error)
+        setError('Fehler bei Google Anmeldung: ' + error.message)
       }
-    })
-
-    if (error) {
-      console.error('Google OAuth error:', error)
-      setError('Fehler bei Google Anmeldung: ' + error.message)
+    } catch (err) {
+      console.error('Google signup error:', err)
+      setError('Ein unerwarteter Fehler ist aufgetreten')
+    } finally {
+      setGoogleLoading(false)
     }
-  } catch (err) {
-    console.error('Google signup error:', err)
-    setError('Ein unerwarteter Fehler ist aufgetreten')
-  } finally {
-    setGoogleLoading(false)
   }
-}
 
-  // 🔥 Email/Password signup - MINIMAL
+  // Email/Password signup
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setError('')
@@ -83,7 +137,7 @@ const handleGoogleSignup = async () => {
         password: formData.password,
         options: {
           data: {
-            signup_type: 'email'  // Mark as email signup
+            signup_type: 'email'
           }
         }
       })
@@ -98,7 +152,7 @@ const handleGoogleSignup = async () => {
           body: JSON.stringify({
             id: authData.user.id,
             email: formData.email,
-            full_name: formData.email.split('@')[0], // Temporary name from email
+            full_name: formData.email.split('@')[0],
             subscription_status: 'trial',
             subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             is_active: true,
@@ -114,10 +168,8 @@ const handleGoogleSignup = async () => {
 
         // 3. Success redirect
         if (authData.user.email_confirmed_at) {
-          // Email already confirmed (dev mode)
           router.push('/dashboard?welcome=true&trial=true')
         } else {
-          // Email confirmation needed
           alert('✅ Registrierung erfolgreich!\n\nBitte prüfen Sie Ihre E-Mails zur Bestätigung, dann können Sie sich anmelden.')
           router.push('/login?message=confirm_email')
         }
@@ -130,6 +182,8 @@ const handleGoogleSignup = async () => {
       setLoading(false)
     }
   }
+
+  const isPasswordValid = Object.values(passwordStrength).every(Boolean)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -221,7 +275,7 @@ const handleGoogleSignup = async () => {
                 onChange={handleChange}
                 required
                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Mindestens 6 Zeichen"
+                placeholder="Ihr Passwort eingeben"
               />
               <button
                 type="button"
@@ -231,6 +285,35 @@ const handleGoogleSignup = async () => {
                 {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
+            
+            {/* Password Requirements - Show only when user starts typing */}
+            {formData.password && (
+              <div className="mt-3 p-3 bg-slate-900/30 rounded-lg border border-slate-700">
+                <p className="text-xs text-slate-400 mb-2">Passwort muss enthalten:</p>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div className={`flex items-center gap-1 ${passwordStrength.length ? 'text-green-400' : 'text-slate-500'}`}>
+                    <span>{passwordStrength.length ? '✓' : '○'}</span>
+                    <span>8+ Zeichen</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.uppercase ? 'text-green-400' : 'text-slate-500'}`}>
+                    <span>{passwordStrength.uppercase ? '✓' : '○'}</span>
+                    <span>Großbuchstabe</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.lowercase ? 'text-green-400' : 'text-slate-500'}`}>
+                    <span>{passwordStrength.lowercase ? '✓' : '○'}</span>
+                    <span>Kleinbuchstabe</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordStrength.number ? 'text-green-400' : 'text-slate-500'}`}>
+                    <span>{passwordStrength.number ? '✓' : '○'}</span>
+                    <span>Zahl</span>
+                  </div>
+                  <div className={`flex items-center gap-1 col-span-2 ${passwordStrength.special ? 'text-green-400' : 'text-slate-500'}`}>
+                    <span>{passwordStrength.special ? '✓' : '○'}</span>
+                    <span>Sonderzeichen (!@#$%...)</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Confirm Password */}
@@ -247,6 +330,9 @@ const handleGoogleSignup = async () => {
               className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Passwort wiederholen"
             />
+            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+              <p className="text-red-400 text-xs mt-1">Passwörter stimmen nicht überein</p>
+            )}
           </div>
 
           {/* Terms */}
@@ -278,7 +364,7 @@ const handleGoogleSignup = async () => {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || !isPasswordValid}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
           >
             {loading ? 'Registrierung läuft...' : '🚀 Kostenlos starten'}
