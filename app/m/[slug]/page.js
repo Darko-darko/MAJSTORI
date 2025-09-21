@@ -1016,11 +1016,7 @@ setTimeout(() => {
                                 <p className="truncate" title={image.filename}>
                                   {image.filename}
                                 </p>
-                                {image.originalSize && image.size && (
-                                  <p className="text-green-300">
-                                    {Math.round((image.originalSize - image.size) / image.originalSize * 100)}% komprimiert
-                                  </p>
-                                )}
+                                
                               </div>
                             </div>
                           ))}
