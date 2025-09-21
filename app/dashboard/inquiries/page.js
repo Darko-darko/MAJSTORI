@@ -515,31 +515,49 @@ export default function InquiriesPage() {
               </div>
             )}
             
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <a
-                href={`mailto:${selectedInquiry.customer_email}?subject=Re: ${selectedInquiry.subject}`}
-                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                📧 E-Mail antworten
-              </a>
-              
-              {selectedInquiry.customer_phone && (
-                <a
-                  href={`tel:${selectedInquiry.customer_phone}`}
-                  className="flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  📞 Anrufen
-                </a>
-              )}
-              
-              <Link
-                href={`/dashboard/invoices/create?customer_email=${selectedInquiry.customer_email}&customer_name=${selectedInquiry.customer_name}&inquiry_id=${selectedInquiry.id}`}
-                className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                💼 Rechnung erstellen
-              </Link>
-            </div>
+          
+
+{/* Action Buttons - Sa preference highlight */}
+<div className="flex flex-col sm:flex-row gap-3">
+  <a
+    href={`mailto:${selectedInquiry.customer_email}?subject=Re: ${selectedInquiry.subject}`}
+    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+      selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both'
+        ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300' // ✨ Highlighted
+        : 'bg-blue-600 text-white hover:bg-blue-700'                      // 📧 Normal
+    }`}
+  >
+    📧 E-Mail antworten
+    {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
+    {(selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both') && (
+      <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
+    )}
+  </a>
+  
+  {selectedInquiry.customer_phone && (
+    <a
+      href={`tel:${selectedInquiry.customer_phone}`}
+      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+        selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both'
+          ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-300' // ✨ Highlighted  
+          : 'bg-green-600 text-white hover:bg-green-700'                        // 📞 Normal
+      }`}
+    >
+      📞 Anrufen
+      {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
+      {(selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both') && (
+        <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
+      )}
+    </a>
+  )}
+  
+  <Link
+    href={`/dashboard/invoices/create?customer_email=${selectedInquiry.customer_email}&customer_name=${selectedInquiry.customer_name}&inquiry_id=${selectedInquiry.id}`}
+    className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+  >
+    💼 Rechnung erstellen
+  </Link>
+</div>
           </div>
         </div>
       )}

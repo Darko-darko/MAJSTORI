@@ -21,7 +21,19 @@ export async function POST(request) {
       )
     }
 
-    // Insert inquiry using service role (bypasses RLS)
+    // 🔥 URGENCY MAPPING: emergency/high/normal/low → urgent/high/normal/low
+    let priority = 'normal'
+    
+    if (body.urgency === 'emergency') {
+      priority = 'urgent'
+    } else if (body.urgency === 'high') {
+      priority = 'high'  
+    } else if (body.urgency === 'low') {
+      priority = 'low'
+    }
+    // else priority remains 'normal'
+
+    // Insert inquiry with mapped priority
     const { data: inquiry, error: inquiryError } = await supabaseAdmin
       .from('inquiries')
       .insert({
@@ -32,7 +44,12 @@ export async function POST(request) {
         subject,
         message,
         status: 'new',
-        priority: 'normal'
+        priority: priority,                                   // 🔥 MAPPED URGENCY → PRIORITY
+        urgency: body.urgency || 'normal',                   // Original urgency value
+        preferred_contact: body.preferred_contact || 'email',
+        source: body.source || 'business_card',
+        description: body.description || message,
+        service_type: body.service_type || null
       })
       .select()
       .single()
