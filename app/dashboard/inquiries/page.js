@@ -213,15 +213,20 @@ export default function InquiriesPage() {
   }
 
   const openInquiryModal = async (inquiry) => {
-    setSelectedInquiry(inquiry)
-    setShowModal(true)
-    await loadInquiryImages(inquiry.id)
-    
-    // Mark as read if it's new
-    if (inquiry.status === 'new') {
-      updateInquiryStatus(inquiry.id, 'read')
-    }
+  // 🔥 NOVO: Kreiraj updated inquiry ako je status "new"
+  const inquiryToShow = inquiry.status === 'new' 
+    ? { ...inquiry, status: 'read' }
+    : inquiry
+  
+  setSelectedInquiry(inquiryToShow)  // Modal prikazuje "Gelesen"
+  setShowModal(true)
+  await loadInquiryImages(inquiry.id)
+  
+  // Update u bazi ako je bio "new"
+  if (inquiry.status === 'new') {
+    updateInquiryStatus(inquiry.id, 'read')
   }
+}
 
   const closeModal = () => {
     setShowModal(false)
