@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import InvoiceCreator from '@/app/components/InvoiceCreator' // 🔥 DODANO
 import Link from 'next/link'
+import { useRouter } from 'next/navigation' // 🔥 DODANO
 
 export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState([])
@@ -13,6 +15,14 @@ export default function InquiriesPage() {
   const [inquiryImages, setInquiryImages] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
 
+  // 🔥 NOVO: Invoice modal states (kao u customers)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [selectedInquiryForInvoice, setSelectedInquiryForInvoice] = useState(null)
+  const [invoiceType, setInvoiceType] = useState(null) // null, 'quote', ili 'invoice'
+  const [majstor, setMajstor] = useState(null) // 🔥 DODANO za InvoiceCreator
+
+  const router = useRouter()
+
   useEffect(() => {
     loadInquiries()
     getCurrentUser()
@@ -22,6 +32,17 @@ export default function InquiriesPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
+      
+      // 🔥 DODANO: Load majstor data for InvoiceCreator
+      if (user) {
+        const { data: majstorData } = await supabase
+          .from('majstors')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        
+        setMajstor(majstorData)
+      }
     } catch (error) {
       console.error('Error getting user:', error)
     }
@@ -210,6 +231,48 @@ export default function InquiriesPage() {
     setInquiryImages([])
   }
 
+  // 🔥 NOVO: Invoice handling functions (kopirano iz customers)
+  const handleNewInvoiceClick = (inquiry) => {
+    console.log('🚀 New Invoice clicked for inquiry:', inquiry.id)
+    setSelectedInquiryForInvoice(inquiry)
+    setInvoiceType(null) // Reset type selection
+    setShowInvoiceModal(true)
+  }
+
+  const handleInvoiceTypeSelect = (type) => {
+    console.log('📄 Invoice type selected:', type)
+    setInvoiceType(type)
+  }
+
+  const handleInvoiceModalClose = () => {
+    setShowInvoiceModal(false)
+    setSelectedInquiryForInvoice(null)
+    setInvoiceType(null)
+  }
+
+  const handleInvoiceSuccess = (createdInvoice) => {
+    console.log('✅ Invoice created:', createdInvoice)
+    handleInvoiceModalClose()
+    
+    // 🔥 NOVO: Automatski promeni status inquiry na 'responded'
+    if (selectedInquiryForInvoice?.id) {
+      updateInquiryStatus(selectedInquiryForInvoice.id, 'responded')
+    }
+    
+    // Redirect to invoices page
+    router.push('/dashboard/invoices')
+  }
+
+  // 🔥 NOVO: Format inquiry za InvoiceCreator (kao customer format)
+  const formatInquiryForInvoice = (inquiry) => {
+    return {
+      name: inquiry.customer_name,
+      email: inquiry.customer_email,
+      phone: inquiry.customer_phone || '',
+      address: '' // Inquiry nema adresu, ostaviamo prazno
+    }
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'new': return 'bg-red-500'
@@ -368,7 +431,7 @@ export default function InquiriesPage() {
                       <span className={`text-sm font-medium ${getPriorityColor(inquiry.priority)}`}>
                         {inquiry.priority === 'urgent' && '🔥 Urgent'}
                         {inquiry.priority === 'high' && '⚠️ Hoch'}
-                        {inquiry.priority === 'normal' && '📝 Normal'}
+                        {inquiry.priority === 'normal' && '📄 Normal'}
                         {inquiry.priority === 'low' && '📋 Niedrig'}
                       </span>
                     </div>
@@ -515,51 +578,93 @@ export default function InquiriesPage() {
               </div>
             )}
             
-          
-
-{/* Action Buttons - Sa preference highlight */}
-<div className="flex flex-col sm:flex-row gap-3">
-  <a
-    href={`mailto:${selectedInquiry.customer_email}?subject=Re: ${selectedInquiry.subject}`}
-    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-      selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both'
-        ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300' // ✨ Highlighted
-        : 'bg-blue-600 text-white hover:bg-blue-700'                      // 📧 Normal
-    }`}
-  >
-    📧 E-Mail antworten
-    {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
-    {(selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both') && (
-      <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
-    )}
-  </a>
-  
-  {selectedInquiry.customer_phone && (
-    <a
-      href={`tel:${selectedInquiry.customer_phone}`}
-      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-        selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both'
-          ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-300' // ✨ Highlighted  
-          : 'bg-green-600 text-white hover:bg-green-700'                        // 📞 Normal
-      }`}
-    >
-      📞 Anrufen
-      {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
-      {(selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both') && (
-        <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
-      )}
-    </a>
-  )}
-  
-  <Link
-    href={`/dashboard/invoices/create?customer_email=${selectedInquiry.customer_email}&customer_name=${selectedInquiry.customer_name}&inquiry_id=${selectedInquiry.id}`}
-    className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
-  >
-    💼 Rechnung erstellen
-  </Link>
-</div>
+            {/* Action Buttons - Sa preference highlight */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a
+                href={`mailto:${selectedInquiry.customer_email}?subject=Re: ${selectedInquiry.subject}`}
+                className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                  selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300' // ✨ Highlighted
+                    : 'bg-blue-600 text-white hover:bg-blue-700'                      // 📧 Normal
+                }`}
+              >
+                📧 E-Mail antworten
+                {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
+                {(selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both') && (
+                  <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
+                )}
+              </a>
+              
+              {selectedInquiry.customer_phone && (
+                <a
+                  href={`tel:${selectedInquiry.customer_phone}`}
+                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                    selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both'
+                      ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-300' // ✨ Highlighted  
+                      : 'bg-green-600 text-white hover:bg-green-700'                        // 📞 Normal
+                  }`}
+                >
+                  📞 Anrufen
+                  {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
+                  {(selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both') && (
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
+                  )}
+                </a>
+              )}
+              
+              {/* 🔥 ZAMENJENO: Link sa button koji otvara modal */}
+              <button
+                onClick={() => handleNewInvoiceClick(selectedInquiry)}
+                className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                💼 Rechnung erstellen
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* 🔥 NOVO: Invoice Type Selection Modal (kopirano iz customers) */}
+      {showInvoiceModal && selectedInquiryForInvoice && !invoiceType && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">
+              Was möchten Sie für <span className="text-blue-400">{selectedInquiryForInvoice.customer_name}</span> erstellen?
+            </h3>
+            <div className="space-y-3">
+              <button
+                onClick={() => handleInvoiceTypeSelect('quote')}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                📄 Angebot erstellen
+              </button>
+              <button
+                onClick={() => handleInvoiceTypeSelect('invoice')}
+                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                🧾 Rechnung erstellen
+              </button>
+              <button
+                onClick={handleInvoiceModalClose}
+                className="w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 NOVO: Invoice Creator Modal (kopirano iz customers) */}
+      {showInvoiceModal && selectedInquiryForInvoice && invoiceType && majstor && (
+        <InvoiceCreator
+          isOpen={true}
+          onClose={handleInvoiceModalClose}
+          type={invoiceType}
+          majstor={majstor}
+          prefilledCustomer={formatInquiryForInvoice(selectedInquiryForInvoice)}
+          onSuccess={handleInvoiceSuccess}
+        />
       )}
     </div>
   )
