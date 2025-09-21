@@ -479,7 +479,7 @@ export default function InquiriesPage() {
           {inquiry.priority === 'urgent' && '🔥 Urgent'}
           {inquiry.priority === 'high' && '⚠️ Hoch'}
           {inquiry.priority === 'normal' && '📄 Normal'}
-          {inquiry.priority === 'low' && '📋 Niedrig'}
+          {inquiry.priority === 'low' && '🔋 Niedrig'}
         </span>
       </div>
       
@@ -505,31 +505,33 @@ export default function InquiriesPage() {
       {/* KONTEJNER 5: DROPDOWN-OVI - Potpuno izolovani */}
       <div className="grid grid-cols-2 gap-3">
         <select
-          value={inquiry.status}
-          onChange={(e) => {
-            e.stopPropagation()
-            updateInquiryStatus(inquiry.id, e.target.value)
-          }}
+  value={inquiry.status}
+  onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
+  onChange={(e) => {
+    e.stopPropagation()
+    updateInquiryStatus(inquiry.id, e.target.value)
+  }}
           className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-          <option value="new">Neu</option>
-          <option value="read">Gelesen</option>
-          <option value="responded">Beantwortet</option>
-          <option value="closed">Abgeschlossen</option>
+         <option value="new" >🔴 Neu</option>
+        <option value="read" >🟡 Gelesen</option>
+        <option value="responded" >🔵 Beantwortet</option>
+       <option value="closed" >🟢 Abgeschlossen</option>
         </select>
         
         <select
           value={inquiry.priority}
+          onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
           onChange={(e) => {
             e.stopPropagation()
             setPriority(inquiry.id, e.target.value)
           }}
           className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-          <option value="low">Niedrig</option>
-          <option value="normal">Normal</option>
-          <option value="high">Hoch</option>
-          <option value="urgent">Urgent</option>
+          <option value="low">🔋 Niedrig</option>
+<option value="normal">📄 Normal</option>
+<option value="high">⚠️ Hoch</option>
+<option value="urgent">🔥 Urgent</option>
         </select>
       </div>
     </div>
@@ -544,7 +546,7 @@ export default function InquiriesPage() {
              {inquiry.priority === 'urgent' && '🔥 Urgent'}
              {inquiry.priority === 'high' && '⚠️ Hoch'}
              {inquiry.priority === 'normal' && '📄 Normal'}
-             {inquiry.priority === 'low' && '📋 Niedrig'}
+             {inquiry.priority === 'low' && '🔋 Niedrig'}
           </span>
         </div>
         
@@ -568,32 +570,34 @@ export default function InquiriesPage() {
       </div>
       
       <div className="flex flex-col gap-2 w-36">
-        <select
-          value={inquiry.status}
-          onChange={(e) => {
-            e.stopPropagation()
-            updateInquiryStatus(inquiry.id, e.target.value)
-          }}
+       <select
+  value={inquiry.status}
+  onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
+  onChange={(e) => {
+    e.stopPropagation()
+    updateInquiryStatus(inquiry.id, e.target.value)
+  }}
           className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-          <option value="new">Neu</option>
-          <option value="read">Gelesen</option>
-          <option value="responded">Beantwortet</option>
-          <option value="closed">Abgeschlossen</option>
+         <option value="new" >🔴 Neu</option>
+  <option value="read" >🟡 Gelesen</option>
+  <option value="responded" >🔵 Beantwortet</option>
+  <option value="closed" >🟢 Abgeschlossen</option>
         </select>
         
         <select
           value={inquiry.priority}
+          onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
           onChange={(e) => {
             e.stopPropagation()
             setPriority(inquiry.id, e.target.value)
           }}
           className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-          <option value="low">Niedrig</option>
-          <option value="normal">Normal</option>
-          <option value="high">Hoch</option>
-          <option value="urgent">Urgent</option>
+          <option value="low">🔋 Niedrig</option>
+  <option value="normal">📄 Normal</option>
+  <option value="high">⚠️ Hoch</option>
+  <option value="urgent">🔥 Urgent</option>
         </select>
       </div>
     </div>
@@ -645,10 +649,10 @@ export default function InquiriesPage() {
                       onChange={(e) => updateInquiryStatus(selectedInquiry.id, e.target.value)}
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="new">Neu</option>
-                      <option value="read">Gelesen</option>
-                      <option value="responded">Beantwortet</option>
-                      <option value="closed">Abgeschlossen</option>
+                      <option value="new" >🔴 Neu</option>
+  <option value="read" >🟡 Gelesen</option>
+  <option value="responded" >🔵 Beantwortet</option>
+  <option value="closed" >🟢 Abgeschlossen</option>
                     </select>
                   </div>
                   
@@ -659,10 +663,10 @@ export default function InquiriesPage() {
                       onChange={(e) => setPriority(selectedInquiry.id, e.target.value)}
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="low">Niedrig</option>
-                      <option value="normal">Normal</option>
-                      <option value="high">Hoch</option>
-                      <option value="urgent">Urgent</option>
+                      <option value="low">🔋 Niedrig</option>
+  <option value="normal">📄 Normal</option>
+  <option value="high">⚠️ Hoch</option>
+  <option value="urgent">🔥 Urgent</option>
                     </select>
                   </div>
                   
