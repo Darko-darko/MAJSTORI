@@ -104,7 +104,7 @@ export default function CreateBusinessCardPage() {
         setFormData(prev => ({
           ...prev,
           // Popuni samo ako je prazan
-          card_name: prev.card_name || majstorData.full_name || '',
+         // card_name: prev.card_name || majstorData.full_name || '',
           card_business_name: prev.card_business_name || majstorData.business_name || '',
           card_phone: prev.card_phone || majstorData.phone || '',
           card_email: prev.card_email || majstorData.email || '',
@@ -613,14 +613,21 @@ export default function CreateBusinessCardPage() {
       )}
 
       {/* 🔥 KONTAKT SPEICHERN DUGME */}
-      <div className={`mb-${isMobile ? '3' : '4'}`}>
-        <button 
-          onClick={handleSaveContact}
-          className="bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          📱 Kontakt speichern
-        </button>
-      </div>
+      {/* 🔥 DUGMICI ZA KONTAKT I ANFRAGE */}
+<div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
+  <button 
+    onClick={handleSaveContact}
+    className="w-full bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+  >
+    📱 Kontakt speichern
+  </button>
+  <button 
+    onClick={() => alert('Das ist nur Vorschau - Button funktioniert auf der öffentlichen Seite!')}
+    className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+  >
+    📬 Anfrage senden
+  </button>
+</div>
 
       {/* 🔥 POWERED BY pro-meister.de */}
       <div className="pt-2 border-t border-white/20">

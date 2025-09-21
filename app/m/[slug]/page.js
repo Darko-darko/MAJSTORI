@@ -338,9 +338,9 @@ export default function PublicBusinessCardPage({ params }) {
       if (!inquiryData.customer_email.trim()) {
         throw new Error('E-Mail ist erforderlich')
       }
-      if (!inquiryData.description.trim()) {
-        throw new Error('Beschreibung ist erforderlich')
-      }
+      //if (!inquiryData.description.trim()) {
+       // throw new Error('Beschreibung ist erforderlich')
+     //}
 
       // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -364,7 +364,7 @@ export default function PublicBusinessCardPage({ params }) {
         
         // 🔥 OLD FIELDS for backward compatibility
         subject: inquiryData.service_type.trim() || 'Kundenanfrage',
-        message: inquiryData.description.trim(),
+        message: inquiryData.description.trim() || '-',
         
         // 🔥 IMAGES - Support both approaches
         images: uploadedImages.map(img => img.url), // Old format
@@ -777,26 +777,18 @@ setTimeout(() => {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Art der Dienstleistung
+                      Art der Dienstleistung *
                     </label>
-                    <select
-                      name="service_type"
-                      value={inquiryData.service_type}
-                      onChange={handleInquiryChange}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    >
-                      <option value="">Bitte wählen...</option>
-                      {businessCard.services?.map((service, index) => (
-                        <option key={index} value={service}>{service}</option>
-                      ))}
-                      <option value="Notfall">🚨 Notfall</option>
-                      <option value="Beratung">💬 Beratung</option>
-                      <option value="Kostenvoranschlag">📋 Kostenvoranschlag</option>
-                      <option value="Reparatur">🔧 Reparatur</option>
-                      <option value="Installation">⚙️ Installation</option>
-                      <option value="Wartung">🛠️ Wartung</option>
-                      <option value="Andere">Andere</option>
-                    </select>
+                    <input 
+  type="text"
+  name="service_type"
+  value={inquiryData.service_type}
+  onChange={handleInquiryChange}
+  placeholder="Kurze Beschreibung des Problems..."
+  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+  autocomplete="off"  // ← DODAJ OVO
+  required
+/>
                   </div>
                 </div>
 
@@ -839,13 +831,13 @@ setTimeout(() => {
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Beschreibung Ihres Anliegens *
+                    Beschreibung Ihres Anliegens
                   </label>
                   <textarea
                     name="description"
                     value={inquiryData.description}
                     onChange={handleInquiryChange}
-                    required
+                    //required
                     rows={4}
                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
                     placeholder="Beschreiben Sie bitte Ihr Anliegen oder den gewünschten Service detailliert..."
@@ -916,11 +908,7 @@ setTimeout(() => {
                                 <p className="truncate" title={image.filename}>
                                   {image.filename}
                                 </p>
-                                {image.originalSize && image.size && (
-                                  <p className="text-green-300">
-                                    {Math.round((image.originalSize - image.size) / image.originalSize * 100)}% komprimiert
-                                  </p>
-                                )}
+                                
                               </div>
                             </div>
                           ))}
