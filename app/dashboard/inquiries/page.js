@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import InvoiceCreator from '@/app/components/InvoiceCreator' // 🔥 DODANO
+import InvoiceCreator from '@/app/components/InvoiceCreator'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation' // 🔥 DODANO
+import { useRouter } from 'next/navigation'
 
 export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState([])
@@ -15,11 +15,15 @@ export default function InquiriesPage() {
   const [inquiryImages, setInquiryImages] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
 
-  // 🔥 NOVO: Invoice modal states (kao u customers)
+  // Invoice modal states
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [selectedInquiryForInvoice, setSelectedInquiryForInvoice] = useState(null)
   const [invoiceType, setInvoiceType] = useState(null) // null, 'quote', ili 'invoice'
-  const [majstor, setMajstor] = useState(null) // 🔥 DODANO za InvoiceCreator
+  const [majstor, setMajstor] = useState(null)
+
+  // 🔥 NOVO: Contact question states
+  const [showContactQuestion, setShowContactQuestion] = useState(false)
+  const [contactMethod, setContactMethod] = useState('') // 'email' ili 'phone'
 
   const router = useRouter()
 
@@ -33,7 +37,7 @@ export default function InquiriesPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUser(user)
       
-      // 🔥 DODANO: Load majstor data for InvoiceCreator
+      // Load majstor data for InvoiceCreator
       if (user) {
         const { data: majstorData } = await supabase
           .from('majstors')
@@ -48,53 +52,13 @@ export default function InquiriesPage() {
     }
   }
 
-  // Real-time subscription (trenutno isključeno)
-  /*
-  useEffect(() => {
-    let channel = null
-
-    const setupRealtime = () => {
-      if (!currentUser) return
-
-      channel = supabase
-        .channel('inquiries-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'inquiries',
-            filter: `majstor_id=eq.${currentUser.id}`
-          },
-          (payload) => {
-            console.log('Real-time update:', payload)
-            loadInquiries()
-          }
-        )
-        .subscribe()
-    }
-
-    if (currentUser) {
-      setupRealtime()
-    }
-
-    // Cleanup function
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel)
-      }
-    }
-  }, [currentUser])
-  */
-
   // Fallback refresh every 60 seconds - respecting current filters
   useEffect(() => {
     const interval = setInterval(() => {
-      // Pozovi loadInquiries bez menjanja filter/sortBy state
       loadInquiries()
-    }, 60000) // Povećano na 60 sekundi
+    }, 60000)
     return () => clearInterval(interval)
-  }, [filter, sortBy]) // Dodaj dependencies da se restartuje kada se filtri menjaju
+  }, [filter, sortBy])
 
   const loadInquiries = async () => {
     try {
@@ -151,7 +115,6 @@ export default function InquiriesPage() {
     }
   }
 
-// 🔥 UPDATED: updateInquiryStatus - koristi glavnu API rutu
   const updateInquiryStatus = async (inquiryId, newStatus) => {
     try {
       console.log('🔄 Updating inquiry status:', inquiryId, 'to', newStatus)
@@ -201,7 +164,6 @@ export default function InquiriesPage() {
     }
   }
 
-  // 🔥 UPDATED: setPriority - koristi glavnu API rutu  
   const setPriority = async (inquiryId, priority) => {
     try {
       console.log('🔄 Updating inquiry priority:', inquiryId, 'to', priority)
@@ -265,13 +227,17 @@ export default function InquiriesPage() {
     setShowModal(false)
     setSelectedInquiry(null)
     setInquiryImages([])
+    
+    // 🔥 NOVO: Reset contact question states
+    setShowContactQuestion(false)
+    setContactMethod('')
   }
 
-  // 🔥 NOVO: Invoice handling functions (kopirano iz customers)
+  // Invoice handling functions
   const handleNewInvoiceClick = (inquiry) => {
     console.log('🚀 New Invoice clicked for inquiry:', inquiry.id)
     setSelectedInquiryForInvoice(inquiry)
-    setInvoiceType(null) // Reset type selection
+    setInvoiceType(null)
     setShowInvoiceModal(true)
   }
 
@@ -286,26 +252,67 @@ export default function InquiriesPage() {
     setInvoiceType(null)
   }
 
-  const handleInvoiceSuccess = (createdInvoice) => {
+  // 🔥 UPDATED: handleInvoiceSuccess sa automatskim zatvaranjem
+  const handleInvoiceSuccess = async (createdInvoice) => {
     console.log('✅ Invoice created:', createdInvoice)
-    handleInvoiceModalClose()
     
-    // 🔥 NOVO: Automatski promeni status inquiry na 'responded'
+    // 🔥 AUTOMATIZACIJA: inquiry workflow
     if (selectedInquiryForInvoice?.id) {
-      updateInquiryStatus(selectedInquiryForInvoice.id, 'responded')
+      // Ako je status 'read' → promeni na 'responded' 
+      if (selectedInquiryForInvoice.status === 'read') {
+        console.log('📈 Auto-updating inquiry: read → responded')
+        await updateInquiryStatus(selectedInquiryForInvoice.id, 'responded')
+      }
+      // Ako je status 'responded' → promeni na 'closed'
+      else if (selectedInquiryForInvoice.status === 'responded') {
+        console.log('📈 Auto-updating inquiry: responded → closed')  
+        await updateInquiryStatus(selectedInquiryForInvoice.id, 'closed')
+      }
+      // Ako je 'new' ili bilo koji drugi → direktno na 'closed' (kompletiran workflow)
+      else {
+        console.log('📈 Auto-updating inquiry: any → closed (workflow completed)')
+        await updateInquiryStatus(selectedInquiryForInvoice.id, 'closed')
+      }
     }
     
-    // Redirect to invoices page
+    // Zatvori modal i idi na invoices page
+    handleInvoiceModalClose()
     router.push('/dashboard/invoices')
   }
 
-  // 🔥 NOVO: Format inquiry za InvoiceCreator (kao customer format)
   const formatInquiryForInvoice = (inquiry) => {
     return {
       name: inquiry.customer_name,
       email: inquiry.customer_email,
       phone: inquiry.customer_phone || '',
-      address: '' // Inquiry nema adresu, ostaviamo prazno
+      address: ''
+    }
+  }
+
+  // 🔥 NOVO: Contact handling functions
+  const handleContactClick = (method, contactInfo) => {
+    // Otvori email/phone kao pre
+    if (method === 'email') {
+      window.open(`mailto:${contactInfo}?subject=Re: ${selectedInquiry.subject}`, '_blank')
+    } else if (method === 'phone') {
+      window.open(`tel:${contactInfo}`, '_blank')
+    }
+    
+    // Prikaži pitanje SAMO ako je status 'read' (pročitano)
+    if (selectedInquiry.status === 'read') {
+      setContactMethod(method)
+      setShowContactQuestion(true)
+    }
+  }
+
+  // 🔥 NOVO: Handler za odgovor na pitanje
+  const handleContactConfirmation = async (contacted) => {
+    setShowContactQuestion(false)
+    setContactMethod('')
+    
+    if (contacted && selectedInquiry.status === 'read') {
+      // Promeni status na 'responded' (odgovoreno)
+      await updateInquiryStatus(selectedInquiry.id, 'responded')
     }
   }
 
@@ -583,6 +590,39 @@ export default function InquiriesPage() {
                       <option value="urgent">Urgent</option>
                     </select>
                   </div>
+                  
+                  {/* 🔥 NOVO: Inline Contact Question */}
+                  {showContactQuestion && (
+                    <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="text-2xl">
+                          {contactMethod === 'email' ? '📧' : '📞'}
+                        </span>
+                        <div>
+                          <p className="text-blue-300 font-medium">
+                            Haben Sie den Kunden kontaktiert?
+                          </p>
+                          <p className="text-blue-200 text-sm">
+                            {contactMethod === 'email' ? 'E-Mail gesendet?' : 'Anruf getätigt?'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleContactConfirmation(true)}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          ✅ Ja - Als Beantwortet markieren
+                        </button>
+                        <button
+                          onClick={() => handleContactConfirmation(false)}
+                          className="flex-1 bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          ❌ Nein - Als Gelesen lassen
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -614,41 +654,38 @@ export default function InquiriesPage() {
               </div>
             )}
             
-            {/* Action Buttons - Sa preference highlight */}
+            {/* 🔥 NOVA ACTION BUTTONS SEKCIJA - koristi handleContactClick umesto direktne linkove */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <a
-                href={`mailto:${selectedInquiry.customer_email}?subject=Re: ${selectedInquiry.subject}`}
+              <button
+                onClick={() => handleContactClick('email', selectedInquiry.customer_email)}
                 className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                   selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both'
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300' // ✨ Highlighted
-                    : 'bg-blue-600 text-white hover:bg-blue-700'                      // 📧 Normal
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
                 📧 E-Mail antworten
-                {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
                 {(selectedInquiry.preferred_contact === 'email' || selectedInquiry.preferred_contact === 'both') && (
                   <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
                 )}
-              </a>
+              </button>
               
               {selectedInquiry.customer_phone && (
-                <a
-                  href={`tel:${selectedInquiry.customer_phone}`}
+                <button
+                  onClick={() => handleContactClick('phone', selectedInquiry.customer_phone)}
                   className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                     selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both'
-                      ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-300' // ✨ Highlighted  
-                      : 'bg-green-600 text-white hover:bg-green-700'                        // 📞 Normal
+                      ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-300'
+                      : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
                 >
                   📞 Anrufen
-                  {/* 🔥 MINIMALNA DODAJKA: (bevorzugt) label */}
                   {(selectedInquiry.preferred_contact === 'phone' || selectedInquiry.preferred_contact === 'both') && (
                     <span className="text-xs bg-white/20 px-2 py-1 rounded-full ml-2">bevorzugt</span>
                   )}
-                </a>
+                </button>
               )}
               
-              {/* 🔥 ZAMENJENO: Link sa button koji otvara modal */}
               <button
                 onClick={() => handleNewInvoiceClick(selectedInquiry)}
                 className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
@@ -660,7 +697,7 @@ export default function InquiriesPage() {
         </div>
       )}
 
-      {/* 🔥 NOVO: Invoice Type Selection Modal (kopirano iz customers) */}
+      {/* Invoice Type Selection Modal */}
       {showInvoiceModal && selectedInquiryForInvoice && !invoiceType && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
@@ -691,7 +728,7 @@ export default function InquiriesPage() {
         </div>
       )}
 
-      {/* 🔥 NOVO: Invoice Creator Modal (kopirano iz customers) */}
+      {/* Invoice Creator Modal */}
       {showInvoiceModal && selectedInquiryForInvoice && invoiceType && majstor && (
         <InvoiceCreator
           isOpen={true}
