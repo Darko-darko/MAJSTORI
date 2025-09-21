@@ -1,4 +1,4 @@
-// app/m/[slug]/page.js - PERFECT VERSION WITH PHOTO UPLOAD
+// app/m/[slug]/page.js - PERFECT VERSION WITH SMART CAMERA DETECTION
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -10,11 +10,10 @@ export default function PublicBusinessCardPage({ params }) {
   const [error, setError] = useState('')
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
 
-
   // Gallery modal state
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   
-  // 🔥 ENHANCED: Inquiry form states with photo upload
+  // Inquiry form states with photo upload
   const [showInquiryForm, setShowInquiryForm] = useState(false)
   const [inquiryData, setInquiryData] = useState({
     customer_name: '',
@@ -29,10 +28,14 @@ export default function PublicBusinessCardPage({ params }) {
   const [inquirySuccess, setInquirySuccess] = useState(false)
   const [inquiryError, setInquiryError] = useState('')
   
-  // 🔥 PHOTO UPLOAD: Using your existing 'inquiries' bucket
+  // Photo upload states
   const [uploadedImages, setUploadedImages] = useState([])
   const [imageUploading, setImageUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  
+  // 🔥 NOVO: Smart camera detection states
+  const [hasCamera, setHasCamera] = useState(false)
+  const [cameraCheckDone, setCameraCheckDone] = useState(false)
   
   const inquiryFormRef = useRef(null)
   const imageInputRef = useRef(null)
@@ -42,6 +45,36 @@ export default function PublicBusinessCardPage({ params }) {
       loadBusinessCard()
     }
   }, [params.slug])
+
+  // 🔥 NOVO: Camera detection useEffect
+  useEffect(() => {
+    const checkCamera = async () => {
+      try {
+        // Proverava da li browser podržava mediaDevices API
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setHasCamera(false)
+          setCameraCheckDone(true)
+          return
+        }
+
+        // Proverava da li postoji video input device (kamera)
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const videoDevices = devices.filter(device => device.kind === 'videoinput')
+        
+        setHasCamera(videoDevices.length > 0)
+        setCameraCheckDone(true)
+        
+        console.log(`📸 Camera detection: ${videoDevices.length > 0 ? 'Available' : 'Not available'}`)
+        
+      } catch (error) {
+        console.log('Camera detection failed:', error)
+        setHasCamera(false)
+        setCameraCheckDone(true)
+      }
+    }
+
+    checkCamera()
+  }, [])
 
   const loadBusinessCard = async () => {
     try {
@@ -97,7 +130,7 @@ export default function PublicBusinessCardPage({ params }) {
     return `${url}${separator}cb=${Date.now()}`
   }
 
-  // 🔥 SAVE CONTACT TO PHONE
+  // Save contact to phone
   const handleSaveContact = () => {
     if (!businessCard) return
     
@@ -131,7 +164,7 @@ export default function PublicBusinessCardPage({ params }) {
     }))
   }
 
-  // 🔥 IMAGE COMPRESSION - Optimized for mobile
+  // Image compression - Optimized for mobile
   const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas')
@@ -167,7 +200,7 @@ export default function PublicBusinessCardPage({ params }) {
     })
   }
 
-  // 🔥 PHOTO UPLOAD - Using your 'inquiries' bucket
+  // Photo upload - Using inquiries bucket
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -227,7 +260,7 @@ export default function PublicBusinessCardPage({ params }) {
           
           console.log(`☁️ Uploading to inquiries bucket:`, fileName)
           
-          // 🔥 UPLOAD TO YOUR 'inquiries' BUCKET
+          // Upload to inquiries bucket
           const { data, error } = await supabase.storage
             .from('inquiries')
             .upload(fileName, compressedFile, {
@@ -293,7 +326,7 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // 🔥 REMOVE UPLOADED IMAGE
+  // Remove uploaded image
   const removeUploadedImage = async (imageIndex) => {
     try {
       const imageToRemove = uploadedImages[imageIndex]
@@ -322,7 +355,7 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // 🔥 ENHANCED INQUIRY SUBMISSION
+  // Enhanced inquiry submission
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
@@ -338,9 +371,6 @@ export default function PublicBusinessCardPage({ params }) {
       if (!inquiryData.customer_email.trim()) {
         throw new Error('E-Mail ist erforderlich')
       }
-      //if (!inquiryData.description.trim()) {
-       // throw new Error('Beschreibung ist erforderlich')
-     //}
 
       // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -348,27 +378,27 @@ export default function PublicBusinessCardPage({ params }) {
         throw new Error('Ungültige E-Mail-Adresse')
       }
 
-      // Prepare inquiry payload for your existing API
+      // Prepare inquiry payload for API
       const inquiryPayload = {
         majstor_id: majstor.id,
         customer_name: inquiryData.customer_name.trim(),
         customer_email: inquiryData.customer_email.trim(),
         customer_phone: inquiryData.customer_phone.trim() || null,
         
-        // 🔥 NEW FIELDS (with fallbacks for old API)
+        // New fields
         service_type: inquiryData.service_type.trim() || null,
         description: inquiryData.description.trim(),
         urgency: inquiryData.urgency,
         preferred_contact: inquiryData.preferred_contact,
         source: 'business_card',
         
-        // 🔥 OLD FIELDS for backward compatibility
+        // Old fields for backward compatibility
         subject: inquiryData.service_type.trim() || 'Kundenanfrage',
         message: inquiryData.description.trim() || '-',
         
-        // 🔥 IMAGES - Support both approaches
-        images: uploadedImages.map(img => img.url), // Old format
-        photo_urls: uploadedImages.map(img => img.url) // New format
+        // Images - Support both approaches
+        images: uploadedImages.map(img => img.url),
+        photo_urls: uploadedImages.map(img => img.url)
       }
 
       console.log('📋 Submitting with payload:', {
@@ -378,7 +408,7 @@ export default function PublicBusinessCardPage({ params }) {
         images: inquiryPayload.images.length
       })
 
-      // Call your existing API
+      // Call API
       const response = await fetch('/api/inquiries', {
         method: 'POST',
         headers: {
@@ -400,32 +430,32 @@ export default function PublicBusinessCardPage({ params }) {
 
       console.log('✅ Inquiry submitted successfully:', result.inquiry?.id)
 
-// 🔥 ADD 100ms delay to prevent extension conflicts
-setTimeout(() => {
-  setInquirySuccess(true)
-  setShowSuccessPopup(true)
-}, 100)
+      // Add 100ms delay to prevent extension conflicts
+      setTimeout(() => {
+        setInquirySuccess(true)
+        setShowSuccessPopup(true)
+      }, 100)
 
-// Delay form reset to prevent hydration issues
-setTimeout(() => {
-  setInquiryData({
-    customer_name: '',
-    customer_email: '',
-    customer_phone: '',
-    service_type: '',
-    description: '',
-    urgency: 'normal',
-    preferred_contact: 'email'
-  })
-  setUploadedImages([])
-}, 200)
+      // Delay form reset to prevent hydration issues
+      setTimeout(() => {
+        setInquiryData({
+          customer_name: '',
+          customer_email: '',
+          customer_phone: '',
+          service_type: '',
+          description: '',
+          urgency: 'normal',
+          preferred_contact: 'email'
+        })
+        setUploadedImages([])
+      }, 200)
 
-// Auto-hide form after success
-setTimeout(() => {
-  setInquirySuccess(false)
-  setShowInquiryForm(false)
-  setShowSuccessPopup(false)
-}, 5000)
+      // Auto-hide form after success
+      setTimeout(() => {
+        setInquirySuccess(false)
+        setShowInquiryForm(false)
+        setShowSuccessPopup(false)
+      }, 5000)
 
     } catch (err) {
       console.error('💥 Inquiry submission error:', err)
@@ -463,7 +493,7 @@ setTimeout(() => {
     }, 100)
   }
 
-  // 🔥 PERFECT PREVIEW CARD COMPONENT
+  // Perfect preview card component
   const PreviewCard = ({ isMobile = false }) => {
     if (!businessCard) return null
 
@@ -673,7 +703,7 @@ setTimeout(() => {
             <PreviewCard isMobile={false} />
           </div>
 
-          {/* 🔥 PERFECT INQUIRY FORM */}
+          {/* Perfect inquiry form */}
           {showInquiryForm && (
             <div 
               ref={inquiryFormRef}
@@ -780,15 +810,15 @@ setTimeout(() => {
                       Art der Dienstleistung *
                     </label>
                     <input 
-  type="text"
-  name="service_type"
-  value={inquiryData.service_type}
-  onChange={handleInquiryChange}
-  placeholder="Kurze Beschreibung des Problems..."
-  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-  autocomplete="off"  // ← DODAJ OVO
-  required
-/>
+                      type="text"
+                      name="service_type"
+                      value={inquiryData.service_type}
+                      onChange={handleInquiryChange}
+                      placeholder="Kurze Beschreibung des Problems..."
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      autoComplete="off"
+                      required
+                    />
                   </div>
                 </div>
 
@@ -837,14 +867,13 @@ setTimeout(() => {
                     name="description"
                     value={inquiryData.description}
                     onChange={handleInquiryChange}
-                    //required
                     rows={4}
                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
                     placeholder="Beschreiben Sie bitte Ihr Anliegen oder den gewünschten Service detailliert..."
                   />
                 </div>
 
-                {/* 🔥 PHOTO UPLOAD SECTION */}
+                {/* 🔥 SMART PHOTO UPLOAD SECTION - Camera + Gallery */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     📷 Fotos hinzufügen (optional)
@@ -854,16 +883,101 @@ setTimeout(() => {
                   </p>
                   
                   <div className="space-y-4">
-                    {/* File Input */}
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handlePhotoUpload}
-                      disabled={imageUploading || uploadedImages.length >= 5}
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50 transition-all"
-                    />
+                    {/* 🔥 CONDITIONAL RENDERING based na camera availability */}
+                    {cameraCheckDone && (
+                      <>
+                        {hasCamera ? (
+                          // MOBILE/CAMERA DEVICE - dva dugmeta
+                          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                            {/* Camera Button */}
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={handlePhotoUpload}
+                                disabled={imageUploading || uploadedImages.length >= 5}
+                                className="hidden"
+                              />
+                              <div className={`flex items-center justify-center gap-2 p-3 sm:p-4 border-2 border-dashed rounded-lg transition-colors ${
+                                imageUploading || uploadedImages.length >= 5
+                                  ? 'border-slate-600 bg-slate-700/30 text-slate-500 cursor-not-allowed'
+                                  : 'border-blue-500 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20'
+                              }`}>
+                                <span className="text-2xl">📸</span>
+                                <div className="text-center">
+                                  <p className="font-medium text-sm sm:text-base">Foto aufnehmen</p>
+                                  <p className="text-xs opacity-75">Kamera öffnen</p>
+                                </div>
+                              </div>
+                            </label>
+
+                            {/* Gallery Button */}
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handlePhotoUpload}
+                                disabled={imageUploading || uploadedImages.length >= 5}
+                                className="hidden"
+                              />
+                              <div className={`flex items-center justify-center gap-2 p-3 sm:p-4 border-2 border-dashed rounded-lg transition-colors ${
+                                imageUploading || uploadedImages.length >= 5
+                                  ? 'border-slate-600 bg-slate-700/30 text-slate-500 cursor-not-allowed'
+                                  : 'border-green-500 bg-green-500/10 text-green-300 hover:bg-green-500/20'
+                              }`}>
+                                <span className="text-2xl">🖼️</span>
+                                <div className="text-center">
+                                  <p className="font-medium text-sm sm:text-base">Aus Galerie</p>
+                                  <p className="text-xs opacity-75">Bilder auswählen</p>
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+                        ) : (
+                          // DESKTOP/NO CAMERA - jedan dugme
+                          <div className="flex justify-center">
+                            <label className="cursor-pointer w-full max-w-md">
+                              <input
+                                ref={imageInputRef}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handlePhotoUpload}
+                                disabled={imageUploading || uploadedImages.length >= 5}
+                                className="hidden"
+                              />
+                              <div className={`flex items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg transition-colors ${
+                                imageUploading || uploadedImages.length >= 5
+                                  ? 'border-slate-600 bg-slate-700/30 text-slate-500 cursor-not-allowed'
+                                  : 'border-green-500 bg-green-500/10 text-green-300 hover:bg-green-500/20'
+                              }`}>
+                                <span className="text-3xl">🖼️</span>
+                                <div className="text-center">
+                                  <p className="font-medium text-lg">Bilder auswählen</p>
+                                  <p className="text-sm opacity-75">Klicken Sie hier um Bilder hochzuladen</p>
+                                  <p className="text-xs opacity-60 mt-1">
+                                    {uploadedImages.length}/5 Bilder
+                                  </p>
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Loading state dok proverava kameru */}
+                    {!cameraCheckDone && (
+                      <div className="flex justify-center p-6">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-sm">Prüfe verfügbare Optionen...</span>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Upload Progress */}
                     {imageUploading && (
@@ -885,7 +999,7 @@ setTimeout(() => {
                     {uploadedImages.length > 0 && (
                       <div>
                         <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
-                          <span className="text-green-400">📎</span>
+                          <span className="text-green-400">🔎</span>
                           Hochgeladene Bilder ({uploadedImages.length}/5):
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -908,10 +1022,40 @@ setTimeout(() => {
                                 <p className="truncate" title={image.filename}>
                                   {image.filename}
                                 </p>
-                                
+                                {image.originalSize && image.size && (
+                                  <p className="text-green-300">
+                                    {Math.round((image.originalSize - image.size) / image.originalSize * 100)}% komprimiert
+                                  </p>
+                                )}
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 🔥 UPDATED INFO BOX - prilagođen device tipu */}
+                    {cameraCheckDone && (
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="text-blue-400 text-sm">💡</span>
+                          <div>
+                            <p className="text-blue-300 text-sm">
+                              <strong>Fototipps:</strong>
+                            </p>
+                            <ul className="text-blue-200 text-xs mt-1 space-y-1">
+                              {hasCamera ? (
+                                <>
+                                  <li>📸 <strong>Foto aufnehmen:</strong> Öffnet Ihre Kamera für neue Fotos</li>
+                                  <li>🖼️ <strong>Aus Galerie:</strong> Wählen Sie vorhandene Bilder aus</li>
+                                </>
+                              ) : (
+                                <li>🖼️ <strong>Bilder auswählen:</strong> Wählen Sie Bilder von Ihrem Computer</li>
+                              )}
+                              <li>🔍 Mehrere Winkel helfen bei der Problemdiagnose</li>
+                              <li>💡 Gute Beleuchtung macht Details sichtbar</li>
+                            </ul>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1012,16 +1156,17 @@ setTimeout(() => {
             </div>
           )}
         </div>
+        
         {/* Xiaomi Success Popup Override */}
-{showSuccessPopup && (
-  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
-    <div className="bg-green-600 text-white p-8 rounded-xl text-center shadow-2xl">
-      <div className="text-6xl mb-4">✅</div>
-      <h3 className="text-2xl font-bold mb-2">Erfolgreich gesendet!</h3>
-      <p className="text-sm opacity-90">Ihre Anfrage wurde übermittelt.</p>
-    </div>
-  </div>
-)}
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+            <div className="bg-green-600 text-white p-8 rounded-xl text-center shadow-2xl">
+              <div className="text-6xl mb-4">✅</div>
+              <h3 className="text-2xl font-bold mb-2">Erfolgreich gesendet!</h3>
+              <p className="text-sm opacity-90">Ihre Anfrage wurde übermittelt.</p>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )
