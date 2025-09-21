@@ -7,6 +7,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+// 🔥 POSTOJEĆI POST - za kreiranje inquiry
 export async function POST(request) {
   try {
     const body = await request.json()
@@ -86,6 +87,68 @@ export async function POST(request) {
         inquiry: inquiry 
       },
       { status: 201 }
+    )
+
+  } catch (error) {
+    console.error('API error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// 🔥 NOVI PATCH - za update status/priority
+export async function PATCH(request) {
+  try {
+    const body = await request.json()
+    
+    // Validate required fields
+    const { inquiry_id, status, priority, majstor_id } = body
+    
+    if (!inquiry_id || !majstor_id) {
+      return NextResponse.json(
+        { error: 'Missing inquiry_id or majstor_id' },
+        { status: 400 }
+      )
+    }
+
+    // Prepare update data
+    const updateData = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (status) {
+      updateData.status = status
+    }
+
+    if (priority) {
+      updateData.priority = priority
+    }
+
+    // Update inquiry using service role (bypasses RLS)
+    const { data: inquiry, error: updateError } = await supabaseAdmin
+      .from('inquiries')
+      .update(updateData)
+      .eq('id', inquiry_id)
+      .eq('majstor_id', majstor_id) // Security: only update own inquiries
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('Error updating inquiry:', updateError)
+      return NextResponse.json(
+        { error: 'Failed to update inquiry' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(
+      { 
+        success: true, 
+        inquiry: inquiry 
+      },
+      { status: 200 }
     )
 
   } catch (error) {

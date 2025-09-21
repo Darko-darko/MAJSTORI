@@ -151,66 +151,102 @@ export default function InquiriesPage() {
     }
   }
 
+// 🔥 UPDATED: updateInquiryStatus - koristi glavnu API rutu
   const updateInquiryStatus = async (inquiryId, newStatus) => {
     try {
-      const { error } = await supabase
-        .from('inquiries')
-        .update({ 
+      console.log('🔄 Updating inquiry status:', inquiryId, 'to', newStatus)
+      
+      const response = await fetch('/api/inquiries', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          inquiry_id: inquiryId,
           status: newStatus,
-          updated_at: new Date().toISOString()
+          majstor_id: currentUser.id
         })
-        .eq('id', inquiryId)
+      })
 
-      if (error) {
-        console.error('Error updating status:', error)
-        alert('Fehler beim Aktualisieren des Status')
-      } else {
-        // Update local state
-        setInquiries(prev => 
-          prev.map(inquiry => 
-            inquiry.id === inquiryId 
-              ? { ...inquiry, status: newStatus }
-              : inquiry
-          )
-        )
-        
-        // Update selected inquiry if it's open
-        if (selectedInquiry?.id === inquiryId) {
-          setSelectedInquiry(prev => ({ ...prev, status: newStatus }))
-        }
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('❌ API error:', result)
+        throw new Error(result.error || `HTTP ${response.status}`)
       }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown API error')
+      }
+
+      console.log('✅ Status updated successfully:', result.inquiry)
+
+      // Update local state
+      setInquiries(prev => 
+        prev.map(inquiry => 
+          inquiry.id === inquiryId 
+            ? { ...inquiry, status: newStatus }
+            : inquiry
+        )
+      )
+      
+      // Update selected inquiry if it's open
+      if (selectedInquiry?.id === inquiryId) {
+        setSelectedInquiry(prev => ({ ...prev, status: newStatus }))
+      }
+
     } catch (error) {
-      console.error('Error:', error)
+      console.error('💥 Error updating status:', error)
+      alert('Fehler beim Aktualisieren des Status: ' + error.message)
     }
   }
 
+  // 🔥 UPDATED: setPriority - koristi glavnu API rutu  
   const setPriority = async (inquiryId, priority) => {
     try {
-      const { error } = await supabase
-        .from('inquiries')
-        .update({ 
-          priority,
-          updated_at: new Date().toISOString()
+      console.log('🔄 Updating inquiry priority:', inquiryId, 'to', priority)
+      
+      const response = await fetch('/api/inquiries', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          inquiry_id: inquiryId,
+          priority: priority,
+          majstor_id: currentUser.id
         })
-        .eq('id', inquiryId)
+      })
 
-      if (error) {
-        console.error('Error updating priority:', error)
-      } else {
-        setInquiries(prev => 
-          prev.map(inquiry => 
-            inquiry.id === inquiryId 
-              ? { ...inquiry, priority }
-              : inquiry
-          )
-        )
-        
-        if (selectedInquiry?.id === inquiryId) {
-          setSelectedInquiry(prev => ({ ...prev, priority }))
-        }
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('❌ API error:', result)
+        throw new Error(result.error || `HTTP ${response.status}`)
       }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown API error')
+      }
+
+      console.log('✅ Priority updated successfully:', result.inquiry)
+
+      // Update local state
+      setInquiries(prev => 
+        prev.map(inquiry => 
+          inquiry.id === inquiryId 
+            ? { ...inquiry, priority }
+            : inquiry
+        )
+      )
+      
+      if (selectedInquiry?.id === inquiryId) {
+        setSelectedInquiry(prev => ({ ...prev, priority }))
+      }
+
     } catch (error) {
-      console.error('Error:', error)
+      console.error('💥 Error updating priority:', error)
+      alert('Fehler beim Aktualisieren der Priorität: ' + error.message)
     }
   }
 
