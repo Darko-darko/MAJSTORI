@@ -460,74 +460,149 @@ export default function InquiriesPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-700">
-            {filteredInquiries.map((inquiry) => (
-              <div 
-                key={inquiry.id}
-                className="p-6 hover:bg-slate-700/30 transition-colors cursor-pointer"
-                onClick={() => openInquiryModal(inquiry)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-3 h-3 rounded-full ${getStatusColor(inquiry.status)}`}></div>
-                      <h3 className="text-lg font-semibold text-white">{inquiry.subject}</h3>
-                      <span className={`text-sm font-medium ${getPriorityColor(inquiry.priority)}`}>
-                        {inquiry.priority === 'urgent' && '🔥 Urgent'}
-                        {inquiry.priority === 'high' && '⚠️ Hoch'}
-                        {inquiry.priority === 'normal' && '📄 Normal'}
-                        {inquiry.priority === 'low' && '📋 Niedrig'}
-                      </span>
-                    </div>
-                    
-                    <div className="text-slate-300 mb-2">
-                      <strong>{inquiry.customer_name}</strong>
-                      {inquiry.customer_phone && (
-                        <span className="ml-4 text-slate-400">📞 {inquiry.customer_phone}</span>
-                      )}
-                    </div>
-                    
-                    <p className="text-slate-400 text-sm mb-3 line-clamp-2">
-                      {inquiry.message}
-                    </p>
-                    
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>📅 {formatDate(inquiry.created_at)}</span>
-                      <span>✉️ {inquiry.customer_email}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-end gap-2 ml-4">
-                    <select
-                      value={inquiry.status}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        updateInquiryStatus(inquiry.id, e.target.value)
-                      }}
-                      className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="new">Neu</option>
-                      <option value="read">Gelesen</option>
-                      <option value="responded">Beantwortet</option>
-                      <option value="closed">Abgeschlossen</option>
-                    </select>
-                    
-                    <select
-                      value={inquiry.priority}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        setPriority(inquiry.id, e.target.value)
-                      }}
-                      className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="low">Niedrig</option>
-                      <option value="normal">Normal</option>
-                      <option value="high">Hoch</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            ))}
+
+
+{filteredInquiries.map((inquiry) => (
+  <div 
+    key={inquiry.id}
+    className="p-4 sm:p-6 hover:bg-slate-700/30 transition-colors cursor-pointer"
+    onClick={() => openInquiryModal(inquiry)}
+  >
+    {/* MOBILE: Potpuno odvojeni kontejneri */}
+    <div className="block sm:hidden">
+      
+      {/* KONTEJNER 1: Header sa dot + naslov + prioritet */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(inquiry.status)}`}></div>
+        <h3 className="text-lg font-semibold text-white truncate flex-1">{inquiry.subject}</h3>
+        <span className={`text-sm font-medium whitespace-nowrap ${getPriorityColor(inquiry.priority)}`}>
+          {inquiry.priority === 'urgent' && '🔥 Urgent'}
+          {inquiry.priority === 'high' && '⚠️ Hoch'}
+          {inquiry.priority === 'normal' && '📄 Normal'}
+          {inquiry.priority === 'low' && '📋 Niedrig'}
+        </span>
+      </div>
+      
+      {/* KONTEJNER 2: Kunde info */}
+      <div className="text-slate-300 mb-3">
+        <strong className="text-white">{inquiry.customer_name}</strong>
+        {inquiry.customer_phone && (
+          <span className="ml-2 text-slate-400 text-sm">{inquiry.customer_phone}</span>
+        )}
+      </div>
+      
+      {/* KONTEJNER 3: Message */}
+      <p className="text-slate-400 text-sm mb-3 line-clamp-2">
+        {inquiry.message}
+      </p>
+      
+      {/* KONTEJNER 4: Datum i email - VERTIKALNO, ne utiče na dropdown-ove */}
+      <div className="mb-4 space-y-1">
+        <div className="text-xs text-slate-500">{formatDate(inquiry.created_at)}</div>
+        <div className="text-xs text-slate-500 break-all">{inquiry.customer_email}</div>
+      </div>
+      
+      {/* KONTEJNER 5: DROPDOWN-OVI - Potpuno izolovani */}
+      <div className="grid grid-cols-2 gap-3">
+        <select
+          value={inquiry.status}
+          onChange={(e) => {
+            e.stopPropagation()
+            updateInquiryStatus(inquiry.id, e.target.value)
+          }}
+          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="new">Neu</option>
+          <option value="read">Gelesen</option>
+          <option value="responded">Beantwortet</option>
+          <option value="closed">Abgeschlossen</option>
+        </select>
+        
+        <select
+          value={inquiry.priority}
+          onChange={(e) => {
+            e.stopPropagation()
+            setPriority(inquiry.id, e.target.value)
+          }}
+          className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="low">Niedrig</option>
+          <option value="normal">Normal</option>
+          <option value="high">Hoch</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+
+    {/* DESKTOP: Postojeći kod koji funkcioniše */}
+    <div className="hidden sm:grid grid-cols-[1fr_auto] gap-4 items-start">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(inquiry.status)}`}></div>
+          <h3 className="text-lg font-semibold text-white truncate">{inquiry.subject}</h3>
+          <span className={`text-sm font-medium whitespace-nowrap ${getPriorityColor(inquiry.priority)}`}>
+             {inquiry.priority === 'urgent' && '🔥 Urgent'}
+             {inquiry.priority === 'high' && '⚠️ Hoch'}
+             {inquiry.priority === 'normal' && '📄 Normal'}
+             {inquiry.priority === 'low' && '📋 Niedrig'}
+          </span>
+        </div>
+        
+        <div className="text-slate-300 mb-2">
+          <div className="truncate">
+            <strong className="text-white">{inquiry.customer_name}</strong>
+            {inquiry.customer_phone && (
+              <span className="ml-2 text-slate-400 text-sm">{inquiry.customer_phone}</span>
+            )}
+          </div>
+        </div>
+        
+        <p className="text-slate-400 text-sm mb-3 line-clamp-2">
+          {inquiry.message}
+        </p>
+        
+        <div className="flex gap-4 text-xs text-slate-500">
+          <span className="truncate">{formatDate(inquiry.created_at)}</span>
+          <span className="truncate">{inquiry.customer_email}</span>
+        </div>
+      </div>
+      
+      <div className="flex flex-col gap-2 w-36">
+        <select
+          value={inquiry.status}
+          onChange={(e) => {
+            e.stopPropagation()
+            updateInquiryStatus(inquiry.id, e.target.value)
+          }}
+          className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="new">Neu</option>
+          <option value="read">Gelesen</option>
+          <option value="responded">Beantwortet</option>
+          <option value="closed">Abgeschlossen</option>
+        </select>
+        
+        <select
+          value={inquiry.priority}
+          onChange={(e) => {
+            e.stopPropagation()
+            setPriority(inquiry.id, e.target.value)
+          }}
+          className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="low">Niedrig</option>
+          <option value="normal">Normal</option>
+          <option value="high">Hoch</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+  </div>
+))}
+
+
+
+
           </div>
         )}
       </div>
