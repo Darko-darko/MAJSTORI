@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   },
 
   // FIXED: Moved serverComponentsExternalPackages to serverExternalPackages
-  serverExternalPackages: ['html2canvas'],
+  serverExternalPackages: ['html2canvas', 'pdfkit'],
 
   // REMOVED: swcMinify (deprecated in Next.js 15)
   poweredByHeader: false,

@@ -250,6 +250,16 @@ const loadInvoicesData = async (majstorId) => {
   }
 }
 
+// PDF view handler
+const handlePDFView = async (document) => {
+  try {
+    const pdfUrl = `/api/invoices/${document.id}/pdf`
+    window.open(pdfUrl, '_blank')
+  } catch (error) {
+    console.error('PDF viewing error:', error)
+    alert('Fehler beim Laden der PDF: ' + error.message)
+  }
+}
   // Build mapping between quotes and invoices
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
     const map = {}
@@ -809,9 +819,12 @@ const convertQuoteToInvoice = async (quote) => {
                 </div>
 
                 <div className="flex gap-3 flex-wrap">
-                  <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    PDF ansehen
-                  </button>
+                  <button 
+  onClick={() => handlePDFView(quote)}
+  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+>
+  PDF ansehen
+</button>
                   
                   <button 
                     onClick={() => handleEditClick(quote)}
@@ -950,9 +963,12 @@ const convertQuoteToInvoice = async (quote) => {
                 </div>
 
                 <div className="flex gap-3 flex-wrap">
-                  <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    PDF ansehen
-                  </button>
+                  <button 
+  onClick={() => handlePDFView(invoice)}
+  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+>
+  PDF ansehen
+</button>
                   
                   <button 
                     onClick={() => handleEditClick(invoice)}
