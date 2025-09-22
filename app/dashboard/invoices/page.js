@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
+import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
+
 
 function DashboardPageContent() {
   const [activeTab, setActiveTab] = useState('quotes') // quotes, invoices, settings
@@ -25,6 +27,11 @@ function DashboardPageContent() {
   // State for tracking if user comes from invoice creation
   const [pendingInvoiceCreation, setPendingInvoiceCreation] = useState(false)
   const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
+
+const [showEmailModal, setShowEmailModal] = useState(false)
+const [emailItem, setEmailItem] = useState(null)
+
+
 
   // ENHANCED: Settings state with business profile fields
   const [settingsData, setSettingsData] = useState({
@@ -309,6 +316,20 @@ const handlePDFView = async (document) => {
     setIsEditMode(false)
   }
 
+
+  // Handle email button click
+const handleEmailClick = (item) => {
+  console.log('Opening email modal for:', item.invoice_number || item.quote_number)
+  setEmailItem(item)
+  setShowEmailModal(true)
+}
+
+// Handle email success
+const handleEmailSuccess = (result) => {
+  console.log('Email sent successfully:', result)
+  setShowEmailModal(false)
+  setEmailItem(null)
+}
   const getStatusColor = (status) => {
     const colors = {
       'draft': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
@@ -833,9 +854,12 @@ const convertQuoteToInvoice = async (quote) => {
                     Bearbeiten
                   </button>
                   
-                  <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    Per E-Mail senden
-                  </button>
+                  <button 
+  onClick={() => handleEmailClick(quote)}
+  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+>
+  Per E-Mail senden
+</button>
                   
                   {quote.status !== 'converted' && !hasInvoice && (
                     <button
@@ -977,9 +1001,12 @@ const convertQuoteToInvoice = async (quote) => {
                     Bearbeiten
                   </button>
                   
-                  <button className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors">
-                    Per E-Mail senden
-                  </button>
+                 <button 
+  onClick={() => handleEmailClick(invoice)}
+  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+>
+  Per E-Mail senden
+</button>
                   
                   {(invoice.status === 'draft' || invoice.status === 'sent') && (
                     <button
@@ -1562,6 +1589,20 @@ const convertQuoteToInvoice = async (quote) => {
           isEditMode={isEditMode}
         />
       )}
+
+      {/* Email Modal */}
+{showEmailModal && emailItem && (
+  <EmailInvoiceModal
+    isOpen={showEmailModal}
+    onClose={() => {
+      setShowEmailModal(false)
+      setEmailItem(null)
+    }}
+    invoice={emailItem}
+    majstor={majstor}
+    onSuccess={handleEmailSuccess}
+  />
+)}
     </div>
   )
 }

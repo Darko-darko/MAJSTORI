@@ -1,9 +1,9 @@
-// app/api/invoices/[id]/pdf/route.js
+// app/api/invoices/[id]/pdf/route.js - ENHANCED WITH STORAGE
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { InvoicePDFService } from '@/lib/pdf/InvoicePDFService'
 
-// Production-ready Supabase client with Service Role
+// Create a Supabase client with SERVICE ROLE (bypasses RLS)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -23,13 +23,10 @@ export async function GET(request, { params }) {
 
     if (invoiceError || !invoice) {
       console.error('Invoice not found:', invoiceError)
-      return NextResponse.json({ 
-        error: 'Rechnung nicht gefunden',
-        status: 'not_found'
-      }, { status: 404 })
+      return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
-    // Get majstor data
+    // Get majstor (business owner) data
     const { data: majstor, error: majstorError } = await supabase
       .from('majstors')
       .select('*')
@@ -38,92 +35,108 @@ export async function GET(request, { params }) {
 
     if (majstorError || !majstor) {
       console.error('Majstor not found:', majstorError)
-      return NextResponse.json({ 
-        error: 'Geschäftsdaten nicht gefunden',
-        status: 'business_data_missing'
-      }, { status: 404 })
+      return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
-    // Generate PDF
-    console.log('🔧 Starting PDF generation...')
-    console.log('Document:', { 
-      type: invoice.type, 
-      number: invoice.invoice_number || invoice.quote_number,
-      customer: invoice.customer_name,
-      amount: invoice.total_amount
-    })
+    // NEW: Check if PDF already exists in storage
+    const storagePath = generateStoragePath(invoice, majstor)
+    console.log('🗂️ Checking storage path:', storagePath)
+
+    let pdfBuffer = null
     
-    const pdfService = new InvoicePDFService()
-    const pdfBuffer = await pdfService.generateInvoice(invoice, majstor)
+    // Try to get existing PDF from storage
+    const { data: existingPDF, error: downloadError } = await supabase.storage
+      .from('invoice-pdfs')
+      .download(storagePath)
 
-    console.log('✅ PDF generated:', pdfBuffer.length, 'bytes')
+    if (existingPDF && !downloadError) {
+      console.log('✅ Found existing PDF in storage')
+      pdfBuffer = Buffer.from(await existingPDF.arrayBuffer())
+    } else {
+      console.log('🏭 Generating new PDF...')
+      
+      // Generate new PDF
+      const pdfService = new InvoicePDFService()
+      pdfBuffer = await pdfService.generateInvoice(invoice, majstor)
 
-    // Prepare clean filename
-    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
-    const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
-    const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9\-_]/g, '_')
-    const filename = `${documentType}_${documentNumber}_${customerName}.pdf`
+      // NEW: Save PDF to storage
+      await savePDFToStorage(pdfBuffer, storagePath, invoice)
+    }
 
-    // Return PDF with proper headers
+    // Prepare filename for download
+    const filename = generateFilename(invoice)
+    console.log('📎 Serving PDF:', filename)
+
+    // Return PDF response
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${filename}"`,
         'Content-Length': pdfBuffer.length.toString(),
-        'Cache-Control': 'private, no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY'
+        'Cache-Control': 'private, no-cache'
       }
     })
 
   } catch (error) {
-    console.error('PDF Generation Error:', error)
-    
-    // Production-safe error handling
-    const isDevelopment = process.env.NODE_ENV === 'development'
-    
-    let errorResponse = {
+    console.error('❌ PDF Generation Error:', error)
+    return NextResponse.json({ 
       error: 'PDF-Generierung fehlgeschlagen',
-      status: 'generation_failed',
-      timestamp: new Date().toISOString()
-    }
-    
-    // Add debug info only in development
-    if (isDevelopment) {
-      errorResponse.details = error.message
-      errorResponse.stack = error.stack
-    }
-    
-    return NextResponse.json(errorResponse, { status: 500 })
+      details: error.message
+    }, { status: 500 })
   }
 }
 
-// Health check endpoint
-export async function HEAD(request, { params }) {
+// NEW: Generate storage path for PDF
+function generateStoragePath(invoice, majstor) {
+  const year = new Date(invoice.created_at).getFullYear()
+  const month = new Date(invoice.created_at).getMonth() + 1
+  const documentNumber = invoice.invoice_number || invoice.quote_number || `draft-${invoice.id}`
+  const documentType = invoice.type === 'quote' ? 'angebote' : 'rechnungen'
+  
+  // Structure: majstor-id/year/month/type/document-number.pdf
+  return `${majstor.id}/${year}/${month.toString().padStart(2, '0')}/${documentType}/${documentNumber}.pdf`
+}
+
+// NEW: Generate download filename
+function generateFilename(invoice) {
+  const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+  const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
+  const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
+  
+  return `${documentType}_${documentNumber}_${customerName}.pdf`
+}
+
+// NEW: Save PDF to Supabase Storage
+async function savePDFToStorage(pdfBuffer, storagePath, invoice) {
   try {
-    const { id } = params
+    console.log('💾 Saving PDF to storage:', storagePath)
     
-    const { data: invoice, error } = await supabase
-      .from('invoices')
-      .select('id, type, majstor_id')
-      .eq('id', id)
-      .single()
-    
-    if (error || !invoice) {
-      return new NextResponse(null, { status: 404 })
+    const { error: uploadError } = await supabase.storage
+      .from('invoice-pdfs')
+      .upload(storagePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true, // Overwrite if exists
+        metadata: {
+          invoice_id: invoice.id,
+          customer_name: invoice.customer_name,
+          document_type: invoice.type,
+          document_number: invoice.invoice_number || invoice.quote_number,
+          generated_at: new Date().toISOString()
+        }
+      })
+
+    if (uploadError) {
+      console.error('Storage upload failed:', uploadError)
+      // Don't throw - PDF generation should still work even if storage fails
+      return false
     }
-    
-    return new NextResponse(null, { 
-      status: 200,
-      headers: {
-        'X-Document-Type': invoice.type,
-        'X-Document-Exists': 'true'
-      }
-    })
+
+    console.log('✅ PDF saved to storage successfully')
+    return true
+
   } catch (error) {
-    return new NextResponse(null, { status: 500 })
+    console.error('Storage save error:', error)
+    return false
   }
 }
