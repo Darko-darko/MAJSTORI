@@ -25,20 +25,25 @@
 - profil nakon plaćanja
 - kao testirati istek 7 dana
 - iz an u re... da ode na tab re ✅
-- pre prvog računa na podešavanje
+- pre prvog računa na podešavanje ✅
 - oznaka kako treba da izgleda tabela za uvoz
-- pusup
 - šta označavati u sajd baru, glupo je novi računi, možda samo istekle valute
-- input vizit karte
-- registraciju skroz izbaciti?
+- input vizit karte✅
+- registraciju skroz izbaciti? ✅
 - paketi? možda vizit karte freemium
-- posle prve fakture da se dugme pretvori u nova faktura
-- izbaciti nalepnice zadržati samo qr kode i ubaciti link za šerovanje
+- posle prve fakture da se dugme pretvori u nova faktura ✅
+- izbaciti nalepnice zadržati samo qr kode i ubaciti link za šerovanje ✅
 - ANTI SPAM!!!
 - email verifikacija -ne zaboraviti
-- isproveravati Google registraciju
-- redni brojevi faktura
+- isproveravati Google registraciju -- biće rešeno sa supabase premium
+- redni brojevi faktura✅
 - vcf fajl.. preuzmi kontakt (ako nema imena da uzme ime firme)
-- NE TREBA da se vidi koliko je kopresovana slika u upitu
+- NE TREBA da se vidi koliko je kopresovana slika u upitu✅
 - doterati privacy i terms page
-- kada se registruje gore levo piše prvi deo maila, da se to automatski zameni kada se ime promeni u bazi (nakon prvog rechtung)
+- kada se registruje gore levo piše prvi deo maila, da se to automatski zameni kada se ime promeni u bazi (nakon prvog rechtung)✅
+- google auth sa supa baza pro
+- brojevi faktura nakon plaćanja opet da podese
+- White kabeling bez google auth
+- wizzard i help
+- ipload profil foto u general setings i promena teksta na upload logo u bizcard... (logo i vaša slika ili sl.)
+

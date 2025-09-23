@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
 import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
+import LogoUpload from '@/app/components/LogoUpload'
 
 
 function DashboardPageContent() {
@@ -1149,6 +1150,29 @@ const convertQuoteToInvoice = async (quote) => {
         </div>
         
         <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
+
+           {/* NOVA SEKCIJA - Logo & Branding */}
+<LogoUpload
+  majstor={majstor}
+  context="invoice"
+  onLogoUpdate={(logoUrl) => {
+    console.log('Logo updated:', logoUrl)
+    // Update local majstor state
+    setMajstor(prev => ({
+      ...prev,
+      business_logo_url: logoUrl
+    }))
+    
+    // Update settingsData state to reflect change
+    setSettingsData(prev => ({
+      ...prev,
+      business_logo_url: logoUrl
+    }))
+    
+    alert(logoUrl ? 'Logo erfolgreich hochgeladen!' : 'Logo entfernt!')
+  }}
+  className="mb-6"
+/>
           
           {/* ENHANCED: Geschäftsprofil Section */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
@@ -1158,6 +1182,8 @@ const convertQuoteToInvoice = async (quote) => {
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+             
 
               {/* NOVO POLJE - VOLLSTÄNDIGER NAME */}
     <div className="md:col-span-2">
