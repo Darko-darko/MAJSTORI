@@ -846,10 +846,10 @@ const convertQuoteToInvoice = async (quote) => {
 
                 <div className="flex gap-3 flex-wrap">
                   <button 
-  onClick={() => handlePDFView(quote)}
+  onClick={() => handlePDFView(invoice)}
   className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
 >
-  PDF ansehen
+  👁️ PDF ansehen
 </button>
                   
                   <button 
@@ -996,7 +996,7 @@ const convertQuoteToInvoice = async (quote) => {
   onClick={() => handlePDFView(invoice)}
   className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
 >
-  PDF ansehen
+  👁️ PDF ansehen
 </button>
                   
                   <button 
@@ -1008,20 +1008,14 @@ const convertQuoteToInvoice = async (quote) => {
                   
                 
 
+
 {invoice.email_sent_at ? (
-  <div className="text-center">
-    <div className="flex items-center gap-1 text-sm mb-1 justify-center">
-      <span className="text-green-400">✅</span>
-      <span className="text-slate-300">{formatDate(invoice.email_sent_at)}</span>
-      <span className="text-slate-400">{invoice.email_sent_to}</span>
-    </div>
-    <button 
-      onClick={() => handleEmailClick(invoice)}
-      className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 transition-colors"
-    >
-      🔄 Erneut senden
-    </button>
-  </div>
+  <button 
+    onClick={() => handleEmailClick(invoice)}
+    className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+  >
+    🔄 Erneut senden
+  </button>
 ) : (
   <button 
     onClick={() => handleEmailClick(invoice)}
