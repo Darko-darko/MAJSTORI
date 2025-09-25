@@ -1089,18 +1089,7 @@ export default function PDFArchivePage() {
           <div className="text-slate-400 text-sm">Angebote</div>
         </div>
 
-        {/* Missing PDFs warning */}
-        <div className={`border rounded-lg p-4 ${missingPDFs.length > 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
-          <div className="text-2xl mb-2">
-            {missingPDFs.length > 0 ? '⚠️' : '✅'}
-          </div>
-          <div className="text-white font-semibold">{missingPDFs.length}</div>
-          <div className={`text-sm ${
-            missingPDFs.length > 0 ? 'text-orange-300' : 'text-slate-400'
-          }`}>
-            {missingPDFs.length > 0 ? 'Fehlende PDFs' : 'Alle PDFs OK'}
-          </div>
-        </div>
+        
       </div>
 
       {/* Missing PDFs Warning Section */}
