@@ -1,4 +1,4 @@
-// app/api/invoices/bulk-email/route.js
+// app/api/invoices/bulk-email/route.js - FIXED VERSION
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
@@ -39,16 +39,17 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // Get invoices data
+    // 🔥 FIX: Get invoices with pdf_storage_path
     const { data: invoices, error: invoicesError } = await supabase
       .from('invoices')
       .select('*')
       .in('id', invoiceIds)
       .eq('majstor_id', majstorId)
+      .not('pdf_storage_path', 'is', null) // Only invoices with existing PDFs
 
     if (invoicesError || !invoices || invoices.length === 0) {
       return NextResponse.json({ 
-        error: 'Invoices not found or access denied' 
+        error: 'No invoices with PDFs found' 
       }, { status: 404 })
     }
 
@@ -65,33 +66,62 @@ export async function POST(request) {
       }, { status: 404 })
     }
 
-    console.log('📄 Found', invoices.length, 'invoices for bulk email')
+    console.log('📄 Found', invoices.length, 'invoices with existing PDFs')
 
-    // Collect all PDFs
+    // 🔥 FIX: Collect PDFs from Storage instead of generating new ones
     const pdfAttachments = []
     
     for (const invoice of invoices) {
       try {
-        // Generate PDF for each invoice
-        const pdfResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/invoices/${invoice.id}/pdf`)
+        console.log('📥 Loading PDF from storage:', invoice.pdf_storage_path)
         
-        if (!pdfResponse.ok) {
-          console.warn(`PDF generation failed for invoice ${invoice.id}`)
+        // 🔥 Download from Supabase Storage instead of generating
+        const { data: pdfData, error: downloadError } = await supabase.storage
+          .from('invoice-pdfs')
+          .download(invoice.pdf_storage_path)
+
+        if (downloadError || !pdfData) {
+          console.warn(`PDF download failed for invoice ${invoice.id}:`, downloadError?.message)
+          
+          // 🔄 FALLBACK: Try generating if storage download fails
+          console.log('🔄 Fallback: Attempting PDF generation for', invoice.id)
+          try {
+            const pdfResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/invoices/${invoice.id}/pdf`)
+            
+            if (pdfResponse.ok) {
+              const pdfBuffer = await pdfResponse.arrayBuffer()
+              const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+              const documentNumber = invoice.invoice_number || invoice.quote_number
+              const filename = `${documentType}_${documentNumber}.pdf`
+
+              pdfAttachments.push({
+                filename: filename,
+                content: Buffer.from(pdfBuffer),
+                contentType: 'application/pdf'
+              })
+
+              console.log('✅ PDF generated as fallback:', filename)
+            }
+          } catch (fallbackError) {
+            console.error('Fallback PDF generation also failed:', fallbackError)
+          }
+          
           continue
         }
 
-        const pdfBuffer = await pdfResponse.arrayBuffer()
+        // ✅ SUCCESS: Use existing PDF from storage
+        const pdfBuffer = Buffer.from(await pdfData.arrayBuffer())
         const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
         const documentNumber = invoice.invoice_number || invoice.quote_number
         const filename = `${documentType}_${documentNumber}.pdf`
 
         pdfAttachments.push({
           filename: filename,
-          content: Buffer.from(pdfBuffer),
+          content: pdfBuffer,
           contentType: 'application/pdf'
         })
 
-        console.log('✅ PDF prepared:', filename)
+        console.log('✅ PDF loaded from storage:', filename, 'Size:', Math.round(pdfBuffer.length / 1024), 'KB')
 
       } catch (pdfError) {
         console.error('PDF preparation failed for invoice', invoice.id, pdfError)
@@ -100,13 +130,21 @@ export async function POST(request) {
 
     if (pdfAttachments.length === 0) {
       return NextResponse.json({ 
-        error: 'No PDFs could be generated' 
+        error: 'No PDFs could be loaded from storage or generated' 
       }, { status: 500 })
     }
 
     // Calculate total file size (for logging)
     const totalSize = pdfAttachments.reduce((sum, attachment) => sum + attachment.content.length, 0)
     console.log('📎 Total attachments size:', Math.round(totalSize / 1024 / 1024 * 100) / 100, 'MB')
+
+    // 🚨 Safety check: Prevent emails that are too large
+    const MAX_EMAIL_SIZE_MB = 20
+    if (totalSize > MAX_EMAIL_SIZE_MB * 1024 * 1024) {
+      return NextResponse.json({ 
+        error: `Email too large: ${Math.round(totalSize / 1024 / 1024 * 100) / 100}MB (max ${MAX_EMAIL_SIZE_MB}MB)` 
+      }, { status: 413 })
+    }
 
     // Email results tracking
     const emailResults = []
@@ -140,6 +178,11 @@ export async function POST(request) {
             success: true, 
             emailId: emailResult.id 
           })
+        }
+
+        // 🔄 Small delay between emails to avoid rate limiting
+        if (recipients.indexOf(recipient) < recipients.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
         }
 
       } catch (recipientError) {
