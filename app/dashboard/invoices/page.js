@@ -326,15 +326,17 @@ const handleEmailClick = (item) => {
 }
 
 // Handle email success
+// Handle email success - ISPRAVNO
 const handleEmailSuccess = (result) => {
   console.log('Email sent successfully:', result)
   setShowEmailModal(false)
   setEmailItem(null)
-}
-// 🔥 DODAJ OVO - Ponovo učitaj podatke iz baze
+  
+  // 🔥 DODAJ OVO - Ponovo učitaj podatke iz baze
   if (majstor?.id) {
     loadInvoicesData(majstor.id)
   }
+}
   const getStatusColor = (status) => {
     const colors = {
       'draft': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
