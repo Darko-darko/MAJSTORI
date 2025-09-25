@@ -240,7 +240,12 @@ function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
         icon: '📄',
         badge: formatBadgeCount(badges.invoices),
         badgeColor: 'bg-yellow-500'
-      }
+      },
+      { 
+      name: 'PDF Archiv', 
+      href: '/dashboard/pdf-archive', 
+      icon: '🗂️'
+    }
     ]
 
     // Advanced features (limited in trial)
