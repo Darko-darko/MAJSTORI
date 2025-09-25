@@ -76,12 +76,48 @@ export async function POST(request) {
       throw error
     }
 
-    console.log('✅ Profile created successfully:', {
-      id: data.id,
-      name: data.full_name,
-      source: data.profile_source,
-      trial_ends: data.subscription_ends_at
-    })
+    // 🔥 DODAJ OVDE - NOVI SUBSCRIPTION SISTEM
+try {
+  // Get Basic plan ID
+  const { data: basicPlan, error: planError } = await supabaseAdmin
+    .from('subscription_plans')
+    .select('id')
+    .eq('name', 'basic')
+    .single()
+
+  if (!planError && basicPlan) {
+    // Create subscription record in new system
+    const { data: subscriptionData, error: subError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .insert({
+        majstor_id: data.id,
+        plan_id: basicPlan.id,
+        status: 'trial',
+        trial_starts_at: new Date().toISOString(),
+        trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      })
+      .select()
+      .single()
+
+    if (subError) {
+      console.error('⚠️ Subscription creation failed:', subError)
+    } else {
+      console.log('✅ New subscription system record created')
+    }
+  }
+} catch (subscriptionError) {
+  console.error('⚠️ Subscription system error:', subscriptionError)
+  // Don't fail registration if subscription fails
+}
+
+console.log('✅ Profile created successfully:', {
+  id: data.id,
+  name: data.full_name,
+  source: data.profile_source,
+  trial_ends: data.subscription_ends_at
+})
+
+
 
     return NextResponse.json({ 
       success: true, 

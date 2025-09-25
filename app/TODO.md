@@ -45,5 +45,7 @@
 - brojevi faktura nakon plaćanja opet da podese
 - White kabeling bez google auth
 - wizzard i help
-- ipload profil foto u general setings i promena teksta na upload logo u bizcard... (logo i vaša slika ili sl.)
+- upload profil foto u general setings i promena teksta na upload logo u bizcard... (logo i vaša slika ili sl.)
+- pdf arhiva i slanje knjigovođi
 
+- white lebeling ukloniti iz supabase  (subscription_features tabele) ili osmisliti kako to da rašimo!
