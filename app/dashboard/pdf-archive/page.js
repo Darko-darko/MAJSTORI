@@ -1153,7 +1153,7 @@ export default function PDFArchivePage() {
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-blue-400">2.</span>
-                    <span>Klicken Sie auf <strong>"PDF ansehen"</strong> bei jedem Dokument</span>
+                    <span>Klicken Sie auf <strong>&quot;PDF ansehen&quot;</strong> bei jedem Dokument</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-blue-400">3.</span>
