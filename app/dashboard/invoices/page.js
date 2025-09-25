@@ -331,6 +331,10 @@ const handleEmailSuccess = (result) => {
   setShowEmailModal(false)
   setEmailItem(null)
 }
+// 🔥 DODAJ OVO - Ponovo učitaj podatke iz baze
+  if (majstor?.id) {
+    loadInvoicesData(majstor.id)
+  }
   const getStatusColor = (status) => {
     const colors = {
       'draft': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
@@ -1002,12 +1006,30 @@ const convertQuoteToInvoice = async (quote) => {
                     Bearbeiten
                   </button>
                   
-                 <button 
-  onClick={() => handleEmailClick(invoice)}
-  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
->
-  Per E-Mail senden
-</button>
+                
+
+{invoice.email_sent_at ? (
+  <div className="text-center">
+    <div className="flex items-center gap-1 text-sm mb-1 justify-center">
+      <span className="text-green-400">✅</span>
+      <span className="text-slate-300">{formatDate(invoice.email_sent_at)}</span>
+      <span className="text-slate-400">{invoice.email_sent_to}</span>
+    </div>
+    <button 
+      onClick={() => handleEmailClick(invoice)}
+      className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 transition-colors"
+    >
+      🔄 Erneut senden
+    </button>
+  </div>
+) : (
+  <button 
+    onClick={() => handleEmailClick(invoice)}
+    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+  >
+    Per E-Mail senden
+  </button>
+)}
                   
                   {(invoice.status === 'draft' || invoice.status === 'sent') && (
                     <button

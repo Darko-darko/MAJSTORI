@@ -101,6 +101,16 @@ export async function POST(request, { params }) {
 
     console.log('✅ Email sent successfully:', emailResult.id)
 
+    // Save email tracking info
+await supabase
+  .from('invoices')
+  .update({ 
+    email_sent_at: new Date().toISOString(),
+    email_sent_to: recipientEmail,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', id)
+
     // TODO: Log email activity in database (optional)
     await logEmailActivity(invoice.id, recipientEmail, emailResult.id)
 
