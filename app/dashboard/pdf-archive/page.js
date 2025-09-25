@@ -1,4 +1,4 @@
-// app/dashboard/pdf-archive/page.js - FIXED VERSION
+// app/dashboard/pdf-archive/page.js - MIT DETAIL VIEW
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -8,11 +8,10 @@ export default function PDFArchivePage() {
   // State management
   const [majstor, setMajstor] = useState(null)
   const [archivedPDFs, setArchivedPDFs] = useState([])
-  const [missingPDFs, setMissingPDFs] = useState([]) // 🔥 ADDED: Missing PDFs state
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // DETAIL VIEW STATE
+  // 🆕 DETAIL VIEW STATE
   const [selectedPDF, setSelectedPDF] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -37,7 +36,7 @@ export default function PDFArchivePage() {
     customYear: new Date().getFullYear()
   })
 
-  // MAX PDFs per email to prevent attachment size issues
+  // 🚨 MAX PDFs per email to prevent attachment size issues
   const MAX_PDFS_PER_EMAIL = 50
 
   // Load data on mount
@@ -80,7 +79,6 @@ export default function PDFArchivePage() {
       }
       
       await loadArchivedPDFs(user.id)
-      await loadMissingPDFs(user.id) // 🔥 ADDED: Load missing PDFs
 
     } catch (err) {
       console.error('Error loading data:', err)
@@ -147,34 +145,7 @@ export default function PDFArchivePage() {
     }
   }
 
-  // 🔥 ADDED: Load missing PDFs function
-  const loadMissingPDFs = async (majstorId) => {
-    try {
-      console.log('🔍 Loading invoices without PDFs...')
-      
-      const { data: missingData, error } = await supabase
-        .from('invoices')
-        .select(`
-          id, type, invoice_number, quote_number, customer_name, 
-          total_amount, created_at, status
-        `)
-        .eq('majstor_id', majstorId)
-        .is('pdf_storage_path', null) // No PDF generated yet
-        .neq('status', 'dummy') // Exclude dummy entries
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      setMissingPDFs(missingData || [])
-      console.log('📊 Found', missingData?.length || 0, 'invoices without PDFs')
-
-    } catch (err) {
-      console.error('Error loading missing PDFs:', err)
-      // Don't set error - this is not critical
-    }
-  }
-
-  // LOAD FULL INVOICE DETAILS FOR DETAIL VIEW
+  // 🆕 LOAD FULL INVOICE DETAILS FOR DETAIL VIEW
   const loadInvoiceDetails = async (pdfId) => {
     try {
       setDetailLoading(true)
@@ -198,12 +169,12 @@ export default function PDFArchivePage() {
     }
   }
 
-  // REPLACE openPDF with showDetails
+  // 🆕 REPLACE openPDF with showDetails
   const showDetails = (pdfId) => {
     loadInvoiceDetails(pdfId)
   }
 
-  // BACK TO LIST
+  // 🆕 BACK TO LIST
   const backToList = () => {
     setSelectedPDF(null)
   }
@@ -223,7 +194,6 @@ export default function PDFArchivePage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count) // Sort by PDF count descending
   }
-
   const validateEmails = (emailString) => {
     if (!emailString.trim()) return { valid: false, emails: [] }
     
@@ -297,7 +267,7 @@ export default function PDFArchivePage() {
       const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
       const selectedIds = Array.from(selectedPDFs)
       
-      // CHECK IF TOO MANY PDFs - SPLIT IF NEEDED
+      // 🚨 CHECK IF TOO MANY PDFs - SPLIT IF NEEDED
       if (selectedIds.length > MAX_PDFS_PER_EMAIL) {
         const emailCount = Math.ceil(selectedIds.length / MAX_PDFS_PER_EMAIL)
         const confirmed = confirm(
@@ -376,7 +346,7 @@ export default function PDFArchivePage() {
         return
       }
       
-      // NORMAL CASE - Single email
+      // 👍 NORMAL CASE - Single email
       const emailValidation = validateEmails(emailData.email)
       if (!emailValidation.valid) {
         alert(`❌ Ungültige E-Mail-Adressen: ${emailValidation.invalidEmails.join(', ')}`)
@@ -415,9 +385,29 @@ export default function PDFArchivePage() {
     }
   }
 
-  // Filter change handler
+  // Filter change handler with smart reset
   const handleFilterChange = (newFilters) => {
-    setFilters(prev => ({ ...prev, ...newFilters }))
+    setFilters(prev => {
+      // 🔥 FIX: Reset customer filter when type changes
+      if (newFilters.type && newFilters.type !== prev.type) {
+        return { 
+          ...prev, 
+          ...newFilters,
+          customer: '' // Reset customer when type changes
+        }
+      }
+      
+      // 🔥 FIX: Reset customer filter when date range changes significantly  
+      if (newFilters.dateRange && newFilters.dateRange !== prev.dateRange) {
+        return { 
+          ...prev, 
+          ...newFilters,
+          customer: '' // Reset customer when date changes
+        }
+      }
+      
+      return { ...prev, ...newFilters }
+    })
   }
 
   // Apply filters when they change
@@ -426,13 +416,6 @@ export default function PDFArchivePage() {
       loadArchivedPDFs(majstor.id)
     }
   }, [filters])
-
-  // 🔥 ADDED: Reload missing PDFs when data changes
-  useEffect(() => {
-    if (majstor?.id) {
-      loadMissingPDFs(majstor.id)
-    }
-  }, [majstor?.id, archivedPDFs]) // Trigger when PDFs change
 
   // Helper functions
   const formatCurrency = (amount) => {
@@ -472,7 +455,7 @@ export default function PDFArchivePage() {
     return colors[status] || colors.draft
   }
 
-  // DETAIL VIEW COMPONENT
+  // 🆕 DETAIL VIEW COMPONENT
   const DetailView = ({ invoice }) => {
     if (!invoice) return null
 
@@ -657,7 +640,7 @@ export default function PDFArchivePage() {
     )
   }
 
-  // Bookkeeper Settings Modal
+  // Bookkeeper Settings Modal (lokalni state)
   const BookkeeperSettingsModal = () => {
     const [localSettings, setLocalSettings] = useState({
       name: bookkeeperSettings.name,
@@ -811,7 +794,7 @@ export default function PDFArchivePage() {
               Ausgewählte Dokumente ({selectedItems.length}):
             </h4>
             
-            {/* WARNING for too many PDFs */}
+            {/* 🚨 WARNING for too many PDFs */}
             {selectedItems.length > MAX_PDFS_PER_EMAIL && (
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mb-4">
                 <div className="flex items-start gap-3">
@@ -978,18 +961,12 @@ export default function PDFArchivePage() {
               <span className="font-semibold">{selectedPDFs.size}</span> PDF{selectedPDFs.size > 1 ? 's' : ''} ausgewählt
             </div>
             
-            {archivedPDFs.length > 0 ? (
-              <button 
-                onClick={() => setBulkEmailModal(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2"
-              >
-                ✉️ E-Mail senden
-              </button>
-            ) : (
-              <div className="text-orange-300 text-sm">
-                ⚠️ Keine PDFs verfügbar
-              </div>
-            )}
+            <button 
+              onClick={() => setBulkEmailModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2"
+            >
+              ✉️ E-Mail senden
+            </button>
             
             <button 
               onClick={clearSelection}
@@ -1030,7 +1007,7 @@ export default function PDFArchivePage() {
     )
   }
 
-  // SHOW DETAIL VIEW if selectedPDF is set
+  // 🆕 SHOW DETAIL VIEW if selectedPDF is set
   if (selectedPDF) {
     if (detailLoading) {
       return (
@@ -1065,114 +1042,22 @@ export default function PDFArchivePage() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-2xl mb-2">📄</div>
-          <div className="text-white font-semibold">{archivedPDFs.length}</div>
-          <div className="text-slate-400 text-sm">PDFs bereit</div>
-        </div>
-        
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-2xl mb-2">🧾</div>
-          <div className="text-white font-semibold">
-            {archivedPDFs.filter(pdf => pdf.type === 'invoice').length}
-          </div>
-          <div className="text-slate-400 text-sm">Rechnungen</div>
-        </div>
-
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-2xl mb-2">📋</div>
-          <div className="text-white font-semibold">
-            {archivedPDFs.filter(pdf => pdf.type === 'quote').length}
-          </div>
-          <div className="text-slate-400 text-sm">Angebote</div>
-        </div>
-
-        
-      </div>
-
-      {/* Missing PDFs Warning Section */}
-      {missingPDFs.length > 0 && (
-        <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-6">
-          <div className="flex items-start gap-4">
-            <div className="text-orange-400 text-3xl">⚠️</div>
-            <div className="flex-1">
-              <h3 className="text-orange-300 font-semibold text-lg mb-2">
-                {missingPDFs.length} Dokument{missingPDFs.length > 1 ? 'e' : ''} ohne PDF
-              </h3>
-              <p className="text-orange-200 text-sm mb-4">
-                Diese Rechnungen/Angebote können nicht per E-Mail versendet werden, da noch kein PDF erstellt wurde.
-              </p>
-              
-              {/* Show missing PDFs list */}
-              <div className="bg-orange-900/20 rounded-lg p-4 mb-4 max-h-32 overflow-y-auto">
-                {missingPDFs.slice(0, 5).map(invoice => (
-                  <div key={invoice.id} className="flex justify-between items-center text-sm mb-2 last:mb-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(invoice.type)}`}>
-                        {invoice.type === 'quote' ? 'Angebot' : 'Rechnung'}
-                      </span>
-                      <span className="text-orange-200 font-medium">
-                        {invoice.invoice_number || invoice.quote_number}
-                      </span>
-                      <span className="text-orange-300">
-                        {invoice.customer_name}
-                      </span>
-                    </div>
-                    <span className="text-orange-200">
-                      {formatCurrency(invoice.total_amount)}
-                    </span>
-                  </div>
-                ))}
-                {missingPDFs.length > 5 && (
-                  <div className="text-orange-300 text-xs text-center mt-2">
-                    ... und {missingPDFs.length - 5} weitere
-                  </div>
-                )}
-              </div>
-
-              {/* Action instructions */}
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <h4 className="text-blue-300 font-medium mb-2">🛠️ So beheben Sie das:</h4>
-                <div className="text-blue-200 text-sm space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-400">1.</span>
-                    <span>Gehen Sie zur <strong>Rechnungen-Sektion</strong></span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-400">2.</span>
-                    <span>Klicken Sie auf <strong>&quot;PDF ansehen&quot;</strong> bei jedem Dokument</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-400">3.</span>
-                    <span>PDF wird automatisch erstellt und gespeichert</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-400">4.</span>
-                    <span><strong>Senden Sie das PDF an Ihren Kunden!</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-4">
-                <Link
-                  href="/dashboard/invoices"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  📄 Zur Rechnungen-Sektion
-                </Link>
-                <button
-                  onClick={() => loadData()}
-                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
-                >
-                  🔄 Liste aktualisieren
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+     {/* Stats - DINAMIČKA KARTICA */}
+<div className="grid grid-cols-1 gap-4">
+  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 max-w-sm">
+    <div className="text-2xl mb-2">
+      {filters.type === 'invoice' ? '🧾' : '📋'}
+    </div>
+    <div className="text-white font-semibold">{archivedPDFs.length}</div>
+    <div className="text-slate-400 text-sm">
+      {filters.type === 'invoice' ? 'Rechnungen' : 'Angebote'} 
+      {filters.dateRange === 'thisMonth' && ' (dieser Monat)'}
+      {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
+      {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
+      {filters.customer && ` - ${filters.customer}`}
+    </div>
+  </div>
+</div>
 
       {/* Filters */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
@@ -1318,7 +1203,7 @@ export default function PDFArchivePage() {
                   {formatCurrency(pdf.total_amount)}
                 </div>
 
-                {/* Actions - showDetails instead of openPDF */}
+                {/* Actions - 🆕 CHANGED: showDetails instead of openPDF */}
                 <button 
                   onClick={() => showDetails(pdf.id)}
                   className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"

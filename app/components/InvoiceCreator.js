@@ -624,6 +624,25 @@ export default function InvoiceCreator({
 
       if (result.error) throw result.error
 
+      // 🔥 AUTO-PDF GENERATION
+if (!isEditMode) { // Samo za nove račune, ne za edit
+  try {
+    console.log('🤖 Auto-generating PDF for invoice:', result.data.id)
+    
+    // Generiši PDF automatski
+    const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
+    
+    if (pdfResponse.ok) {
+      console.log('✅ PDF automatically generated and stored')
+    } else {
+      console.warn('⚠️ Auto PDF generation failed:', pdfResponse.statusText)
+    }
+  } catch (pdfError) {
+    console.warn('⚠️ Auto PDF generation error:', pdfError)
+    // Ne prekidaj user flow zbog PDF greške
+  }
+}
+
       onSuccess(result.data)
       onClose()
 
