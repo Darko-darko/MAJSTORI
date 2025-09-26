@@ -115,10 +115,12 @@ function DashboardLayoutContent({ children }) {
   }
 
   const checkUser = async () => {
+    console.time('🔍 TOTAL-AUTH-TIME') // <-- OVDE
     try {
       console.log('🔍 Checking user authentication...')
       
       const { user: currentUser, error: authError } = await auth.getUser()
+      console.timeEnd('🔐 USER-AUTH') // <-- I OVDE
       
       if (authError) {
         console.error('❌ Auth error:', authError)
@@ -134,10 +136,11 @@ function DashboardLayoutContent({ children }) {
 
       console.log('✅ User authenticated:', currentUser.email)
       setUser(currentUser)
+      console.time('👤 MAJSTOR-PROFILE') // <-- OVDE
 
       // Load majstor profile
       const { data: majstorData, error: majstorError } = await majstorsAPI.getById(currentUser.id)
-      
+      console.timeEnd('👤 MAJSTOR-PROFILE') // <-- I OVDE
       if (majstorError) {
         console.error('❌ Majstor profile error:', majstorError)
         
@@ -157,6 +160,7 @@ function DashboardLayoutContent({ children }) {
       console.error('❌ Unexpected error in checkUser:', error)
       setError('Unexpected error: ' + error.message)
     } finally {
+      console.timeEnd('🔍 TOTAL-AUTH-TIME') // <-- OVDE
       setLoading(false)
     }
   }
