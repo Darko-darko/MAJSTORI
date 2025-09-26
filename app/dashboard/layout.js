@@ -1,17 +1,22 @@
-// app/dashboard/layout.js - UPDATED FOR TRIAL STRATEGY
+// app/dashboard/layout.js - UPDATED WITH SUBSCRIPTION PROTECTION
 
 'use client'
 import { useState, useEffect , Suspense } from 'react'
 import { useRouter, useSearchParams} from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
+import { SubscriptionGuard, TrialBanner } from '@/app/components/subscription/SubscriptionGuard'
+import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import Link from 'next/link'
 
-function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
+function DashboardLayoutContent({ children }) {
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  
+  // 🔥 NEW: Upgrade Modal Hook
+  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
   // Trial tracking states
   const [trialInfo, setTrialInfo] = useState({
@@ -217,110 +222,174 @@ function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
     return count.toString()
   }
 
-  // 🔥 SMART NAVIGATION - different for trial users
+  // 🔥 UPDATED: Navigation with subscription protection
   const getNavigation = () => {
     const baseNavigation = [
-      { name: 'Übersicht', href: '/dashboard', icon: '📊' },
-      { name: 'Meine Kunden', href: '/dashboard/customers', icon: '👥' },
-      { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱' },
+      { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
     ]
 
-    // Core features available in trial
-    const coreFeatures = [
+    // 🔥 PROTECTED FEATURES - require subscription
+    const protectedFeatures = [
+      { 
+        name: 'Meine Kunden', 
+        href: '/dashboard/customers', 
+        icon: '👥', 
+        protected: true,
+        feature: 'customer_management'
+      },
       { 
         name: 'Kundenanfragen', 
         href: '/dashboard/inquiries', 
-        icon: '📧', 
+        icon: '🔧', 
         badge: formatBadgeCount(badges.inquiries),
-        badgeColor: 'bg-red-500'
+        badgeColor: 'bg-red-500',
+        protected: true,
+        feature: 'customer_inquiries'
       },
       { 
         name: 'Rechnungen', 
         href: '/dashboard/invoices', 
         icon: '📄',
         badge: formatBadgeCount(badges.invoices),
-        badgeColor: 'bg-yellow-500'
+        badgeColor: 'bg-yellow-500',
+        protected: true,
+        feature: 'invoicing'
       },
       { 
-      name: 'PDF Archiv', 
-      href: '/dashboard/pdf-archive', 
-      icon: '🗂️'
-    }
-    ]
-
-    // Advanced features (limited in trial)
-    const advancedFeatures = [
-      { name: 'Meine Services', href: '/dashboard/services', icon: '🔧' },
-      { 
-        name: 'Garantien', 
-        href: '/dashboard/warranties', 
-        icon: '🛡️',
-        badge: formatBadgeCount(badges.warranties),
-        badgeColor: 'bg-orange-500'
+        name: 'Meine Services', 
+        href: '/dashboard/services', 
+        icon: '🔧',
+        protected: true,
+        feature: 'services_management'
       },
-      { name: 'Empfehlungen', href: '/dashboard/referrals', icon: '🎯' },
-      { name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
-      { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️' }
+      { 
+        name: 'PDF Archiv', 
+        href: '/dashboard/pdf-archive', 
+        icon: '🗂️',
+        protected: true,
+        feature: 'pdf_archive'
+      },
+      { 
+        name: 'Analytics', 
+        href: '/dashboard/analytics', 
+        icon: '📈',
+        protected: true,
+        feature: 'analytics'
+      },
+      { 
+        name: 'Einstellungen', 
+        href: '/dashboard/settings', 
+        icon: '⚙️', 
+        protected: true,
+        feature: 'settings'
+      }
     ]
 
-    return [...baseNavigation, ...coreFeatures, ...advancedFeatures]
+    // 🔥 ALWAYS AVAILABLE FEATURES (even in freemium)
+    const freeFeatures = [
+      { 
+        name: 'QR Visitenkarte', 
+        href: '/dashboard/business-card/create', 
+        icon: '📱', 
+        protected: false // Always available
+      }
+    ]
+
+    // 🔥 NO MORE COMING SOON FEATURES - all treated as existing
+    const comingSoonFeatures = []
+
+    return [...baseNavigation, ...freeFeatures, ...protectedFeatures, ...comingSoonFeatures]
   }
 
-  // 🎯 Trial Banner Component
-  const TrialBanner = () => {
-    if (!trialInfo.isTrialUser) return null
-
-    const isExpiringSoon = trialInfo.daysRemaining <= 2
-    const bannerColor = isExpiringSoon ? 'from-red-500/20 to-orange-500/20' : 'from-blue-500/20 to-purple-500/20'
-    const textColor = isExpiringSoon ? 'text-red-300' : 'text-blue-300'
-
-    return (
-      <div className={`bg-gradient-to-r ${bannerColor} border ${isExpiringSoon ? 'border-red-500/30' : 'border-blue-500/30'} rounded-lg p-4 mb-6`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isExpiringSoon ? 'bg-red-500' : 'bg-blue-500'}`}>
-              {isExpiringSoon ? '⚠️' : '🎯'}
-            </div>
-            <div>
-              <h4 className={`font-semibold ${textColor}`}>
-                {isExpiringSoon ? '⚠️ Trial läuft bald ab!' : '🎯 Kostenlose Testphase aktiv'}
-              </h4>
-              <p className="text-slate-400 text-sm">
-                {trialInfo.daysRemaining > 0 
-                  ? `Noch ${trialInfo.daysRemaining} Tag${trialInfo.daysRemaining > 1 ? 'e' : ''} kostenlos` 
-                  : 'Trial ist abgelaufen'
-                }
-              </p>
-            </div>
-          </div>
-          <button className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-            isExpiringSoon 
-              ? 'bg-red-600 hover:bg-red-700 text-white' 
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }`}>
-            {isExpiringSoon ? 'Jetzt upgraden' : 'Mehr erfahren'}
-          </button>
-        </div>
+  // 🔥 PROTECTED NavigationItem with SubscriptionGuard + Clickable Upgrade
+  const NavigationItem = ({ item, isMobile = false }) => {
+    const content = (
+      <div className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors ${
+        item.comingSoon ? 'opacity-60' : ''
+      }`}>
+        <span className="mr-3 text-lg">{item.icon}</span>
+        <span className="flex-1">
+          {item.name}
+          {item.comingSoon && (
+            <span className="ml-2 text-xs text-orange-400">(Uskoro)</span>
+          )}
+        </span>
+        {item.badge && (
+          <span className={`ml-2 px-2 py-1 text-xs ${item.badgeColor || 'bg-red-500'} text-white rounded-full font-medium`}>
+            {item.badge}
+          </span>
+        )}
       </div>
     )
-  }
 
-  const NavigationItem = ({ item, isMobile = false }) => (
-    <Link
-      key={item.name}
-      href={item.href}
-      onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-      className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-    >
-      <span className="mr-3 text-lg">{item.icon}</span>
-      <span className="flex-1">{item.name}</span>
-      {item.badge && (
-        <span className={`ml-2 px-2 py-1 text-xs ${item.badgeColor || 'bg-red-500'} text-white rounded-full font-medium`}>
-          {item.badge}
-        </span>
-      )}
-    </Link>
-  )
+    // 🔥 If protected, wrap with SubscriptionGuard
+    if (item.protected && item.feature && !item.comingSoon) {
+      return (
+        <SubscriptionGuard
+          key={item.name}
+          feature={item.feature}
+          majstorId={majstor?.id}
+          fallback={
+            // 🔥 CLICKABLE LOCKED ITEM - opens UpgradeModal
+            <button
+              onClick={() => {
+                const featureNames = {
+                  'customer_management': 'Kundenverwaltung',
+                  'customer_inquiries': 'Kundenanfragen',
+                  'invoicing': 'Rechnungen & Angebote',
+                  'services_management': 'Services Verwaltung',
+                  'pdf_archive': 'PDF Archiv',
+                  'analytics': 'Analytics & Berichte',
+                  'settings': 'Erweiterte Einstellungen'
+                }
+                showUpgradeModal(
+                  item.feature, 
+                  featureNames[item.feature] || item.name,
+                  'Freemium'
+                )
+                if (isMobile) setSidebarOpen(false)
+              }}
+              className="w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 transition-colors cursor-pointer"
+            >
+              <span className="mr-3 text-lg opacity-75">{item.icon}</span>
+              <span className="flex-1 text-left">{item.name}</span>
+              <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium group-hover:bg-blue-500">
+                🔒 Pro
+              </span>
+            </button>
+          }
+          showUpgradePrompt={false}
+        >
+          <Link
+            href={item.href}
+            onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+          >
+            {content}
+          </Link>
+        </SubscriptionGuard>
+      )
+    }
+
+    // 🔥 Coming soon items
+    if (item.comingSoon) {
+      return (
+        <div key={item.name} className="cursor-not-allowed">
+          {content}
+        </div>
+      )
+    }
+
+    // 🔥 Free/unprotected items
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+      >
+        {content}
+      </Link>
+    )
+  }
 
   if (loading) {
     return (
@@ -539,16 +608,26 @@ function DashboardLayoutContent({ children }) {  // <- DODAJ children prop
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
-          {/* Trial Banner */}
-          <TrialBanner />
+          {/* 🔥 Trial Banner - Using SubscriptionGuard component */}
+          <TrialBanner majstorId={majstor?.id} className="mb-6" />
           
           {children}
         </main>
       </div>
+
+      {/* 🔥 UPGRADE MODAL */}
+      <UpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={hideUpgradeModal}
+        feature={modalProps.feature}
+        featureName={modalProps.featureName}
+        currentPlan={modalProps.currentPlan}
+      />
     </div>
   )
 }
-export default function DashboardLayout({ children }) {  // <- children prop
+
+export default function DashboardLayout({ children }) {
   return (
     <Suspense fallback={<div className="text-white">Laden...</div>}>
       <DashboardLayoutContent>{children}</DashboardLayoutContent>
