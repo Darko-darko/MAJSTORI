@@ -938,12 +938,13 @@ const convertQuoteToInvoice = async (quote) => {
                       <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
                       
                       {overdueStatus && (
-                        <div 
-                          className="flex items-center gap-1 text-orange-400 text-sm cursor-help bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20"
-                          title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
-                        >
-                          <span className="text-xs font-medium">{daysOverdue}d</span>
-                        </div>
+                      <div 
+  className="flex items-center gap-1 text-red-400 text-sm cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
+  title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
+>
+  <span className="text-red-400">⏰</span>
+  <span className="font-medium">{daysOverdue}d</span>
+</div>
                       )}
                     </div>
                     <p className="text-slate-400">{invoice.customer_name}</p>

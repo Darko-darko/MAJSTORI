@@ -23,6 +23,7 @@ function DashboardPageContent() {
     totalInquiries: 0,
     newInquiries: 0,
     totalInvoices: 0,
+     totalCustomers: 0, // Dodaj ovo
     qrScans: 0
   })
 
@@ -83,36 +84,51 @@ function DashboardPageContent() {
     }
   }
 
-  const loadStats = async (userId) => {
-    try {
-      // Load inquiries stats
-      const { data: inquiries, error: inquiriesError } = await supabase
-        .from('inquiries')
-        .select('status')
-        .eq('majstor_id', userId)
+const loadStats = async (userId) => {
+  try {
+    // Load inquiries stats
+    const { data: inquiries, error: inquiriesError } = await supabase
+      .from('inquiries')
+      .select('status')
+      .eq('majstor_id', userId)
 
-      if (!inquiriesError && inquiries) {
-        const newInquiries = inquiries.filter(i => i.status === 'new').length || 0
-        setStats(prev => ({
-          ...prev,
-          totalInquiries: inquiries.length || 0,
-          newInquiries
-        }))
-      }
+    if (!inquiriesError && inquiries) {
+      const newInquiries = inquiries.filter(i => i.status === 'new').length || 0
+      setStats(prev => ({
+        ...prev,
+        totalInquiries: inquiries.length || 0,
+        newInquiries
+      }))
+    }
 
-      // Load invoices stats
-      const { data: invoices } = await supabase
-        .from('invoices')
-        .select('id, type')
-        .eq('majstor_id', userId)
-        .neq('status', 'dummy') // Exclude dummy entries
+    // Load invoices stats
+    const { data: invoices } = await supabase
+      .from('invoices')
+      .select('id, type')
+      .eq('majstor_id', userId)
+      .neq('status', 'dummy') // Exclude dummy entries
 
-      if (invoices) {
-        setStats(prev => ({
-          ...prev,
-          totalInvoices: invoices.filter(inv => inv.type === 'invoice').length
-        }))
-      }
+    if (invoices) {
+      setStats(prev => ({
+        ...prev,
+        totalInvoices: invoices.filter(inv => inv.type === 'invoice').length
+      }))
+    }
+
+    // ADDED: Load customers stats
+    const { data: customers, error: customersError } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('majstor_id', userId)
+      .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING') // Exclude dummy entries
+
+    if (!customersError && customers) {
+      setStats(prev => ({
+        ...prev,
+        totalCustomers: customers.length || 0
+      }))
+    }
+   
 
     } catch (err) {
       console.error('Error loading stats:', err)
@@ -294,7 +310,7 @@ function DashboardPageContent() {
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl">
-              🔧
+              📩
             </div>
           </div>
         </div>
@@ -312,18 +328,18 @@ function DashboardPageContent() {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Kunden</p>
-              <p className="text-3xl font-bold text-white">-</p>
-              <p className="text-sm text-slate-400">Registriert</p>
-            </div>
-            <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl">
-              👥
-            </div>
-          </div>
-        </div>
+    <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-slate-400 text-sm">Kunden</p>
+      <p className="text-3xl font-bold text-white">{stats.totalCustomers}</p>
+      <p className="text-sm text-slate-400">Registriert</p>
+    </div>
+    <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl">
+      👥
+    </div>
+  </div>
+</div>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
           <div className="flex items-center justify-between">
@@ -413,7 +429,7 @@ function DashboardPageContent() {
                 onClick={() => handleProtectedFeatureClick('customer_inquiries', 'Kundenanfragen')}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors relative group"
               >
-                <div className="text-2xl mb-2 opacity-60">🔧</div>
+                <div className="text-2xl mb-2 opacity-60">📩</div>
                 <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
                   Kundenanfragen
                 </div>
@@ -428,7 +444,7 @@ function DashboardPageContent() {
               href="/dashboard/inquiries"
               className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group"
             >
-              <div className="text-2xl mb-2">🔧</div>
+              <div className="text-2xl mb-2">📩</div>
               <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
                 Kundenanfragen
               </div>

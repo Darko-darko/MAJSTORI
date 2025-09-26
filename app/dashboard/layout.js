@@ -89,11 +89,13 @@ function DashboardLayoutContent({ children }) {
           .eq('majstor_id', majstor.id)
           .eq('status', 'new'),
 
+      
         supabase
           .from('invoices')
-          .select('id', { count: 'exact', head: true })
+          .select('id, due_date, status')
           .eq('majstor_id', majstor.id)
-          .eq('status', 'draft'),
+          .in('status', ['sent', 'draft'])
+          .neq('status', 'dummy'),
 
         supabase
           .from('warranties')
@@ -103,9 +105,23 @@ function DashboardLayoutContent({ children }) {
           .lte('end_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       ])
 
+      // Filter overdue invoices in JavaScript
+      let overdueCount = 0
+      if (invoicesResult.data && !invoicesResult.error) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        overdueCount = invoicesResult.data.filter(invoice => {
+          if (!invoice.due_date) return false
+          const dueDate = new Date(invoice.due_date)
+          dueDate.setHours(0, 0, 0, 0)
+          return today > dueDate
+        }).length
+      }
+
       setBadges({
         inquiries: inquiriesResult.count || 0,
-        invoices: invoicesResult.count || 0, 
+        invoices: overdueCount,
         warranties: warrantiesResult.count || 0
       })
 
@@ -244,7 +260,7 @@ function DashboardLayoutContent({ children }) {
       { 
         name: 'Kundenanfragen', 
         href: '/dashboard/inquiries', 
-        icon: '🔧', 
+        icon: '📩', 
         badge: formatBadgeCount(badges.inquiries),
         badgeColor: 'bg-red-500',
         protected: true,
@@ -255,7 +271,7 @@ function DashboardLayoutContent({ children }) {
         href: '/dashboard/invoices', 
         icon: '📄',
         badge: formatBadgeCount(badges.invoices),
-        badgeColor: 'bg-yellow-500',
+        badgeColor: 'bg-red-500', // EXPLICIT RED for overdue
         protected: true,
         feature: 'invoicing'
       },

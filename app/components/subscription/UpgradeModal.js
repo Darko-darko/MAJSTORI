@@ -1,4 +1,4 @@
-// app/components/subscription/UpgradeModal.js
+// app/components/subscription/UpgradeModal.js - CORRECTED VERSION
 'use client'
 import { useState } from 'react'
 
@@ -77,13 +77,35 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
         'Schnelle Rechnungserstellung',
         'Service-Kategorien'
       ]
+    },
+    'pdf_archive': {
+      icon: '🗂️',
+      title: 'PDF Archiv',
+      description: 'Alle Ihre Rechnungen und Angebote zentral archiviert',
+      benefits: [
+        'Automatische PDF-Speicherung',
+        'Durchsuchbares Archiv',
+        'Backup und Wiederherstellung',
+        'Jahresarchive'
+      ]
+    },
+    'analytics': {
+      icon: '📈',
+      title: 'Business Analytics',
+      description: 'Detaillierte Einblicke in Ihr Geschäft',
+      benefits: [
+        'Umsatz-Dashboards',
+        'Kunden-Analysen',
+        'Trend-Reports',
+        'Export für Steuerberater'
+      ]
     }
   }
 
   const featureInfo = featureDescriptions[feature] || {
     icon: '⭐',
     title: featureName || 'Premium Feature',
-    description: 'Diese Funktion ist ab dem Basic Plan verfügbar',
+    description: 'Diese Funktion ist ab dem PRO Plan verfügbar',
     benefits: ['Alle Premium-Funktionen', 'Professioneller Support']
   }
 
@@ -127,7 +149,7 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
               </div>
               <div className="text-right">
                 <span className="text-slate-400 text-sm">Benötigt:</span>
-                <div className="text-blue-400 font-semibold">Basic Plan+</div>
+                <div className="text-blue-400 font-semibold">PRO Plan</div>
               </div>
             </div>
           </div>
@@ -149,14 +171,12 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
 
           {/* Pricing Info */}
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-white font-bold text-lg">19,90€ <span className="text-sm font-normal text-blue-300">/Monat</span></div>
-                <div className="text-blue-300 text-sm">Basic Plan - Alle aktuellen Features</div>
+            <div className="text-center">
+              <div className="text-white font-bold text-2xl mb-1">
+                19,90€ <span className="text-lg font-normal text-blue-300">/Monat</span>
               </div>
-              <div className="text-blue-300 text-sm">
-                💡 7 Tage kostenlos
-              </div>
+              <div className="text-blue-300 text-sm">PRO Plan - Alle Features</div>
+              <div className="text-slate-400 text-xs mt-1">+ VAT</div>
             </div>
           </div>
 
@@ -165,7 +185,7 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
             <button
               onClick={() => {
                 // TODO: Redirect to upgrade/billing page
-                alert('Upgrade flow - uskoro implementiran!')
+                alert('Upgrade flow wird bald implementiert!\n\nSie werden zu Paddle Billing weitergeleitet.')
                 onClose()
               }}
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
@@ -181,9 +201,18 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
           </div>
 
           {/* Footer Note */}
-          <p className="text-slate-500 text-xs text-center mt-4">
-            ✨ Keine Kreditkarte erforderlich • Jederzeit kündbar
-          </p>
+          <div className="mt-4 pt-4 border-t border-slate-700">
+            <div className="flex items-center justify-center gap-4 text-slate-500 text-xs">
+              <span>✓ Jederzeit kündbar</span>
+              <span>•</span>
+              <span>✓ Sichere Zahlung</span>
+              <span>•</span>
+              <span>✓ EU-Datenschutz</span>
+            </div>
+            <p className="text-center text-slate-500 text-xs mt-2">
+              Zahlung erfolgt über Paddle (EU-konforme Rechnungsstellung)
+            </p>
+          </div>
         </div>
       </div>
     </div>
