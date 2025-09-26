@@ -1,9 +1,10 @@
-// app/components/subscription/SubscriptionGuard.js
+// app/components/subscription/SubscriptionGuard.js - FIXED PLAN NAMES
 'use client'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 
 /**
  * HOC Component - prikazuje sadržaj samo ako korisnik ima pristup funkcionalnosti
+ * UPDATED: Koristi ispravne nazive planova (pro, pro_plus) umesto (basic, advance)
  * 
  * Upotreba:
  * <SubscriptionGuard feature="customer_inquiries" majstorId={user.id}>
@@ -18,13 +19,7 @@ export function SubscriptionGuard({
   showUpgradePrompt = true 
 }) {
   const { hasFeatureAccess, plan, loading } = useSubscription(majstorId)
-console.log('🛡️ SubscriptionGuard debug:', { 
-    feature, 
-    majstorId, 
-    loading, 
-    plan: plan?.name,
-    hasAccess: hasFeatureAccess(feature)
-  })
+
   if (loading) {
     return <div className="text-slate-400">...</div>
   }
@@ -50,22 +45,37 @@ console.log('🛡️ SubscriptionGuard debug:', {
 }
 
 /**
- * Upgrade Prompt Component
+ * Upgrade Prompt Component - UPDATED plan names
  */
 function UpgradePrompt({ feature, currentPlan, customFallback }) {
   const featureNames = {
-    'customer_inquiries': 'Upiti klijenata',
-    'invoicing': 'Fakturisanje', 
-    'customer_management': 'Upravljanje klijentima',
-    'services_management': 'Upravljanje uslugama',
-    'planner': 'Planner',
-    'referral_system': 'Referral sistem',
-    'white_labeling': 'White Label opcije'
+    'customer_inquiries': 'Kundenanfragen',
+    'invoicing': 'Rechnungen & Angebote', 
+    'customer_management': 'Kundenverwaltung',
+    'services_management': 'Dienstleistungen',
+    'pdf_archive': 'PDF-Archiv',
+    'planner': 'Terminplanung',
+    'referral_system': 'Empfehlungssystem',
+    'white_labeling': 'White Label Optionen'
+  }
+
+  // Required plan mapping
+  const featureRequiredPlan = {
+    'customer_inquiries': 'Pro',
+    'invoicing': 'Pro', 
+    'customer_management': 'Pro',
+    'services_management': 'Pro',
+    'pdf_archive': 'Pro',
+    'planner': 'Pro+',
+    'referral_system': 'Pro+',
+    'white_labeling': 'White Label'
   }
 
   if (customFallback) {
     return customFallback
   }
+
+  const requiredPlan = featureRequiredPlan[feature] || 'Pro'
 
   return (
     <div className="bg-slate-800/50 border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
@@ -73,19 +83,21 @@ function UpgradePrompt({ feature, currentPlan, customFallback }) {
         <span className="text-blue-400 text-2xl">🔒</span>
       </div>
       <h3 className="text-white font-semibold mb-2">
-        {featureNames[feature] || 'Ova funkcionalnost'} nije dostupna
+        {featureNames[feature] || 'Diese Funktionalität'} nicht verfügbar
       </h3>
       <p className="text-slate-400 text-sm mb-4">
-        Trenutni plan: <span className="text-slate-300 font-medium">{currentPlan || 'Freemium'}</span>
+        Aktueller Plan: <span className="text-slate-300 font-medium">{currentPlan || 'Freemium'}</span>
+        <br />
+        Benötigt: <span className="text-blue-300 font-medium">{requiredPlan}</span>
       </p>
       <button 
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
         onClick={() => {
-          // TODO: Redirect to upgrade page
-          alert('Upgrade funkcionalnost - uskoro!')
+          // TODO: Redirect to upgrade page or trigger modal
+          alert(`Upgrade auf ${requiredPlan} erforderlich - Implementierung folgt!`)
         }}
       >
-        Nadogradite plan
+        Auf {requiredPlan} upgraden
       </button>
     </div>
   )
@@ -93,7 +105,7 @@ function UpgradePrompt({ feature, currentPlan, customFallback }) {
 
 // app/components/subscription/TrialBanner.js
 /**
- * Trial Banner - prikazuje preostale dana trial-a
+ * Trial Banner - prikazuje preostale dane trial-a
  */
 export function TrialBanner({ majstorId, className = '' }) {
   const { isInTrial, trialDaysRemaining, plan } = useSubscription(majstorId)
@@ -114,12 +126,12 @@ export function TrialBanner({ majstorId, className = '' }) {
           </div>
           <div>
             <h4 className="text-white font-semibold">
-              {plan?.display_name || 'Basic'} Plan - Besplatni period
+              {plan?.display_name || 'Pro'} Plan - Kostenlose Testphase
             </h4>
             <p className={`text-sm ${isLastDays ? 'text-red-300' : 'text-blue-300'}`}>
               {trialDaysRemaining === 1 
-                ? 'Poslednji dan trial perioda!' 
-                : `Još ${trialDaysRemaining} dana besplatno`
+                ? 'Letzter Tag der Testphase!' 
+                : `Noch ${trialDaysRemaining} Tage kostenlos`
               }
             </p>
           </div>
@@ -132,10 +144,10 @@ export function TrialBanner({ majstorId, className = '' }) {
           }`}
           onClick={() => {
             // TODO: Redirect to billing page
-            alert('Billing page - uskoro!')
+            alert('Billing page - kommt bald!')
           }}
         >
-          {isLastDays ? 'Nastavi pretplatu' : 'Upravljaj pretplatom'}
+          {isLastDays ? 'Jetzt upgraden' : 'Plan verwalten'}
         </button>
       </div>
     </div>
@@ -144,7 +156,7 @@ export function TrialBanner({ majstorId, className = '' }) {
 
 // app/components/subscription/PlanCard.js
 /**
- * Plan Card Component - za prikaz planova
+ * Plan Card Component - für Anzeige von Plänen - UPDATED PLAN NAMES
  */
 export function PlanCard({ 
   plan, 
@@ -166,7 +178,7 @@ export function PlanCard({
       {isRecommended && (
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
           <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-            PREPORUČENO
+            EMPFOHLEN
           </div>
         </div>
       )}
@@ -175,7 +187,7 @@ export function PlanCard({
       {isActive && (
         <div className="absolute top-4 right-4">
           <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-            AKTIVNO
+            AKTIV
           </div>
         </div>
       )}
@@ -185,10 +197,10 @@ export function PlanCard({
         <h3 className="text-2xl font-bold text-white mb-2">{plan.display_name}</h3>
         <div className="flex items-baseline justify-center gap-1 mb-3">
           <span className="text-4xl font-bold text-white">
-            {plan.price_monthly === 0 ? 'Besplatno' : `${plan.price_monthly}€`}
+            {plan.price_monthly === 0 ? 'Kostenlos' : `${plan.price_monthly}€`}
           </span>
           {plan.price_monthly > 0 && (
-            <span className="text-slate-400">/mesec</span>
+            <span className="text-slate-400">/Monat</span>
           )}
         </div>
         <p className="text-slate-400 text-sm">{plan.description}</p>
@@ -211,7 +223,7 @@ export function PlanCard({
               feature.is_enabled ? 'text-slate-300' : 'text-slate-500'
             }`}>
               {feature.feature_name}
-              {!feature.is_enabled && ' (Uskoro)'}
+              {!feature.is_enabled && ' (Bald verfügbar)'}
             </span>
           </div>
         ))}
@@ -230,10 +242,10 @@ export function PlanCard({
         }`}
       >
         {isActive 
-          ? 'Trenutni plan' 
+          ? 'Aktueller Plan' 
           : plan.price_monthly === 0 
-          ? 'Besplatno' 
-          : 'Izaberi plan'
+          ? 'Kostenlos bleiben' 
+          : 'Plan wählen'
         }
       </button>
     </div>
@@ -242,7 +254,7 @@ export function PlanCard({
 
 // app/components/subscription/SubscriptionStatus.js
 /**
- * Subscription Status Widget - kompaktni prikaz statusa
+ * Subscription Status Widget - kompakter Anzeige-Status - UPDATED PLAN NAMES
  */
 export function SubscriptionStatus({ majstorId, compact = false }) {
   const { 
@@ -275,8 +287,8 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
   const statusText = isInTrial 
     ? `Trial (${trialDaysRemaining}d)`
     : isPaid 
-    ? 'Aktivno' 
-    : 'Neplaćeno'
+    ? 'Aktiv' 
+    : 'Unbezahlt'
 
   if (compact) {
     return (
@@ -298,7 +310,7 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
           <div className={`text-sm ${statusColor}`}>Status: {statusText}</div>
           {plan?.price_monthly > 0 && (
             <div className="text-slate-400 text-sm">
-              {plan.price_monthly}€/mesec
+              {plan.price_monthly}€/Monat
             </div>
           )}
         </div>
@@ -306,10 +318,10 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
           className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
           onClick={() => {
             // TODO: Open subscription management
-            alert('Subscription management - uskoro!')
+            alert('Subscription management - kommt bald!')
           }}
         >
-          Upravljaj
+          Verwalten
         </button>
       </div>
     </div>
