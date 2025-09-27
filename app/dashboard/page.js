@@ -209,7 +209,7 @@ const loadStats = async (userId) => {
                   'invoicing': 'Rechnungen & Angebote',
                   'services_management': 'Services Verwaltung',
                   'pdf_archive': 'PDF Archiv',
-                  'analytics': 'Analytics & Berichte'
+                  //'analytics': 'Analytics & Berichte'
                 }
                 handleProtectedFeatureClick(feature, featureNames[feature] || title)
               }}
@@ -547,7 +547,7 @@ const loadStats = async (userId) => {
             </Link>
           </SubscriptionGuard>
 
-          <SubscriptionGuard
+          {/* <SubscriptionGuard
             feature="analytics"
             majstorId={majstor?.id}
             fallback={
@@ -575,7 +575,7 @@ const loadStats = async (userId) => {
                 Analytics
               </div>
             </Link>
-          </SubscriptionGuard>
+          </SubscriptionGuard>     */}
 
           <SubscriptionGuard
             feature="settings"

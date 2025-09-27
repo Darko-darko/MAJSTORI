@@ -289,13 +289,14 @@ function DashboardLayoutContent({ children }) {
         protected: true,
         feature: 'pdf_archive'
       },
+      /*
       { 
         name: 'Analytics', 
         href: '/dashboard/analytics', 
         icon: '📈',
         protected: true,
         feature: 'analytics'
-      },
+      }, */
       { 
         name: 'Einstellungen', 
         href: '/dashboard/settings', 
@@ -359,7 +360,7 @@ function DashboardLayoutContent({ children }) {
                   'invoicing': 'Rechnungen & Angebote',
                   'services_management': 'Services Verwaltung',
                   'pdf_archive': 'PDF Archiv',
-                  'analytics': 'Analytics & Berichte',
+                  //'analytics': 'Analytics & Berichte',
                   'settings': 'Erweiterte Einstellungen'
                 }
                 showUpgradeModal(
@@ -601,6 +602,10 @@ function DashboardLayoutContent({ children }) {
             </div>
 
             <div className="flex items-center space-x-3">
+
+              
+
+
               {/* Notifications */}
               <button 
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
