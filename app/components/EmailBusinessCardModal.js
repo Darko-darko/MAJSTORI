@@ -455,7 +455,8 @@ export default function EmailBusinessCardModal({
                       {/* No Results */}
                       {customerSearchTerm && filteredCustomers.length === 0 && (
                         <p className="text-slate-400 text-sm italic">
-                          Keine Kunden gefunden für "{customerSearchTerm}"
+                          // REŠENJE:
+                            Keine Kunden gefunden für &quot;{customerSearchTerm}&quot;
                         </p>
                       )}
                     </>
