@@ -1,9 +1,8 @@
-// app/api/create-profile/route.js - UPDATED FOR TRIAL STRATEGY
-import { createClient } from '@supabase/supabase-js'
+// app/api/create-profile/route.js - UPDATED for welcome flow
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-// Service role client (bypasses RLS)
-const supabaseAdmin = createClient(
+const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
@@ -12,144 +11,101 @@ export async function POST(request) {
   try {
     const profileData = await request.json()
     
-    console.log('🛠️ Creating profile with trial strategy:', {
+    console.log('🛠️ Creating profile for:', profileData.email)
+
+    // Validate required fields
+    if (!profileData.id || !profileData.email) {
+      return NextResponse.json({
+        success: false,
+        error: 'ID und E-Mail sind erforderlich'
+      }, { status: 400 })
+    }
+
+    // Check if profile already exists
+    const { data: existing } = await supabase
+      .from('majstors')
+      .select('id')
+      .eq('id', profileData.id)
+      .single()
+
+    if (existing) {
+      console.log('✅ Profile already exists for:', profileData.email)
+      return NextResponse.json({
+        success: true,
+        profile: existing,
+        message: 'Profile already exists'
+      })
+    }
+
+    // Prepare profile data - 🔥 REMOVED automatic subscription setup
+    const insertData = {
       id: profileData.id,
       email: profileData.email,
-      source: profileData.profile_source || 'unknown'
+      full_name: profileData.full_name || profileData.email.split('@')[0],
+      business_name: profileData.business_name || null,
+      phone: profileData.phone || null,
+      city: profileData.city || null,
+      address: profileData.address || null,
+      website: profileData.website || null,
+      is_active: profileData.is_active !== undefined ? profileData.is_active : true,
+      profile_completed: profileData.profile_completed !== undefined ? profileData.profile_completed : false,
+      profile_source: profileData.profile_source || 'api_creation',
+      signup_method: profileData.signup_method || 'unknown',
+      
+      // 🔥 SUBSCRIPTION FIELDS - Only set if explicitly provided
+      subscription_status: profileData.subscription_status || null,
+      subscription_ends_at: profileData.subscription_ends_at || null,
+      
+      // Auto-generate slug if name provided
+      slug: profileData.full_name 
+        ? profileData.full_name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .substring(0, 50) + '-' + Math.random().toString(36).substring(2, 8)
+        : null,
+      
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    console.log('📝 Inserting profile data:', {
+      email: insertData.email,
+      full_name: insertData.full_name,
+      subscription_status: insertData.subscription_status || 'NONE SET',
+      profile_source: insertData.profile_source
     })
 
-    // 🔥 SMART PROFILE GENERATION based on signup type
-    let processedData = {
-      id: profileData.id,
-      email: profileData.email,
-      subscription_status: 'trial',
-      subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      is_active: true,
-      profile_completed: false
-    }
-
-    // 🎯 Different handling for Google OAuth vs Email
-    if (profileData.profile_source === 'google_oauth') {
-      // Google OAuth - We have real data, create full profile
-      processedData = {
-        ...processedData,
-        full_name: profileData.full_name || profileData.email.split('@')[0],
-        business_name: profileData.business_name || null,
-        phone: profileData.phone || null,
-        city: profileData.city || null,
-        slug: generateSlug(profileData.full_name || profileData.email.split('@')[0]),
-        profile_completed: true, // Google users get full profile immediately
-        profile_source: 'google_oauth'
-      }
-    } else {
-      // Email signup - Minimal profile for trial
-      const tempName = profileData.full_name || profileData.email.split('@')[0]
-      processedData = {
-        ...processedData,
-        full_name: tempName,
-        slug: generateSlug(tempName),
-        profile_completed: false, // Email users complete profile later
-        profile_source: 'email_signup'
-      }
-    }
-
-    console.log('📝 Processed profile data:', processedData)
-
-    // Insert into majstors table
-    const { data, error } = await supabaseAdmin
+    // Insert profile
+    const { data: newProfile, error: insertError } = await supabase
       .from('majstors')
-      .insert(processedData)
+      .insert(insertData)
       .select()
       .single()
 
-    if (error) {
-      console.error('❌ Database error:', error)
-      
-      // Handle duplicate key errors gracefully
-      if (error.code === '23505') {
-        return NextResponse.json(
-          { error: 'Ein Profil mit dieser E-Mail-Adresse existiert bereits' },
-          { status: 409 }
-        )
-      }
-      
-      throw error
+    if (insertError) {
+      console.error('❌ Profile creation error:', insertError)
+      throw new Error(`Database error: ${insertError.message}`)
     }
 
-    // 🔥 DODAJ OVDE - NOVI SUBSCRIPTION SISTEM
-try {
-  // Get Basic plan ID
-  const { data: basicPlan, error: planError } = await supabaseAdmin
-    .from('subscription_plans')
-    .select('id')
-    .eq('name', 'basic')
-    .single()
+    console.log('✅ Profile created successfully:', newProfile.id)
 
-  if (!planError && basicPlan) {
-    // Create subscription record in new system
-    const { data: subscriptionData, error: subError } = await supabaseAdmin
-      .from('user_subscriptions')
-      .insert({
-        majstor_id: data.id,
-        plan_id: basicPlan.id,
-        status: 'trial',
-        trial_starts_at: new Date().toISOString(),
-        trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      })
-      .select()
-      .single()
+    // 🔥 REMOVED: Automatic trial creation
+    // No longer automatically creating trial subscriptions here
+    // User will choose their plan in /welcome/choose-plan
 
-    if (subError) {
-      console.error('⚠️ Subscription creation failed:', subError)
-    } else {
-      console.log('✅ New subscription system record created')
-    }
-  }
-} catch (subscriptionError) {
-  console.error('⚠️ Subscription system error:', subscriptionError)
-  // Don't fail registration if subscription fails
-}
-
-console.log('✅ Profile created successfully:', {
-  id: data.id,
-  name: data.full_name,
-  source: data.profile_source,
-  trial_ends: data.subscription_ends_at
-})
-
-
-
-    return NextResponse.json({ 
-      success: true, 
-      profile: data,
-      trial_info: {
-        status: 'trial',
-        ends_at: data.subscription_ends_at,
-        days_remaining: 7
-      }
+    return NextResponse.json({
+      success: true,
+      profile: newProfile,
+      message: 'Profile created successfully'
     })
 
   } catch (error) {
-    console.error('❌ API error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Fehler beim Erstellen des Profils' },
-      { status: 500 }
-    )
+    console.error('❌ Create profile API error:', error)
+    
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Ein unerwarteter Fehler ist aufgetreten'
+    }, { status: 500 })
   }
-}
-
-// 🔧 Helper function to generate URL-safe slug
-function generateSlug(name) {
-  if (!name) return 'handwerker-' + Date.now()
-  
-  return name
-    .toLowerCase()
-    .replace(/[äöüß]/g, (match) => {
-      const map = { 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss' }
-      return map[match] || match
-    })
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 40) + '-' + Date.now().toString().slice(-6)
 }

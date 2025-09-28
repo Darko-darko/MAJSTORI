@@ -1,4 +1,4 @@
-// app/signup/page.js - UPDATED sa boljom password validacijom
+// app/signup/page.js - UPDATED sa welcome/choose-plan redirect
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -102,7 +102,7 @@ export default function SignupPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=welcome`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -122,7 +122,7 @@ export default function SignupPage() {
     }
   }
 
-  // Email/Password signup
+  // Email/Password signup - UPDATED to go to welcome page
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setError('')
@@ -145,7 +145,7 @@ export default function SignupPage() {
       if (authError) throw authError
 
       if (authData.user) {
-        // 2. Create MINIMAL majstor profile via API
+        // 2. Create MINIMAL majstor profile via API - NO SUBSCRIPTION YET
         const response = await fetch('/api/create-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -153,8 +153,9 @@ export default function SignupPage() {
             id: authData.user.id,
             email: formData.email,
             full_name: formData.email.split('@')[0],
-            subscription_status: 'trial',
-            subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            // 🔥 REMOVED: No subscription setup here
+            // subscription_status: 'trial',
+            // subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             is_active: true,
             profile_completed: false,
             profile_source: 'email_signup'
@@ -166,12 +167,14 @@ export default function SignupPage() {
           throw new Error(errorData.error || 'Fehler beim Erstellen des Profils')
         }
 
-        // 3. Success redirect
+        // 3. Success redirect to WELCOME PAGE instead of dashboard
         if (authData.user.email_confirmed_at) {
-          router.push('/dashboard?welcome=true&trial=true')
+          // Email already confirmed (rare) - go to welcome
+          router.push('/welcome/choose-plan')
         } else {
-          alert('✅ Registrierung erfolgreich!\n\nBitte prüfen Sie Ihre E-Mails zur Bestätigung, dann können Sie sich anmelden.')
-          router.push('/login?message=confirm_email')
+          // Need email confirmation - show message and redirect to login
+          alert('✅ Registrierung erfolgreich!\n\nBitte prüfen Sie Ihre E-Mails zur Bestätigung, dann können Sie sich anmelden und Ihren Plan wählen.')
+          router.push('/login?message=confirm_email_then_welcome')
         }
       }
 
@@ -195,7 +198,7 @@ export default function SignupPage() {
             Pro-meister<span className="text-blue-400">.de</span>
           </Link>
           <h1 className="text-2xl font-bold text-white mb-2">Kostenlos registrieren</h1>
-          <p className="text-slate-400">7 Tage kostenlos testen, jederzeit kündbar</p>
+          <p className="text-slate-400">Wählen Sie nach der Registrierung Ihren gewünschten Plan</p>
         </div>
 
         {/* Benefits */}
@@ -321,17 +324,41 @@ export default function SignupPage() {
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Passwort bestätigen
             </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Passwort wiederholen"
-            />
+            <div className="relative">
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                className={`w-full px-4 py-3 bg-slate-900/50 rounded-lg text-white placeholder-slate-400 focus:outline-none transition-colors ${
+                  formData.confirmPassword && formData.password !== formData.confirmPassword
+                    ? 'border-2 border-red-500 focus:ring-2 focus:ring-red-500'
+                    : 'border border-slate-600 focus:ring-2 focus:ring-blue-500'
+                }`}
+                placeholder="Passwort wiederholen"
+              />
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <span className="text-red-500 text-xl">⚠️</span>
+                </div>
+              )}
+            </div>
             {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-              <p className="text-red-400 text-xs mt-1">Passwörter stimmen nicht überein</p>
+              <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-sm font-medium flex items-center gap-2">
+                  <span className="text-red-500">❌</span>
+                  Passwörter stimmen nicht überein
+                </p>
+              </div>
+            )}
+            {formData.confirmPassword && formData.password === formData.confirmPassword && formData.confirmPassword.length > 0 && (
+              <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-green-400 text-sm font-medium flex items-center gap-2">
+                  <span className="text-green-500">✅</span>
+                  Passwörter stimmen überein
+                </p>
+              </div>
             )}
           </div>
 
@@ -367,7 +394,7 @@ export default function SignupPage() {
             disabled={loading || googleLoading || !isPasswordValid}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
           >
-            {loading ? 'Registrierung läuft...' : '🚀 Kostenlos starten'}
+            {loading ? 'Registrierung läuft...' : '🚀 Jetzt registrieren'}
           </button>
         </form>
 
@@ -382,7 +409,7 @@ export default function SignupPage() {
           
           <div className="pt-3 border-t border-slate-700">
             <p className="text-xs text-slate-500">
-              🔒 Sicher & DSGVO-konform • ⚡ Sofort verfügbar • 🎯 7 Tage kostenlos
+              🔒 Sicher & DSGVO-konform • ⚡ Sofort verfügbar • 🎯 Flexibler Start
             </p>
           </div>
         </div>
