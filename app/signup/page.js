@@ -294,24 +294,24 @@ export default function SignupPage() {
               <div className="mt-3 p-3 bg-slate-900/30 rounded-lg border border-slate-700">
                 <p className="text-xs text-slate-400 mb-2">Passwort muss enthalten:</p>
                 <div className="grid grid-cols-2 gap-1 text-xs">
-                  <div className={`flex items-center gap-1 ${passwordStrength.length ? 'text-green-400' : 'text-slate-500'}`}>
-                    <span>{passwordStrength.length ? '✓' : '○'}</span>
+                  <div className={`flex items-center gap-1 ${passwordStrength.length ? 'text-green-400' : 'text-red-400'}`}>
+                    <span>{passwordStrength.length ? '✓' : '✗'}</span>
                     <span>8+ Zeichen</span>
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordStrength.uppercase ? 'text-green-400' : 'text-slate-500'}`}>
-                    <span>{passwordStrength.uppercase ? '✓' : '○'}</span>
+                  <div className={`flex items-center gap-1 ${passwordStrength.uppercase ? 'text-green-400' : 'text-red-400'}`}>
+                    <span>{passwordStrength.uppercase ? '✓' : '✗'}</span>
                     <span>Großbuchstabe</span>
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordStrength.lowercase ? 'text-green-400' : 'text-slate-500'}`}>
-                    <span>{passwordStrength.lowercase ? '✓' : '○'}</span>
+                  <div className={`flex items-center gap-1 ${passwordStrength.lowercase ? 'text-green-400' : 'text-red-400'}`}>
+                    <span>{passwordStrength.lowercase ? '✓' : '✗'}</span>
                     <span>Kleinbuchstabe</span>
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordStrength.number ? 'text-green-400' : 'text-slate-500'}`}>
-                    <span>{passwordStrength.number ? '✓' : '○'}</span>
+                  <div className={`flex items-center gap-1 ${passwordStrength.number ? 'text-green-400' : 'text-red-400'}`}>
+                    <span>{passwordStrength.number ? '✓' : '✗'}</span>
                     <span>Zahl</span>
                   </div>
-                  <div className={`flex items-center gap-1 col-span-2 ${passwordStrength.special ? 'text-green-400' : 'text-slate-500'}`}>
-                    <span>{passwordStrength.special ? '✓' : '○'}</span>
+                  <div className={`flex items-center gap-1 col-span-2 ${passwordStrength.special ? 'text-green-400' : 'text-red-400'}`}>
+                    <span>{passwordStrength.special ? '✓' : '✗'}</span>
                     <span>Sonderzeichen (!@#$%...)</span>
                   </div>
                 </div>
@@ -353,12 +353,23 @@ export default function SignupPage() {
               </div>
             )}
             {formData.confirmPassword && formData.password === formData.confirmPassword && formData.confirmPassword.length > 0 && (
-              <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <p className="text-green-400 text-sm font-medium flex items-center gap-2">
-                  <span className="text-green-500">✅</span>
-                  Passwörter stimmen überein
-                </p>
-              </div>
+              <>
+                {isPasswordValid ? (
+                  <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <p className="text-green-400 text-sm font-medium flex items-center gap-2">
+                      <span className="text-green-500">✅</span>
+                      Passwörter stimmen überein und sind gültig
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <p className="text-red-400 text-sm font-medium flex items-center gap-2">
+                      <span className="text-red-500">⚠️</span>
+                      Passwörter stimmen überein, aber das Passwort ist zu schwach
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
