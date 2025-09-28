@@ -1,4 +1,4 @@
-// app/dashboard/business-card/create/page.js - COMPLETE WITH SUBSCRIPTION LOGIC
+// app/dashboard/business-card/create/page.js - FIXED UNICODE CHARACTERS
 
 'use client'
 import { useState, useEffect, useRef } from 'react'
@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import QRCode from 'qrcode'
 import Link from 'next/link'
-import { useSubscription } from '@/lib/hooks/useSubscription' // 🔥 NEW: Subscription logic
+import { useSubscription } from '@/lib/hooks/useSubscription'
+import EmailBusinessCardModal from '@/app/components/EmailBusinessCardModal'
 
 export default function CreateBusinessCardPage() {
   // Helper function za cache-busting
@@ -16,7 +17,7 @@ export default function CreateBusinessCardPage() {
     return `${url}${separator}cb=${Date.now()}`
   }
 
-  // 🔥 REFAKTORISANO: Svi podaci za vizit kartu u formi
+  // Refaktorisano: Svi podaci za vizit kartu u formi
   const [formData, setFormData] = useState({
     // Osnovni podaci vizit karte - NEZAVISNO od majstor profila
     card_name: '',           // Ime na karti
@@ -46,11 +47,12 @@ export default function CreateBusinessCardPage() {
   const [forceImageRefresh, setForceImageRefresh] = useState(0)
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   const [copyLinkStatus, setCopyLinkStatus] = useState('')
+  const [showEmailModal, setShowEmailModal] = useState(false)
   const logoInputRef = useRef(null)
   const galleryInputRef = useRef(null)
   const router = useRouter()
 
-  // 🔥 NEW: Subscription logic
+  // Subscription logic
   const { hasFeatureAccess, plan, isFreemium, loading: subscriptionLoading } = useSubscription(majstor?.id)
 
   const colorPresets = [
@@ -106,11 +108,9 @@ export default function CreateBusinessCardPage() {
         
         setMajstor(majstorData)
 
-        // 🔥 NOVO: Auto-popuni card podatke SAMO AKO SU PRAZNI
+        // Auto-popuni card podatke SAMO AKO SU PRAZNI
         setFormData(prev => ({
           ...prev,
-          // Popuni samo ako je prazan
-         // card_name: prev.card_name || majstorData.full_name || '',
           card_business_name: prev.card_business_name || majstorData.business_name || '',
           card_phone: prev.card_phone || majstorData.phone || '',
           card_email: prev.card_email || majstorData.email || '',
@@ -136,7 +136,7 @@ export default function CreateBusinessCardPage() {
 
       if (existingCard) {
         setFormData({
-          // 🔥 NOVO: Load card-specific data
+          // Load card-specific data
           card_name: existingCard.card_name || '',
           card_business_name: existingCard.card_business_name || '',
           card_phone: existingCard.card_phone || '',
@@ -182,7 +182,7 @@ export default function CreateBusinessCardPage() {
     }
   }
 
-  // 🔥 NOVO: Funkcija za copy link
+  // Funkcija za copy link
   const handleCopyLink = async () => {
     try {
       if (!majstor?.slug) return
@@ -198,12 +198,17 @@ export default function CreateBusinessCardPage() {
     }
   }
 
-  // 🔥 NOVO: Funkcija za email placeholder
+  // Email function with modal
   const handleSendEmail = () => {
-    alert('Email funkcionalnost će biti dostupna uskoro!')
+    if (!majstor?.slug) {
+      alert('❌ Profil noch nicht vollständig - bitte speichern Sie zuerst Ihre Visitenkarte')
+      return
+    }
+    
+    setShowEmailModal(true)
   }
 
-  // 🔥 NOVO: Funkcija za čuvanje kontakta
+  // Funkcija za čuvanje kontakta
   const handleSaveContact = () => {
     const vCardData = [
       'BEGIN:VCARD',
@@ -441,7 +446,7 @@ export default function CreateBusinessCardPage() {
     e.preventDefault()
     setError('')
 
-    // 🔥 NOVA VALIDACIJA: obavezna polja za karticu
+    // Validacija: obavezna polja za karticu
    if (!formData.card_name.trim() && !formData.card_business_name.trim()) {
   setError('Name auf Karte oder Firmenname ist erforderlich')
   return
@@ -518,7 +523,7 @@ export default function CreateBusinessCardPage() {
     link.remove()
   }
 
-  // 🔥 UPDATED: Preview Visitenkarte with Subscription Logic
+  // Preview Visitenkarte with Subscription Logic
   const PreviewCard = ({ isMobile = false }) => {
     if (!formData) return null
 
@@ -547,7 +552,7 @@ export default function CreateBusinessCardPage() {
           </div>
         )}
 
-        {/* Header - 🔥 KORISTI FORM PODATKE */}
+        {/* Header */}
         <div className={`mb-${isMobile ? '3' : '4'}`}>
           <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>{formData.title}</h1>
           <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>{formData.card_name}</h2>
@@ -561,7 +566,7 @@ export default function CreateBusinessCardPage() {
           <p className={`text-sm opacity-90 mb-${isMobile ? '3' : '4'} italic leading-tight`}>{formData.description}</p>
         )}
 
-        {/* Contact Info - 🔥 KORISTI FORM PODATKE */}
+        {/* Contact Info */}
         <div className={`space-y-1 mb-${isMobile ? '3' : '4'} text-sm opacity-90`}>
           {formData.card_phone && <p>📞 {formData.card_phone}</p>}
           <p>✉️ {formData.card_email}</p>
@@ -625,7 +630,7 @@ export default function CreateBusinessCardPage() {
           </div>
         )}
 
-        {/* 🔥 UPDATED: Action Buttons with Subscription Logic */}
+        {/* Action Buttons with Subscription Logic */}
         <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
           {/* Save Contact Button - Always visible */}
           <button 
@@ -635,7 +640,7 @@ export default function CreateBusinessCardPage() {
             📱 Kontakt speichern
           </button>
 
-          {/* 🔥 NEW: Subscription-dependent Inquiry Button */}
+          {/* Subscription-dependent Inquiry Button */}
           {subscriptionLoading ? (
             // Loading state
             <div className="w-full bg-slate-600/50 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">
@@ -729,7 +734,7 @@ export default function CreateBusinessCardPage() {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             
-         {/* 🔥 NOVO: Podaci za vizit kartu - NA VRH! */}
+         {/* Podaci za vizit kartu - NA VRH! */}
 <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
   <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
   <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
@@ -769,7 +774,6 @@ export default function CreateBusinessCardPage() {
         name="card_name"
         value={formData.card_name}
         onChange={handleChange}
-        
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         placeholder="Hans Müller"
       />
@@ -839,7 +843,7 @@ export default function CreateBusinessCardPage() {
   </div>
 </div>
 
-{/* Website - VAN sekcije */}
+{/* Website */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
   <input
@@ -852,7 +856,7 @@ export default function CreateBusinessCardPage() {
   />
 </div>
 
-{/* Beschreibung - VAN sekcije */}
+{/* Beschreibung */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
   <textarea
@@ -1079,13 +1083,13 @@ export default function CreateBusinessCardPage() {
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              🔗 {copyLinkStatus === 'copied' ? 'Link kopiert!' : copyLinkStatus === 'error' ? 'Fehler' : 'Kopiraj link'}
+              🔗 {copyLinkStatus === 'copied' ? 'Link kopiert!' : copyLinkStatus === 'error' ? 'Fehler' : 'Link kopieren'}
             </button>
             <button
               onClick={handleSendEmail}
               className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
             >
-              📧 Pošalji email
+              📧 Email senden
             </button>
             <button
               onClick={downloadQRCode}
@@ -1098,7 +1102,7 @@ export default function CreateBusinessCardPage() {
         </div>
       </div>
 
-      {/* 🔥 KOMPLETNA DESKTOP VERZIJA */}
+      {/* Desktop Version */}
       <div className="hidden lg:grid lg:grid-cols-2 gap-6">
         {/* Desktop Form */}
         <div className="space-y-6">
@@ -1107,7 +1111,7 @@ export default function CreateBusinessCardPage() {
             
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* 🔥 NOVO: Podaci za vizit kartu - NA VRH! */}
+              {/* Desktop Daten für Visitenkarte */}
 <div className="bg-slate-900/30 border border-slate-600 rounded-lg p-4">
   <h3 className="text-white font-medium mb-3">📇 Daten für Visitenkarte</h3>
   <p className="text-slate-400 text-sm mb-4">Diese Daten erscheinen auf Ihrer Visitenkarte</p>
@@ -1147,7 +1151,6 @@ export default function CreateBusinessCardPage() {
         name="card_name"
         value={formData.card_name}
         onChange={handleChange}
-       
         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         placeholder="Hans Müller"
       />
@@ -1217,7 +1220,7 @@ export default function CreateBusinessCardPage() {
   </div>
 </div>
 
-{/* Website - VAN sekcije */}
+{/* Website */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Website (optional)</label>
   <input
@@ -1230,7 +1233,7 @@ export default function CreateBusinessCardPage() {
   />
 </div>
 
-{/* Beschreibung - VAN sekcije */}
+{/* Beschreibung */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">Beschreibung</label>
   <textarea
@@ -1454,7 +1457,7 @@ export default function CreateBusinessCardPage() {
           </div>
         </div>
 
-        {/* Desktop Preview - 🔥 KORISTI FORM PODATKE */}
+        {/* Desktop Preview */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Öffentliches Profil Vorschau</h2>
           
@@ -1503,6 +1506,14 @@ export default function CreateBusinessCardPage() {
           </div>
         </div>
       )}
+
+      {/* Email Modal */}
+      <EmailBusinessCardModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        businessCardData={formData}
+        majstor={majstor}
+      />
     </div>
   )
 }
