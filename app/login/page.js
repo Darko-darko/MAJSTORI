@@ -12,10 +12,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false) // NEW: Password visibility toggle
   const router = useRouter()
-
-
-  
 
   const handleChange = (e) => {
     setFormData(prev => ({
@@ -149,20 +147,30 @@ const handleGoogleLogin = async () => {
               />
             </div>
 
-            {/* Password */}
+            {/* Password with Toggle */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Passwort
               </label>
-              <input
-                type="password"
-                name="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ihr Passwort"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  placeholder="Ihr Passwort"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
 
             {/* Forgot Password Link */}
@@ -219,8 +227,8 @@ const handleGoogleLogin = async () => {
               <p className="text-slate-300">PDF Rechnungen</p>
             </div>
             <div className="bg-slate-800/30 rounded-lg p-3">
-              <div className="text-orange-400 mb-1">🛡️</div>
-              <p className="text-slate-300">Garantien</p>
+              <div className="text-orange-400 mb-1">🔧</div>
+              <p className="text-slate-300">Services</p>
             </div>
           </div>
         </div>
