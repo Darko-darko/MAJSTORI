@@ -53,4 +53,5 @@
 - možda doterati u create invoice da kad se napravi pdf da se promeni dugme, isto tako i za email
 - posle 300-500 korisnika poboljšati aplikaciju 
 - kasnije obrisati test za subskripcije
-- 
+- PWA
+- email za vizit karte... jedno inpu polje je višak !!

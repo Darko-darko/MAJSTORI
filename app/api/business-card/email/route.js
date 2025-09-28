@@ -1,4 +1,4 @@
-// app/api/business-card/email/route.js
+// app/api/business-card/email/route.js - FIXED SUBSCRIPTION CHECK
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { supabase } from '@/lib/supabase'
@@ -53,6 +53,103 @@ export async function POST(request) {
       }, { status: 404 })
     }
 
+    // 🔥 FIXED: Improved subscription check logic matching frontend useSubscription
+    console.log('🔍 Starting subscription check for majstor:', majstor_id)
+    
+    let canReceiveInquiries = false
+    
+    try {
+      // Get user's latest subscription (matching frontend logic)
+      const { data: latestSubscription, error: subscriptionError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          *,
+          subscription_plans (
+            id,
+            name,
+            display_name
+          )
+        `)
+        .eq('majstor_id', majstor_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      console.log('🔍 Subscription query result:', {
+        hasData: !!latestSubscription,
+        error: subscriptionError?.message,
+        status: latestSubscription?.status,
+        planName: latestSubscription?.subscription_plans?.name
+      })
+
+      if (latestSubscription && !subscriptionError) {
+        const now = new Date()
+        let isActive = false
+
+        // Check if subscription is active
+        if (latestSubscription.status === 'trial') {
+          const trialEnd = new Date(latestSubscription.trial_ends_at)
+          isActive = trialEnd > now
+          console.log('🎯 Trial subscription:', { 
+            trialEnd: trialEnd.toISOString(), 
+            now: now.toISOString(), 
+            isActive 
+          })
+        } else if (latestSubscription.status === 'active') {
+          const periodEnd = new Date(latestSubscription.current_period_end)
+          isActive = periodEnd > now
+          console.log('🎯 Active subscription:', { 
+            periodEnd: periodEnd.toISOString(), 
+            now: now.toISOString(), 
+            isActive 
+          })
+        }
+
+        if (isActive) {
+          // Check if plan has customer_inquiries feature
+          const { data: features, error: featuresError } = await supabase
+            .from('subscription_features')
+            .select('*')
+            .eq('plan_id', latestSubscription.subscription_plans.id)
+            .eq('feature_key', 'customer_inquiries')
+            .eq('is_enabled', true)
+            .maybeSingle()
+
+          console.log('🔍 Features query result:', {
+            hasFeature: !!features,
+            error: featuresError?.message,
+            planId: latestSubscription.subscription_plans.id,
+            featureKey: 'customer_inquiries'
+          })
+
+          if (features && !featuresError) {
+            canReceiveInquiries = true
+            console.log('✅ Majstor has customer_inquiries feature')
+          } else {
+            console.log('❌ Majstor does not have customer_inquiries feature')
+          }
+        } else {
+          console.log('❌ Subscription is not active')
+        }
+      } else {
+        console.log('❌ No subscription found, checking if freemium user...')
+        
+        // For freemium users (no subscription), they should NOT have inquiry feature
+        canReceiveInquiries = false
+        console.log('📱 Freemium user - will not include inquiry button')
+      }
+    } catch (subscriptionCheckError) {
+      console.error('⚠️ Subscription check failed:', subscriptionCheckError)
+      // Default to false for safety
+      canReceiveInquiries = false
+    }
+
+    console.log('🎯 Final subscription check result:', { 
+      canReceiveInquiries,
+      majstorId: majstor_id,
+      emailWillIncludeInquiryButton: canReceiveInquiries
+    })
+
     // Generate business card link
     const businessCardLink = `https://pro-meister.de/m/${majstor.slug}`
 
@@ -67,7 +164,7 @@ export async function POST(request) {
     const fromName = cardBusinessName || cardName
     const recipientName = to_name || 'Liebe/r Interessent/in'
 
-    // Generate HTML email content
+    // 🔥 IMPROVED: HTML with better conditional logic and debugging
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="de">
@@ -110,38 +207,25 @@ export async function POST(request) {
             
             <p style="color: #6b7280; margin: 0 0 30px 0; font-size: 16px; line-height: 1.6;">
                 ${fromName} hat Ihnen seine digitale Visitenkarte gesendet. 
-                Klicken Sie auf den Link unten, um alle Kontaktdaten zu sehen und direkt eine Anfrage zu stellen.
+                Klicken Sie auf den Link unten, um alle Kontaktdaten zu sehen${canReceiveInquiries ? ' und direkt eine Anfrage zu stellen' : ''}.
             </p>
 
-            <!-- Business Card Preview -->
-            <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; padding: 30px; border-radius: 12px; text-align: center; margin: 0 0 30px 0;">
-                
-                <h3 style="margin: 0 0 5px 0; font-size: 20px; font-weight: bold; color: #ffffff;">
-                    ${cardName}
-                </h3>
-                
-                ${cardBusinessName ? `
-                <p style="margin: 0 0 20px 0; font-size: 16px; color: #cbd5e1;">
-                    ${cardBusinessName}
-                </p>
-                ` : ''}
-                
-                <div style="text-align: left; max-width: 300px; margin: 0 auto;">
-                    ${cardPhone ? `
-                    <div style="margin: 8px 0; font-size: 14px; color: #e2e8f0;">
-                        📞 ${cardPhone}
-                    </div>
+            <!-- Simple Contact Info -->
+            <div style="text-align: center; margin: 0 0 30px 0;">
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto;">
+                    <h3 style="margin: 0 0 5px 0; font-size: 18px; font-weight: bold; color: #1f2937;">
+                        ${cardName}
+                    </h3>
+                    ${cardBusinessName ? `
+                    <p style="margin: 0 0 15px 0; font-size: 16px; color: #6b7280;">
+                        ${cardBusinessName}
+                    </p>
                     ` : ''}
-                    
-                    <div style="margin: 8px 0; font-size: 14px; color: #e2e8f0;">
-                        ✉️ ${cardEmail}
+                    <div style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+                        ${cardPhone ? `📞 ${cardPhone}<br>` : ''}
+                        ✉️ ${cardEmail}<br>
+                        ${cardCity ? `📍 ${cardCity}` : ''}
                     </div>
-                    
-                    ${cardCity ? `
-                    <div style="margin: 8px 0; font-size: 14px; color: #e2e8f0;">
-                        📍 ${cardCity}
-                    </div>
-                    ` : ''}
                 </div>
             </div>
 
@@ -149,7 +233,7 @@ export async function POST(request) {
             <div style="text-align: center; margin: 0 0 30px 0;">
                 <a href="${businessCardLink}" 
                    style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
-                    🔗 Visitenkarte öffnen
+                    🔗 Vollständige Visitenkarte öffnen
                 </a>
             </div>
 
@@ -160,7 +244,7 @@ export async function POST(request) {
                 </h4>
                 <ul style="color: #6b7280; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
                     <li>Komplette Kontaktdaten zum Speichern</li>
-                    <li>Direkte Anfrage mit Foto-Upload möglich</li>
+                    ${canReceiveInquiries ? '<li>Direkte Anfrage mit Foto-Upload möglich</li>' : ''}
                     <li>Übersicht aller angebotenen Dienstleistungen</li>
                     <li>Galerie mit Arbeitsbeispielen</li>
                 </ul>
@@ -191,7 +275,7 @@ export async function POST(request) {
 </html>
     `
 
-    // Plain text version
+    // Plain text version with conditional content
     const textContent = `
 Digitale Visitenkarte von ${cardName}
 
@@ -210,8 +294,7 @@ Besuchen Sie die vollständige Visitenkarte:
 ${businessCardLink}
 
 Dort können Sie:
-- Kontaktdaten direkt speichern
-- Eine Anfrage mit Fotos stellen
+- Kontaktdaten direkt speichern${canReceiveInquiries ? '\n- Eine Anfrage mit Fotos stellen' : ''}
 - Alle Dienstleistungen einsehen
 - Arbeitsbeispiele ansehen
 
@@ -225,6 +308,8 @@ Gesendet über pro-meister.de - Die Handwerker-Plattform
 
     // Send email via Resend
     console.log('📤 Sending business card email via Resend...')
+    console.log('📤 Email will include inquiry button:', canReceiveInquiries)
+    console.log('📤 Email will include inquiry text feature:', canReceiveInquiries)
     
     const emailResult = await resend.emails.send({
       from: 'Pro-Meister <noreply@pro-meister.de>',
@@ -255,7 +340,9 @@ Gesendet über pro-meister.de - Die Handwerker-Plattform
           resend_id: emailResult.data?.id,
           metadata: {
             business_card_link: businessCardLink,
-            has_personal_message: !!personal_message
+            has_personal_message: !!personal_message,
+            can_receive_inquiries: canReceiveInquiries,
+            subscription_checked: true
           }
         })
     } catch (logError) {
@@ -265,7 +352,11 @@ Gesendet über pro-meister.de - Die Handwerker-Plattform
     return NextResponse.json({
       success: true,
       message: 'E-Mail erfolgreich gesendet',
-      email_id: emailResult.data?.id
+      email_id: emailResult.data?.id,
+      debug: {
+        can_receive_inquiries: canReceiveInquiries,
+        subscription_check_completed: true
+      }
     })
 
   } catch (error) {

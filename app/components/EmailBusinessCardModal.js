@@ -1,4 +1,4 @@
-// app/components/EmailBusinessCardModal.js - UPDATED WITH CUSTOMER DROPDOWN
+// app/components/EmailBusinessCardModal.js - FIXED CUSTOMER DROPDOWN
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -15,17 +15,16 @@ export default function EmailBusinessCardModal({
     personal_message: ''
   })
   
-  // 🔥 NEW: Customer management states
+  // Customer management states
   const [customers, setCustomers] = useState([])
   const [customersLoading, setCustomersLoading] = useState(false)
   const [emailInputMode, setEmailInputMode] = useState('manual') // Start with manual, switch to dropdown when customers load
-  const [customerSearchTerm, setCustomerSearchTerm] = useState('')
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  // 🔥 NEW: Load customers when modal opens
+  // Load customers when modal opens
   useEffect(() => {
     console.log('🔄 useEffect for customer loading triggered:', { 
       isOpen, 
@@ -46,7 +45,7 @@ export default function EmailBusinessCardModal({
     }
   }, [isOpen, majstor?.id])
 
-  // 🔥 NEW: Test query on modal open
+  // Test query on modal open
   useEffect(() => {
     if (isOpen && majstor?.id) {
       console.log('🧪 Testing direct customer query...')
@@ -66,7 +65,7 @@ export default function EmailBusinessCardModal({
     }
   }, [isOpen, majstor?.id])
 
-  // 🔥 NEW: Auto-switch mode based on customer availability
+  // Auto-switch mode based on customer availability
   useEffect(() => {
     console.log('🔧 Mode switching useEffect triggered:', {
       customersLoading,
@@ -81,7 +80,7 @@ export default function EmailBusinessCardModal({
     }
   }, [customers.length, customersLoading])
 
-  // 🔥 NEW: Load customer data
+  // Load customer data
   const loadCustomers = async () => {
     if (!majstor?.id) {
       console.log('❌ No majstor ID available for customer loading')
@@ -135,17 +134,7 @@ export default function EmailBusinessCardModal({
     }
   }
 
-  // 🔥 NEW: Filter customers based on search
-  const filteredCustomers = customers.filter(customer => {
-    if (!customerSearchTerm) return true
-    const searchLower = customerSearchTerm.toLowerCase()
-    return (
-      customer.name?.toLowerCase().includes(searchLower) ||
-      customer.email?.toLowerCase().includes(searchLower)
-    )
-  })
-
-  // 🔥 NEW: Handle customer selection
+  // Handle customer selection
   const handleCustomerSelect = (customer) => {
     console.log('👤 Customer selected:', customer.name)
     setEmailData(prev => ({
@@ -153,21 +142,18 @@ export default function EmailBusinessCardModal({
       to_email: customer.email,
       to_name: customer.name || ''
     }))
-    setCustomerSearchTerm('')
   }
 
-  // 🔥 NEW: Handle mode switching
+  // Handle mode switching
   const switchToManualMode = () => {
     console.log('🔧 Switching to manual mode')
     setEmailInputMode('manual')
-    setCustomerSearchTerm('')
     // Keep current email data
   }
 
   const switchToDropdownMode = () => {
     console.log('📋 Switching to dropdown mode')
     setEmailInputMode('dropdown')
-    setCustomerSearchTerm('')
     // Keep current email data
   }
 
@@ -221,7 +207,7 @@ export default function EmailBusinessCardModal({
 
       setSuccess(true)
 
-      // 🔥 NEW: Update customer's last_contacted_at if customer exists
+      // Update customer's last_contacted_at if customer exists
       if (emailData.to_email) {
         try {
           await supabase
@@ -244,7 +230,6 @@ export default function EmailBusinessCardModal({
           personal_message: ''
         })
         setSuccess(false)
-        setCustomerSearchTerm('')
         onClose()
       }, 2000)
 
@@ -265,7 +250,6 @@ export default function EmailBusinessCardModal({
       })
       setError('')
       setSuccess(false)
-      setCustomerSearchTerm('')
       setEmailInputMode('manual') // Reset to manual for next open
       onClose()
     }
@@ -358,7 +342,7 @@ export default function EmailBusinessCardModal({
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* 🔥 NEW: Email Input with Customer Dropdown */}
+            {/* Email Input with Customer Dropdown */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Empfänger E-Mail *
@@ -406,59 +390,28 @@ export default function EmailBusinessCardModal({
                       </p>
                     </div>
                   ) : (
-                    <>
-                      {/* Search Input */}
-                      {customers.length > 0 && (
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={customerSearchTerm}
-                            onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                            placeholder="🔍 Kunde suchen..."
-                            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          {customerSearchTerm && (
-                            <button
-                              type="button"
-                              onClick={() => setCustomerSearchTerm('')}
-                              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white text-sm"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Customer Dropdown */}
-                      <select 
-                        value={emailData.to_email}
-                        onChange={(e) => {
-                          const selectedCustomer = customers.find(c => c.email === e.target.value)
-                          if (selectedCustomer) {
-                            handleCustomerSelect(selectedCustomer)
-                          } else {
-                            setEmailData(prev => ({ ...prev, to_email: '', to_name: '' }))
-                          }
-                        }}
-                        disabled={loading || success}
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50"
-                      >
-                        <option value="">Kunde auswählen...</option>
-                        {filteredCustomers.map(customer => (
-                          <option key={customer.id} value={customer.email}>
-                            {customer.name} ({customer.email})
-                            {customer.last_contacted_at && ' • Zuletzt kontaktiert'}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* No Results */}
-                      {customerSearchTerm && filteredCustomers.length === 0 && (
-                        <p className="text-slate-400 text-sm italic">
-                         Keine Kunden gefunden für &quot;{customerSearchTerm}&quot;
-                        </p>
-                      )}
-                    </>
+                    // 🔥 FIXED: Only show the dropdown, no search input
+                    <select 
+                      value={emailData.to_email}
+                      onChange={(e) => {
+                        const selectedCustomer = customers.find(c => c.email === e.target.value)
+                        if (selectedCustomer) {
+                          handleCustomerSelect(selectedCustomer)
+                        } else {
+                          setEmailData(prev => ({ ...prev, to_email: '', to_name: '' }))
+                        }
+                      }}
+                      disabled={loading || success}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50"
+                    >
+                      <option value="">Kunde auswählen...</option>
+                      {customers.map(customer => (
+                        <option key={customer.id} value={customer.email}>
+                          {customer.name} ({customer.email})
+                          {customer.last_contacted_at && ' • Zuletzt kontaktiert'}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
               )}
