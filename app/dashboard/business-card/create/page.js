@@ -1,9 +1,12 @@
+// app/dashboard/business-card/create/page.js - COMPLETE WITH SUBSCRIPTION LOGIC
+
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import QRCode from 'qrcode'
 import Link from 'next/link'
+import { useSubscription } from '@/lib/hooks/useSubscription' // 🔥 NEW: Subscription logic
 
 export default function CreateBusinessCardPage() {
   // Helper function za cache-busting
@@ -46,6 +49,9 @@ export default function CreateBusinessCardPage() {
   const logoInputRef = useRef(null)
   const galleryInputRef = useRef(null)
   const router = useRouter()
+
+  // 🔥 NEW: Subscription logic
+  const { hasFeatureAccess, plan, isFreemium, loading: subscriptionLoading } = useSubscription(majstor?.id)
 
   const colorPresets = [
     '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
@@ -197,7 +203,7 @@ export default function CreateBusinessCardPage() {
     alert('Email funkcionalnost će biti dostupna uskoro!')
   }
 
-  // 🔥 NOVO: Funkcija za Čuvanje kontakta
+  // 🔥 NOVO: Funkcija za čuvanje kontakta
   const handleSaveContact = () => {
     const vCardData = [
       'BEGIN:VCARD',
@@ -512,139 +518,182 @@ export default function CreateBusinessCardPage() {
     link.remove()
   }
 
-  // 🔥 NOVA KOMPONENTA: Preview Visitenkarte
-  const PreviewCard = ({ isMobile = false }) => (
-    <div 
-      className={`rounded-lg p-${isMobile ? '4' : '6'} text-center shadow-lg mx-auto`}
-      style={{ 
-        backgroundColor: formData.background_color,
-        color: formData.text_color,
-        width: '100%',
-        maxWidth: isMobile ? '300px' : '400px'
-      }}
-    >
-      {/* Logo */}
-      {formData.logo_url && (
-        <div className={`mb-${isMobile ? '3' : '4'}`}>
-          <img 
-            src={getCacheBustedUrl(formData.logo_url)} 
-            alt="Logo" 
-            className={`w-${isMobile ? '16 h-16' : '20 h-20'} mx-auto object-cover rounded-lg border border-white/20`}
-            key={forceImageRefresh}
-          />
-        </div>
-      )}
+  // 🔥 UPDATED: Preview Visitenkarte with Subscription Logic
+  const PreviewCard = ({ isMobile = false }) => {
+    if (!formData) return null
 
-      {/* Header - 🔥 KORISTI FORM PODATKE */}
-      <div className={`mb-${isMobile ? '3' : '4'}`}>
-        <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>{formData.title}</h1>
-        <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>{formData.card_name}</h2>
-        {formData.card_business_name && (
-          <p className="text-sm opacity-80">{formData.card_business_name}</p>
-        )}
-      </div>
+    // Check subscription for inquiry feature
+    const canReceiveInquiries = hasFeatureAccess('customer_inquiries')
 
-      {/* Description */}
-      {formData.description && (
-        <p className={`text-sm opacity-90 mb-${isMobile ? '3' : '4'} italic leading-tight`}>{formData.description}</p>
-      )}
-
-      {/* Contact Info - 🔥 KORISTI FORM PODATKE */}
-      <div className={`space-y-1 mb-${isMobile ? '3' : '4'} text-sm opacity-90`}>
-        {formData.card_phone && <p>📞 {formData.card_phone}</p>}
-        <p>✉️ {formData.card_email}</p>
-        {formData.card_city && <p>📍 {formData.card_city}</p>}
-        {formData.website && (
-          <a 
-            href={formData.website}
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-300 underline hover:text-blue-200 cursor-pointer"
-          >
-            🌐 Website besuchen →
-          </a>
-        )}
-      </div>
-
-      {/* Services */}
-      {formData.services.length > 0 && (
-        <div className={`mb-${isMobile ? '3' : '4'}`}>
-          <h3 className="text-sm font-semibold mb-2 opacity-90">Unsere Dienstleistungen:</h3>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {formData.services.map((service, index) => (
-              <span
-                key={index}
-                className="px-3 py-1 rounded-full text-xs font-medium opacity-90"
-                style={{ 
-                  backgroundColor: formData.text_color + '20',
-                  border: `1px solid ${formData.text_color}40`
-                }}
-              >
-                {service}
-              </span>
-            ))}
+    return (
+      <div 
+        className={`rounded-lg p-${isMobile ? '4' : '6'} text-center shadow-lg mx-auto`}
+        style={{ 
+          backgroundColor: formData.background_color,
+          color: formData.text_color,
+          width: '100%',
+          maxWidth: isMobile ? '300px' : '400px'
+        }}
+      >
+        {/* Logo */}
+        {formData.logo_url && (
+          <div className={`mb-${isMobile ? '3' : '4'}`}>
+            <img 
+              src={getCacheBustedUrl(formData.logo_url)} 
+              alt="Logo" 
+              className={`w-${isMobile ? '16 h-16' : '20 h-20'} mx-auto object-cover rounded-lg border border-white/20`}
+              key={forceImageRefresh}
+            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Gallery Preview */}
-      {formData.gallery_images.length > 0 && (
-        <div className={`mb-${isMobile ? '4' : '5'}`}>
-          <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Arbeiten:</h3>
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            {formData.gallery_images.slice(0, 3).map((imageUrl, index) => (
-              <img 
-                key={index} 
-                src={imageUrl} 
-                alt={`Work ${index}`} 
-                className={`w-full h-${isMobile ? '16' : '20'} object-cover rounded border border-white/20`}
-              />
-            ))}
-          </div>
-          {formData.gallery_images.length > 3 && (
-            <button 
-              onClick={() => setShowGalleryModal(true)}
-              className="text-xs underline opacity-80 hover:opacity-100"
-            >
-              + {formData.gallery_images.length - 3} weitere Bilder ansehen
-            </button>
+        {/* Header - 🔥 KORISTI FORM PODATKE */}
+        <div className={`mb-${isMobile ? '3' : '4'}`}>
+          <h1 className={`text-${isMobile ? 'lg' : 'xl'} font-bold leading-tight`}>{formData.title}</h1>
+          <h2 className={`text-${isMobile ? 'base' : 'lg'} font-semibold opacity-90`}>{formData.card_name}</h2>
+          {formData.card_business_name && (
+            <p className="text-sm opacity-80">{formData.card_business_name}</p>
           )}
         </div>
-      )}
 
-      {/* 🔥 KONTAKT SPEICHERN DUGME */}
-      {/* 🔥 DUGMICI ZA KONTAKT I ANFRAGE */}
-<div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
-  <button 
-    onClick={handleSaveContact}
-    className="w-full bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-  >
-    📱 Kontakt speichern
-  </button>
-  <button 
-    onClick={() => alert('Das ist nur Vorschau - Button funktioniert auf der öffentlichen Seite!')}
-    className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-  >
-    📬 Anfrage senden
-  </button>
-</div>
+        {/* Description */}
+        {formData.description && (
+          <p className={`text-sm opacity-90 mb-${isMobile ? '3' : '4'} italic leading-tight`}>{formData.description}</p>
+        )}
 
-      {/* 🔥 POWERED BY pro-meister.de */}
-      <div className="pt-2 border-t border-white/20">
-        <p className="text-xs opacity-50">
-          Powered by{' '}
-          <a 
-            href="https://pro-meister.de" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="underline hover:opacity-75"
+        {/* Contact Info - 🔥 KORISTI FORM PODATKE */}
+        <div className={`space-y-1 mb-${isMobile ? '3' : '4'} text-sm opacity-90`}>
+          {formData.card_phone && <p>📞 {formData.card_phone}</p>}
+          <p>✉️ {formData.card_email}</p>
+          {formData.card_city && <p>📍 {formData.card_city}</p>}
+          {formData.website && (
+            <a 
+              href={formData.website}
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-300 underline hover:text-blue-200 cursor-pointer block"
+            >
+              🌐 Website besuchen →
+            </a>
+          )}
+        </div>
+
+        {/* Services */}
+        {formData.services.length > 0 && (
+          <div className={`mb-${isMobile ? '3' : '4'}`}>
+            <h3 className="text-sm font-semibold mb-2 opacity-90">Unsere Dienstleistungen:</h3>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {formData.services.map((service, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 rounded-full text-xs font-medium opacity-90"
+                  style={{ 
+                    backgroundColor: formData.text_color + '20',
+                    border: `1px solid ${formData.text_color}40`
+                  }}
+                >
+                  {service}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Gallery Preview */}
+        {formData.gallery_images.length > 0 && (
+          <div className={`mb-${isMobile ? '4' : '5'}`}>
+            <h3 className="text-sm font-semibold mb-3 opacity-90">Unsere Arbeiten:</h3>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {formData.gallery_images.slice(0, 3).map((imageUrl, index) => (
+                <img 
+                  key={index} 
+                  src={imageUrl} 
+                  alt={`Work ${index}`} 
+                  className={`w-full h-${isMobile ? '16' : '20'} object-cover rounded border border-white/20 cursor-pointer hover:opacity-75 transition-opacity`}
+                  onClick={() => setShowGalleryModal(true)}
+                />
+              ))}
+            </div>
+            {formData.gallery_images.length > 3 && (
+              <button 
+                onClick={() => setShowGalleryModal(true)}
+                className="text-xs underline opacity-80 hover:opacity-100"
+              >
+                + {formData.gallery_images.length - 3} weitere Bilder ansehen
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 🔥 UPDATED: Action Buttons with Subscription Logic */}
+        <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
+          {/* Save Contact Button - Always visible */}
+          <button 
+            onClick={handleSaveContact}
+            className="w-full bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            pro-meister.de
-          </a>
-        </p>
+            📱 Kontakt speichern
+          </button>
+
+          {/* 🔥 NEW: Subscription-dependent Inquiry Button */}
+          {subscriptionLoading ? (
+            // Loading state
+            <div className="w-full bg-slate-600/50 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin"></div>
+                Laden...
+              </div>
+            </div>
+          ) : canReceiveInquiries ? (
+            // ✅ PRO/Trial users: Normal preview button
+            <button 
+              onClick={() => alert('Das ist nur Vorschau - Button funktioniert auf der öffentlichen Seite!')}
+              className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg"
+            >
+              📧 Anfrage senden
+            </button>
+          ) : (
+            // ❌ Freemium users: Upgrade prompt
+            <div className="w-full space-y-2">
+              <div className="bg-blue-500/10 border-2 border-dashed border-blue-500/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-blue-400 text-lg">💡</span>
+                  <span className="font-semibold">Anfrage-Button verfügbar im PRO Plan</span>
+                </div>
+                <p className="text-xs text-blue-400/80 leading-relaxed">
+                  Empfangen Sie Kundenanfragen mit Fotos direkt über Ihre Visitenkarte
+                </p>
+              </div>
+              
+              <button 
+                onClick={() => {
+                  alert('🚀 Upgrade auf PRO Plan!\n\n✅ Unbegrenzte Kundenanfragen mit Fotos\n✅ Automatische E-Mail-Benachrichtigungen\n✅ Professionelle Rechnungserstellung\n✅ PDF-Export und Archiv\n\nNur 19,90€/Monat - 7 Tage kostenlos testen!')
+                }}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
+              >
+                🚀 Jetzt auf PRO upgraden
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Powered By */}
+        <div className="pt-2 border-t border-white/20">
+          <p className="text-xs opacity-50">
+            Powered by{' '}
+            <a 
+              href="https://pro-meister.de" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:opacity-75"
+            >
+              pro-meister.de
+            </a>
+          </p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   if (!majstor) {
     return (
@@ -816,8 +865,6 @@ export default function CreateBusinessCardPage() {
   />
 </div>
 
-{/* Ostatak ostaje isto - Logo, Gallery, Services, Colors... */}
-
             {/* Logo Upload */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Logo Upload</label>
@@ -979,10 +1026,6 @@ export default function CreateBusinessCardPage() {
                 />
               </div>
             </div>
-
-         
-
-            
           </form>
         </div>
 
@@ -1199,8 +1242,6 @@ export default function CreateBusinessCardPage() {
     placeholder="Ihr zuverlässiger Partner für alle Handwerksarbeiten..."
   />
 </div>
-
-{/* Ostatak ostaje isto - Logo, Gallery, Services, Colors... */}
 
               {/* Logo Upload - Desktop */}
               <div>

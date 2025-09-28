@@ -1,7 +1,8 @@
-// app/m/[slug]/page.js - PERFECT VERSION WITH PHOTO UPLOAD
+// app/m/[slug]/page.js - COMPLETE WITH SUBSCRIPTION LOGIC
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useSubscription } from '@/lib/hooks/useSubscription' // 🔥 NEW: Subscription logic
 
 export default function PublicBusinessCardPage({ params }) {
   const [businessCard, setBusinessCard] = useState(null)
@@ -10,12 +11,11 @@ export default function PublicBusinessCardPage({ params }) {
   const [error, setError] = useState('')
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
 
-
   // Gallery modal state
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   
-  // 🔥 ENHANCED: Inquiry form states with photo upload
-  const [showInquiryForm, setShowInquiryForm] = useState(false)
+  // 🔥 RENAMED: Inquiry form states (renamed to avoid conflict)
+  const [showInquiryFormModal, setShowInquiryFormModal] = useState(false)
   const [inquiryData, setInquiryData] = useState({
     customer_name: '',
     customer_email: '',
@@ -29,7 +29,7 @@ export default function PublicBusinessCardPage({ params }) {
   const [inquirySuccess, setInquirySuccess] = useState(false)
   const [inquiryError, setInquiryError] = useState('')
   
-  // 🔥 PHOTO UPLOAD: Using your existing 'inquiries' bucket
+  // Photo upload states
   const [uploadedImages, setUploadedImages] = useState([])
   const [imageUploading, setImageUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -40,39 +40,40 @@ export default function PublicBusinessCardPage({ params }) {
   const [hasCamera, setHasCamera] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
+  // 🔥 NEW: Subscription logic for majstor
+  const { hasFeatureAccess, plan, isFreemium, loading: subscriptionLoading } = useSubscription(majstor?.id)
+
+  // 🔥 NEW: Check if customer inquiries feature is available
+  const canReceiveInquiries = hasFeatureAccess('customer_inquiries')
+
   useEffect(() => {
-  // Detect mobile device
-  const checkMobile = () => {
-    setIsMobile(window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
-  }
-  
-  // Detect camera availability
-  const checkCamera = async () => {
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // Try to access camera (without actually starting it)
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
-        })
-        setHasCamera(true)
-        // Immediately stop the stream
-        stream.getTracks().forEach(track => track.stop())
-      } else {
+    // Detect mobile device
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
+    }
+    
+    // Detect camera availability
+    const checkCamera = async () => {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+          })
+          setHasCamera(true)
+          stream.getTracks().forEach(track => track.stop())
+        } else {
+          setHasCamera(false)
+        }
+      } catch (error) {
         setHasCamera(false)
       }
-    } catch (error) {
-      setHasCamera(false)
     }
-  }
 
-  checkMobile()
-  checkCamera()
-
-  // Listen for window resize
-  window.addEventListener('resize', checkMobile)
-  return () => window.removeEventListener('resize', checkMobile)
-}, [])
-
+    checkMobile()
+    checkCamera()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     if (params.slug) {
@@ -134,7 +135,7 @@ export default function PublicBusinessCardPage({ params }) {
     return `${url}${separator}cb=${Date.now()}`
   }
 
-  // 🔥 SAVE CONTACT TO PHONE
+  // Save contact to phone
   const handleSaveContact = () => {
     if (!businessCard) return
     
@@ -168,7 +169,7 @@ export default function PublicBusinessCardPage({ params }) {
     }))
   }
 
-  // 🔥 IMAGE COMPRESSION - Optimized for mobile
+  // Image compression
   const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas')
@@ -178,7 +179,6 @@ export default function PublicBusinessCardPage({ params }) {
       img.onload = () => {
         let { width, height } = img
         
-        // Smart resizing
         if (width > maxWidth || height > maxWidth) {
           if (width > height) {
             height = (height * maxWidth) / width
@@ -192,7 +192,6 @@ export default function PublicBusinessCardPage({ params }) {
         canvas.width = width
         canvas.height = height
         
-        // Better image quality
         ctx.imageSmoothingEnabled = true
         ctx.imageSmoothingQuality = 'high'
         ctx.drawImage(img, 0, 0, width, height)
@@ -204,20 +203,19 @@ export default function PublicBusinessCardPage({ params }) {
     })
   }
 
-  // 🔥 PHOTO UPLOAD - Using your 'inquiries' bucket
+  // Photo upload
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
     console.log('📷 Starting photo upload:', files.length, 'files')
 
-    // Enhanced validation
     const validFiles = files.filter((file, index) => {
       if (!file.type.startsWith('image/')) {
         alert(`❌ ${file.name} ist keine Bilddatei`)
         return false
       }
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) {
         alert(`❌ ${file.name} ist zu groß (max 10MB)`)
         return false
       }
@@ -236,27 +234,24 @@ export default function PublicBusinessCardPage({ params }) {
 
     setImageUploading(true)
     setUploadProgress(0)
-    setInquiryError('') // Clear any previous errors
+    setInquiryError('')
 
     try {
       console.log('🔧 Processing', validFiles.length, 'images for majstor:', majstor.id)
 
       const uploadPromises = validFiles.map(async (file, index) => {
         try {
-          // Progress simulation
           const progressIncrement = 100 / validFiles.length
           setUploadProgress(prev => Math.min(prev + progressIncrement * 0.3, 95))
           
           console.log(`📤 Compressing image ${index + 1}:`, file.name)
           
-          // Compress image
           const compressedFile = await compressImage(file, 1200, 0.85)
           
           if (!compressedFile) {
             throw new Error(`Failed to compress ${file.name}`)
           }
 
-          // Generate unique filename with majstor folder structure
           const fileExt = 'jpg'
           const timestamp = Date.now()
           const randomId = Math.random().toString(36).substring(2, 8)
@@ -264,7 +259,6 @@ export default function PublicBusinessCardPage({ params }) {
           
           console.log(`☁️ Uploading to inquiries bucket:`, fileName)
           
-          // 🔥 UPLOAD TO YOUR 'inquiries' BUCKET
           const { data, error } = await supabase.storage
             .from('inquiries')
             .upload(fileName, compressedFile, {
@@ -279,7 +273,6 @@ export default function PublicBusinessCardPage({ params }) {
 
           console.log('✅ Upload successful:', data.path)
 
-          // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('inquiries')
             .getPublicUrl(fileName)
@@ -288,7 +281,6 @@ export default function PublicBusinessCardPage({ params }) {
             throw new Error(`Failed to get public URL for ${file.name}`)
           }
 
-          // Progress update
           setUploadProgress(prev => Math.min(prev + progressIncrement * 0.7, 100))
 
           return {
@@ -313,7 +305,6 @@ export default function PublicBusinessCardPage({ params }) {
       setUploadedImages(prev => [...prev, ...uploadResults])
       setUploadProgress(100)
 
-      // Show success message briefly
       setTimeout(() => setUploadProgress(0), 1500)
 
     } catch (err) {
@@ -323,20 +314,18 @@ export default function PublicBusinessCardPage({ params }) {
     } finally {
       setImageUploading(false)
       
-      // Clear file input
       if (imageInputRef.current) {
         imageInputRef.current.value = ''
       }
     }
   }
 
-  // 🔥 REMOVE UPLOADED IMAGE
+  // Remove uploaded image
   const removeUploadedImage = async (imageIndex) => {
     try {
       const imageToRemove = uploadedImages[imageIndex]
       console.log('🗑️ Removing image:', imageToRemove.filename)
       
-      // Remove from Supabase storage
       if (imageToRemove.uploadPath) {
         const { error } = await supabase.storage
           .from('inquiries')
@@ -349,17 +338,15 @@ export default function PublicBusinessCardPage({ params }) {
         }
       }
       
-      // Remove from local state
       setUploadedImages(prev => prev.filter((_, index) => index !== imageIndex))
       
     } catch (error) {
       console.error('❌ Error removing image:', error)
-      // Remove from local state anyway
       setUploadedImages(prev => prev.filter((_, index) => index !== imageIndex))
     }
   }
 
-  // 🔥 ENHANCED INQUIRY SUBMISSION
+  // Handle inquiry submission
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
@@ -368,44 +355,32 @@ export default function PublicBusinessCardPage({ params }) {
     try {
       console.log('📤 Submitting inquiry for majstor:', majstor.id)
 
-      // Enhanced validation
       if (!inquiryData.customer_name.trim()) {
         throw new Error('Name ist erforderlich')
       }
       if (!inquiryData.customer_email.trim()) {
         throw new Error('E-Mail ist erforderlich')
       }
-      //if (!inquiryData.description.trim()) {
-       // throw new Error('Beschreibung ist erforderlich')
-     //}
 
-      // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(inquiryData.customer_email)) {
         throw new Error('Ungültige E-Mail-Adresse')
       }
 
-      // Prepare inquiry payload for your existing API
       const inquiryPayload = {
         majstor_id: majstor.id,
         customer_name: inquiryData.customer_name.trim(),
         customer_email: inquiryData.customer_email.trim(),
         customer_phone: inquiryData.customer_phone.trim() || null,
-        
-        // 🔥 NEW FIELDS (with fallbacks for old API)
         service_type: inquiryData.service_type.trim() || null,
         description: inquiryData.description.trim(),
         urgency: inquiryData.urgency,
         preferred_contact: inquiryData.preferred_contact,
         source: 'business_card',
-        
-        // 🔥 OLD FIELDS for backward compatibility
         subject: inquiryData.service_type.trim() || 'Kundenanfrage',
         message: inquiryData.description.trim() || '-',
-        
-        // 🔥 IMAGES - Support both approaches
-        images: uploadedImages.map(img => img.url), // Old format
-        photo_urls: uploadedImages.map(img => img.url) // New format
+        images: uploadedImages.map(img => img.url),
+        photo_urls: uploadedImages.map(img => img.url)
       }
 
       console.log('📋 Submitting with payload:', {
@@ -415,7 +390,6 @@ export default function PublicBusinessCardPage({ params }) {
         images: inquiryPayload.images.length
       })
 
-      // Call your existing API
       const response = await fetch('/api/inquiries', {
         method: 'POST',
         headers: {
@@ -437,37 +411,33 @@ export default function PublicBusinessCardPage({ params }) {
 
       console.log('✅ Inquiry submitted successfully:', result.inquiry?.id)
 
-// 🔥 ADD 100ms delay to prevent extension conflicts
-setTimeout(() => {
-  setInquirySuccess(true)
-  setShowSuccessPopup(true)
-}, 100)
+      setTimeout(() => {
+        setInquirySuccess(true)
+        setShowSuccessPopup(true)
+      }, 100)
 
-// Delay form reset to prevent hydration issues
-setTimeout(() => {
-  setInquiryData({
-    customer_name: '',
-    customer_email: '',
-    customer_phone: '',
-    service_type: '',
-    description: '',
-    urgency: 'normal',
-    preferred_contact: 'email'
-  })
-  setUploadedImages([])
-}, 200)
+      setTimeout(() => {
+        setInquiryData({
+          customer_name: '',
+          customer_email: '',
+          customer_phone: '',
+          service_type: '',
+          description: '',
+          urgency: 'normal',
+          preferred_contact: 'email'
+        })
+        setUploadedImages([])
+      }, 200)
 
-// Auto-hide form after success
-setTimeout(() => {
-  setInquirySuccess(false)
-  setShowInquiryForm(false)
-  setShowSuccessPopup(false)
-}, 5000)
+      setTimeout(() => {
+        setInquirySuccess(false)
+        setShowInquiryFormModal(false) // 🔥 CHANGED
+        setShowSuccessPopup(false)
+      }, 5000)
 
     } catch (err) {
       console.error('💥 Inquiry submission error:', err)
       
-      // User-friendly error messages
       let errorMessage = err.message || 'Ein unerwarteter Fehler ist aufgetreten'
       
       if (err.message?.includes('permission denied') || err.message?.includes('RLS')) {
@@ -486,9 +456,9 @@ setTimeout(() => {
     }
   }
 
-  // Handle inquiry button click
+  // 🔥 UPDATED: Handle inquiry button click
   const handleInquiryClick = () => {
-    setShowInquiryForm(true)
+    setShowInquiryFormModal(true) // 🔥 CHANGED
     setInquiryError('')
     setInquirySuccess(false)
     
@@ -500,7 +470,7 @@ setTimeout(() => {
     }, 100)
   }
 
-  // 🔥 PERFECT PREVIEW CARD COMPONENT
+  // 🔥 UPDATED: Preview Card Component with Subscription Logic
   const PreviewCard = ({ isMobile = false }) => {
     if (!businessCard) return null
 
@@ -609,9 +579,9 @@ setTimeout(() => {
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* 🔥 UPDATED: Action Buttons with Subscription Logic */}
         <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
-          {/* Save Contact Button */}
+          {/* Save Contact Button - Always visible */}
           <button 
             onClick={handleSaveContact}
             className="bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full"
@@ -619,13 +589,17 @@ setTimeout(() => {
             📱 Kontakt speichern
           </button>
 
-          {/* Inquiry Button */}
-          <button 
-            onClick={handleInquiryClick}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
-          >
-            📧 Anfrage senden
-          </button>
+          {/* 🔥 INQUIRY BUTTON - Only show for PRO/Trial users */}
+          {!subscriptionLoading && canReceiveInquiries && (
+            <button 
+              onClick={handleInquiryClick}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
+            >
+              📧 Anfrage senden
+            </button>
+          )}
+
+          {/* 🔥 NO BUTTON FOR FREEMIUM - completely invisible to customers */}
         </div>
 
         {/* Powered By */}
@@ -710,8 +684,8 @@ setTimeout(() => {
             <PreviewCard isMobile={false} />
           </div>
 
-          {/* 🔥 PERFECT INQUIRY FORM */}
-          {showInquiryForm && (
+          {/* 🔥 INQUIRY FORM - Only show for subscribed majstors */}
+          {canReceiveInquiries && showInquiryFormModal && (
             <div 
               ref={inquiryFormRef}
               className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 shadow-2xl"
@@ -719,7 +693,7 @@ setTimeout(() => {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-white">Anfrage senden</h2>
                 <button
-                  onClick={() => setShowInquiryForm(false)}
+                  onClick={() => setShowInquiryFormModal(false)} // 🔥 CHANGED
                   className="text-slate-400 hover:text-white text-2xl transition-colors"
                   title="Schließen"
                 >
@@ -817,15 +791,15 @@ setTimeout(() => {
                       Art der Dienstleistung *
                     </label>
                     <input 
-  type="text"
-  name="service_type"
-  value={inquiryData.service_type}
-  onChange={handleInquiryChange}
-  placeholder="Kurze Beschreibung des Problems..."
-  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-  autocomplete="off"  // ← DODAJ OVO
-  required
-/>
+                      type="text"
+                      name="service_type"
+                      value={inquiryData.service_type}
+                      onChange={handleInquiryChange}
+                      placeholder="Kurze Beschreibung des Problems..."
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      autoComplete="off"
+                      required
+                    />
                   </div>
                 </div>
 
@@ -874,15 +848,13 @@ setTimeout(() => {
                     name="description"
                     value={inquiryData.description}
                     onChange={handleInquiryChange}
-                    //required
                     rows={4}
                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
                     placeholder="Beschreiben Sie bitte Ihr Anliegen oder den gewünschten Service detailliert..."
                   />
                 </div>
 
-                {/* 🔥 ENHANCED PHOTO UPLOAD SECTION - Camera + Gallery */}
-               {/* 🔥 SMART PHOTO UPLOAD SECTION - Camera Detection */}
+                {/* Photo Upload Section */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     📷 Fotos hinzufügen (optional)
@@ -892,11 +864,10 @@ setTimeout(() => {
                   </p>
                   
                   <div className="space-y-4">
-                    {/* 🔥 SMART UI RENDERING */}
+                    {/* Smart Photo Upload UI */}
                     {isMobile && hasCamera ? (
-                      // MOBILE + CAMERA: Dual buttons side by side
+                      // Mobile + Camera: Dual buttons
                       <div className="grid grid-cols-2 gap-3">
-                        {/* Camera Button */}
                         <label className="cursor-pointer">
                           <input
                             type="file"
@@ -920,7 +891,6 @@ setTimeout(() => {
                           </div>
                         </label>
 
-                        {/* Gallery Button */}
                         <label className="cursor-pointer">
                           <input
                             type="file"
@@ -944,7 +914,7 @@ setTimeout(() => {
                         </label>
                       </div>
                     ) : (
-                      // DESKTOP OR NO CAMERA: Single gallery button
+                      // Desktop or No Camera: Single button
                       <div className="w-full">
                         <label className="cursor-pointer block">
                           <input
@@ -973,7 +943,7 @@ setTimeout(() => {
                       </div>
                     )}
 
-                    {/* Upload Progress - UNCHANGED */}
+                    {/* Upload Progress */}
                     {imageUploading && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -989,7 +959,7 @@ setTimeout(() => {
                       </div>
                     )}
 
-                    {/* Uploaded Images Preview - UNCHANGED */}
+                    {/* Uploaded Images Preview */}
                     {uploadedImages.length > 0 && (
                       <div>
                         <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
@@ -1016,7 +986,6 @@ setTimeout(() => {
                                 <p className="truncate" title={image.filename}>
                                   {image.filename}
                                 </p>
-                                
                               </div>
                             </div>
                           ))}
@@ -1024,7 +993,7 @@ setTimeout(() => {
                       </div>
                     )}
 
-                    {/* 🔥 SMART INFO BOX */}
+                    {/* Info Box */}
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                       <div className="flex items-start gap-2">
                         <span className="text-blue-400 text-sm">💡</span>
@@ -1050,7 +1019,7 @@ setTimeout(() => {
                 <div className="flex gap-3 pt-6 border-t border-slate-700">
                   <button
                     type="button"
-                    onClick={() => setShowInquiryForm(false)}
+                    onClick={() => setShowInquiryFormModal(false)} // 🔥 CHANGED
                     disabled={inquiryLoading}
                     className="px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
                   >
@@ -1140,16 +1109,17 @@ setTimeout(() => {
             </div>
           )}
         </div>
-        {/* Xiaomi Success Popup Override */}
-{showSuccessPopup && (
-  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
-    <div className="bg-green-600 text-white p-8 rounded-xl text-center shadow-2xl">
-      <div className="text-6xl mb-4">✅</div>
-      <h3 className="text-2xl font-bold mb-2">Erfolgreich gesendet!</h3>
-      <p className="text-sm opacity-90">Ihre Anfrage wurde übermittelt.</p>
-    </div>
-  </div>
-)}
+
+        {/* Success Popup Override */}
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+            <div className="bg-green-600 text-white p-8 rounded-xl text-center shadow-2xl">
+              <div className="text-6xl mb-4">✅</div>
+              <h3 className="text-2xl font-bold mb-2">Erfolgreich gesendet!</h3>
+              <p className="text-sm opacity-90">Ihre Anfrage wurde übermittelt.</p>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )
