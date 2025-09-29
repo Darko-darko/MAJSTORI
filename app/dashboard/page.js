@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import Link from 'next/link'
-import OnboardingWizard from '@/app/components/OnboardingWizard'
 
 function DashboardPageContent() {
   // Core data states
@@ -609,9 +608,7 @@ const loadStats = async (userId) => {
         </div>
       </div>
 
-      {/* Onboarding Wizard */}
-      <OnboardingWizard majstor={majstor} />
-
+      
       {/* 🔥 UPGRADE MODAL */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
