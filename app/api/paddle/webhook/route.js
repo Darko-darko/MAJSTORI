@@ -25,12 +25,12 @@ export const runtime = 'nodejs'
  * 🔒 Verify Paddle Webhook Signature
  */
 function verifyPaddleSignature(rawBody, signature) {
-  if (!PADDLE_WEBHOOK_SECRET) {
-    console.warn('⚠️ PADDLE_WEBHOOK_SECRET not configured')
-    console.warn('⚠️ CRITICAL: Webhooks will fail in production without secret!')
+  //if (!PADDLE_WEBHOOK_SECRET) {
+   // console.warn('⚠️ PADDLE_WEBHOOK_SECRET not configured')
+   // console.warn('⚠️ CRITICAL: Webhooks will fail in production without secret!')
     // In development, we allow it but warn heavily
-    return process.env.NODE_ENV === 'development'
-  }
+  //  return process.env.NODE_ENV === 'development'
+ // }
 
   if (!signature) {
     console.error('❌ No signature provided in webhook')
