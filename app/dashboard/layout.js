@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - UPDATED WITH SUBSCRIPTION PROTECTION
+// app/dashboard/layout.js - WITH SUBSCRIPTION MANAGEMENT IN SIDEBAR
 
 'use client'
 import { useState, useEffect , Suspense } from 'react'
@@ -6,6 +6,7 @@ import { useRouter, useSearchParams} from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
 import { SubscriptionGuard, TrialBanner } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
+import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
 
 function DashboardLayoutContent({ children }) {
@@ -15,15 +16,11 @@ function DashboardLayoutContent({ children }) {
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
-  // 🔥 NEW: Upgrade Modal Hook
-  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
+  // 🔥 Subscription hook for menu badges
+  const { plan, isInTrial, isFreemium, isPaid, trialDaysRemaining } = useSubscription(majstor?.id)
   
-  // Trial tracking states
-  const [trialInfo, setTrialInfo] = useState({
-    isTrialUser: false,
-    daysRemaining: 0,
-    expiresAt: null
-  })
+  // 🔥 Upgrade Modal Hook
+  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
   // Badge states
   const [badges, setBadges] = useState({
@@ -42,41 +39,15 @@ function DashboardLayoutContent({ children }) {
   useEffect(() => {
     if (majstor?.id) {
       loadBadgeCounts()
-      calculateTrialInfo()
       
       // Refresh every 2 minutes
       const interval = setInterval(() => {
         loadBadgeCounts()
-        calculateTrialInfo()
       }, 2 * 60 * 1000)
       
       return () => clearInterval(interval)
     }
   }, [majstor?.id])
-
-  // 🎯 Calculate trial information
-  const calculateTrialInfo = () => {
-    if (!majstor) return
-
-    const isTrialUser = majstor.subscription_status === 'trial'
-    if (!isTrialUser) {
-      setTrialInfo({ isTrialUser: false, daysRemaining: 0, expiresAt: null })
-      return
-    }
-
-    const now = new Date()
-    const expiresAt = new Date(majstor.subscription_ends_at)
-    const diffTime = expiresAt.getTime() - now.getTime()
-    const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
-
-    setTrialInfo({
-      isTrialUser: true,
-      daysRemaining,
-      expiresAt: majstor.subscription_ends_at
-    })
-
-    console.log('🎯 Trial info calculated:', { daysRemaining, expiresAt: majstor.subscription_ends_at })
-  }
 
   const loadBadgeCounts = async () => {
     if (!majstor?.id) return
@@ -89,7 +60,6 @@ function DashboardLayoutContent({ children }) {
           .eq('majstor_id', majstor.id)
           .eq('status', 'new'),
 
-      
         supabase
           .from('invoices')
           .select('id, due_date, status')
@@ -105,7 +75,7 @@ function DashboardLayoutContent({ children }) {
           .lte('end_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       ])
 
-      // Filter overdue invoices in JavaScript
+      // Filter overdue invoices
       let overdueCount = 0
       if (invoicesResult.data && !invoicesResult.error) {
         const today = new Date()
@@ -131,12 +101,8 @@ function DashboardLayoutContent({ children }) {
   }
 
   const checkUser = async () => {
-    console.time('🔍 TOTAL-AUTH-TIME') // <-- OVDE
     try {
-      console.log('🔍 Checking user authentication...')
-      
       const { user: currentUser, error: authError } = await auth.getUser()
-      console.timeEnd('🔐 USER-AUTH') // <-- I OVDE
       
       if (authError) {
         console.error('❌ Auth error:', authError)
@@ -150,25 +116,20 @@ function DashboardLayoutContent({ children }) {
         return
       }
 
-      console.log('✅ User authenticated:', currentUser.email)
       setUser(currentUser)
-      console.time('👤 MAJSTOR-PROFILE') // <-- OVDE
 
-      // Load majstor profile
       const { data: majstorData, error: majstorError } = await majstorsAPI.getById(currentUser.id)
-      console.timeEnd('👤 MAJSTOR-PROFILE') // <-- I OVDE
+      
       if (majstorError) {
         console.error('❌ Majstor profile error:', majstorError)
         
         if (majstorError.code === 'PGRST116' || majstorError.message?.includes('0 rows')) {
-          // No profile - create one
           console.log('🛠️ Creating missing profile...')
           await createMissingProfile(currentUser)
         } else {
           setError('Profile access error: ' + majstorError.message)
         }
       } else {
-        console.log('✅ Majstor profile loaded:', majstorData.full_name)
         setMajstor(majstorData)
       }
 
@@ -176,15 +137,12 @@ function DashboardLayoutContent({ children }) {
       console.error('❌ Unexpected error in checkUser:', error)
       setError('Unexpected error: ' + error.message)
     } finally {
-      console.timeEnd('🔍 TOTAL-AUTH-TIME') // <-- OVDE
       setLoading(false)
     }
   }
 
   const createMissingProfile = async (user) => {
     try {
-      console.log('🛠️ Creating missing profile for:', user.email)
-      
       const displayName = user.user_metadata?.full_name || 
                          user.user_metadata?.name || 
                          user.email?.split('@')[0] || 
@@ -212,12 +170,10 @@ function DashboardLayoutContent({ children }) {
 
       if (response.ok) {
         const result = await response.json()
-        console.log('✅ Missing profile created successfully')
         setMajstor(result.profile)
         setError('')
       } else {
         const errorData = await response.json()
-        console.error('❌ Profile creation failed:', errorData)
         setError('Failed to create profile: ' + errorData.error)
       }
       
@@ -242,13 +198,21 @@ function DashboardLayoutContent({ children }) {
     return count.toString()
   }
 
-  // 🔥 UPDATED: Navigation with subscription protection
+  // 🔥 Navigation with subscription item
   const getNavigation = () => {
     const baseNavigation = [
       { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
     ]
 
-    // 🔥 PROTECTED FEATURES - require subscription
+    const freeFeatures = [
+      { 
+        name: 'QR Visitenkarte', 
+        href: '/dashboard/business-card/create', 
+        icon: '📱', 
+        protected: false
+      }
+    ]
+
     const protectedFeatures = [
       { 
         name: 'Meine Kunden', 
@@ -271,7 +235,7 @@ function DashboardLayoutContent({ children }) {
         href: '/dashboard/invoices', 
         icon: '📄',
         badge: formatBadgeCount(badges.invoices),
-        badgeColor: 'bg-red-500', // EXPLICIT RED for overdue
+        badgeColor: 'bg-red-500',
         protected: true,
         feature: 'invoicing'
       },
@@ -288,127 +252,192 @@ function DashboardLayoutContent({ children }) {
         icon: '🗂️',
         protected: true,
         feature: 'pdf_archive'
-      },
-      /*
-      { 
-        name: 'Analytics', 
-        href: '/dashboard/analytics', 
-        icon: '📈',
-        protected: true,
-        feature: 'analytics'
-      }, */
-      { 
-        name: 'Einstellungen', 
-        href: '/dashboard/settings', 
-        icon: '⚙️', 
-        protected: true,
-        feature: 'settings'
       }
     ]
 
-    // 🔥 ALWAYS AVAILABLE FEATURES (even in freemium)
-    const freeFeatures = [
-      { 
-        name: 'QR Visitenkarte', 
-        href: '/dashboard/business-card/create', 
-        icon: '📱', 
-        protected: false // Always available
-      }
+    // 🔥 SUBSCRIPTION MANAGEMENT ITEM (always visible)
+    const subscriptionItem = {
+      name: 'Meine Mitgliedschaft',
+      href: '/dashboard/subscription',
+      icon: '💎',
+      protected: false,
+      isSeparator: true, // Add visual separator before this
+      badge: getSubscriptionBadge()
+    }
+
+    const settingsItem = { 
+      name: 'Einstellungen', 
+      href: '/dashboard/settings', 
+      icon: '⚙️', 
+      protected: true,
+      feature: 'settings'
+    }
+
+    return [
+      ...baseNavigation, 
+      ...freeFeatures, 
+      ...protectedFeatures,
+      subscriptionItem,
+      settingsItem
     ]
-
-    // 🔥 NO MORE COMING SOON FEATURES - all treated as existing
-    const comingSoonFeatures = []
-
-    return [...baseNavigation, ...freeFeatures, ...protectedFeatures, ...comingSoonFeatures]
   }
 
-  // 🔥 PROTECTED NavigationItem with SubscriptionGuard + Clickable Upgrade
+  // 🔥 Get subscription badge for menu item
+  const getSubscriptionBadge = () => {
+    if (!plan) return null
+    
+    if (isFreemium) {
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
+    }
+    
+    if (isInTrial && trialDaysRemaining > 0) {
+      return {
+        text: `${trialDaysRemaining}d`,
+        color: 'bg-gradient-to-r from-orange-500 to-red-500'
+      }
+    }
+    
+    if (isPaid) {
+      return {
+        text: 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
+    return null
+  }
+
+  // 🔥 NavigationItem with subscription styling
   const NavigationItem = ({ item, isMobile = false }) => {
+    // Add separator before subscription item
+    const separator = item.isSeparator ? (
+      <div className="my-2 border-t border-slate-700"></div>
+    ) : null
+
+    // 💎 Special styling for subscription item based on status
+    const isSubscriptionItem = item.href === '/dashboard/subscription'
+    
+    let subscriptionStyles = ''
+    if (isSubscriptionItem) {
+      if (isFreemium) {
+        // Freemium - Yellow/Orange CTA (upgrade now!)
+        subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
+      } else if (isInTrial) {
+        // Trial - Orange/Red urgency (time running out!)
+        subscriptionStyles = 'bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 text-orange-300 hover:from-orange-500/20 hover:to-red-500/20 hover:border-orange-400/50 hover:text-orange-200 shadow-sm'
+      } else if (isPaid) {
+        // PRO - Green success (all good!)
+        subscriptionStyles = 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 text-green-300 hover:from-green-500/20 hover:to-emerald-500/20 hover:border-green-400/50 hover:text-green-200 shadow-sm'
+      } else {
+        // Default fallback
+        subscriptionStyles = 'bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/30 text-slate-300 hover:bg-slate-700'
+      }
+    }
+    
     const content = (
-      <div className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-colors ${
+      <div className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+        isSubscriptionItem 
+          ? subscriptionStyles
+          : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+      } ${
         item.comingSoon ? 'opacity-60' : ''
       }`}>
-        <span className="mr-3 text-lg">{item.icon}</span>
+        <span className={`mr-3 ${isSubscriptionItem ? 'text-xl' : 'text-lg'}`}>{item.icon}</span>
         <span className="flex-1">
           {item.name}
           {item.comingSoon && (
             <span className="ml-2 text-xs text-orange-400">(Uskoro)</span>
           )}
         </span>
-        {item.badge && (
+        {item.badge && typeof item.badge === 'string' && (
           <span className={`ml-2 px-2 py-1 text-xs ${item.badgeColor || 'bg-red-500'} text-white rounded-full font-medium`}>
             {item.badge}
+          </span>
+        )}
+        {item.badge && typeof item.badge === 'object' && (
+          <span className={`ml-2 px-2 py-1 text-xs ${item.badge.color} text-white rounded-full font-medium shadow-sm`}>
+            {item.badge.text}
           </span>
         )}
       </div>
     )
 
-    // 🔥 If protected, wrap with SubscriptionGuard
+    // If protected, wrap with SubscriptionGuard
     if (item.protected && item.feature && !item.comingSoon) {
       return (
-        <SubscriptionGuard
-          key={item.name}
-          feature={item.feature}
-          majstorId={majstor?.id}
-          fallback={
-            // 🔥 CLICKABLE LOCKED ITEM - opens UpgradeModal
-            <button
-              onClick={() => {
-                const featureNames = {
-                  'customer_management': 'Kundenverwaltung',
-                  'customer_inquiries': 'Kundenanfragen',
-                  'invoicing': 'Rechnungen & Angebote',
-                  'services_management': 'Services Verwaltung',
-                  'pdf_archive': 'PDF Archiv',
-                  //'analytics': 'Analytics & Berichte',
-                  'settings': 'Erweiterte Einstellungen'
-                }
-                showUpgradeModal(
-                  item.feature, 
-                  featureNames[item.feature] || item.name,
-                  'Freemium'
-                )
-                if (isMobile) setSidebarOpen(false)
-              }}
-              className="w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 transition-colors cursor-pointer"
-            >
-              <span className="mr-3 text-lg opacity-75">{item.icon}</span>
-              <span className="flex-1 text-left">{item.name}</span>
-              <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium group-hover:bg-blue-500">
-                🔒 Pro
-              </span>
-            </button>
-          }
-          showUpgradePrompt={false}
-        >
-          <Link
-            href={item.href}
-            onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+        <>
+          {separator}
+          <SubscriptionGuard
+            key={item.name}
+            feature={item.feature}
+            majstorId={majstor?.id}
+            fallback={
+              <button
+                onClick={() => {
+                  const featureNames = {
+                    'customer_management': 'Kundenverwaltung',
+                    'customer_inquiries': 'Kundenanfragen',
+                    'invoicing': 'Rechnungen & Angebote',
+                    'services_management': 'Services Verwaltung',
+                    'pdf_archive': 'PDF Archiv',
+                    'settings': 'Erweiterte Einstellungen'
+                  }
+                  showUpgradeModal(
+                    item.feature, 
+                    featureNames[item.feature] || item.name,
+                    'Freemium'
+                  )
+                  if (isMobile) setSidebarOpen(false)
+                }}
+                className="w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 transition-colors cursor-pointer"
+              >
+                <span className="mr-3 text-lg opacity-75">{item.icon}</span>
+                <span className="flex-1 text-left">{item.name}</span>
+                <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium group-hover:bg-blue-500">
+                  🔒 Pro
+                </span>
+              </button>
+            }
+            showUpgradePrompt={false}
           >
-            {content}
-          </Link>
-        </SubscriptionGuard>
+            <Link
+              href={item.href}
+              onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+            >
+              {content}
+            </Link>
+          </SubscriptionGuard>
+        </>
       )
     }
 
-    // 🔥 Coming soon items
+    // Coming soon items
     if (item.comingSoon) {
       return (
-        <div key={item.name} className="cursor-not-allowed">
-          {content}
-        </div>
+        <>
+          {separator}
+          <div key={item.name} className="cursor-not-allowed">
+            {content}
+          </div>
+        </>
       )
     }
 
-    // 🔥 Free/unprotected items
+    // Free/unprotected items
     return (
-      <Link
-        key={item.name}
-        href={item.href}
-        onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-      >
-        {content}
-      </Link>
+      <>
+        {separator}
+        <Link
+          key={item.name}
+          href={item.href}
+          onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+        >
+          {content}
+        </Link>
+      </>
     )
   }
 
@@ -488,11 +517,17 @@ function DashboardLayoutContent({ children }) {
               </div>
             </div>
 
-            {/* Trial Status */}
-            {trialInfo.isTrialUser && (
+            {/* Subscription Status Badge */}
+            {plan && (
               <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                <p className="text-xs text-blue-300 font-medium">
-                  🎯 Trial: {trialInfo.daysRemaining} Tag{trialInfo.daysRemaining !== 1 ? 'e' : ''} übrig
+                <p className="text-xs font-medium">
+                  {isInTrial && trialDaysRemaining > 0 ? (
+                    <span className="text-orange-300">🎯 Trial: {trialDaysRemaining} Tag{trialDaysRemaining !== 1 ? 'e' : ''} übrig</span>
+                  ) : isPaid ? (
+                    <span className="text-green-300">💎 PRO Mitglied</span>
+                  ) : isFreemium ? (
+                    <span className="text-slate-300">📋 Freemium</span>
+                  ) : null}
                 </p>
               </div>
             )}
@@ -593,19 +628,12 @@ function DashboardLayoutContent({ children }) {
                   Handwerker Dashboard
                 </h1>
                 <p className="text-sm text-slate-400 hidden sm:block">
-                  {trialInfo.isTrialUser 
-                    ? `Kostenlose Testphase - noch ${trialInfo.daysRemaining} Tage` 
-                    : 'Verwalten Sie Ihre Kunden und Aufträge'
-                  }
+                  Verwalten Sie Ihre Kunden und Aufträge
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
-
-              
-
-
               {/* Notifications */}
               <button 
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
@@ -633,14 +661,14 @@ function DashboardLayoutContent({ children }) {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
-          {/* 🔥 Trial Banner - Using SubscriptionGuard component */}
+          {/* Trial Banner */}
           <TrialBanner majstorId={majstor?.id} className="mb-6" />
           
           {children}
         </main>
       </div>
 
-      {/* 🔥 UPGRADE MODAL */}
+      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}

@@ -456,7 +456,7 @@ export default function Home() {
                 <span className="text-2xl">⚡</span>
               </div>
               <h3 className="text-white font-semibold mb-2">Sofort einsatzbereit</h3>
-              <p className="text-slate-400 text-sm">In 5 Minuten erste Rechnung erstellt</p>
+              <p className="text-slate-400 text-sm">In 2 Minuten erste Rechnung erstellt</p>
             </div>
 
             <div className="text-center">

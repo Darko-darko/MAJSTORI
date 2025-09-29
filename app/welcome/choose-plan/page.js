@@ -216,13 +216,13 @@ export default function ChoosePlanPage() {
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           
           {/* 🔥 OPTION 1: PRO SOFORT */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500/50 rounded-2xl p-6 hover:border-blue-400 transition-all duration-300 relative">
+          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500/50 rounded-2xl p-6 hover:border-blue-400 transition-all duration-300 relative overflow-hidden">
             
-            {/* Popular Badge */}
-            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
+            {/* Ribbon Badge - Diagonal Corner */}
+            <div className="absolute top-6 -right-10 transform rotate-45">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-12 py-1.5 text-xs font-bold shadow-lg">
                 EMPFOHLEN
-              </span>
+              </div>
             </div>
 
             <div className="text-center mb-6 pt-4">
