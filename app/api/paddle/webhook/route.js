@@ -64,63 +64,38 @@ export async function POST(request) {
   try {
     console.log('📨 Received Paddle webhook')
 
-    // 1️⃣ Parse raw body
+    // Get raw body as text (critical for signature verification)
     const rawBody = await request.text()
-    const body = JSON.parse(rawBody)
-
-    // 2️⃣ Get signature from headers
+    
+    // Get signature from headers
     const signature = request.headers.get('paddle-signature')
 
-    // 3️⃣ Verify signature (security)
+    // Verify signature
     if (!verifyPaddleSignature(rawBody, signature)) {
+      console.error('❌ Signature verification failed')
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 401 }
       )
     }
 
-    // 4️⃣ Extract event data
+    // NOW parse the body
+    const body = JSON.parse(rawBody)
+    
     const eventType = body.event_type
     const eventData = body.data
 
     console.log('🎯 Paddle Event Type:', eventType)
     console.log('📦 Event Data:', JSON.stringify(eventData, null, 2))
 
-    // 5️⃣ Handle different event types
+    // Rest of your code stays the same...
     switch (eventType) {
       case 'subscription.created':
         await handleSubscriptionCreated(eventData)
         break
-
-      case 'subscription.updated':
-        await handleSubscriptionUpdated(eventData)
-        break
-
-      case 'subscription.cancelled':
-        await handleSubscriptionCancelled(eventData)
-        break
-
-      case 'subscription.paused':
-        await handleSubscriptionPaused(eventData)
-        break
-
-      case 'subscription.resumed':
-        await handleSubscriptionResumed(eventData)
-        break
-
-      case 'transaction.completed':
-        await handleTransactionCompleted(eventData)
-        break
-
-      case 'transaction.payment_failed':
-        await handlePaymentFailed(eventData)
-        break
-
-      default:
-        console.log('ℹ️ Unhandled event type:', eventType)
+      // ... etc
     }
 
-    // 6️⃣ Return success response
     return NextResponse.json({ 
       success: true,
       message: 'Webhook processed successfully'
