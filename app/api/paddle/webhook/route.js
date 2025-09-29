@@ -12,7 +12,7 @@ import crypto from 'crypto'
  * Paddle će slati events ovde:
  * - subscription.created
  * - subscription.updated
- * - subscription.cancelled
+ * - subscription.canceled
  * - subscription.paused
  * - subscription.resumed
  * - transaction.completed
