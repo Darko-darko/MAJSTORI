@@ -78,20 +78,27 @@ export default function ChoosePlanPage() {
   const createPendingSubscription = async (billingInterval, paddleData) => {
     try {
       console.log('🔄 Creating pending subscription...')
+      console.log('📦 Paddle Data:', paddleData)
 
       // Get PRO plan
       const planName = billingInterval === 'yearly' ? 'pro_yearly' : 'pro'
       const { data: plan, error: planError } = await supabase
         .from('subscription_plans')
-        .select('id')
+        .select('id, name, display_name')
         .eq('name', planName)
         .single()
 
       if (planError) throw planError
+      console.log('✅ Found plan:', plan)
 
       // Calculate trial period (30 days from now)
       const now = new Date()
       const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+      console.log('📅 Trial dates:', {
+        start: now.toISOString(),
+        end: trialEnd.toISOString()
+      })
 
       // Create subscription with trial status (30 days free)
       const { data: subscription, error: subError } = await supabase
@@ -117,8 +124,10 @@ export default function ChoosePlanPage() {
         throw subError
       }
 
+      console.log('✅ Subscription created:', subscription)
+
       // Update majstor record
-      await supabase
+      const { error: majstorError } = await supabase
         .from('majstors')
         .update({
           subscription_status: 'trial',
@@ -127,7 +136,20 @@ export default function ChoosePlanPage() {
         })
         .eq('id', user.id)
 
-      console.log('✅ Pending subscription created:', subscription)
+      if (majstorError) throw majstorError
+      console.log('✅ Majstor record updated to trial status')
+
+      // 🔥 VERIFY: Read back what we just created
+      const { data: verification } = await supabase
+        .from('user_subscriptions')
+        .select('*, subscription_plans(*)')
+        .eq('majstor_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      console.log('🔍 VERIFICATION - Subscription in DB:', verification)
+
       return subscription
 
     } catch (err) {
@@ -202,20 +224,26 @@ export default function ChoosePlanPage() {
           setProcessingMessage('Zahlung erfolgreich! Aktiviere Account...')
 
           try {
+            // 🔥 CRITICAL: Clear cache BEFORE creating subscription
+            console.log('🗑️ Clearing cache BEFORE creating subscription...')
+            clearSubscriptionCache(user.id)
+            
             // 1. Create pending subscription immediately
             await createPendingSubscription(billingInterval, checkoutData)
 
             // 2. Wait for webhook (optional, max 10 seconds)
             await waitForWebhookProcessing(10)
 
-            // 3. Clear cache to force refresh
+            // 3. Clear cache AGAIN to force refresh
+            console.log('🗑️ Clearing cache AFTER subscription created...')
             clearSubscriptionCache(user.id)
 
             setProcessingMessage('Fertig! Weiterleitung...')
 
-            // 4. Redirect to dashboard
+            // 4. Redirect to dashboard with cache-busting parameter
             setTimeout(() => {
-              router.push(`/dashboard?paddle_success=true&plan=${billingInterval}`)
+              const timestamp = Date.now()
+              window.location.replace(`/dashboard?paddle_success=true&plan=${billingInterval}&t=${timestamp}`)
             }, 1000)
 
           } catch (err) {

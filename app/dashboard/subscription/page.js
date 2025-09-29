@@ -16,6 +16,7 @@ export default function SubscriptionPage() {
   const [error, setError] = useState('')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [paddleReady, setPaddleReady] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const router = useRouter()
 
   // Get subscription data
@@ -33,6 +34,15 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     loadUser()
+    
+    // Check for upgrade success
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('upgrade_success') === 'true') {
+      setShowSuccessMessage(true)
+      setTimeout(() => setShowSuccessMessage(false), 8000)
+      // Clean URL
+      window.history.replaceState({}, '', '/dashboard/subscription')
+    }
     
     // 🚀 Initialize Paddle.js using helper function (SAME AS WELCOME PAGE)
     initializePaddle(
@@ -104,31 +114,41 @@ export default function SubscriptionPage() {
   const createPendingSubscription = async (planType, paddleData) => {
     try {
       console.log('🔄 Creating pending subscription for upgrade...')
+      console.log('📦 Paddle Data:', paddleData)
 
       const planName = planType === 'yearly' ? 'pro_yearly' : 'pro'
       const { data: plan, error: planError } = await supabase
         .from('subscription_plans')
-        .select('id')
+        .select('id, name, display_name')
         .eq('name', planName)
         .single()
 
       if (planError) throw planError
+      console.log('✅ Found plan:', plan)
 
       const now = new Date()
       const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
+      console.log('📅 Trial dates:', {
+        start: now.toISOString(),
+        end: trialEnd.toISOString()
+      })
+
       // Check if subscription already exists
       const { data: existingSub } = await supabase
         .from('user_subscriptions')
-        .select('id')
+        .select('id, status')
         .eq('majstor_id', majstor.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
+      console.log('🔍 Existing subscription:', existingSub)
+
       if (existingSub) {
         // Update existing subscription
-        const { error: updateError } = await supabase
+        console.log('📝 Updating existing subscription:', existingSub.id)
+        const { data: updated, error: updateError } = await supabase
           .from('user_subscriptions')
           .update({
             plan_id: plan.id,
@@ -142,11 +162,15 @@ export default function SubscriptionPage() {
             updated_at: now.toISOString()
           })
           .eq('id', existingSub.id)
+          .select()
+          .single()
 
         if (updateError) throw updateError
+        console.log('✅ Subscription updated:', updated)
       } else {
         // Create new subscription
-        const { error: insertError } = await supabase
+        console.log('➕ Creating new subscription')
+        const { data: created, error: insertError } = await supabase
           .from('user_subscriptions')
           .insert({
             majstor_id: majstor.id,
@@ -161,12 +185,15 @@ export default function SubscriptionPage() {
             created_at: now.toISOString(),
             updated_at: now.toISOString()
           })
+          .select()
+          .single()
 
         if (insertError) throw insertError
+        console.log('✅ Subscription created:', created)
       }
 
       // Update majstor record
-      await supabase
+      const { error: majstorError } = await supabase
         .from('majstors')
         .update({
           subscription_status: 'trial',
@@ -175,7 +202,19 @@ export default function SubscriptionPage() {
         })
         .eq('id', majstor.id)
 
-      console.log('✅ Pending subscription created/updated')
+      if (majstorError) throw majstorError
+      console.log('✅ Majstor record updated to trial status')
+
+      // 🔥 VERIFY: Read back what we just created
+      const { data: verification } = await supabase
+        .from('user_subscriptions')
+        .select('*, subscription_plans(*)')
+        .eq('majstor_id', majstor.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      console.log('🔍 VERIFICATION - Subscription in DB:', verification)
 
     } catch (err) {
       console.error('❌ Error in createPendingSubscription:', err)
@@ -403,6 +442,19 @@ export default function SubscriptionPage() {
   if (isPaid || (subscription?.status === 'active')) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 animate-pulse">
+            <div className="flex items-center gap-3">
+              <span className="text-green-400 text-2xl">🎉</span>
+              <div>
+                <p className="text-green-300 font-semibold">Upgrade erfolgreich!</p>
+                <p className="text-green-200 text-sm">Sie haben jetzt vollen Zugriff auf alle PRO-Funktionen für 30 Tage kostenlos.</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -634,6 +686,19 @@ export default function SubscriptionPage() {
   if (isInTrial && trialDaysRemaining > 0) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 animate-pulse">
+            <div className="flex items-center gap-3">
+              <span className="text-green-400 text-2xl">🎉</span>
+              <div>
+                <p className="text-green-300 font-semibold">Upgrade erfolgreich!</p>
+                <p className="text-green-200 text-sm">Sie haben jetzt vollen Zugriff auf alle PRO-Funktionen!</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
@@ -882,6 +947,43 @@ export default function SubscriptionPage() {
           ✓ 30 Tage kostenlos • ✓ Jederzeit kündbar • ✓ Keine versteckten Kosten
         </p>
       </div>
+
+      {/* Debug Panel (Development only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
+          <details>
+            <summary className="text-slate-400 cursor-pointer hover:text-white">
+              🔧 Debug Info (Development only)
+            </summary>
+            <div className="mt-4 space-y-2 text-sm">
+              <div className="text-slate-300">
+                <strong>User ID:</strong> {majstor?.id}
+              </div>
+              <div className="text-slate-300">
+                <strong>Current Plan:</strong> {plan?.name || 'loading...'}
+              </div>
+              <div className="text-slate-300">
+                <strong>Subscription Status:</strong> {subscription?.status || 'none'}
+              </div>
+              <div className="text-slate-300">
+                <strong>Is Active:</strong> {isActive ? '✅ Yes' : '❌ No'}
+              </div>
+              <div className="text-slate-300">
+                <strong>Is Trial:</strong> {isInTrial ? '✅ Yes' : '❌ No'}
+              </div>
+              <div className="text-slate-300">
+                <strong>Is Freemium:</strong> {isFreemium ? '✅ Yes' : '❌ No'}
+              </div>
+              <div className="text-slate-300">
+                <strong>Trial Days Remaining:</strong> {trialDaysRemaining}
+              </div>
+              <div className="text-slate-300">
+                <strong>Paddle Subscription ID:</strong> {subscription?.paddle_subscription_id || 'none'}
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   )
 }
