@@ -1,25 +1,25 @@
-// app/dashboard/subscription/page.js - SUBSCRIPTION MANAGEMENT
+// app/dashboard/subscription/page.js - SUBSCRIPTION MANAGEMENT WITH PADDLE
 
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription, clearSubscriptionCache } from '@/lib/hooks/useSubscription'
-import Link from 'next/link'
 
 export default function SubscriptionPage() {
+  const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [paddleReady, setPaddleReady] = useState(false)
   const router = useRouter()
 
   // Get subscription data
   const { 
     subscription,
     plan, 
-    features,
     isActive,
     isInTrial, 
     isFreemium, 
@@ -30,22 +30,56 @@ export default function SubscriptionPage() {
   } = useSubscription(majstor?.id)
 
   useEffect(() => {
-    loadMajstor()
+    loadUser()
+    initializePaddle()
   }, [])
 
-  const loadMajstor = async () => {
+  // Initialize Paddle.js
+  const initializePaddle = () => {
+    if (typeof window === 'undefined') return
+    
+    // Check if already loaded
+    if (window.Paddle) {
+      setPaddleReady(true)
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://cdn.paddle.com/paddle/v2/paddle.js'
+    script.async = true
+    script.onload = () => {
+      try {
+        window.Paddle.Initialize({
+          environment: process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT || 'sandbox',
+          token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+        })
+        setPaddleReady(true)
+        console.log('Paddle initialized successfully')
+      } catch (error) {
+        console.error('Paddle initialization error:', error)
+      }
+    }
+    script.onerror = () => {
+      console.error('Failed to load Paddle.js')
+    }
+    document.body.appendChild(script)
+  }
+
+  const loadUser = async () => {
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
       
-      if (authError || !user) {
+      if (authError || !currentUser) {
         router.push('/login')
         return
       }
 
+      setUser(currentUser)
+
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single()
 
       if (majstorError) {
@@ -55,22 +89,21 @@ export default function SubscriptionPage() {
 
       setMajstor(majstorData)
     } catch (err) {
-      console.error('Error loading majstor:', err)
+      console.error('Error loading user:', err)
       setError('Fehler beim Laden der Daten')
     } finally {
       setLoading(false)
     }
   }
 
-  // 🔥 Cancel subscription
+  // Cancel subscription
   const handleCancelSubscription = async () => {
     setActionLoading(true)
     setError('')
 
     try {
-      console.log('🚫 Cancelling subscription:', subscription.id)
+      console.log('Cancelling subscription:', subscription.id)
 
-      // Update subscription status to cancelled
       const { error: updateError } = await supabase
         .from('user_subscriptions')
         .update({
@@ -82,7 +115,6 @@ export default function SubscriptionPage() {
 
       if (updateError) throw updateError
 
-      // Update majstor record
       await supabase
         .from('majstors')
         .update({
@@ -91,15 +123,12 @@ export default function SubscriptionPage() {
         })
         .eq('id', majstor.id)
 
-      console.log('✅ Subscription cancelled successfully')
+      console.log('Subscription cancelled successfully')
 
-      // Clear cache and refresh
       clearSubscriptionCache(majstor.id)
       await refreshSubscription()
       
       setShowCancelModal(false)
-      
-      // Show success message
       alert('Ihr Abonnement wurde gekündigt. Sie haben weiterhin Zugriff auf PRO-Features bis zum Ende des aktuellen Abrechnungszeitraums.')
 
     } catch (err) {
@@ -110,9 +139,72 @@ export default function SubscriptionPage() {
     }
   }
 
-  // 🔥 Upgrade to PRO (redirect to choose-plan)
-  const handleUpgrade = () => {
-    router.push('/welcome/choose-plan')
+  // Upgrade to PRO with Paddle Checkout
+  const handleUpgrade = async (planType = 'monthly') => {
+    if (!paddleReady || !window.Paddle) {
+      setError('Paddle ist noch nicht bereit. Bitte warten Sie einen Moment.')
+      return
+    }
+
+    if (!user) {
+      setError('Bitte melden Sie sich an, um fortzufahren.')
+      return
+    }
+
+    setActionLoading(true)
+    setError('')
+
+    try {
+      const priceId = planType === 'yearly' 
+        ? process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY
+        : process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY
+
+      console.log('Opening Paddle checkout:', { planType, priceId })
+
+      window.Paddle.Checkout.open({
+        items: [{
+          priceId: priceId,
+          quantity: 1
+        }],
+        customer: {
+          email: user.email
+        },
+        customData: {
+          majstor_id: majstor.id,
+          plan_type: planType
+        },
+        settings: {
+          displayMode: 'overlay',
+          theme: 'dark',
+          locale: 'de',
+          successUrl: `${window.location.origin}/dashboard?paddle_success=true&plan=${planType}`
+        },
+        eventCallback: function(event) {
+          console.log('Paddle Event:', event.name, event.data)
+          
+          if (event.name === 'checkout.completed') {
+            console.log('Checkout completed!')
+            clearSubscriptionCache(majstor.id)
+            router.push('/dashboard?paddle_success=true')
+          }
+          
+          if (event.name === 'checkout.error') {
+            console.error('Checkout error:', event.data)
+            setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+            setActionLoading(false)
+          }
+          
+          if (event.name === 'checkout.closed') {
+            setActionLoading(false)
+          }
+        }
+      })
+
+    } catch (error) {
+      console.error('Paddle checkout error:', error)
+      setError('Fehler beim Öffnen des Checkouts: ' + error.message)
+      setActionLoading(false)
+    }
   }
 
   // Loading state
@@ -145,7 +237,7 @@ export default function SubscriptionPage() {
   const periodEndDate = getPeriodEndDate()
   const isInGracePeriod = subscription?.status === 'active' && !subscription?.paddle_subscription_id
 
-  // 🟢 PRO USER VIEW
+  // PRO USER VIEW
   if (isPaid || (subscription?.status === 'active')) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
@@ -193,7 +285,6 @@ export default function SubscriptionPage() {
           <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
-              {/* Status */}
               <div>
                 <div className="text-slate-400 text-sm mb-1">Status</div>
                 <div className="text-white font-medium">
@@ -207,7 +298,6 @@ export default function SubscriptionPage() {
                 </div>
               </div>
 
-              {/* Next Payment / Period End */}
               <div>
                 <div className="text-slate-400 text-sm mb-1">
                   {subscription?.status === 'cancelled' ? 'Endet am' : isInGracePeriod ? 'Erste Zahlung' : 'Nächste Zahlung'}
@@ -217,7 +307,6 @@ export default function SubscriptionPage() {
                 </div>
               </div>
 
-              {/* Payment Method */}
               <div>
                 <div className="text-slate-400 text-sm mb-1">Zahlungsmethode</div>
                 <div className="text-white font-medium">
@@ -268,7 +357,6 @@ export default function SubscriptionPage() {
           {subscription?.status !== 'cancelled' && (
             <div className="space-y-3">
               
-              {/* Change Payment Method (disabled - Paddle integration coming) */}
               <button
                 disabled
                 className="w-full bg-slate-700 text-slate-400 px-4 py-3 rounded-lg font-medium text-sm transition-colors cursor-not-allowed"
@@ -276,7 +364,6 @@ export default function SubscriptionPage() {
                 💳 Zahlungsmethode ändern (Bald verfügbar)
               </button>
 
-              {/* Switch to Yearly (if monthly) */}
               {plan?.name === 'pro' && (
                 <button
                   disabled
@@ -286,7 +373,6 @@ export default function SubscriptionPage() {
                 </button>
               )}
 
-              {/* Cancel Subscription */}
               <button
                 onClick={() => setShowCancelModal(true)}
                 disabled={actionLoading}
@@ -300,10 +386,11 @@ export default function SubscriptionPage() {
           {/* Re-activate if cancelled */}
           {subscription?.status === 'cancelled' && (
             <button
-              onClick={handleUpgrade}
-              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+              onClick={() => handleUpgrade('monthly')}
+              disabled={actionLoading}
+              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
-              🔄 PRO reaktivieren
+              {actionLoading ? 'Laden...' : '🔄 PRO reaktivieren'}
             </button>
           )}
         </div>
@@ -328,7 +415,7 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
-        {/* Cancel Confirmation Modal */}
+        {/* Cancel Modal */}
         {showCancelModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-800 rounded-xl max-w-md w-full p-6">
@@ -381,12 +468,11 @@ export default function SubscriptionPage() {
     )
   }
 
-  // 🟡 TRIAL USER VIEW
+  // TRIAL USER VIEW
   if (isInTrial && trialDaysRemaining > 0) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
           <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/30 rounded-lg">
@@ -395,7 +481,12 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
-        {/* Trial Info Card */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+            <p className="text-red-400">{error}</p>
+          </div>
+        )}
+
         <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-2xl p-6">
           <div className="flex items-start gap-4 mb-6">
             <div className="w-16 h-16 bg-orange-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -416,7 +507,7 @@ export default function SubscriptionPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="text-slate-400 text-sm mb-1">Aktueller Plan</div>
-                <div className="text-white font-medium">PRO Trial</div>
+                <div className="text-white font-medium">Trial</div>
               </div>
               <div>
                 <div className="text-slate-400 text-sm mb-1">Trial endet am</div>
@@ -428,14 +519,14 @@ export default function SubscriptionPage() {
           </div>
 
           <button
-            onClick={handleUpgrade}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+            onClick={() => handleUpgrade('monthly')}
+            disabled={actionLoading || !paddleReady}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            🚀 Jetzt auf PRO upgraden
+            {actionLoading ? 'Laden...' : !paddleReady ? 'Paddle lädt...' : '🚀 Jetzt auf PRO upgraden'}
           </button>
         </div>
 
-        {/* Features List */}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6">
           <h3 className="text-xl font-bold text-white mb-4">Was Sie aktuell nutzen können</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -462,20 +553,30 @@ export default function SubscriptionPage() {
     )
   }
 
-  // 📋 FREEMIUM USER VIEW
+  // FREEMIUM USER VIEW - UPGRADE OPTIONS
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
+        <h1 className="text-3xl font-bold text-white">Auf PRO upgraden</h1>
         <div className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg">
           <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
           <span className="text-slate-300 font-medium">Freemium</span>
         </div>
       </div>
 
-      {/* Upgrade CTA */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+          <p className="text-red-400">{error}</p>
+        </div>
+      )}
+
+      {!paddleReady && (
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <p className="text-blue-300">Paddle lädt... Bitte warten Sie einen Moment.</p>
+        </div>
+      )}
+
       <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-2xl p-6">
         <div className="flex items-start gap-4 mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -483,85 +584,108 @@ export default function SubscriptionPage() {
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold text-white mb-2">
-              Upgraden Sie auf PRO
+              Schalten Sie alle Funktionen frei
             </h2>
             <p className="text-blue-200 mb-4">
-              Schalten Sie alle Funktionen frei und verwalten Sie Ihr Handwerksgeschäft professionell.
+              Verwalten Sie Ihr Handwerksgeschäft professionell mit allen PRO-Features.
             </p>
-            <div className="flex flex-wrap gap-3 mb-4">
-              <div className="flex items-center gap-2 text-sm text-blue-300">
-                <span className="text-green-400">✓</span>
-                <span>Kundenanfragen</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-blue-300">
-                <span className="text-green-400">✓</span>
-                <span>Rechnungserstellung</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-blue-300">
-                <span className="text-green-400">✓</span>
-                <span>Kundenverwaltung</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-blue-300">
-                <span className="text-green-400">✓</span>
-                <span>PDF Archiv</span>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                'Kundenanfragen',
+                'Rechnungserstellung',
+                'Kundenverwaltung',
+                'Services Verwaltung',
+                'PDF Archiv',
+                'Priority Support'
+              ].map((feature) => (
+                <div key={feature} className="flex items-center gap-2 text-sm text-blue-300">
+                  <span className="text-green-400">✓</span>
+                  <span>{feature}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Monthly Option */}
-          <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-            <div className="text-center mb-3">
-              <div className="text-2xl font-bold text-white mb-1">19,90€</div>
-              <div className="text-slate-400 text-sm">pro Monat + MwSt.</div>
-            </div>
-            <ul className="space-y-2 text-sm text-slate-300 mb-4">
-              <li className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                <span>30 Tage kostenlos</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                <span>Monatlich kündbar</span>
-              </li>
-            </ul>
+      {/* Pricing Options */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Monthly Plan */}
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 hover:border-blue-500/50 transition-colors">
+          <div className="text-center mb-6">
+            <div className="text-slate-400 text-sm mb-2">Monatlich</div>
+            <div className="text-4xl font-bold text-white mb-1">19,90€</div>
+            <div className="text-slate-400 text-sm">pro Monat + MwSt.</div>
           </div>
+          
+          <ul className="space-y-3 mb-6">
+            <li className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-green-400">✓</span>
+              <span>30 Tage kostenlos testen</span>
+            </li>
+            <li className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-green-400">✓</span>
+              <span>Alle PRO-Funktionen</span>
+            </li>
+            <li className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-green-400">✓</span>
+              <span>Jederzeit kündbar</span>
+            </li>
+          </ul>
 
-          {/* Yearly Option */}
-          <div className="bg-slate-900/50 border border-green-500/20 rounded-lg p-4 relative">
-            <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-              -17%
-            </div>
-            <div className="text-center mb-3">
-              <div className="text-2xl font-bold text-white mb-1">199,99€</div>
-              <div className="text-slate-400 text-sm">pro Jahr + MwSt.</div>
-              <div className="text-green-400 text-xs mt-1">nur 16,67€/Monat</div>
-            </div>
-            <ul className="space-y-2 text-sm text-slate-300 mb-4">
-              <li className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                <span>30 Tage kostenlos</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
-                <span>Spare 40€ im Jahr</span>
-              </li>
-            </ul>
-          </div>
+          <button
+            onClick={() => handleUpgrade('monthly')}
+            disabled={actionLoading || !paddleReady}
+            className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? 'Laden...' : !paddleReady ? 'Paddle lädt...' : 'Monatlich starten'}
+          </button>
         </div>
 
-        <button
-          onClick={handleUpgrade}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-        >
-          🚀 Jetzt upgraden
-        </button>
+        {/* Yearly Plan */}
+        <div className="bg-slate-800 border-2 border-green-500/30 rounded-2xl p-6 relative">
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+            <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">
+              Spare 17%
+            </span>
+          </div>
+
+          <div className="text-center mb-6">
+            <div className="text-slate-400 text-sm mb-2">Jährlich</div>
+            <div className="text-4xl font-bold text-white mb-1">199,99€</div>
+            <div className="text-slate-400 text-sm">pro Jahr + MwSt.</div>
+            <div className="text-green-400 text-sm mt-1">nur 16,67€/Monat</div>
+          </div>
+          
+          <ul className="space-y-3 mb-6">
+            <li className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-green-400">✓</span>
+              <span>30 Tage kostenlos testen</span>
+            </li>
+            <li className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-green-400">✓</span>
+              <span>Alle PRO-Funktionen</span>
+            </li>
+            <li className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="text-green-400">✓</span>
+              <span>Spare 40€ im Jahr</span>
+            </li>
+          </ul>
+
+          <button
+            onClick={() => handleUpgrade('yearly')}
+            disabled={actionLoading || !paddleReady}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {actionLoading ? 'Laden...' : !paddleReady ? 'Paddle lädt...' : 'Jährlich starten'}
+          </button>
+        </div>
       </div>
 
       {/* Current Features */}
       <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6">
-        <h3 className="text-xl font-bold text-white mb-4">Ihre aktuellen Funktionen</h3>
+        <h3 className="text-xl font-bold text-white mb-4">Ihre aktuellen Funktionen (Freemium)</h3>
         <div className="space-y-3">
           <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-lg p-3">
             <span className="text-2xl">📱</span>
@@ -583,6 +707,12 @@ export default function SubscriptionPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 text-center">
+        <p className="text-green-300 text-sm">
+          ✓ 30 Tage kostenlos • ✓ Jederzeit kündbar • ✓ Keine versteckten Kosten
+        </p>
       </div>
     </div>
   )
