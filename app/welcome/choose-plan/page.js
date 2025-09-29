@@ -1,4 +1,4 @@
-// app/welcome/choose-plan/page.js - COMPLETE VERSION WITH PADDLE + COMPARISON TABLE
+// app/welcome/choose-plan/page.js - COMPLETE VERSION WITH PADDLE FIX
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -9,9 +9,12 @@ import {
   PADDLE_CONFIG,
   validatePaddleConfig 
 } from '@/lib/paddle'
+import { clearSubscriptionCache } from '@/lib/hooks/useSubscription'
 
 export default function ChoosePlanPage() {
   const [loading, setLoading] = useState(false)
+  const [checkoutInProgress, setCheckoutInProgress] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState('')
   const [error, setError] = useState('')
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
@@ -71,7 +74,97 @@ export default function ChoosePlanPage() {
     }
   }
 
-  // 🚀 PRO Subscription mit Paddle Checkout
+  // 🔥 NEW: Create immediate "pending" subscription after checkout
+  const createPendingSubscription = async (billingInterval, paddleData) => {
+    try {
+      console.log('🔄 Creating pending subscription...')
+
+      // Get PRO plan
+      const planName = billingInterval === 'yearly' ? 'pro_yearly' : 'pro'
+      const { data: plan, error: planError } = await supabase
+        .from('subscription_plans')
+        .select('id')
+        .eq('name', planName)
+        .single()
+
+      if (planError) throw planError
+
+      // Calculate trial period (30 days from now)
+      const now = new Date()
+      const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+      // Create subscription with trial status (30 days free)
+      const { data: subscription, error: subError } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          majstor_id: user.id,
+          plan_id: plan.id,
+          status: 'trial', // Start as trial (30 days free)
+          paddle_subscription_id: paddleData?.subscription_id || null,
+          paddle_customer_id: paddleData?.customer_id || null,
+          trial_starts_at: now.toISOString(),
+          trial_ends_at: trialEnd.toISOString(),
+          current_period_start: now.toISOString(),
+          current_period_end: trialEnd.toISOString(),
+          created_at: now.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .select()
+        .single()
+
+      if (subError) {
+        console.error('❌ Error creating pending subscription:', subError)
+        throw subError
+      }
+
+      // Update majstor record
+      await supabase
+        .from('majstors')
+        .update({
+          subscription_status: 'trial',
+          subscription_ends_at: trialEnd.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .eq('id', user.id)
+
+      console.log('✅ Pending subscription created:', subscription)
+      return subscription
+
+    } catch (err) {
+      console.error('❌ Error in createPendingSubscription:', err)
+      throw err
+    }
+  }
+
+  // 🔥 NEW: Poll for webhook processing
+  const waitForWebhookProcessing = async (maxAttempts = 10) => {
+    console.log('⏰ Waiting for webhook to process...')
+    
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+      
+      setProcessingMessage(`Verarbeite Zahlung... (${i + 1}/${maxAttempts})`)
+
+      // Check if subscription has paddle_subscription_id (means webhook processed it)
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('paddle_subscription_id, status')
+        .eq('majstor_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (subscription?.paddle_subscription_id) {
+        console.log('✅ Webhook processed! Subscription:', subscription)
+        return true
+      }
+    }
+
+    console.log('⚠️ Webhook not processed in time, but subscription created')
+    return false // Timeout, but that's OK - subscription exists
+  }
+
+  // 🚀 PRO Subscription mit Paddle Checkout - FIXED VERSION
   const handleProSubscription = async (billingInterval) => {
     if (!paddleReady) {
       setError('Paddle wird noch geladen. Bitte warten Sie einen Moment.')
@@ -79,6 +172,8 @@ export default function ChoosePlanPage() {
     }
 
     setLoading(true)
+    setCheckoutInProgress(true)
+    setProcessingMessage('Öffne Checkout...')
     setError('')
 
     try {
@@ -100,14 +195,35 @@ export default function ChoosePlanPage() {
         majstorId: user.id,
         billingInterval: billingInterval,
         
-        // ✅ Success Callback
+        // ✅ Success Callback - IMPROVED
         onSuccess: async (checkoutData) => {
           console.log('✅ Paddle Checkout successful:', checkoutData)
           
-          // Redirect to dashboard with success message
-          setTimeout(() => {
-            router.push(`/dashboard?paddle_success=true&plan=${billingInterval}`)
-          }, 1000)
+          setProcessingMessage('Zahlung erfolgreich! Aktiviere Account...')
+
+          try {
+            // 1. Create pending subscription immediately
+            await createPendingSubscription(billingInterval, checkoutData)
+
+            // 2. Wait for webhook (optional, max 10 seconds)
+            await waitForWebhookProcessing(10)
+
+            // 3. Clear cache to force refresh
+            clearSubscriptionCache(user.id)
+
+            setProcessingMessage('Fertig! Weiterleitung...')
+
+            // 4. Redirect to dashboard
+            setTimeout(() => {
+              router.push(`/dashboard?paddle_success=true&plan=${billingInterval}`)
+            }, 1000)
+
+          } catch (err) {
+            console.error('❌ Error processing subscription:', err)
+            setError('Zahlung erfolgreich, aber Fehler bei der Aktivierung. Bitte Support kontaktieren.')
+            setCheckoutInProgress(false)
+            setProcessingMessage('')
+          }
         },
         
         // ❌ Error Callback
@@ -115,18 +231,20 @@ export default function ChoosePlanPage() {
           console.error('❌ Paddle Checkout error:', error)
           setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
           setLoading(false)
+          setCheckoutInProgress(false)
+          setProcessingMessage('')
         }
       })
 
-      // Reset loading after checkout opens
-      setTimeout(() => {
-        setLoading(false)
-      }, 2000)
+      // Wait for callbacks - don't reset loading immediately
+      setProcessingMessage('Warte auf Zahlung...')
 
     } catch (err) {
       console.error('Error opening Paddle Checkout:', err)
       setError('Fehler beim Öffnen des Checkouts: ' + err.message)
       setLoading(false)
+      setCheckoutInProgress(false)
+      setProcessingMessage('')
     }
   }
 
@@ -217,6 +335,28 @@ export default function ChoosePlanPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // 🔥 IMPROVED: Show processing overlay during checkout
+  if (checkoutInProgress) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {processingMessage || 'Verarbeitung läuft...'}
+          </h2>
+          <p className="text-slate-400 mb-4">
+            Bitte schließen Sie dieses Fenster nicht.
+          </p>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <p className="text-blue-300 text-sm">
+              ⏰ Dies kann bis zu 30 Sekunden dauern
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Loading state

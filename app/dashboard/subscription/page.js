@@ -1,16 +1,18 @@
-// app/dashboard/subscription/page.js - SUBSCRIPTION MANAGEMENT WITH PADDLE
+// app/dashboard/subscription/page.js - COMPLETE FIXED VERSION
 
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription, clearSubscriptionCache } from '@/lib/hooks/useSubscription'
+import { initializePaddle, openPaddleCheckout, PADDLE_CONFIG } from '@/lib/paddle'
 
 export default function SubscriptionPage() {
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState('')
   const [error, setError] = useState('')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [paddleReady, setPaddleReady] = useState(false)
@@ -31,39 +33,29 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     loadUser()
-    initializePaddle()
-  }, [])
-
-  // Initialize Paddle.js
-  const initializePaddle = () => {
-    if (typeof window === 'undefined') return
     
-    // Check if already loaded
-    if (window.Paddle) {
-      setPaddleReady(true)
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://cdn.paddle.com/paddle/v2/paddle.js'
-    script.async = true
-    script.onload = () => {
-      try {
-        window.Paddle.Initialize({
-          environment: process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT || 'sandbox',
-          token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
-        })
+    // 🚀 Initialize Paddle.js using helper function (SAME AS WELCOME PAGE)
+    initializePaddle(
+      (paddle) => {
+        console.log('✅ Paddle initialized successfully')
         setPaddleReady(true)
-        console.log('Paddle initialized successfully')
-      } catch (error) {
-        console.error('Paddle initialization error:', error)
+      },
+      (error) => {
+        console.error('❌ Failed to initialize Paddle:', error)
+        setError('Paddle konnte nicht geladen werden. Bitte laden Sie die Seite neu.')
       }
-    }
-    script.onerror = () => {
-      console.error('Failed to load Paddle.js')
-    }
-    document.body.appendChild(script)
-  }
+    )
+    
+    // 🔥 Set timeout for Paddle loading
+    const paddleTimeout = setTimeout(() => {
+      if (!paddleReady) {
+        console.error('⏰ Paddle loading timeout after 15 seconds')
+        setError('Paddle lädt zu lange. Bitte laden Sie die Seite neu oder überprüfen Sie Ihre Internetverbindung.')
+      }
+    }, 15000)
+    
+    return () => clearTimeout(paddleTimeout)
+  }, [])
 
   const loadUser = async () => {
     try {
@@ -88,12 +80,134 @@ export default function SubscriptionPage() {
       }
 
       setMajstor(majstorData)
+      
+      // 🔥 Validate Paddle configuration
+      if (!process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN) {
+        console.error('❌ NEXT_PUBLIC_PADDLE_CLIENT_TOKEN is missing!')
+        setError('Paddle Konfiguration fehlt. Bitte kontaktieren Sie den Support.')
+      }
+      if (!process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY) {
+        console.error('❌ NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY is missing!')
+      }
+      if (!process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY) {
+        console.error('❌ NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY is missing!')
+      }
     } catch (err) {
       console.error('Error loading user:', err)
       setError('Fehler beim Laden der Daten')
     } finally {
       setLoading(false)
     }
+  }
+
+  // 🔥 NEW: Create pending subscription after checkout
+  const createPendingSubscription = async (planType, paddleData) => {
+    try {
+      console.log('🔄 Creating pending subscription for upgrade...')
+
+      const planName = planType === 'yearly' ? 'pro_yearly' : 'pro'
+      const { data: plan, error: planError } = await supabase
+        .from('subscription_plans')
+        .select('id')
+        .eq('name', planName)
+        .single()
+
+      if (planError) throw planError
+
+      const now = new Date()
+      const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+      // Check if subscription already exists
+      const { data: existingSub } = await supabase
+        .from('user_subscriptions')
+        .select('id')
+        .eq('majstor_id', majstor.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingSub) {
+        // Update existing subscription
+        const { error: updateError } = await supabase
+          .from('user_subscriptions')
+          .update({
+            plan_id: plan.id,
+            status: 'trial',
+            paddle_subscription_id: paddleData?.subscription_id || null,
+            paddle_customer_id: paddleData?.customer_id || null,
+            trial_starts_at: now.toISOString(),
+            trial_ends_at: trialEnd.toISOString(),
+            current_period_start: now.toISOString(),
+            current_period_end: trialEnd.toISOString(),
+            updated_at: now.toISOString()
+          })
+          .eq('id', existingSub.id)
+
+        if (updateError) throw updateError
+      } else {
+        // Create new subscription
+        const { error: insertError } = await supabase
+          .from('user_subscriptions')
+          .insert({
+            majstor_id: majstor.id,
+            plan_id: plan.id,
+            status: 'trial',
+            paddle_subscription_id: paddleData?.subscription_id || null,
+            paddle_customer_id: paddleData?.customer_id || null,
+            trial_starts_at: now.toISOString(),
+            trial_ends_at: trialEnd.toISOString(),
+            current_period_start: now.toISOString(),
+            current_period_end: trialEnd.toISOString(),
+            created_at: now.toISOString(),
+            updated_at: now.toISOString()
+          })
+
+        if (insertError) throw insertError
+      }
+
+      // Update majstor record
+      await supabase
+        .from('majstors')
+        .update({
+          subscription_status: 'trial',
+          subscription_ends_at: trialEnd.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .eq('id', majstor.id)
+
+      console.log('✅ Pending subscription created/updated')
+
+    } catch (err) {
+      console.error('❌ Error in createPendingSubscription:', err)
+      throw err
+    }
+  }
+
+  // 🔥 NEW: Wait for webhook processing
+  const waitForWebhookProcessing = async (maxAttempts = 10) => {
+    console.log('⏰ Waiting for webhook to process...')
+    
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      setProcessingMessage(`Verarbeite Zahlung... (${i + 1}/${maxAttempts})`)
+
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('paddle_subscription_id, status')
+        .eq('majstor_id', majstor.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (subscription?.paddle_subscription_id) {
+        console.log('✅ Webhook processed!')
+        return true
+      }
+    }
+
+    console.log('⚠️ Webhook timeout, but subscription should exist')
+    return false
   }
 
   // Cancel subscription
@@ -139,10 +253,10 @@ export default function SubscriptionPage() {
     }
   }
 
-  // Upgrade to PRO with Paddle Checkout
+  // 🔥 IMPROVED: Upgrade to PRO - USING SAME METHOD AS WELCOME PAGE
   const handleUpgrade = async (planType = 'monthly') => {
-    if (!paddleReady || !window.Paddle) {
-      setError('Paddle ist noch nicht bereit. Bitte warten Sie einen Moment.')
+    if (!paddleReady) {
+      setError('Paddle wird noch geladen. Bitte warten Sie einen Moment.')
       return
     }
 
@@ -152,71 +266,85 @@ export default function SubscriptionPage() {
     }
 
     setActionLoading(true)
+    setProcessingMessage('Öffne Checkout...')
     setError('')
 
     try {
+      console.log(`🚀 Opening Paddle Checkout for upgrade: ${planType}`)
+
+      // 🔥 IMPORTANT: Define priceId FIRST before using it
       const priceId = planType === 'yearly' 
-        ? process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY
-        : process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY
+        ? PADDLE_CONFIG.priceIds.yearly
+        : PADDLE_CONFIG.priceIds.monthly
 
-      console.log('Opening Paddle checkout:', { planType, priceId })
+      // Debug: Check Paddle config
+      console.log('🔍 Paddle Config:', {
+        environment: PADDLE_CONFIG.environment,
+        hasToken: !!PADDLE_CONFIG.clientToken,
+        priceIds: PADDLE_CONFIG.priceIds,
+        selectedPriceId: priceId
+      })
 
-      window.Paddle.Checkout.open({
-        items: [{
-          priceId: priceId,
-          quantity: 1
-        }],
-        customer: {
-          email: user.email
-        },
-        customData: {
-          majstor_id: majstor.id,
-          plan_type: planType
-        },
-        settings: {
-          displayMode: 'overlay',
-          theme: 'dark',
-          locale: 'de',
-          successUrl: `${window.location.origin}/dashboard?paddle_success=true&plan=${planType}`
-        },
-        eventCallback: function(event) {
-          console.log('Paddle Event:', event.name, event.data)
+      if (!priceId) {
+        throw new Error(`Price ID nicht gefunden für: ${planType}`)
+      }
+
+      // 🎯 Use the same helper function as welcome page (already imported at top)
+      openPaddleCheckout({
+        priceId: priceId,
+        email: user.email,
+        majstorId: majstor.id,
+        billingInterval: planType,
+        
+        // ✅ Success Callback - SAME AS WELCOME PAGE
+        onSuccess: async (checkoutData) => {
+          console.log('✅ Paddle Checkout successful:', checkoutData)
           
-          if (event.name === 'checkout.completed') {
-            console.log('Checkout completed!')
+          setProcessingMessage('Zahlung erfolgreich! Aktiviere Account...')
+
+          try {
+            // 1. Create pending subscription immediately
+            await createPendingSubscription(planType, checkoutData)
+
+            // 2. Wait for webhook (optional, max 10 seconds)
+            await waitForWebhookProcessing(10)
+
+            // 3. Clear cache to force refresh
             clearSubscriptionCache(majstor.id)
-            router.push('/dashboard?paddle_success=true')
-          }
-          
-          if (event.name === 'checkout.error') {
-            console.error('Checkout error:', event.data)
-            setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+
+            setProcessingMessage('Fertig! Seite wird neu geladen...')
+
+            // 4. Refresh page to show new subscription
+            setTimeout(() => {
+              window.location.href = '/dashboard/subscription?upgrade_success=true'
+            }, 1000)
+
+          } catch (err) {
+            console.error('❌ Error processing subscription:', err)
+            setError('Zahlung erfolgreich, aber Fehler bei der Aktivierung. Bitte Support kontaktieren.')
             setActionLoading(false)
+            setProcessingMessage('')
           }
-          
-          if (event.name === 'checkout.closed') {
-            setActionLoading(false)
-          }
+        },
+        
+        // ❌ Error Callback - SAME AS WELCOME PAGE
+        onError: (error) => {
+          console.error('❌ Paddle Checkout error:', error)
+          setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+          setActionLoading(false)
+          setProcessingMessage('')
         }
       })
 
-    } catch (error) {
-      console.error('Paddle checkout error:', error)
-      setError('Fehler beim Öffnen des Checkouts: ' + error.message)
-      setActionLoading(false)
-    }
-  }
+      // Wait for callbacks - don't reset loading immediately
+      setProcessingMessage('Warte auf Zahlung...')
 
-  // Loading state
-  if (loading || subLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <div className="text-white text-xl">Laden...</div>
-        </div>
-      </div>
-    )
+    } catch (err) {
+      console.error('Error opening Paddle Checkout:', err)
+      setError('Fehler beim Öffnen des Checkouts: ' + err.message)
+      setActionLoading(false)
+      setProcessingMessage('')
+    }
   }
 
   // Calculate period end date
@@ -236,6 +364,40 @@ export default function SubscriptionPage() {
 
   const periodEndDate = getPeriodEndDate()
   const isInGracePeriod = subscription?.status === 'active' && !subscription?.paddle_subscription_id
+
+  // 🔥 IMPROVED: Show processing overlay
+  if (actionLoading && processingMessage) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {processingMessage}
+          </h2>
+          <p className="text-slate-400 mb-4">
+            Bitte schließen Sie dieses Fenster nicht.
+          </p>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <p className="text-blue-300 text-sm">
+              ⏰ Dies kann bis zu 30 Sekunden dauern
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Loading state
+  if (loading || subLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="text-white text-xl">Laden...</div>
+        </div>
+      </div>
+    )
+  }
 
   // PRO USER VIEW
   if (isPaid || (subscription?.status === 'active')) {
@@ -572,8 +734,14 @@ export default function SubscriptionPage() {
       )}
 
       {!paddleReady && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-          <p className="text-blue-300">Paddle lädt... Bitte warten Sie einen Moment.</p>
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 border-3 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <p className="text-orange-300 font-medium">Paddle wird geladen...</p>
+              <p className="text-orange-200 text-sm">Falls dies länger als 10 Sekunden dauert, laden Sie bitte die Seite neu.</p>
+            </div>
+          </div>
         </div>
       )}
 
