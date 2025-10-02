@@ -17,8 +17,7 @@ function DashboardLayoutContent({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // 🔥 Subscription hook for menu badges
-  const { plan, isInTrial, isFreemium, isPaid, trialDaysRemaining } = useSubscription(majstor?.id)
-  
+ const { subscription, plan, isInTrial, isFreemium, isPaid, trialDaysRemaining } = useSubscription(majstor?.id)
   // 🔥 Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
