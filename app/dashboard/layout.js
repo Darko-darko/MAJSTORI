@@ -283,32 +283,54 @@ function DashboardLayoutContent({ children }) {
   }
 
   // 🔥 Get subscription badge for menu item
-  const getSubscriptionBadge = () => {
-    if (!plan) return null
-    
-    if (isFreemium) {
-      return {
-        text: 'Upgrade',
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-      }
+ const getSubscriptionBadge = () => {
+  if (!plan) return null
+  
+  if (isFreemium) {
+    return {
+      text: 'Upgrade',
+      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
     }
-    
-    if (isInTrial && trialDaysRemaining > 0) {
-      return {
-        text: `${trialDaysRemaining}d`,
-        color: 'bg-gradient-to-r from-orange-500 to-red-500'
-      }
-    }
-    
-    if (isPaid) {
-      return {
-        text: 'PRO',
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-      }
-    }
-    
-    return null
   }
+  
+  const isPaidWithGracePeriod = subscription?.status === 'active'
+  const isFreeTrialPeriod = subscription?.status === 'trial'
+  
+  let daysRemaining = 0
+  if (isPaidWithGracePeriod && subscription?.current_period_end) {
+    const now = new Date()
+    const endDate = new Date(subscription.current_period_end)
+    const diffTime = endDate.getTime() - now.getTime()
+    daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  } else if (isFreeTrialPeriod && trialDaysRemaining > 0) {
+    daysRemaining = trialDaysRemaining
+  }
+  
+  if (isPaidWithGracePeriod) {
+    return {
+      text: daysRemaining > 0 ? `PRO (${daysRemaining}d)` : 'PRO',
+      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+    }
+  }
+  
+  if (isFreeTrialPeriod && daysRemaining > 0) {
+    return {
+      text: `Trial ${daysRemaining}d`,
+      color: daysRemaining <= 2 
+        ? 'bg-gradient-to-r from-orange-500 to-red-500'
+        : 'bg-gradient-to-r from-orange-500 to-red-500'
+    }
+  }
+  
+  if (isPaid) {
+    return {
+      text: 'PRO',
+      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+    }
+  }
+  
+  return null
+}
 
   // 🔥 NavigationItem with subscription styling
   const NavigationItem = ({ item, isMobile = false }) => {
@@ -466,7 +488,8 @@ function DashboardLayoutContent({ children }) {
               Erneut versuchen
             </button>
             <button
-              onClick={() => router.push('/login')}
+              onClick={() =>
+                router.push('/login')}
               className="w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
             >
               Zurück zur Anmeldung
@@ -517,20 +540,45 @@ function DashboardLayoutContent({ children }) {
               </div>
             </div>
 
-            {/* Subscription Status Badge */}
-            {plan && (
-              <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                <p className="text-xs font-medium">
-                  {isInTrial && trialDaysRemaining > 0 ? (
-                    <span className="text-orange-300">🎯 Trial: {trialDaysRemaining} Tag{trialDaysRemaining !== 1 ? 'e' : ''} übrig</span>
-                  ) : isPaid ? (
-                    <span className="text-green-300">💎 PRO Mitglied</span>
-                  ) : isFreemium ? (
-                    <span className="text-slate-300">📋 Freemium</span>
-                  ) : null}
-                </p>
-              </div>
-            )}
+           {/* Subscription Status Badge */}
+{plan && (
+  <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+    <p className="text-xs font-medium">
+      {(() => {
+        const isPaidWithGracePeriod = subscription?.status === 'active'
+        const isFreeTrialPeriod = subscription?.status === 'trial'
+        
+        let daysRemaining = 0
+        if (isPaidWithGracePeriod && subscription?.current_period_end) {
+          const now = new Date()
+          const endDate = new Date(subscription.current_period_end)
+          const diffTime = endDate.getTime() - now.getTime()
+          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        } else if (isFreeTrialPeriod) {
+          daysRemaining = trialDaysRemaining
+        }
+        
+        if (isPaidWithGracePeriod) {
+          return (
+            <span className="text-green-300">
+              💎 PRO Mitglied {daysRemaining > 0 ? `(${daysRemaining}d Kündigungsfrist)` : ''}
+            </span>
+          )
+        } else if (isFreeTrialPeriod && daysRemaining > 0) {
+          return (
+            <span className="text-orange-300">
+              🎯 Trial: {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''} übrig
+            </span>
+          )
+        } else if (isFreemium) {
+          return <span className="text-slate-300">📋 Freemium</span>
+        }
+        
+        return null
+      })()}
+    </p>
+  </div>
+)}
           </div>
 
           {/* Desktop Navigation */}
