@@ -1,7 +1,6 @@
-// app/components/subscription/SubscriptionGuard.js - FIXED TRIAL vs GRACE
+// app/components/subscription/SubscriptionGuard.js - REFACTORED (NO TRIAL)
 'use client'
 import { useSubscription } from '@/lib/hooks/useSubscription'
-import { useState } from 'react'
 
 /**
  * Main SubscriptionGuard - blokira sadržaj ako korisnik nema pristup
@@ -14,7 +13,7 @@ export function SubscriptionGuard({
   showUpgradePrompt = true,
   blockOnFreemium = false
 }) {
-  const { hasFeatureAccess, plan, loading, isInTrial, trialDaysRemaining, isFreemium } = useSubscription(majstorId)
+  const { hasFeatureAccess, plan, loading, isFreemium } = useSubscription(majstorId)
 
   if (loading) {
     return <div className="animate-pulse bg-slate-700 h-20 rounded-lg"></div>
@@ -43,8 +42,6 @@ export function SubscriptionGuard({
       <UpgradePrompt 
         feature={feature} 
         currentPlan={plan?.display_name}
-        isInTrial={isInTrial}
-        trialDaysRemaining={trialDaysRemaining}
         customFallback={fallback}
       />
     )
@@ -54,137 +51,21 @@ export function SubscriptionGuard({
 }
 
 /**
- * TrialBanner - FIXED to distinguish FREE trial vs PAID grace period
+ * UpgradePrompt - when user doesn't have access
  */
-export function TrialBanner({ majstorId, className = '' }) {
-  const { subscription, isInTrial, trialDaysRemaining, isFreemium, isPaid } = useSubscription(majstorId)
-  const [dismissed, setDismissed] = useState(false)
-
-  // Don't show for freemium or if dismissed
-  if (isFreemium || dismissed) {
-    return null
-  }
-
-  // FIXED: Check if this is a PAID subscription (active status = grace period)
-  const isPaidWithGracePeriod = subscription?.status === 'active' && subscription?.current_period_end
-  const isFreeTrialPeriod = subscription?.status === 'trial' && subscription?.trial_ends_at
-
-  // Calculate days remaining
-  let daysRemaining = 0
-  let endDate = null
-
-  if (isPaidWithGracePeriod) {
-    // Grace period - calculate from current_period_end
-    endDate = new Date(subscription.current_period_end)
-    const now = new Date()
-    const diffTime = endDate.getTime() - now.getTime()
-    daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  } else if (isFreeTrialPeriod) {
-    // Free trial - use trialDaysRemaining
-    daysRemaining = trialDaysRemaining
-  } else {
-    // No banner needed
-    return null
-  }
-
-  // Don't show if expired
-  if (daysRemaining <= 0) {
-    return null
-  }
-
-  const isLastDays = daysRemaining <= 3
-
-  // Different styling for grace period vs trial
-  const bannerClass = isPaidWithGracePeriod
-    ? 'from-green-500/20 to-blue-500/20 border-green-500/30'
-    : isLastDays 
-    ? 'from-red-500/20 to-orange-500/20 border-red-500/30' 
-    : 'from-blue-500/20 to-purple-500/20 border-blue-500/30'
-
-  const iconColor = isPaidWithGracePeriod
-    ? 'bg-green-500'
-    : isLastDays 
-    ? 'bg-red-500' 
-    : 'bg-blue-500'
-
-  const iconEmoji = isPaidWithGracePeriod ? '💎' : isLastDays ? '⚠️' : '🎯'
-
-  const textColor = isPaidWithGracePeriod
-    ? 'text-green-300'
-    : isLastDays 
-    ? 'text-red-300' 
-    : 'text-blue-300'
-
-  const buttonColor = isPaidWithGracePeriod
-    ? 'bg-green-600 hover:bg-green-700'
-    : isLastDays 
-    ? 'bg-red-600 hover:bg-red-700' 
-    : 'bg-blue-600 hover:bg-blue-700'
-
-  return (
-    <div className={`bg-gradient-to-r ${bannerClass} border rounded-lg p-4 mb-6 relative ${className}`}>
-      <button
-        onClick={() => setDismissed(true)}
-        className="absolute top-2 right-2 text-slate-400 hover:text-white text-lg"
-        aria-label="Dismiss banner"
-      >
-        ×
-      </button>
-      
-      <div className="flex items-center justify-between pr-8">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white ${iconColor}`}>
-            {iconEmoji}
-          </div>
-          <div>
-            <h4 className={`font-semibold ${textColor}`}>
-              {isPaidWithGracePeriod 
-                ? 'PRO Mitgliedschaft aktiv' 
-                : isLastDays 
-                ? 'Trial läuft bald ab!' 
-                : 'Kostenlose Testphase aktiv'
-              }
-            </h4>
-            <p className="text-slate-400 text-sm">
-              {isPaidWithGracePeriod ? (
-                daysRemaining === 1 
-                  ? 'Noch 1 Tag Kündigungsfrist' 
-                  : `Noch ${daysRemaining} Tage Kündigungsfrist (30 Tage)`
-              ) : (
-                daysRemaining === 1 
-                  ? 'Letzter Tag der kostenlosen Testphase!' 
-                  : `Noch ${daysRemaining} Tage kostenlos verfügbar`
-              )}
-            </p>
-          </div>
-        </div>
-        {!isPaidWithGracePeriod && (
-          <button className={`px-4 py-2 rounded-lg font-medium text-sm text-white transition-colors ${buttonColor}`}>
-            {isLastDays ? 'Jetzt upgraden' : 'Mehr erfahren'}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
- * UpgradePrompt
- */
-function UpgradePrompt({ feature, currentPlan, isInTrial, trialDaysRemaining, customFallback }) {
+function UpgradePrompt({ feature, currentPlan, customFallback }) {
   const featureNames = {
     'customer_inquiries': 'Kundenanfragen',
     'invoicing': 'Rechnungen & Angebote', 
     'customer_management': 'Kundenverwaltung',
     'services_management': 'Services Verwaltung',
-    'pdf_archive': 'PDF Archiv'
+    'pdf_archive': 'PDF Archiv',
+    'settings': 'Erweiterte Einstellungen'
   }
 
   if (customFallback) {
     return customFallback
   }
-
-  const isTrialMessage = isInTrial && trialDaysRemaining > 0
 
   return (
     <div className="bg-slate-800/50 border-2 border-dashed border-slate-600 rounded-xl p-8 text-center">
@@ -193,28 +74,21 @@ function UpgradePrompt({ feature, currentPlan, isInTrial, trialDaysRemaining, cu
       </div>
       
       <h3 className="text-white font-semibold text-lg mb-2">
-        {featureNames[feature] || 'Diese Funktion'} 
-        {isTrialMessage ? ' sollte verfügbar sein' : ' nicht verfügbar'}
+        {featureNames[feature] || 'Diese Funktion'} nicht verfügbar
       </h3>
       
       <p className="text-slate-400 text-sm mb-4">
-        {isTrialMessage ? (
-          `Ihr Trial sollte Zugang zu allen Funktionen haben. Bitte kontaktieren Sie den Support.`
-        ) : (
-          <>Aktueller Plan: <span className="text-slate-300 font-medium">{currentPlan || 'Freemium'}</span></>
-        )}
+        Aktueller Plan: <span className="text-slate-300 font-medium">{currentPlan || 'Freemium'}</span>
       </p>
       
-      {!isTrialMessage && (
-        <button 
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-          onClick={() => {
-            alert('Upgrade Funktion wird bald implementiert!')
-          }}
-        >
-          Auf Pro upgraden
-        </button>
-      )}
+      <button 
+        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+        onClick={() => {
+          window.location.href = '/dashboard/subscription'
+        }}
+      >
+        Auf Pro upgraden
+      </button>
     </div>
   )
 }
@@ -254,10 +128,10 @@ function FreemiumBlockPrompt({ feature, customFallback }) {
         <button 
           className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
           onClick={() => {
-            alert('Upgrade Funktion wird bald implementiert!')
+            window.location.href = '/dashboard/subscription'
           }}
         >
-          7 Tage kostenlos testen
+          Jetzt upgraden - 19,90€/Monat
         </button>
         <p className="text-slate-500 text-xs">
           Keine Kreditkarte erforderlich • Jederzeit kündbar
@@ -274,8 +148,6 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
   const { 
     subscription,
     plan, 
-    isInTrial, 
-    trialDaysRemaining, 
     isActive, 
     isPaid,
     isFreemium,
@@ -296,31 +168,19 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
     )
   }
 
-  // FIXED: Distinguish between free trial and grace period
-  const isPaidWithGracePeriod = subscription?.status === 'active'
-  const isFreeTrialPeriod = subscription?.status === 'trial'
-
-  // Calculate days remaining
-  let daysRemaining = 0
-  if (isPaidWithGracePeriod && subscription?.current_period_end) {
+  // Calculate grace period days if PRO
+  let graceDaysRemaining = 0
+  if (isPaid && subscription?.current_period_end) {
     const now = new Date()
     const endDate = new Date(subscription.current_period_end)
     const diffTime = endDate.getTime() - now.getTime()
-    daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  } else if (isFreeTrialPeriod) {
-    daysRemaining = trialDaysRemaining
+    graceDaysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   }
 
-  const statusColor = isPaidWithGracePeriod
-    ? 'text-green-400'
-    : isFreeTrialPeriod
-    ? daysRemaining <= 2 ? 'text-red-400' : 'text-blue-400'
-    : isFreemium ? 'text-slate-400' : 'text-green-400'
-
-  const statusText = isPaidWithGracePeriod
-    ? `PRO (${daysRemaining}d Grace)` 
-    : isFreeTrialPeriod 
-    ? `Trial (${daysRemaining}d)`
+  const statusColor = isPaid ? 'text-green-400' : isFreemium ? 'text-slate-400' : 'text-green-400'
+  
+  const statusText = isPaid && graceDaysRemaining > 0
+    ? `PRO (${graceDaysRemaining}d Grace)` 
     : isFreemium
     ? 'Freemium'
     : 'Aktiv'
@@ -329,9 +189,7 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
     return (
       <div className="inline-flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-600">
         <div className={`w-2 h-2 rounded-full ${
-          isPaidWithGracePeriod ? 'bg-green-400' : 
-          isFreeTrialPeriod ? 'bg-blue-400' : 
-          'bg-slate-400'
+          isPaid ? 'bg-green-400' : 'bg-slate-400'
         }`}></div>
         <span className="text-white text-sm font-medium">{plan?.display_name}</span>
         <span className={`text-xs ${statusColor}`}>({statusText})</span>
@@ -354,7 +212,7 @@ export function SubscriptionStatus({ majstorId, compact = false }) {
         <button 
           className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
           onClick={() => {
-            alert('Abo-Verwaltung wird bald implementiert!')
+            window.location.href = '/dashboard/subscription'
           }}
         >
           Verwalten

@@ -71,7 +71,7 @@ export default function SubscriptionPage() {
     if (!confirm('Möchten Sie Ihr Abonnement wirklich kündigen?')) return
 
     try {
-      const response = await fetch('/api/paddle/webhook/cancel-subscription', {
+      const response = await fetch('/api/paddle/cancel-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

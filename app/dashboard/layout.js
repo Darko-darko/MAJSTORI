@@ -1,10 +1,9 @@
-// app/dashboard/layout.js - FIXED CURRENT PLAN FOR MODAL
-
+// app/dashboard/layout.js - REFACTORED (NO TRIAL)
 'use client'
-import { useState, useEffect , Suspense } from 'react'
-import { useRouter, useSearchParams} from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
-import { SubscriptionGuard, TrialBanner } from '@/app/components/subscription/SubscriptionGuard'
+import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
@@ -16,10 +15,10 @@ function DashboardLayoutContent({ children }) {
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
-  // 🔥 Subscription hook for menu badges
-  const { subscription, plan, isInTrial, isFreemium, isPaid, trialDaysRemaining } = useSubscription(majstor?.id)
+  // Subscription hook for menu badges
+  const { subscription, plan, isFreemium, isPaid } = useSubscription(majstor?.id)
   
-  // 🔥 Upgrade Modal Hook
+  // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
   // Badge states
@@ -94,7 +93,7 @@ function DashboardLayoutContent({ children }) {
       })
 
     } catch (error) {
-      console.error('❌ Error loading badge counts:', error)
+      console.error('Error loading badge counts:', error)
     }
   }
 
@@ -103,13 +102,13 @@ function DashboardLayoutContent({ children }) {
       const { user: currentUser, error: authError } = await auth.getUser()
       
       if (authError) {
-        console.error('❌ Auth error:', authError)
+        console.error('Auth error:', authError)
         router.push('/login')
         return
       }
       
       if (!currentUser) {
-        console.log('❌ No user found, redirecting to login')
+        console.log('No user found, redirecting to login')
         router.push('/login')
         return
       }
@@ -119,10 +118,10 @@ function DashboardLayoutContent({ children }) {
       const { data: majstorData, error: majstorError } = await majstorsAPI.getById(currentUser.id)
       
       if (majstorError) {
-        console.error('❌ Majstor profile error:', majstorError)
+        console.error('Majstor profile error:', majstorError)
         
         if (majstorError.code === 'PGRST116' || majstorError.message?.includes('0 rows')) {
-          console.log('🛠️ Creating missing profile...')
+          console.log('Creating missing profile...')
           await createMissingProfile(currentUser)
         } else {
           setError('Profile access error: ' + majstorError.message)
@@ -132,7 +131,7 @@ function DashboardLayoutContent({ children }) {
       }
 
     } catch (error) {
-      console.error('❌ Unexpected error in checkUser:', error)
+      console.error('Unexpected error in checkUser:', error)
       setError('Unexpected error: ' + error.message)
     } finally {
       setLoading(false)
@@ -153,8 +152,8 @@ function DashboardLayoutContent({ children }) {
         business_name: user.user_metadata?.business_name || null,
         phone: user.user_metadata?.phone || null,
         city: user.user_metadata?.city || null,
-        subscription_status: 'trial',
-        subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        subscription_status: null,
+        subscription_ends_at: null,
         is_active: true,
         profile_completed: false,
         profile_source: user.user_metadata?.provider === 'google' ? 'google_oauth' : 'missing_profile'
@@ -176,7 +175,7 @@ function DashboardLayoutContent({ children }) {
       }
       
     } catch (err) {
-      console.error('❌ Exception in createMissingProfile:', err)
+      console.error('Exception in createMissingProfile:', err)
       setError('Profile creation failed: ' + err.message)
     }
   }
@@ -196,6 +195,41 @@ function DashboardLayoutContent({ children }) {
     return count.toString()
   }
 
+  // Get subscription badge for menu item
+  const getSubscriptionBadge = () => {
+    if (!plan) return null
+    
+    if (isFreemium) {
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
+    }
+    
+    // PRO with grace period
+    if (isPaid && subscription?.current_period_end) {
+      const now = new Date()
+      const endDate = new Date(subscription.current_period_end)
+      const diffTime = endDate.getTime() - now.getTime()
+      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      return {
+        text: daysRemaining > 0 ? `PRO (${daysRemaining}d)` : 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
+    if (isPaid) {
+      return {
+        text: 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
+    return null
+  }
+
+  // Navigation with subscription item
   const getNavigation = () => {
     const baseNavigation = [
       { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
@@ -207,6 +241,14 @@ function DashboardLayoutContent({ children }) {
         href: '/dashboard/business-card/create', 
         icon: '📱', 
         protected: false
+      },
+      { 
+        name: 'Kundenanfragen', 
+        href: '/dashboard/inquiries', 
+        icon: '📩', 
+        badge: formatBadgeCount(badges.inquiries),
+        badgeColor: 'bg-red-500',
+        protected: false
       }
     ]
 
@@ -217,15 +259,6 @@ function DashboardLayoutContent({ children }) {
         icon: '👥', 
         protected: true,
         feature: 'customer_management'
-      },
-      { 
-        name: 'Kundenanfragen', 
-        href: '/dashboard/inquiries', 
-        icon: '📩', 
-        badge: formatBadgeCount(badges.inquiries),
-        badgeColor: 'bg-red-500',
-        protected: true,
-        feature: 'customer_inquiries'
       },
       { 
         name: 'Rechnungen', 
@@ -252,6 +285,7 @@ function DashboardLayoutContent({ children }) {
       }
     ]
 
+    // Subscription management item
     const subscriptionItem = {
       name: 'Meine Mitgliedschaft',
       href: '/dashboard/subscription',
@@ -278,69 +312,18 @@ function DashboardLayoutContent({ children }) {
     ]
   }
 
-  const getSubscriptionBadge = () => {
-    if (!plan && isInTrial && trialDaysRemaining > 0) {
-      return {
-        text: `Trial ${trialDaysRemaining}d`,
-        color: trialDaysRemaining <= 2 
-          ? 'bg-gradient-to-r from-orange-500 to-red-500'
-          : 'bg-gradient-to-r from-blue-500 to-purple-500'
-      }
-    }
-    
-    if (!plan) {
-      return {
-        text: 'Upgrade',
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-      }
-    }
-    
-    if (isFreemium) {
-      return {
-        text: 'Upgrade',
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-      }
-    }
-    
-    const isPaidWithGracePeriod = subscription?.status === 'active'
-    
-    let daysRemaining = 0
-    if (isPaidWithGracePeriod && subscription?.current_period_end) {
-      const now = new Date()
-      const endDate = new Date(subscription.current_period_end)
-      const diffTime = endDate.getTime() - now.getTime()
-      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    }
-    
-    if (isPaidWithGracePeriod) {
-      return {
-        text: daysRemaining > 0 ? `PRO (${daysRemaining}d)` : 'PRO',
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-      }
-    }
-    
-    if (isPaid) {
-      return {
-        text: 'PRO',
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-      }
-    }
-    
-    return null
-  }
-
+  // NavigationItem with subscription styling
   const NavigationItem = ({ item, isMobile = false }) => {
     const separator = item.isSeparator ? (
       <div className="my-2 border-t border-slate-700"></div>
     ) : null
 
+    // Special styling for subscription item
     const isSubscriptionItem = item.href === '/dashboard/subscription'
     
     let subscriptionStyles = ''
     if (isSubscriptionItem) {
-      if (isInTrial && !isPaid) {
-        subscriptionStyles = 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 text-blue-300 hover:from-blue-500/20 hover:to-purple-500/20 hover:border-blue-400/50 hover:text-blue-200 shadow-sm'
-      } else if (isFreemium) {
+      if (isFreemium) {
         subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
       } else if (isPaid) {
         subscriptionStyles = 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 text-green-300 hover:from-green-500/20 hover:to-emerald-500/20 hover:border-green-400/50 hover:text-green-200 shadow-sm'
@@ -377,6 +360,7 @@ function DashboardLayoutContent({ children }) {
       </div>
     )
 
+    // Protected items
     if (item.protected && item.feature && !item.comingSoon) {
       return (
         <>
@@ -390,21 +374,15 @@ function DashboardLayoutContent({ children }) {
                 onClick={() => {
                   const featureNames = {
                     'customer_management': 'Kundenverwaltung',
-                    'customer_inquiries': 'Kundenanfragen',
                     'invoicing': 'Rechnungen & Angebote',
                     'services_management': 'Services Verwaltung',
                     'pdf_archive': 'PDF Archiv',
                     'settings': 'Erweiterte Einstellungen'
                   }
-                  // 🔥 FIXED: Koristi PRAVI plan
-                  const currentPlanLabel = isInTrial 
-                    ? 'Trial' 
-                    : plan?.display_name || 'Freemium'
-                  
                   showUpgradeModal(
                     item.feature, 
                     featureNames[item.feature] || item.name,
-                    currentPlanLabel
+                    'Freemium'
                   )
                   if (isMobile) setSidebarOpen(false)
                 }}
@@ -430,6 +408,7 @@ function DashboardLayoutContent({ children }) {
       )
     }
 
+    // Coming soon items
     if (item.comingSoon) {
       return (
         <>
@@ -441,6 +420,7 @@ function DashboardLayoutContent({ children }) {
       )
     }
 
+    // Free/unprotected items
     return (
       <>
         {separator}
@@ -496,6 +476,7 @@ function DashboardLayoutContent({ children }) {
   return (
     <div className="min-h-screen bg-slate-900 flex">
       
+      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
@@ -503,15 +484,18 @@ function DashboardLayoutContent({ children }) {
         />
       )}
 
+      {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
           
+          {/* Logo */}
           <div className="flex items-center h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
               Pro-meister<span className="text-blue-400">.de</span>
             </Link>
           </div>
 
+          {/* User Info */}
           <div className="px-4 py-4 border-b border-slate-700">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
@@ -527,51 +511,28 @@ function DashboardLayoutContent({ children }) {
               </div>
             </div>
 
-            {(plan || (isInTrial && !plan)) && (
+            {/* Subscription Status Badge */}
+            {plan && (
               <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
                 <p className="text-xs font-medium">
-                  {(() => {
-                    if (!plan && isInTrial && trialDaysRemaining > 0) {
-                      return (
-                        <span className="text-blue-300">
-                          🎯 Trial: {trialDaysRemaining} Tag{trialDaysRemaining !== 1 ? 'e' : ''} übrig
-                        </span>
-                      )
-                    }
-
-                    const isPaidWithGracePeriod = subscription?.status === 'active'
-                    
-                    let daysRemaining = 0
-                    if (isPaidWithGracePeriod && subscription?.current_period_end) {
-                      const now = new Date()
-                      const endDate = new Date(subscription.current_period_end)
-                      const diffTime = endDate.getTime() - now.getTime()
-                      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-                    }
-                    
-                    if (isPaidWithGracePeriod) {
-                      return (
-                        <span className="text-green-300">
-                          💎 PRO Mitglied {daysRemaining > 0 ? `(${daysRemaining}d Kündigungsfrist)` : ''}
-                        </span>
-                      )
-                    } else if (isFreemium) {
-                      return <span className="text-slate-300">📋 Freemium</span>
-                    }
-                    
-                    return null
-                  })()}
+                  {isPaid ? (
+                    <span className="text-green-300">💎 PRO Mitglied</span>
+                  ) : isFreemium ? (
+                    <span className="text-slate-300">📋 Freemium</span>
+                  ) : null}
                 </p>
               </div>
             )}
           </div>
 
+          {/* Desktop Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavigationItem key={item.name} item={item} />
             ))}
           </nav>
 
+          {/* Sign Out */}
           <div className="p-2 border-t border-slate-700">
             <button
               onClick={handleSignOut}
@@ -584,10 +545,12 @@ function DashboardLayoutContent({ children }) {
         </div>
       </div>
 
+      {/* Mobile Sidebar */}
       <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
+          {/* Mobile Header */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
               Pro-meister<span className="text-blue-400">.de</span>
@@ -600,6 +563,7 @@ function DashboardLayoutContent({ children }) {
             </button>
           </div>
 
+          {/* Mobile User Info */}
           <div className="px-4 py-4 border-b border-slate-700">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
@@ -616,12 +580,14 @@ function DashboardLayoutContent({ children }) {
             </div>
           </div>
 
+          {/* Mobile Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavigationItem key={item.name} item={item} isMobile={true} />
             ))}
           </nav>
 
+          {/* Mobile Sign Out */}
           <div className="p-2 border-t border-slate-700">
             <button
               onClick={handleSignOut}
@@ -634,11 +600,14 @@ function DashboardLayoutContent({ children }) {
         </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
+        {/* Top Bar */}
         <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
+              {/* Mobile menu button */}
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden text-slate-400 hover:text-white p-1"
@@ -657,6 +626,7 @@ function DashboardLayoutContent({ children }) {
             </div>
 
             <div className="flex items-center space-x-3">
+              {/* Notifications */}
               <button 
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
                 onClick={loadBadgeCounts}
@@ -668,6 +638,7 @@ function DashboardLayoutContent({ children }) {
                 )}
               </button>
 
+              {/* Profile */}
               <Link 
                 href="/dashboard/settings"
                 className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
@@ -680,13 +651,13 @@ function DashboardLayoutContent({ children }) {
           </div>
         </header>
 
+        {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
-          <TrialBanner majstorId={majstor?.id} className="mb-6" />
-          
           {children}
         </main>
       </div>
 
+      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}

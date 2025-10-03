@@ -1,27 +1,18 @@
-// app/dashboard/page.js - DEBUG VERSION WITH CLICK LOGS
-
+// app/dashboard/page.js - REFACTORED (NO TRIAL)
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
-import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
-
-console.log('🔥 page.js loaded!')
 
 function DashboardPageContent() {
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  const { plan, isInTrial, isFreemium } = useSubscription(majstor?.id)
-  
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
-  
-  console.log('🔥 Dashboard page rendered - upgradeModalOpen:', upgradeModalOpen)
-  console.log('🔥 showUpgradeModal function exists:', typeof showUpgradeModal)
   
   const [stats, setStats] = useState({
     totalInquiries: 0,
@@ -138,22 +129,8 @@ function DashboardPageContent() {
     }
   }, [majstor?.id])
 
-  // 🔥 DEBUG: Click handler sa console log-om
   const handleProtectedFeatureClick = (feature, featureName) => {
-    console.log('🔥🔥🔥 handleProtectedFeatureClick CALLED!', { feature, featureName })
-    console.log('🔥 isInTrial:', isInTrial)
-    console.log('🔥 plan:', plan)
-    console.log('🔥 showUpgradeModal function:', showUpgradeModal)
-    
-    const currentPlanLabel = isInTrial 
-      ? 'Trial' 
-      : plan?.display_name || 'Freemium'
-    
-    console.log('🔥 Calling showUpgradeModal with:', { feature, featureName, currentPlanLabel })
-    
-    showUpgradeModal(feature, featureName, currentPlanLabel)
-    
-    console.log('🔥 showUpgradeModal CALLED!')
+    showUpgradeModal(feature, featureName, 'Freemium')
   }
 
   const WelcomeMessage = () => {
@@ -206,7 +183,6 @@ function DashboardPageContent() {
             <p className="text-slate-500 text-sm mb-4">{description}</p>
             <button
               onClick={() => {
-                console.log('🔥 BUTTON CLICKED IN ProtectedNavItem!')
                 const featureNames = {
                   'customer_management': 'Kundenverwaltung',
                   'customer_inquiries': 'Kundenanfragen',
@@ -318,7 +294,7 @@ function DashboardPageContent() {
             <div>
               <p className="text-slate-400 text-sm">Rechnungen</p>
               <p className="text-3xl font-bold text-white">{stats.totalInvoices}</p>
-              <p className="text-sm text-slate-400">Erstellt</p>
+              <p className="text-sm text-slate-slate-400">Erstellt</p>
             </div>
             <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-2xl">
               📄
@@ -391,10 +367,7 @@ function DashboardPageContent() {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => {
-                  console.log('🔥 CLICKED: Meine Kunden (grid button)')
-                  handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')
-                }}
+                onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">👥</div>
@@ -419,53 +392,27 @@ function DashboardPageContent() {
             </Link>
           </SubscriptionGuard>
 
-          <SubscriptionGuard
-            feature="customer_inquiries"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => {
-                  console.log('🔥 CLICKED: Kundenanfragen')
-                  handleProtectedFeatureClick('customer_inquiries', 'Kundenanfragen')
-                }}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors relative group"
-              >
-                <div className="text-2xl mb-2 opacity-60">📩</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  Kundenanfragen
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
+          <Link
+            href="/dashboard/inquiries"
+            className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group"
           >
-            <Link
-              href="/dashboard/inquiries"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group"
-            >
-              <div className="text-2xl mb-2">📩</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Kundenanfragen
-              </div>
-              {stats.newInquiries > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
-                </span>
-              )}
-            </Link>
-          </SubscriptionGuard>
+            <div className="text-2xl mb-2">📩</div>
+            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+              Kundenanfragen
+            </div>
+            {stats.newInquiries > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
+              </span>
+            )}
+          </Link>
 
           <SubscriptionGuard
             feature="invoicing"
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => {
-                  console.log('🔥 CLICKED: Rechnungen')
-                  handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')
-                }}
+                onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">📄</div>
@@ -495,10 +442,7 @@ function DashboardPageContent() {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => {
-                  console.log('🔥 CLICKED: Services')
-                  handleProtectedFeatureClick('services_management', 'Services Verwaltung')
-                }}
+                onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">🔧</div>
@@ -528,10 +472,7 @@ function DashboardPageContent() {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => {
-                  console.log('🔥 CLICKED: PDF Archiv')
-                  handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')
-                }}
+                onClick={() => handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">🗂️</div>
@@ -561,10 +502,7 @@ function DashboardPageContent() {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => {
-                  console.log('🔥 CLICKED: Settings')
-                  handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')
-                }}
+                onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">⚙️</div>
@@ -591,7 +529,6 @@ function DashboardPageContent() {
         </div>
       </div>
 
-      {/* 🔥 UPGRADE MODAL */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}
