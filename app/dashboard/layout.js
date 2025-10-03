@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - FIXED TRIAL DISPLAY IN SIDEBAR
+// app/dashboard/layout.js - FIXED CURRENT PLAN FOR MODAL
 
 'use client'
 import { useState, useEffect , Suspense } from 'react'
@@ -196,7 +196,6 @@ function DashboardLayoutContent({ children }) {
     return count.toString()
   }
 
-  // 🔥 Navigation with subscription item
   const getNavigation = () => {
     const baseNavigation = [
       { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
@@ -279,9 +278,7 @@ function DashboardLayoutContent({ children }) {
     ]
   }
 
-  // 🔥 Get subscription badge for menu item
   const getSubscriptionBadge = () => {
-    // 🔥 NOVO: Proveri 7-day trial PRVO (kada nema plan objekta)
     if (!plan && isInTrial && trialDaysRemaining > 0) {
       return {
         text: `Trial ${trialDaysRemaining}d`,
@@ -292,7 +289,6 @@ function DashboardLayoutContent({ children }) {
     }
     
     if (!plan) {
-      // Ako nema plan i nije trial, onda je freemium
       return {
         text: 'Upgrade',
         color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
@@ -333,7 +329,6 @@ function DashboardLayoutContent({ children }) {
     return null
   }
 
-  // 🔥 NavigationItem with subscription styling
   const NavigationItem = ({ item, isMobile = false }) => {
     const separator = item.isSeparator ? (
       <div className="my-2 border-t border-slate-700"></div>
@@ -344,7 +339,6 @@ function DashboardLayoutContent({ children }) {
     let subscriptionStyles = ''
     if (isSubscriptionItem) {
       if (isInTrial && !isPaid) {
-        // 7-day trial (bez plaćanja)
         subscriptionStyles = 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 text-blue-300 hover:from-blue-500/20 hover:to-purple-500/20 hover:border-blue-400/50 hover:text-blue-200 shadow-sm'
       } else if (isFreemium) {
         subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
@@ -402,10 +396,15 @@ function DashboardLayoutContent({ children }) {
                     'pdf_archive': 'PDF Archiv',
                     'settings': 'Erweiterte Einstellungen'
                   }
+                  // 🔥 FIXED: Koristi PRAVI plan
+                  const currentPlanLabel = isInTrial 
+                    ? 'Trial' 
+                    : plan?.display_name || 'Freemium'
+                  
                   showUpgradeModal(
                     item.feature, 
                     featureNames[item.feature] || item.name,
-                    'Freemium'
+                    currentPlanLabel
                   )
                   if (isMobile) setSidebarOpen(false)
                 }}
@@ -497,7 +496,6 @@ function DashboardLayoutContent({ children }) {
   return (
     <div className="min-h-screen bg-slate-900 flex">
       
-      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
@@ -505,18 +503,15 @@ function DashboardLayoutContent({ children }) {
         />
       )}
 
-      {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
           
-          {/* Logo */}
           <div className="flex items-center h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
               Pro-meister<span className="text-blue-400">.de</span>
             </Link>
           </div>
 
-          {/* User Info */}
           <div className="px-4 py-4 border-b border-slate-700">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
@@ -532,12 +527,10 @@ function DashboardLayoutContent({ children }) {
               </div>
             </div>
 
-            {/* 🔥 FIXED: Subscription Status Badge - prikazuje se i za 7-day trial! */}
             {(plan || (isInTrial && !plan)) && (
               <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
                 <p className="text-xs font-medium">
                   {(() => {
-                    // 🔥 NOVO: Proveri 7-day trial PRVO
                     if (!plan && isInTrial && trialDaysRemaining > 0) {
                       return (
                         <span className="text-blue-300">
@@ -546,7 +539,6 @@ function DashboardLayoutContent({ children }) {
                       )
                     }
 
-                    // PRO sa grace periodom
                     const isPaidWithGracePeriod = subscription?.status === 'active'
                     
                     let daysRemaining = 0
@@ -574,14 +566,12 @@ function DashboardLayoutContent({ children }) {
             )}
           </div>
 
-          {/* Desktop Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavigationItem key={item.name} item={item} />
             ))}
           </nav>
 
-          {/* Sign Out */}
           <div className="p-2 border-t border-slate-700">
             <button
               onClick={handleSignOut}
@@ -594,12 +584,10 @@ function DashboardLayoutContent({ children }) {
         </div>
       </div>
 
-      {/* Mobile Sidebar */}
       <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
-          {/* Mobile Header */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
               Pro-meister<span className="text-blue-400">.de</span>
@@ -612,7 +600,6 @@ function DashboardLayoutContent({ children }) {
             </button>
           </div>
 
-          {/* Mobile User Info */}
           <div className="px-4 py-4 border-b border-slate-700">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
@@ -629,14 +616,12 @@ function DashboardLayoutContent({ children }) {
             </div>
           </div>
 
-          {/* Mobile Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavigationItem key={item.name} item={item} isMobile={true} />
             ))}
           </nav>
 
-          {/* Mobile Sign Out */}
           <div className="p-2 border-t border-slate-700">
             <button
               onClick={handleSignOut}
@@ -649,10 +634,8 @@ function DashboardLayoutContent({ children }) {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* Top Bar */}
         <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -697,7 +680,6 @@ function DashboardLayoutContent({ children }) {
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
           <TrialBanner majstorId={majstor?.id} className="mb-6" />
           
@@ -705,7 +687,6 @@ function DashboardLayoutContent({ children }) {
         </main>
       </div>
 
-      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}

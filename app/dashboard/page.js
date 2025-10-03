@@ -1,4 +1,4 @@
-// app/dashboard/page.js - UPDATED WITH SUBSCRIPTION PROTECTION
+// app/dashboard/page.js - DEBUG VERSION WITH CLICK LOGS
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -6,32 +6,35 @@ import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
+import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
 
+console.log('🔥 page.js loaded!')
+
 function DashboardPageContent() {
-  // Core data states
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  // 🔥 NEW: Upgrade Modal Hook
+  const { plan, isInTrial, isFreemium } = useSubscription(majstor?.id)
+  
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  // Stats state
+  console.log('🔥 Dashboard page rendered - upgradeModalOpen:', upgradeModalOpen)
+  console.log('🔥 showUpgradeModal function exists:', typeof showUpgradeModal)
+  
   const [stats, setStats] = useState({
     totalInquiries: 0,
     newInquiries: 0,
     totalInvoices: 0,
-     totalCustomers: 0, // Dodaj ovo
+    totalCustomers: 0,
     qrScans: 0
   })
 
-  // Welcome states
   const [welcomeMessage, setWelcomeMessage] = useState(false)
   
   const searchParams = useSearchParams()
 
-  // Handle URL parameters and load data
   useEffect(() => {
     if (searchParams.get('welcome')) {
       setWelcomeMessage(true)
@@ -46,14 +49,12 @@ function DashboardPageContent() {
       setLoading(true)
       setError('')
       
-      // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
         setError('Authentication required')
         return
       }
 
-      // Get majstor profile
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
         .select('*')
@@ -83,58 +84,53 @@ function DashboardPageContent() {
     }
   }
 
-const loadStats = async (userId) => {
-  try {
-    // Load inquiries stats
-    const { data: inquiries, error: inquiriesError } = await supabase
-      .from('inquiries')
-      .select('status')
-      .eq('majstor_id', userId)
+  const loadStats = async (userId) => {
+    try {
+      const { data: inquiries, error: inquiriesError } = await supabase
+        .from('inquiries')
+        .select('status')
+        .eq('majstor_id', userId)
 
-    if (!inquiriesError && inquiries) {
-      const newInquiries = inquiries.filter(i => i.status === 'new').length || 0
-      setStats(prev => ({
-        ...prev,
-        totalInquiries: inquiries.length || 0,
-        newInquiries
-      }))
-    }
+      if (!inquiriesError && inquiries) {
+        const newInquiries = inquiries.filter(i => i.status === 'new').length || 0
+        setStats(prev => ({
+          ...prev,
+          totalInquiries: inquiries.length || 0,
+          newInquiries
+        }))
+      }
 
-    // Load invoices stats
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('id, type')
-      .eq('majstor_id', userId)
-      .neq('status', 'dummy') // Exclude dummy entries
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('id, type')
+        .eq('majstor_id', userId)
+        .neq('status', 'dummy')
 
-    if (invoices) {
-      setStats(prev => ({
-        ...prev,
-        totalInvoices: invoices.filter(inv => inv.type === 'invoice').length
-      }))
-    }
+      if (invoices) {
+        setStats(prev => ({
+          ...prev,
+          totalInvoices: invoices.filter(inv => inv.type === 'invoice').length
+        }))
+      }
 
-    // ADDED: Load customers stats
-    const { data: customers, error: customersError } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('majstor_id', userId)
-      .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING') // Exclude dummy entries
+      const { data: customers, error: customersError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('majstor_id', userId)
+        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING')
 
-    if (!customersError && customers) {
-      setStats(prev => ({
-        ...prev,
-        totalCustomers: customers.length || 0
-      }))
-    }
-   
+      if (!customersError && customers) {
+        setStats(prev => ({
+          ...prev,
+          totalCustomers: customers.length || 0
+        }))
+      }
 
     } catch (err) {
       console.error('Error loading stats:', err)
     }
   }
 
-  // Refresh stats periodically
   useEffect(() => {
     if (majstor?.id) {
       const interval = setInterval(() => loadStats(majstor.id), 30000)
@@ -142,12 +138,24 @@ const loadStats = async (userId) => {
     }
   }, [majstor?.id])
 
-  // 🔥 NEW: Feature click handler for protected items
+  // 🔥 DEBUG: Click handler sa console log-om
   const handleProtectedFeatureClick = (feature, featureName) => {
-    showUpgradeModal(feature, featureName, 'Freemium')
+    console.log('🔥🔥🔥 handleProtectedFeatureClick CALLED!', { feature, featureName })
+    console.log('🔥 isInTrial:', isInTrial)
+    console.log('🔥 plan:', plan)
+    console.log('🔥 showUpgradeModal function:', showUpgradeModal)
+    
+    const currentPlanLabel = isInTrial 
+      ? 'Trial' 
+      : plan?.display_name || 'Freemium'
+    
+    console.log('🔥 Calling showUpgradeModal with:', { feature, featureName, currentPlanLabel })
+    
+    showUpgradeModal(feature, featureName, currentPlanLabel)
+    
+    console.log('🔥 showUpgradeModal CALLED!')
   }
 
-  // Welcome message
   const WelcomeMessage = () => {
     if (!welcomeMessage) return null
 
@@ -166,10 +174,8 @@ const loadStats = async (userId) => {
     )
   }
 
-  // 🔥 UPDATED: Protected Navigation Item Component
   const ProtectedNavItem = ({ feature, href, icon, title, description, buttonText, isAlwaysFree = false }) => {
     if (isAlwaysFree) {
-      // Free items - always accessible
       return (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">
@@ -187,13 +193,11 @@ const loadStats = async (userId) => {
       )
     }
 
-    // Protected items
     return (
       <SubscriptionGuard
         feature={feature}
         majstorId={majstor?.id}
         fallback={
-          // 🔒 LOCKED STATE - Clickable upgrade prompt
           <div className="bg-slate-800/50 border border-slate-600 rounded-2xl p-6 relative">
             <div className="w-12 h-12 bg-slate-600 rounded-xl flex items-center justify-center text-2xl mb-4 opacity-75">
               {icon}
@@ -202,13 +206,13 @@ const loadStats = async (userId) => {
             <p className="text-slate-500 text-sm mb-4">{description}</p>
             <button
               onClick={() => {
+                console.log('🔥 BUTTON CLICKED IN ProtectedNavItem!')
                 const featureNames = {
                   'customer_management': 'Kundenverwaltung',
                   'customer_inquiries': 'Kundenanfragen',
                   'invoicing': 'Rechnungen & Angebote',
                   'services_management': 'Services Verwaltung',
-                  'pdf_archive': 'PDF Archiv',
-                  //'analytics': 'Analytics & Berichte'
+                  'pdf_archive': 'PDF Archiv'
                 }
                 handleProtectedFeatureClick(feature, featureNames[feature] || title)
               }}
@@ -225,7 +229,6 @@ const loadStats = async (userId) => {
         }
         showUpgradePrompt={false}
       >
-        {/* ✅ UNLOCKED STATE - Normal functionality */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">
             {icon}
@@ -243,7 +246,6 @@ const loadStats = async (userId) => {
     )
   }
 
-  // Loading states
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -255,7 +257,6 @@ const loadStats = async (userId) => {
     )
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -275,7 +276,6 @@ const loadStats = async (userId) => {
     )
   }
 
-  // Error state if no majstor
   if (!majstor) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -294,7 +294,6 @@ const loadStats = async (userId) => {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Message */}
       <WelcomeMessage />
 
       {/* Quick Stats */}
@@ -327,18 +326,18 @@ const loadStats = async (userId) => {
           </div>
         </div>
 
-    <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-  <div className="flex items-center justify-between">
-    <div>
-      <p className="text-slate-400 text-sm">Kunden</p>
-      <p className="text-3xl font-bold text-white">{stats.totalCustomers}</p>
-      <p className="text-sm text-slate-400">Registriert</p>
-    </div>
-    <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl">
-      👥
-    </div>
-  </div>
-</div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Kunden</p>
+              <p className="text-3xl font-bold text-white">{stats.totalCustomers}</p>
+              <p className="text-sm text-slate-400">Registriert</p>
+            </div>
+            <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl">
+              👥
+            </div>
+          </div>
+        </div>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
           <div className="flex items-center justify-between">
@@ -359,7 +358,6 @@ const loadStats = async (userId) => {
         <h2 className="text-2xl font-bold text-white mb-6">Schnellzugriff</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* QR Business Card - Always Free */}
           <ProtectedNavItem
             isAlwaysFree={true}
             href="/dashboard/business-card/create"
@@ -369,7 +367,6 @@ const loadStats = async (userId) => {
             buttonText="Jetzt erstellen"
           />
 
-          {/* Invoice Creation - Protected */}
           <ProtectedNavItem
             feature="invoicing"
             href="/dashboard/invoices"
@@ -384,18 +381,20 @@ const loadStats = async (userId) => {
         </div>
       </div>
 
-      {/* Navigation Menu - All features with protection */}
+      {/* Navigation Menu */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-6">Dashboard Navigation</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           
-          {/* 🔥 PROTECTED FEATURES */}
           <SubscriptionGuard
             feature="customer_management"
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')}
+                onClick={() => {
+                  console.log('🔥 CLICKED: Meine Kunden (grid button)')
+                  handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')
+                }}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">👥</div>
@@ -425,7 +424,10 @@ const loadStats = async (userId) => {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => handleProtectedFeatureClick('customer_inquiries', 'Kundenanfragen')}
+                onClick={() => {
+                  console.log('🔥 CLICKED: Kundenanfragen')
+                  handleProtectedFeatureClick('customer_inquiries', 'Kundenanfragen')
+                }}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors relative group"
               >
                 <div className="text-2xl mb-2 opacity-60">📩</div>
@@ -460,7 +462,10 @@ const loadStats = async (userId) => {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')}
+                onClick={() => {
+                  console.log('🔥 CLICKED: Rechnungen')
+                  handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')
+                }}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">📄</div>
@@ -490,7 +495,10 @@ const loadStats = async (userId) => {
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')}
+                onClick={() => {
+                  console.log('🔥 CLICKED: Services')
+                  handleProtectedFeatureClick('services_management', 'Services Verwaltung')
+                }}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">🔧</div>
@@ -506,7 +514,7 @@ const loadStats = async (userId) => {
           >
             <Link
               href="/dashboard/services"
-              className="bg-slash-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
             >
               <div className="text-2xl mb-2">🔧</div>
               <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
@@ -515,13 +523,15 @@ const loadStats = async (userId) => {
             </Link>
           </SubscriptionGuard>
 
-          {/* 🔥 NEW: PDF Archive */}
           <SubscriptionGuard
             feature="pdf_archive"
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')}
+                onClick={() => {
+                  console.log('🔥 CLICKED: PDF Archiv')
+                  handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')
+                }}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">🗂️</div>
@@ -546,42 +556,15 @@ const loadStats = async (userId) => {
             </Link>
           </SubscriptionGuard>
 
-          {/* <SubscriptionGuard
-            feature="analytics"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => handleProtectedFeatureClick('analytics', 'Analytics & Berichte')}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-              >
-                <div className="text-2xl mb-2 opacity-60">📈</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  Analytics
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
-            <Link
-              href="/dashboard/analytics"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-            >
-              <div className="text-2xl mb-2">📈</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Analytics
-              </div>
-            </Link>
-          </SubscriptionGuard>     */}
-
           <SubscriptionGuard
             feature="settings"
             majstorId={majstor?.id}
             fallback={
               <button
-                onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')}
+                onClick={() => {
+                  console.log('🔥 CLICKED: Settings')
+                  handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')
+                }}
                 className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
               >
                 <div className="text-2xl mb-2 opacity-60">⚙️</div>
@@ -608,7 +591,6 @@ const loadStats = async (userId) => {
         </div>
       </div>
 
-      
       {/* 🔥 UPGRADE MODAL */}
       <UpgradeModal
         isOpen={upgradeModalOpen}

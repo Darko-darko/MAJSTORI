@@ -1,23 +1,355 @@
-// app/components/subscription/UpgradeModal.js - CORRECTED VERSION
+// app/components/subscription/UpgradeModal.js - DEBUG VERSION
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { initializePaddle, openPaddleCheckout, PADDLE_CONFIG } from '@/lib/paddle'
+import { supabase } from '@/lib/supabase'
+import { markPaymentJustCompleted } from '@/lib/hooks/useSubscription'
+
+console.log('🔥 UpgradeModal.js loaded!')
 
 /**
- * Hook za upravljanje Upgrade Modal-om
+ * 🔥 UPGRADE MODAL - DEBUG VERSION
+ */
+export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPlan }) {
+  console.log('🔥 UpgradeModal rendered!', { isOpen, feature, featureName, currentPlan })
+  
+  const [billingInterval, setBillingInterval] = useState('monthly')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [paddleReady, setPaddleReady] = useState(false)
+
+  useEffect(() => {
+    console.log('🔥 UpgradeModal useEffect - isOpen changed:', isOpen)
+    if (isOpen && !paddleReady) {
+      console.log('🔥 Initializing Paddle...')
+      initializePaddle(
+        () => {
+          console.log('✅ Paddle initialized in UpgradeModal')
+          setPaddleReady(true)
+        },
+        (err) => {
+          console.error('❌ Paddle initialization failed:', err)
+          setError('Paddle loading failed')
+        }
+      )
+    }
+  }, [isOpen, paddleReady])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setLoading(false)
+      setError('')
+    }
+  }, [isOpen])
+
+  const handleUpgrade = async () => {
+    console.log('🚀 handleUpgrade called!', { billingInterval })
+    
+    try {
+      setLoading(true)
+      setError('')
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        throw new Error('Authentifizierung erforderlich')
+      }
+
+      const { data: majstorData, error: majstorError } = await supabase
+        .from('majstors')
+        .select('id, email')
+        .eq('id', user.id)
+        .single()
+
+      if (majstorError) throw majstorError
+
+      const priceId = billingInterval === 'monthly' 
+        ? PADDLE_CONFIG.priceIds.monthly
+        : PADDLE_CONFIG.priceIds.yearly
+
+      if (!priceId) {
+        throw new Error('Price ID not configured')
+      }
+
+      console.log('🚀 Opening Paddle checkout:', {
+        priceId,
+        billingInterval,
+        email: majstorData.email
+      })
+
+      markPaymentJustCompleted()
+
+      await openPaddleCheckout({
+        priceId: priceId,
+        email: majstorData.email,
+        majstorId: majstorData.id,
+        billingInterval: billingInterval,
+        onSuccess: (data) => {
+          console.log('✅ Paddle checkout success:', data)
+          onClose()
+          
+          setTimeout(() => {
+            window.location.href = `/dashboard?paddle_success=true&plan=${billingInterval}`
+          }, 1000)
+        },
+        onError: (err) => {
+          console.error('❌ Paddle checkout error:', err)
+          setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+          setLoading(false)
+        }
+      })
+
+    } catch (err) {
+      console.error('❌ Upgrade error:', err)
+      setError(err.message || 'Ein Fehler ist aufgetreten')
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen) {
+    console.log('⏸️ UpgradeModal is closed')
+    return null
+  }
+
+  console.log('✅ UpgradeModal is OPEN and RENDERING!')
+
+  const pricing = {
+    monthly: {
+      price: 19.90,
+      period: 'Monat',
+      periodShort: 'mtl.',
+      savings: null,
+      popular: false
+    },
+    yearly: {
+      price: 199.99,
+      period: 'Jahr',
+      periodShort: 'jährl.',
+      savings: '16%',
+      popular: true
+    }
+  }
+
+  const currentPricing = pricing[billingInterval]
+  const monthlyEquivalent = billingInterval === 'yearly' 
+    ? (currentPricing.price / 12).toFixed(2) 
+    : null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="relative w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        
+        {/* Debug Info */}
+        <div className="absolute top-0 left-0 bg-red-500 text-white text-xs px-2 py-1 z-50">
+          DEBUG: Modal OPEN!
+        </div>
+
+        {/* Close Button */}
+        <button
+          onClick={() => {
+            console.log('🔥 Close button clicked!')
+            onClose()
+          }}
+          disabled={loading}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl z-10 disabled:opacity-50"
+        >
+          ×
+        </button>
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-center">
+          <div className="text-5xl mb-4">💎</div>
+          <h2 className="text-3xl font-bold text-white mb-2">
+            Upgrade auf PRO
+          </h2>
+          <p className="text-blue-100">
+            Schalten Sie alle Funktionen frei
+          </p>
+          <p className="text-blue-200 text-sm mt-2">
+            Aktueller Plan: <strong>{currentPlan || 'Unknown'}</strong>
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="p-8">
+          
+          {/* Billing Toggle */}
+          <div className="mb-8">
+            <div className="flex items-center justify-center gap-4 bg-slate-900 p-2 rounded-xl">
+              <button
+                onClick={() => {
+                  console.log('🔥 Monthly clicked!')
+                  setBillingInterval('monthly')
+                }}
+                disabled={loading}
+                className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                  billingInterval === 'monthly'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Monatlich
+              </button>
+
+              <button
+                onClick={() => {
+                  console.log('🔥 Yearly clicked!')
+                  setBillingInterval('yearly')
+                }}
+                disabled={loading}
+                className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all duration-200 relative ${
+                  billingInterval === 'yearly'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Jährlich
+                {pricing.yearly.savings && (
+                  <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                    -{pricing.yearly.savings}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Pricing Display */}
+          <div className="text-center mb-8">
+            <div className="text-5xl font-bold text-white mb-2">
+              {currentPricing.price.toFixed(2)}€
+              <span className="text-xl text-slate-400 font-normal ml-2">
+                + MwSt.
+              </span>
+            </div>
+            <div className="text-slate-400 text-lg">
+              pro {currentPricing.period}
+            </div>
+            {monthlyEquivalent && (
+              <div className="text-green-400 text-sm mt-1">
+                ≈ {monthlyEquivalent}€/Monat (spare {pricing.yearly.savings}!)
+              </div>
+            )}
+          </div>
+
+          {/* Features List */}
+          <div className="bg-slate-900 rounded-xl p-6 mb-6">
+            <h3 className="text-white font-semibold mb-4 text-center">
+              ✨ Alle PRO-Funktionen:
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { icon: '👥', text: 'Unbegrenzte Kundenverwaltung' },
+                { icon: '📩', text: 'Kundenanfragen Management' },
+                { icon: '📄', text: 'Rechnungen & Angebote' },
+                { icon: '🔧', text: 'Services Verwaltung' },
+                { icon: '🗂️', text: 'PDF Archiv' },
+                { icon: '⚙️', text: 'Erweiterte Einstellungen' },
+                { icon: '📊', text: 'Analytics & Berichte' },
+                { icon: '🚀', text: 'Prioritäts-Support' }
+              ].map((feature, i) => (
+                <div key={i} className="flex items-center gap-3 text-slate-300">
+                  <span className="text-xl">{feature.icon}</span>
+                  <span className="text-sm">{feature.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Important Notes */}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">ℹ️</span>
+              <div className="text-sm text-blue-200">
+                <p className="mb-2">
+                  <strong>30 Tage Kündigungsfrist:</strong> Sie können Ihr Abonnement jederzeit kündigen.
+                </p>
+                <p>
+                  <strong>Keine versteckten Kosten:</strong> Der angegebene Preis zzgl. MwSt.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-3 text-red-300">
+                <span className="text-2xl">⚠️</span>
+                <span className="text-sm">{error}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                console.log('🔥 Upgrade button clicked!')
+                handleUpgrade()
+              }}
+              disabled={loading || !paddleReady}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-3">
+                  <span className="animate-spin">⏳</span>
+                  Lädt...
+                </span>
+              ) : (
+                <>
+                  🚀 Jetzt auf PRO upgraden ({currentPricing.periodShort})
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                console.log('🔥 Cancel button clicked!')
+                onClose()
+              }}
+              disabled={loading}
+              className="w-full bg-slate-700 text-slate-300 px-8 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50"
+            >
+              Vielleicht später
+            </button>
+          </div>
+
+          <p className="text-center text-slate-500 text-xs mt-4">
+            Sichere Zahlung über Paddle.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 🎣 Hook za kontrolu UpgradeModal-a
  */
 export function useUpgradeModal() {
+  console.log('🔥 useUpgradeModal hook initialized!')
+  
   const [isOpen, setIsOpen] = useState(false)
-  const [modalProps, setModalProps] = useState({})
+  const [modalProps, setModalProps] = useState({
+    feature: null,
+    featureName: null,
+    currentPlan: null
+  })
 
   const showUpgradeModal = (feature, featureName, currentPlan) => {
+    console.log('🔥🔥🔥 showUpgradeModal CALLED!', { feature, featureName, currentPlan })
     setModalProps({ feature, featureName, currentPlan })
     setIsOpen(true)
   }
 
   const hideUpgradeModal = () => {
+    console.log('🔥 hideUpgradeModal called!')
     setIsOpen(false)
-    setModalProps({})
+    setTimeout(() => {
+      setModalProps({ feature: null, featureName: null, currentPlan: null })
+    }, 300)
   }
+
+  console.log('🔥 useUpgradeModal state:', { isOpen, modalProps })
 
   return {
     isOpen,
@@ -25,196 +357,4 @@ export function useUpgradeModal() {
     showUpgradeModal,
     hideUpgradeModal
   }
-}
-
-/**
- * Centralni Upgrade Modal - prikazuje se kada Freemium korisnik pokuša da pristupi premium funkciji
- */
-export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPlan = 'Freemium' }) {
-  if (!isOpen) return null
-
-  const featureDescriptions = {
-    'customer_inquiries': {
-      icon: '📧',
-      title: 'Online Kundenanfragen',
-      description: 'Empfangen Sie Anfragen mit Fotos direkt über Ihre digitale Visitenkarte',
-      benefits: [
-        'Bis zu 5 Fotos pro Anfrage',
-        'Automatische E-Mail-Benachrichtigungen', 
-        'Strukturierte Anfragenverwaltung',
-        'Direkter Kundenkontakt'
-      ]
-    },
-    'customer_management': {
-      icon: '👥',
-      title: 'Kundenverwaltung',
-      description: 'Verwalten Sie alle Ihre Kunden professionell an einem Ort',
-      benefits: [
-        'Unbegrenzte Kundenanzahl',
-        'Kontakthistorie und Notizen',
-        'Automatische Rechnungszuordnung',
-        'Export-Funktionen'
-      ]
-    },
-    'invoicing': {
-      icon: '🧾',
-      title: 'Professionelle Rechnungen',
-      description: 'Erstellen Sie rechtskonforme Angebote und Rechnungen in Sekunden',
-      benefits: [
-        'Deutsche Rechnungsstandards (ZUGFeRD)',
-        'Automatische Nummerierung',
-        'SEPA QR-Codes für schnelle Zahlung',
-        'PDF-Export und E-Mail-Versand'
-      ]
-    },
-    'services_management': {
-      icon: '🔧',
-      title: 'Service Management',
-      description: 'Verwalten Sie Ihre Dienstleistungen und Preise zentral',
-      benefits: [
-        'Unbegrenzte Services',
-        'Standard-Preise definieren',
-        'Schnelle Rechnungserstellung',
-        'Service-Kategorien'
-      ]
-    },
-    'pdf_archive': {
-      icon: '🗂️',
-      title: 'PDF Archiv',
-      description: 'Alle Ihre Rechnungen und Angebote zentral archiviert',
-      benefits: [
-        'Automatische PDF-Speicherung',
-        'Durchsuchbares Archiv',
-        'Backup und Wiederherstellung',
-        'Jahresarchive'
-      ]
-    },
-    'analytics': {
-      icon: '📈',
-      title: 'Business Analytics',
-      description: 'Detaillierte Einblicke in Ihr Geschäft',
-      benefits: [
-        'Umsatz-Dashboards',
-        'Kunden-Analysen',
-        'Trend-Reports',
-        'Export für Steuerberater'
-      ]
-    }
-  }
-
-  const featureInfo = featureDescriptions[feature] || {
-    icon: '⭐',
-    title: featureName || 'Premium Feature',
-    description: 'Diese Funktion ist ab dem PRO Plan verfügbar',
-    benefits: ['Alle Premium-Funktionen', 'Professioneller Support']
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">{featureInfo.icon}</span>
-              </div>
-              <div>
-                <h3 className="text-white font-bold text-lg">{featureInfo.title}</h3>
-                <p className="text-blue-400 text-sm">Premium Feature</p>
-              </div>
-            </div>
-            <button 
-              onClick={onClose}
-              className="text-slate-400 hover:text-white text-xl"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          {/* Description */}
-          <p className="text-slate-300 mb-6 leading-relaxed">
-            {featureInfo.description}
-          </p>
-
-          {/* Current Plan Info */}
-          <div className="bg-slate-900/50 border border-slate-600 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-slate-400 text-sm">Aktueller Plan:</span>
-                <div className="text-white font-semibold">{currentPlan}</div>
-              </div>
-              <div className="text-right">
-                <span className="text-slate-400 text-sm">Benötigt:</span>
-                <div className="text-blue-400 font-semibold">PRO Plan</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Benefits */}
-          <div className="mb-6">
-            <h4 className="text-white font-semibold mb-3">Was Sie erhalten:</h4>
-            <div className="space-y-2">
-              {featureInfo.benefits.map((benefit, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                  <span className="text-slate-300 text-sm">{benefit}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Pricing Info */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
-            <div className="text-center">
-              <div className="text-white font-bold text-2xl mb-1">
-                19,90€ <span className="text-lg font-normal text-blue-300">/Monat</span>
-              </div>
-              <div className="text-blue-300 text-sm">PRO Plan - Alle Features</div>
-              <div className="text-slate-400 text-xs mt-1">+ VAT</div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => {
-                // TODO: Redirect to upgrade/billing page
-                alert('Upgrade flow wird bald implementiert!\n\nSie werden zu Paddle Billing weitergeleitet.')
-                onClose()
-              }}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-            >
-              🚀 Jetzt upgraden
-            </button>
-            <button
-              onClick={onClose}
-              className="bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700 transition-colors"
-            >
-              Später entscheiden
-            </button>
-          </div>
-
-          {/* Footer Note */}
-          <div className="mt-4 pt-4 border-t border-slate-700">
-            <div className="flex items-center justify-center gap-4 text-slate-500 text-xs">
-              <span>✓ Jederzeit kündbar</span>
-              <span>•</span>
-              <span>✓ Sichere Zahlung</span>
-              <span>•</span>
-              <span>✓ EU-Datenschutz</span>
-            </div>
-            <p className="text-center text-slate-500 text-xs mt-2">
-              Zahlung erfolgt über Paddle (EU-konforme Rechnungsstellung)
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
 }

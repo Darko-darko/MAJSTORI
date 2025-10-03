@@ -1,13 +1,7 @@
-// netlify/functions/paddle-webhook.js
+// netlify/functions/paddle-webhook.js - FIXED VERSION
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-/**
- * Netlify Function for Paddle Webhooks
- * Has direct access to raw body = signature verification works!
- */
-
-// Supabase Admin Client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -15,7 +9,6 @@ const supabaseAdmin = createClient(
 
 const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET
 
-// Paddle IP whitelist (backup security)
 const PADDLE_IPS = [
   '34.194.127.46',
   '54.234.237.108',
@@ -25,9 +18,6 @@ const PADDLE_IPS = [
   '100.20.172.113'
 ]
 
-/**
- * Verify Paddle Signature
- */
 function verifyPaddleSignature(rawBody, signatureHeader) {
   if (!PADDLE_WEBHOOK_SECRET) {
     console.warn('WARNING: PADDLE_WEBHOOK_SECRET not configured')
@@ -66,20 +56,13 @@ function verifyPaddleSignature(rawBody, signatureHeader) {
   }
 }
 
-/**
- * Verify Paddle IP (backup security)
- */
 function verifyPaddleIP(sourceIP) {
   return PADDLE_IPS.includes(sourceIP)
 }
 
-/**
- * Main Handler
- */
 export async function handler(event, context) {
   const startTime = Date.now()
   
-  // Only accept POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -91,7 +74,6 @@ export async function handler(event, context) {
     console.log('\n========== PADDLE WEBHOOK ==========')
     console.log('Timestamp:', new Date().toISOString())
 
-    // Get raw body (Netlify Functions preserve it!)
     const rawBody = event.body
     
     if (!rawBody) {
@@ -104,14 +86,12 @@ export async function handler(event, context) {
 
     console.log('Body length:', rawBody.length)
 
-    // Get headers
     const signatureHeader = event.headers['paddle-signature']
     const sourceIP = event.headers['x-forwarded-for']?.split(',')[0] || 
                      event.headers['x-nf-client-connection-ip']
 
     console.log('Source IP:', sourceIP)
 
-    // Security check 1: Signature verification
     let signatureValid = false
     if (signatureHeader) {
       signatureValid = verifyPaddleSignature(rawBody, signatureHeader)
@@ -125,7 +105,6 @@ export async function handler(event, context) {
       console.error('❌ No signature header')
     }
 
-    // Security check 2: IP whitelist (backup)
     const ipValid = verifyPaddleIP(sourceIP)
     
     if (ipValid) {
@@ -134,7 +113,6 @@ export async function handler(event, context) {
       console.warn('⚠️ IP not in whitelist:', sourceIP)
     }
 
-    // Require EITHER signature OR IP to be valid
     if (!signatureValid && !ipValid) {
       console.error('❌ WEBHOOK REJECTED: Invalid signature AND unknown IP')
       return {
@@ -147,12 +125,10 @@ export async function handler(event, context) {
       }
     }
 
-    // If only IP is valid, log warning but continue
     if (!signatureValid && ipValid) {
       console.warn('⚠️ Proceeding with IP verification only (signature failed)')
     }
 
-    // Parse JSON
     let body
     try {
       body = JSON.parse(rawBody)
@@ -170,7 +146,6 @@ export async function handler(event, context) {
     console.log('Event:', eventType)
     console.log('Event ID:', body.event_id)
 
-    // Process event
     let result
     switch (eventType) {
       case 'subscription.created':
@@ -238,7 +213,7 @@ export async function handler(event, context) {
   }
 }
 
-// Event handlers (same as before)
+// Event handlers
 
 async function handleSubscriptionCreated(data) {
   console.log('✅ subscription.created')
@@ -281,6 +256,11 @@ async function handleSubscriptionCreated(data) {
 
     const priceId = data.items?.[0]?.price?.id
     const planId = await getPlanIdFromPriceId(priceId)
+
+    if (!planId) {
+      console.error('❌ Could not determine plan_id for price:', priceId)
+      return { error: 'Unknown price_id' }
+    }
 
     const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
@@ -475,13 +455,23 @@ async function handleTransactionPaid(data) {
   return { success: true }
 }
 
+// 🔥 FIXED: Oba (monthly i yearly) mapiraju na ISTI 'pro' plan!
 async function getPlanIdFromPriceId(priceId) {
   const priceIdMap = {
     [process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY]: 'pro',
-    [process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY]: 'pro_yearly'
+    [process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY]: 'pro'  // ← FIXED: OBA na 'pro'!
   }
 
-  const planName = priceIdMap[priceId] || 'pro'
+  const planName = priceIdMap[priceId]
+
+  if (!planName) {
+    console.warn('⚠️ Unknown price ID:', priceId)
+    console.warn('Expected monthly:', process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY)
+    console.warn('Expected yearly:', process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY)
+    return null
+  }
+
+  console.log(`✅ Price ${priceId} mapped to plan: ${planName}`)
 
   const { data: plan } = await supabaseAdmin
     .from('subscription_plans')
@@ -489,5 +479,11 @@ async function getPlanIdFromPriceId(priceId) {
     .eq('name', planName)
     .single()
 
-  return plan?.id
+  if (!plan) {
+    console.error(`❌ Plan '${planName}' not found in database!`)
+    return null
+  }
+
+  console.log(`✅ Found plan_id: ${plan.id}`)
+  return plan.id
 }
