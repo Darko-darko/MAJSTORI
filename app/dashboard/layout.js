@@ -1,4 +1,5 @@
-// app/dashboard/layout.js - REFACTORED (NO TRIAL)
+// app/dashboard/layout.js - COMPLETE FILE WITH SIDEBAR AUTO-REFRESH
+
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -16,7 +17,36 @@ function DashboardLayoutContent({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Subscription hook for menu badges
-  const { subscription, plan, isFreemium, isPaid } = useSubscription(majstor?.id)
+  // 🔥 UPDATED: Added 'refresh' to enable cross-component refresh
+  const { subscription, plan, isFreemium, isPaid, refresh } = useSubscription(majstor?.id)
+  
+  // 🔥 NEW: Listen for subscription changes from other components (subscription page cancel)
+  useEffect(() => {
+    const handleSubscriptionChange = (event) => {
+      console.log('🔔 Sidebar detected subscription change:', event.detail)
+      console.log('🔄 Refreshing sidebar subscription data...')
+      
+      if (refresh && typeof refresh === 'function') {
+        // Progressive refresh sa istim intervalima kao subscription page
+        const refreshIntervals = [0, 1000, 3000, 6000, 10000, 15000]
+        
+        refreshIntervals.forEach((delay, index) => {
+          setTimeout(() => {
+            refresh()
+            console.log(`🔄 Sidebar auto-refresh #${index + 1}/6 (${delay}ms)`)
+          }, delay)
+        })
+      }
+    }
+    
+    // Add event listener
+    window.addEventListener('subscription-changed', handleSubscriptionChange)
+    
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener('subscription-changed', handleSubscriptionChange)
+    }
+  }, [refresh])
   
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
@@ -226,6 +256,21 @@ function DashboardLayoutContent({ children }) {
       }
     }
     
+    // Cancelled subscription in grace period
+    if (subscription?.status === 'cancelled') {
+      const now = new Date()
+      const endDate = new Date(subscription.current_period_end)
+      const diffTime = endDate.getTime() - now.getTime()
+      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (daysRemaining > 0) {
+        return {
+          text: `Gekündigt (${daysRemaining}d)`,
+          color: 'bg-gradient-to-r from-orange-500 to-red-500'
+        }
+      }
+    }
+    
     return null
   }
 
@@ -256,7 +301,7 @@ function DashboardLayoutContent({ children }) {
       { 
         name: 'Meine Kunden', 
         href: '/dashboard/customers', 
-        icon: '👥', 
+        icon: '💥', 
         protected: true,
         feature: 'customer_management'
       },
@@ -327,6 +372,8 @@ function DashboardLayoutContent({ children }) {
         subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
       } else if (isPaid) {
         subscriptionStyles = 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 text-green-300 hover:from-green-500/20 hover:to-emerald-500/20 hover:border-green-400/50 hover:text-green-200 shadow-sm'
+      } else if (subscription?.status === 'cancelled') {
+        subscriptionStyles = 'bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 text-orange-300 hover:from-orange-500/20 hover:to-red-500/20 hover:border-orange-400/50 hover:text-orange-200 shadow-sm'
       } else {
         subscriptionStyles = 'bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/30 text-slate-300 hover:bg-slate-700'
       }
@@ -519,6 +566,8 @@ function DashboardLayoutContent({ children }) {
                     <span className="text-green-300">💎 PRO Mitglied</span>
                   ) : isFreemium ? (
                     <span className="text-slate-300">📋 Freemium</span>
+                  ) : subscription?.status === 'cancelled' ? (
+                    <span className="text-orange-300">⏰ Gekündigt</span>
                   ) : null}
                 </p>
               </div>

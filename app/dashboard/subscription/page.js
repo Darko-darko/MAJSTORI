@@ -134,6 +134,11 @@ export default function SubscriptionPage() {
       setRefreshing(true)
       setRefreshProgress(0)
       
+      // 🔥 Emit custom event da bi sidebar znao da treba da se refreshuje
+      window.dispatchEvent(new CustomEvent('subscription-changed', {
+        detail: { action: 'cancelled', timestamp: Date.now() }
+      }))
+      
       // Refresh intervals: odmah, 1s, 3s, 6s, 10s, 15s
       const refreshIntervals = [0, 1000, 3000, 6000, 10000, 15000]
       let refreshCount = 0
