@@ -136,7 +136,7 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+      <div className="relative w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 max-h-[90vh] overflow-y-auto">
         
         {/* Debug Info */}
         <div className="absolute top-0 left-0 bg-red-500 text-white text-xs px-2 py-1 z-50">
