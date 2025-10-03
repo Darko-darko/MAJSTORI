@@ -1,8 +1,8 @@
-// app/test-subscription/page.js - DEBUG PRO MAX VERSION
+// app/test-subscription/page.js - ESLint Fixed
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { createTrialSubscription, useSubscription, clearSubscriptionCache } from '@/lib/hooks/useSubscription'
+import { useSubscription, clearSubscriptionCache } from '@/lib/hooks/useSubscription'
 
 export default function TestPage() {
   const [results, setResults] = useState([])
@@ -10,10 +10,8 @@ export default function TestPage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [debugInfo, setDebugInfo] = useState({})
   
-  // Hook integration
   const subscriptionData = useSubscription(currentUser?.id)
 
-  // Load user on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -39,7 +37,6 @@ export default function TestPage() {
     loadUser()
   }, [])
 
-  // Monitor subscription changes
   useEffect(() => {
     if (subscriptionData && !subscriptionData.loading && currentUser) {
       const info = {
@@ -80,10 +77,6 @@ export default function TestPage() {
     console.clear()
   }
 
-  // ============================================
-  // RESET FUNCTIONS
-  // ============================================
-
   const resetToNewSignup = async () => {
     setRunning(true)
     clearResults()
@@ -93,7 +86,6 @@ export default function TestPage() {
       
       addResult('🔄 POTPUNI RESET - simulacija novog signup-a...', 'info')
       
-      // 1. Briši sve user_subscriptions
       addResult('1️⃣ Brišem user_subscriptions...', 'info')
       const { error: deleteSubError } = await supabase
         .from('user_subscriptions')
@@ -106,7 +98,6 @@ export default function TestPage() {
       }
       addResult('✅ user_subscriptions obrisane', 'success')
 
-      // 2. Resetuj majstors tabelu
       addResult('2️⃣ Resetujem majstors na fresh signup state...', 'info')
       const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       
@@ -126,16 +117,12 @@ export default function TestPage() {
       addResult('✅ majstors resetovana - fresh 7-day trial', 'success')
       addResult(`📅 Trial end date: ${new Date(trialEndsAt).toLocaleString('sr-RS')}`, 'info')
 
-      // 3. Clear ALL caches
       addResult('3️⃣ Čistim sve cache-ove...', 'info')
       
-      // Clear subscription hook cache
       clearSubscriptionCache(currentUser.id)
       
-      // Clear localStorage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('paddle_just_paid')
-        // Clear any other relevant items
         const keysToRemove = []
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i)
@@ -171,7 +158,6 @@ export default function TestPage() {
       
       addResult('🔄 RESET NA FREEMIUM...', 'info')
       
-      // 1. Briši sve user_subscriptions
       addResult('1️⃣ Brišem user_subscriptions...', 'info')
       const { error: deleteSubError } = await supabase
         .from('user_subscriptions')
@@ -181,7 +167,6 @@ export default function TestPage() {
       if (deleteSubError) throw deleteSubError
       addResult('✅ user_subscriptions obrisane', 'success')
 
-      // 2. Resetuj majstors na freemium state
       addResult('2️⃣ Resetujem majstors na freemium state...', 'info')
       const { error: updateMajstorError } = await supabase
         .from('majstors')
@@ -195,7 +180,6 @@ export default function TestPage() {
       if (updateMajstorError) throw updateMajstorError
       addResult('✅ majstors resetovana - freemium mode', 'success')
 
-      // 3. Clear cache
       clearSubscriptionCache(currentUser.id)
       if (typeof window !== 'undefined') {
         localStorage.removeItem('paddle_just_paid')
@@ -225,14 +209,12 @@ export default function TestPage() {
       
       addResult('🔄 RESET NA PRO (platforma direktno)...', 'info')
       
-      // 1. Briši stare subscriptions
       addResult('1️⃣ Brišem stare subscriptions...', 'info')
       await supabase
         .from('user_subscriptions')
         .delete()
         .eq('majstor_id', currentUser.id)
       
-      // 2. Get pro plan
       const { data: proPlan, error: planError } = await supabase
         .from('subscription_plans')
         .select('id, name')
@@ -244,10 +226,9 @@ export default function TestPage() {
       }
       addResult(`✅ Pronašao pro plan: ${proPlan.id}`, 'success')
 
-      // 3. Create active PRO subscription (simulira uspešno Paddle plaćanje)
       addResult('2️⃣ Kreiram aktivnu PRO pretplatu...', 'info')
       const now = new Date()
-      const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 dana grace
+      const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
       
       const { data: proSubscription, error: insertError } = await supabase
         .from('user_subscriptions')
@@ -272,7 +253,6 @@ export default function TestPage() {
       }
       addResult('✅ PRO pretplata kreirana: ' + proSubscription.id, 'success')
 
-      // 4. Update majstors table
       addResult('3️⃣ Updating majstors table...', 'info')
       const { error: updateError } = await supabase
         .from('majstors')
@@ -286,7 +266,6 @@ export default function TestPage() {
       if (updateError) throw updateError
       addResult('✅ Majstors updated', 'success')
 
-      // 5. Clear cache i trigger refresh
       clearSubscriptionCache(currentUser.id)
       
       addResult('✅ PRO RESET ZAVRŠEN!', 'success')
@@ -304,10 +283,6 @@ export default function TestPage() {
     setRunning(false)
   }
 
-  // ============================================
-  // DIAGNOSTIC FUNCTIONS
-  // ============================================
-
   const runFullDiagnostic = async () => {
     clearResults()
     
@@ -320,12 +295,10 @@ export default function TestPage() {
       addResult('🔍 POTPUNA DIJAGNOSTIKA SISTEMA', 'info')
       addResult('='.repeat(50), 'info')
       
-      // 1. User info
       addResult('\n👤 USER INFO:', 'info')
       addResult(`  Email: ${currentUser.email}`, 'info')
       addResult(`  ID: ${currentUser.id}`, 'info')
       
-      // 2. Majstors table
       addResult('\n📋 MAJSTORS TABLE:', 'info')
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
@@ -345,7 +318,6 @@ export default function TestPage() {
         }
       }
 
-      // 3. User_subscriptions table
       addResult('\n📋 USER_SUBSCRIPTIONS TABLE:', 'info')
       const { data: allSubs, error: subsError } = await supabase
         .from('user_subscriptions')
@@ -389,7 +361,6 @@ export default function TestPage() {
         }
       }
 
-      // 4. Hook interpretation
       addResult('\n🎯 HOOK INTERPRETATION:', 'info')
       addResult(`  Loading: ${subscriptionData?.loading ? 'YES' : 'NO'}`, 'info')
       addResult(`  Error: ${subscriptionData?.error || 'None'}`, subscriptionData?.error ? 'error' : 'info')
@@ -402,12 +373,10 @@ export default function TestPage() {
       addResult(`  isActive: ${subscriptionData?.isActive ? 'YES' : 'NO'}`, 'info')
       addResult(`  Features: ${subscriptionData?.features?.length || 0}`, 'info')
 
-      // 5. Environment check
       addResult('\n🌍 ENVIRONMENT:', 'info')
       addResult(`  Location: ${typeof window !== 'undefined' ? window.location.hostname : 'N/A'}`, 'info')
       addResult(`  Is Production: ${process.env.NODE_ENV === 'production' ? 'YES' : 'NO'}`, 'info')
       
-      // 6. Cache info
       addResult('\n💾 CACHE STATUS:', 'info')
       if (typeof window !== 'undefined') {
         const paddlePaidFlag = localStorage.getItem('paddle_just_paid')
@@ -417,7 +386,6 @@ export default function TestPage() {
       addResult('\n✅ DIJAGNOSTIKA ZAVRŠENA', 'success')
       addResult('💡 Pogledaj Console (F12) za detaljne objekte', 'info')
       
-      // Log full objects to console
       console.group('🔍 FULL DIAGNOSTIC DATA')
       console.log('User:', currentUser)
       console.log('Majstor Data:', majstorData)
@@ -467,7 +435,6 @@ export default function TestPage() {
     <div className="p-8 bg-slate-900 min-h-screen">
       <h1 className="text-white text-3xl mb-6">🧪 Subscription Test - Debug Pro Max</h1>
       
-      {/* Live Status Bar */}
       <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-white font-semibold">📊 Live Status</h2>
@@ -516,7 +483,6 @@ export default function TestPage() {
           </div>
         </div>
 
-        {/* User Info */}
         {currentUser && (
           <div className="mt-3 pt-3 border-t border-slate-700">
             <div className="text-xs text-slate-400">
@@ -526,7 +492,6 @@ export default function TestPage() {
         )}
       </div>
 
-      {/* Reset Options */}
       <div className="bg-gradient-to-r from-yellow-900/20 to-orange-900/20 border border-yellow-600/30 p-6 rounded-lg mb-6">
         <h2 className="text-yellow-400 font-bold text-xl mb-4 flex items-center gap-2">
           🔄 RESET OPCIJE
@@ -534,7 +499,6 @@ export default function TestPage() {
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Fresh Trial */}
           <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg">
             <div className="text-2xl mb-2">🆕</div>
             <h3 className="text-white font-semibold mb-2">Fresh Signup</h3>
@@ -552,7 +516,6 @@ export default function TestPage() {
             </button>
           </div>
 
-          {/* Freemium */}
           <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg">
             <div className="text-2xl mb-2">🔓</div>
             <h3 className="text-white font-semibold mb-2">Freemium</h3>
@@ -570,7 +533,6 @@ export default function TestPage() {
             </button>
           </div>
 
-          {/* PRO */}
           <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg">
             <div className="text-2xl mb-2">💎</div>
             <h3 className="text-white font-semibold mb-2">PRO Direct</h3>
@@ -590,7 +552,6 @@ export default function TestPage() {
         </div>
       </div>
 
-      {/* Diagnostic Tools */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <button 
           onClick={runFullDiagnostic}
@@ -611,7 +572,6 @@ export default function TestPage() {
         </button>
       </div>
 
-      {/* Results Console */}
       <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-semibold">📝 Console Output</h2>
@@ -641,13 +601,12 @@ export default function TestPage() {
         </div>
       </div>
 
-      {/* Instructions */}
       <div className="mt-6 bg-blue-900/20 border border-blue-600/30 p-4 rounded-lg">
         <h3 className="text-blue-400 font-semibold mb-2">💡 Kako koristiti:</h3>
         <ol className="text-slate-300 text-sm space-y-1 list-decimal list-inside">
-          <li>Prvo klikni "Full Diagnostic" da vidiš trenutno stanje sistema</li>
+          <li>Prvo klikni Full Diagnostic da vidiš trenutno stanje sistema</li>
           <li>Izaberi jedan od Reset opcija da promeniš subscription stanje</li>
-          <li>Ako hook ne osvežava podatke, klikni "Force Refresh"</li>
+          <li>Ako hook ne osvežava podatke, klikni Force Refresh</li>
           <li>Proveri Console Output i browser Console (F12) za detalje</li>
           <li>Nakon reset-a, stranica će se automatski reload-ovati</li>
         </ol>
