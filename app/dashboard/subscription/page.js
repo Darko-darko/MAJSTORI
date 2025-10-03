@@ -57,14 +57,14 @@ export default function SubscriptionPage() {
     )
     
     // 🔥 Set timeout for Paddle loading
-    const paddleTimeout = setTimeout(() => {
-      if (!paddleReady) {
-        console.error('⏰ Paddle loading timeout after 15 seconds')
-        setError('Paddle lädt zu lange. Bitte laden Sie die Seite neu oder überprüfen Sie Ihre Internetverbindung.')
-      }
-    }, 15000)
-    
-    return () => clearTimeout(paddleTimeout)
+   const paddleTimeout = setTimeout(() => {
+  if (!paddleReady) {
+    console.info('Paddle still loading... (this is normal)')
+    // Ne prikazuj error korisniku
+  }
+}, 30000)
+
+return () => clearTimeout(paddleTimeout)
   }, [])
 
   const loadUser = async () => {

@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - WITH SUBSCRIPTION MANAGEMENT IN SIDEBAR
+// app/dashboard/layout.js - FIXED TRIAL DISPLAY IN SIDEBAR
 
 'use client'
 import { useState, useEffect , Suspense } from 'react'
@@ -17,7 +17,8 @@ function DashboardLayoutContent({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // 🔥 Subscription hook for menu badges
- const { subscription, plan, isInTrial, isFreemium, isPaid, trialDaysRemaining } = useSubscription(majstor?.id)
+  const { subscription, plan, isInTrial, isFreemium, isPaid, trialDaysRemaining } = useSubscription(majstor?.id)
+  
   // 🔥 Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
@@ -39,7 +40,6 @@ function DashboardLayoutContent({ children }) {
     if (majstor?.id) {
       loadBadgeCounts()
       
-      // Refresh every 2 minutes
       const interval = setInterval(() => {
         loadBadgeCounts()
       }, 2 * 60 * 1000)
@@ -74,7 +74,6 @@ function DashboardLayoutContent({ children }) {
           .lte('end_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       ])
 
-      // Filter overdue invoices
       let overdueCount = 0
       if (invoicesResult.data && !invoicesResult.error) {
         const today = new Date()
@@ -254,13 +253,12 @@ function DashboardLayoutContent({ children }) {
       }
     ]
 
-    // 🔥 SUBSCRIPTION MANAGEMENT ITEM (always visible)
     const subscriptionItem = {
       name: 'Meine Mitgliedschaft',
       href: '/dashboard/subscription',
       icon: '💎',
       protected: false,
-      isSeparator: true, // Add visual separator before this
+      isSeparator: true,
       badge: getSubscriptionBadge()
     }
 
@@ -282,78 +280,77 @@ function DashboardLayoutContent({ children }) {
   }
 
   // 🔥 Get subscription badge for menu item
- const getSubscriptionBadge = () => {
-  if (!plan) return null
-  
-  if (isFreemium) {
-    return {
-      text: 'Upgrade',
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+  const getSubscriptionBadge = () => {
+    // 🔥 NOVO: Proveri 7-day trial PRVO (kada nema plan objekta)
+    if (!plan && isInTrial && trialDaysRemaining > 0) {
+      return {
+        text: `Trial ${trialDaysRemaining}d`,
+        color: trialDaysRemaining <= 2 
+          ? 'bg-gradient-to-r from-orange-500 to-red-500'
+          : 'bg-gradient-to-r from-blue-500 to-purple-500'
+      }
     }
-  }
-  
-  const isPaidWithGracePeriod = subscription?.status === 'active'
-  const isFreeTrialPeriod = subscription?.status === 'trial'
-  
-  let daysRemaining = 0
-  if (isPaidWithGracePeriod && subscription?.current_period_end) {
-    const now = new Date()
-    const endDate = new Date(subscription.current_period_end)
-    const diffTime = endDate.getTime() - now.getTime()
-    daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  } else if (isFreeTrialPeriod && trialDaysRemaining > 0) {
-    daysRemaining = trialDaysRemaining
-  }
-  
-  if (isPaidWithGracePeriod) {
-    return {
-      text: daysRemaining > 0 ? `PRO (${daysRemaining}d)` : 'PRO',
-      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+    
+    if (!plan) {
+      // Ako nema plan i nije trial, onda je freemium
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
     }
-  }
-  
-  if (isFreeTrialPeriod && daysRemaining > 0) {
-    return {
-      text: `Trial ${daysRemaining}d`,
-      color: daysRemaining <= 2 
-        ? 'bg-gradient-to-r from-orange-500 to-red-500'
-        : 'bg-gradient-to-r from-orange-500 to-red-500'
+    
+    if (isFreemium) {
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
     }
-  }
-  
-  if (isPaid) {
-    return {
-      text: 'PRO',
-      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+    
+    const isPaidWithGracePeriod = subscription?.status === 'active'
+    
+    let daysRemaining = 0
+    if (isPaidWithGracePeriod && subscription?.current_period_end) {
+      const now = new Date()
+      const endDate = new Date(subscription.current_period_end)
+      const diffTime = endDate.getTime() - now.getTime()
+      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     }
+    
+    if (isPaidWithGracePeriod) {
+      return {
+        text: daysRemaining > 0 ? `PRO (${daysRemaining}d)` : 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
+    if (isPaid) {
+      return {
+        text: 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
+    return null
   }
-  
-  return null
-}
 
   // 🔥 NavigationItem with subscription styling
   const NavigationItem = ({ item, isMobile = false }) => {
-    // Add separator before subscription item
     const separator = item.isSeparator ? (
       <div className="my-2 border-t border-slate-700"></div>
     ) : null
 
-    // 💎 Special styling for subscription item based on status
     const isSubscriptionItem = item.href === '/dashboard/subscription'
     
     let subscriptionStyles = ''
     if (isSubscriptionItem) {
-      if (isFreemium) {
-        // Freemium - Yellow/Orange CTA (upgrade now!)
+      if (isInTrial && !isPaid) {
+        // 7-day trial (bez plaćanja)
+        subscriptionStyles = 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 text-blue-300 hover:from-blue-500/20 hover:to-purple-500/20 hover:border-blue-400/50 hover:text-blue-200 shadow-sm'
+      } else if (isFreemium) {
         subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
-      } else if (isInTrial) {
-        // Trial - Orange/Red urgency (time running out!)
-        subscriptionStyles = 'bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 text-orange-300 hover:from-orange-500/20 hover:to-red-500/20 hover:border-orange-400/50 hover:text-orange-200 shadow-sm'
       } else if (isPaid) {
-        // PRO - Green success (all good!)
         subscriptionStyles = 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 text-green-300 hover:from-green-500/20 hover:to-emerald-500/20 hover:border-green-400/50 hover:text-green-200 shadow-sm'
       } else {
-        // Default fallback
         subscriptionStyles = 'bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/30 text-slate-300 hover:bg-slate-700'
       }
     }
@@ -386,7 +383,6 @@ function DashboardLayoutContent({ children }) {
       </div>
     )
 
-    // If protected, wrap with SubscriptionGuard
     if (item.protected && item.feature && !item.comingSoon) {
       return (
         <>
@@ -435,7 +431,6 @@ function DashboardLayoutContent({ children }) {
       )
     }
 
-    // Coming soon items
     if (item.comingSoon) {
       return (
         <>
@@ -447,7 +442,6 @@ function DashboardLayoutContent({ children }) {
       )
     }
 
-    // Free/unprotected items
     return (
       <>
         {separator}
@@ -487,8 +481,7 @@ function DashboardLayoutContent({ children }) {
               Erneut versuchen
             </button>
             <button
-              onClick={() =>
-                router.push('/login')}
+              onClick={() => router.push('/login')}
               className="w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700"
             >
               Zurück zur Anmeldung
@@ -539,45 +532,46 @@ function DashboardLayoutContent({ children }) {
               </div>
             </div>
 
-           {/* Subscription Status Badge */}
-{plan && (
-  <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-    <p className="text-xs font-medium">
-      {(() => {
-        const isPaidWithGracePeriod = subscription?.status === 'active'
-        const isFreeTrialPeriod = subscription?.status === 'trial'
-        
-        let daysRemaining = 0
-        if (isPaidWithGracePeriod && subscription?.current_period_end) {
-          const now = new Date()
-          const endDate = new Date(subscription.current_period_end)
-          const diffTime = endDate.getTime() - now.getTime()
-          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        } else if (isFreeTrialPeriod) {
-          daysRemaining = trialDaysRemaining
-        }
-        
-        if (isPaidWithGracePeriod) {
-          return (
-            <span className="text-green-300">
-              💎 PRO Mitglied {daysRemaining > 0 ? `(${daysRemaining}d Kündigungsfrist)` : ''}
-            </span>
-          )
-        } else if (isFreeTrialPeriod && daysRemaining > 0) {
-          return (
-            <span className="text-orange-300">
-              🎯 Trial: {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''} übrig
-            </span>
-          )
-        } else if (isFreemium) {
-          return <span className="text-slate-300">📋 Freemium</span>
-        }
-        
-        return null
-      })()}
-    </p>
-  </div>
-)}
+            {/* 🔥 FIXED: Subscription Status Badge - prikazuje se i za 7-day trial! */}
+            {(plan || (isInTrial && !plan)) && (
+              <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+                <p className="text-xs font-medium">
+                  {(() => {
+                    // 🔥 NOVO: Proveri 7-day trial PRVO
+                    if (!plan && isInTrial && trialDaysRemaining > 0) {
+                      return (
+                        <span className="text-blue-300">
+                          🎯 Trial: {trialDaysRemaining} Tag{trialDaysRemaining !== 1 ? 'e' : ''} übrig
+                        </span>
+                      )
+                    }
+
+                    // PRO sa grace periodom
+                    const isPaidWithGracePeriod = subscription?.status === 'active'
+                    
+                    let daysRemaining = 0
+                    if (isPaidWithGracePeriod && subscription?.current_period_end) {
+                      const now = new Date()
+                      const endDate = new Date(subscription.current_period_end)
+                      const diffTime = endDate.getTime() - now.getTime()
+                      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                    }
+                    
+                    if (isPaidWithGracePeriod) {
+                      return (
+                        <span className="text-green-300">
+                          💎 PRO Mitglied {daysRemaining > 0 ? `(${daysRemaining}d Kündigungsfrist)` : ''}
+                        </span>
+                      )
+                    } else if (isFreemium) {
+                      return <span className="text-slate-300">📋 Freemium</span>
+                    }
+                    
+                    return null
+                  })()}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Desktop Navigation */}
@@ -662,7 +656,6 @@ function DashboardLayoutContent({ children }) {
         <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* Mobile menu button */}
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden text-slate-400 hover:text-white p-1"
@@ -681,7 +674,6 @@ function DashboardLayoutContent({ children }) {
             </div>
 
             <div className="flex items-center space-x-3">
-              {/* Notifications */}
               <button 
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
                 onClick={loadBadgeCounts}
@@ -693,7 +685,6 @@ function DashboardLayoutContent({ children }) {
                 )}
               </button>
 
-              {/* Profile */}
               <Link 
                 href="/dashboard/settings"
                 className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
@@ -708,7 +699,6 @@ function DashboardLayoutContent({ children }) {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
-          {/* Trial Banner */}
           <TrialBanner majstorId={majstor?.id} className="mb-6" />
           
           {children}
