@@ -1,4 +1,4 @@
-// netlify/functions/paddle-cancel-subscription.js
+// netlify/functions/paddle-cancel-subscription.js - IMMEDIATE STATUS UPDATE
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseAdmin = createClient(
@@ -11,7 +11,6 @@ const PADDLE_API_BASE_URL = process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === 'sand
   ? 'https://sandbox-api.paddle.com'
   : 'https://api.paddle.com'
 
-// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -19,7 +18,6 @@ const corsHeaders = {
 }
 
 export async function handler(event, context) {
-  // Handle OPTIONS for CORS
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -28,7 +26,6 @@ export async function handler(event, context) {
     }
   }
 
-  // Only allow POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -40,7 +37,6 @@ export async function handler(event, context) {
   try {
     console.log('🚫 Cancel subscription request received')
     
-    // Parse request body
     let body
     try {
       body = JSON.parse(event.body)
@@ -55,7 +51,6 @@ export async function handler(event, context) {
 
     const { subscriptionId, majstorId } = body
 
-    // Validation
     if (!subscriptionId || !majstorId) {
       console.error('❌ Missing subscriptionId or majstorId')
       return {
@@ -71,7 +66,6 @@ export async function handler(event, context) {
     console.log('📋 Subscription ID:', subscriptionId)
     console.log('👤 Majstor ID:', majstorId)
 
-    // Check if PADDLE_API_KEY exists
     if (!PADDLE_API_KEY) {
       console.error('❌ PADDLE_API_KEY not configured')
       return {
@@ -79,12 +73,12 @@ export async function handler(event, context) {
         headers: corsHeaders,
         body: JSON.stringify({ 
           error: 'Server configuration error',
-          hint: 'PADDLE_API_KEY missing in environment variables'
+          hint: 'PADDLE_API_KEY missing'
         })
       }
     }
 
-    // Call Paddle API to cancel subscription
+    // Call Paddle API
     console.log('🔗 Calling Paddle API...')
     console.log('URL:', `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/cancel`)
     
@@ -97,7 +91,7 @@ export async function handler(event, context) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          effective_from: 'next_billing_period' // Cancel at end of grace period
+          effective_from: 'next_billing_period'
         })
       }
     )
@@ -107,7 +101,6 @@ export async function handler(event, context) {
     const responseText = await paddleResponse.text()
     console.log('📄 Paddle response preview:', responseText.substring(0, 200))
 
-    // Handle Paddle errors
     if (!paddleResponse.ok) {
       let errorData
       try {
@@ -137,18 +130,17 @@ export async function handler(event, context) {
       }
     }
 
-    // Parse success response
     const paddleData = JSON.parse(responseText)
     console.log('✅ Paddle subscription cancelled!')
     console.log('📋 Scheduled cancellation at end of billing period')
 
-    // Update Supabase - user_subscriptions
+    // ✅ UPDATE STATUS ODMAH NA 'cancelled'
     console.log('💾 Updating Supabase database...')
     
     const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
-        status: 'cancelled',
+        status: 'cancelled',  // ✅ IMMEDIATE STATUS UPDATE
         cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -156,16 +148,15 @@ export async function handler(event, context) {
 
     if (updateError) {
       console.error('⚠️ Supabase user_subscriptions update error:', updateError)
-      // Don't fail request - Paddle already cancelled
     } else {
-      console.log('✅ user_subscriptions updated')
+      console.log('✅ user_subscriptions status updated to "cancelled"')
     }
 
-    // Update Supabase - majstors table
+    // Update majstors table
     const { error: majstorUpdateError } = await supabaseAdmin
       .from('majstors')
       .update({
-        subscription_status: 'cancelled',
+        subscription_status: 'cancelled',  // ✅ IMMEDIATE UPDATE
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
@@ -173,12 +164,11 @@ export async function handler(event, context) {
     if (majstorUpdateError) {
       console.error('⚠️ Majstor update error:', majstorUpdateError)
     } else {
-      console.log('✅ majstors table updated')
+      console.log('✅ majstors table updated to "cancelled"')
     }
 
     console.log('✅ Subscription cancellation complete!')
 
-    // Return success
     return {
       statusCode: 200,
       headers: corsHeaders,
@@ -187,7 +177,7 @@ export async function handler(event, context) {
         message: 'Subscription cancelled successfully',
         data: {
           subscriptionId: paddleData.data?.id || subscriptionId,
-          status: paddleData.data?.status || 'cancelled',
+          status: 'cancelled',
           effectiveFrom: 'next_billing_period',
           scheduledChange: paddleData.data?.scheduled_change || null
         }
