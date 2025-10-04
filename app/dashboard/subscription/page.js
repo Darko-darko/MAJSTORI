@@ -1,4 +1,4 @@
-// app/dashboard/subscription/page.js - COMPLETE FILE WITH AUTO-REFRESH
+// app/dashboard/subscription/page.js - WITH REDIRECT AFTER CANCEL
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -13,7 +13,7 @@ export default function SubscriptionPage() {
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
   
-  // 🔥 NEW: Refresh progress states
+  // 🔥 Refresh progress states
   const [refreshing, setRefreshing] = useState(false)
   const [refreshProgress, setRefreshProgress] = useState(0)
   
@@ -74,7 +74,7 @@ export default function SubscriptionPage() {
     showUpgradeModal('subscription', 'PRO Mitgliedschaft', currentPlanLabel)
   }
 
-  // 🔥 UPDATED: Cancel subscription with progressive auto-refresh
+  // 🔥 UPDATED: Cancel subscription with redirect to dashboard
   const handleCancelSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine aktive Subscription gefunden')
@@ -161,15 +161,20 @@ export default function SubscriptionPage() {
             window.location.reload()
           }
           
-          // Na poslednjem refresh-u
+          // 🔥 NEW: Na poslednjem refresh-u → redirect na dashboard
           if (index === refreshIntervals.length - 1) {
             setTimeout(() => {
               console.log('✅ Auto-refresh sequence complete!')
-              console.log('💡 If status not updated, please check Paddle webhook logs')
+              console.log('🏠 Redirecting to dashboard...')
               
               // Isključi refresh indicator
               setRefreshing(false)
               setRefreshProgress(100)
+              
+              // 🔥 REDIRECT NA DASHBOARD nakon 1s
+              setTimeout(() => {
+                router.push('/dashboard?cancelled=true')
+              }, 1000)
             }, 1000)
           }
         }, delay)
@@ -184,7 +189,7 @@ export default function SubscriptionPage() {
       // Ne setuj cancelling na false odmah - sačekaj završetak refresh sekvence
       setTimeout(() => {
         setCancelling(false)
-      }, 16000) // After all refreshes complete
+      }, 18000) // After all refreshes + redirect
     }
   }
 
@@ -282,7 +287,7 @@ export default function SubscriptionPage() {
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
         </p>
         
-        {/* 🔥 NEW: Refresh Progress Indicator */}
+        {/* 🔥 Refresh Progress Indicator */}
         {refreshing && (
           <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 animate-pulse">
             <div className="flex items-center gap-3">
@@ -299,6 +304,7 @@ export default function SubscriptionPage() {
                 </div>
                 <p className="text-blue-400 text-xs mt-1">
                   {Math.round(refreshProgress)}% - Warte auf Paddle Webhook...
+                  {refreshProgress >= 90 && ' → Weiterleitung zum Dashboard...'}
                 </p>
               </div>
             </div>
@@ -330,7 +336,8 @@ export default function SubscriptionPage() {
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+                  disabled={refreshing}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
                 >
                   🚀 Auf PRO upgraden
                 </button>
@@ -339,7 +346,7 @@ export default function SubscriptionPage() {
               {statusInfo.showCancel && (
                 <button
                   onClick={handleCancelSubscription}
-                  disabled={cancelling}
+                  disabled={cancelling || refreshing}
                   className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {cancelling ? 'Wird gekündigt...' : 'Abonnement kündigen'}
@@ -359,7 +366,7 @@ export default function SubscriptionPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
             {
-              icon: '💥',
+              icon: '👥',
               title: 'Unbegrenzte Kundenverwaltung',
               description: 'Verwalten Sie alle Ihre Kunden an einem Ort'
             },
@@ -462,7 +469,8 @@ export default function SubscriptionPage() {
               </ul>
               <button
                 onClick={handleUpgradeClick}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                disabled={refreshing}
+                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 Monatlich wählen
               </button>
@@ -505,7 +513,8 @@ export default function SubscriptionPage() {
               </ul>
               <button
                 onClick={handleUpgradeClick}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+                disabled={refreshing}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
               >
                 Jährlich wählen (BESTE WAHL!)
               </button>
