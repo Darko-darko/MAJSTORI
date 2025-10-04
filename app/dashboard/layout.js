@@ -8,6 +8,7 @@ import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGua
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
+import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
 
 function DashboardLayoutContent({ children }) {
   const [user, setUser] = useState(null)
@@ -15,6 +16,7 @@ function DashboardLayoutContent({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh } = useSubscription(majstor?.id)
@@ -681,6 +683,14 @@ const getSubscriptionBadge = () => {
                   <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                 )}
               </button>
+               {/* 🔥  - Support Button */}
+  <button 
+    className="relative p-2 text-slate-400 hover:text-white transition-colors"
+    onClick={openSupport}
+    title="Support kontaktieren"
+  >
+    <span className="text-xl">📨</span>
+  </button>
 
               {/* Profile */}
               <Link 
@@ -708,6 +718,13 @@ const getSubscriptionBadge = () => {
         feature={modalProps.feature}
         featureName={modalProps.featureName}
         currentPlan={modalProps.currentPlan}
+      />
+      {/* 🔥 DODAJ OVO OVDE - Support Modal */}
+      <SupportModal 
+        isOpen={supportOpen}
+        onClose={closeSupport}
+        userEmail={user?.email}
+        userName={majstor?.full_name}
       />
     </div>
   )
