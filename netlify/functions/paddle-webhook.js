@@ -1,4 +1,4 @@
-// netlify/functions/paddle-webhook.js - REFACTORED (NO TRIAL)
+// netlify/functions/paddle-webhook.js - COMPLETE FILE WITH REACTIVATE
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
@@ -164,6 +164,10 @@ export async function handler(event, context) {
         result = await handleSubscriptionCancelled(eventData)
         break
 
+      case 'subscription.resumed':
+        result = await handleSubscriptionResumed(eventData)
+        break
+
       case 'transaction.completed':
         result = await handleTransactionCompleted(eventData)
         break
@@ -229,7 +233,6 @@ async function handleSubscriptionCreated(data) {
     const currentPeriodStart = data.current_billing_period?.starts_at
     const currentPeriodEnd = data.current_billing_period?.ends_at
 
-    // Simplified: Always set to 'active' when created with payment
     const finalStatus = 'active'
 
     const priceId = data.items?.[0]?.price?.id
@@ -240,7 +243,6 @@ async function handleSubscriptionCreated(data) {
       return { error: 'Unknown price_id' }
     }
 
-    // Check if subscription already exists
     const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
       .select('id')
@@ -275,7 +277,6 @@ async function handleSubscriptionCreated(data) {
 
     console.log('Created subscription:', subscription.id)
 
-    // Update majstor record
     await supabaseAdmin
       .from('majstors')
       .update({
@@ -303,7 +304,6 @@ async function handleSubscriptionUpdated(data) {
   const currentPeriodStart = data.current_billing_period?.starts_at
   const currentPeriodEnd = data.current_billing_period?.ends_at
 
-  // Simplified: just use the status from Paddle
   const finalStatus = status === 'active' ? 'active' : status
 
   await supabaseAdmin
@@ -367,7 +367,6 @@ async function handleSubscriptionCancelled(data) {
     })
     .eq('paddle_subscription_id', subscriptionId)
 
-  // Update majstor record
   const { data: subscription } = await supabaseAdmin
     .from('user_subscriptions')
     .select('majstor_id')
@@ -385,6 +384,54 @@ async function handleSubscriptionCancelled(data) {
   }
 
   return { success: true }
+}
+
+async function handleSubscriptionResumed(data) {
+  console.log('▶️ subscription.resumed')
+  
+  try {
+    const subscriptionId = data.id
+    
+    const { error } = await supabaseAdmin
+      .from('user_subscriptions')
+      .update({
+        status: 'active',
+        cancelled_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('paddle_subscription_id', subscriptionId)
+
+    if (error) {
+      console.error('❌ Error resuming subscription:', error)
+      return { error: error.message }
+    }
+
+    console.log('✅ Subscription resumed in database')
+
+    const { data: subscription } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('majstor_id')
+      .eq('paddle_subscription_id', subscriptionId)
+      .single()
+
+    if (subscription?.majstor_id) {
+      await supabaseAdmin
+        .from('majstors')
+        .update({
+          subscription_status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', subscription.majstor_id)
+      
+      console.log('✅ Majstor record updated')
+    }
+
+    return { success: true }
+
+  } catch (error) {
+    console.error('❌ Error in handleSubscriptionResumed:', error)
+    return { error: error.message }
+  }
 }
 
 async function handleTransactionCompleted(data) {
@@ -424,7 +471,6 @@ async function handleTransactionPaid(data) {
 }
 
 async function getPlanIdFromPriceId(priceId) {
-  // Both monthly and yearly map to 'pro' plan
   const priceIdMap = {
     [process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY]: 'pro',
     [process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY]: 'pro'
@@ -434,12 +480,8 @@ async function getPlanIdFromPriceId(priceId) {
 
   if (!planName) {
     console.warn('Unknown price ID:', priceId)
-    console.warn('Expected monthly:', process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY)
-    console.warn('Expected yearly:', process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_YEARLY)
     return null
   }
-
-  console.log(`Price ${priceId} mapped to plan: ${planName}`)
 
   const { data: plan } = await supabaseAdmin
     .from('subscription_plans')
@@ -452,6 +494,5 @@ async function getPlanIdFromPriceId(priceId) {
     return null
   }
 
-  console.log(`Found plan_id: ${plan.id}`)
   return plan.id
 }

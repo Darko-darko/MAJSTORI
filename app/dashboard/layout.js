@@ -222,38 +222,23 @@ function DashboardLayoutContent({ children }) {
   }
 
   // Get subscription badge for menu item
-  const getSubscriptionBadge = () => {
-    if (!plan) return null
-    
-    if (isFreemium) {
-      return {
-        text: 'Upgrade',
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-      }
+ // app/dashboard/layout.js
+// 🔥 ZAMENI getSubscriptionBadge() FUNKCIJU SA OVIM:
+
+const getSubscriptionBadge = () => {
+  if (!plan) return null
+  
+  // 🆓 FREEMIUM - show upgrade
+  if (isFreemium) {
+    return {
+      text: 'Upgrade',
+      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
     }
-    
-    // PRO with grace period
-    if (isPaid && subscription?.current_period_end) {
-      const now = new Date()
-      const endDate = new Date(subscription.current_period_end)
-      const diffTime = endDate.getTime() - now.getTime()
-      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
-      return {
-        text: daysRemaining > 0 ? `PRO (${daysRemaining}d)` : 'PRO',
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-      }
-    }
-    
-    if (isPaid) {
-      return {
-        text: 'PRO',
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-      }
-    }
-    
-    // Cancelled subscription in grace period
-    if (subscription?.status === 'cancelled') {
+  }
+  
+  // 🔥 CANCELLED SUBSCRIPTION - show remaining days (GRACE PERIOD)
+  if (subscription?.status === 'cancelled') {
+    if (subscription.current_period_end) {
       const now = new Date()
       const endDate = new Date(subscription.current_period_end)
       const diffTime = endDate.getTime() - now.getTime()
@@ -261,14 +246,28 @@ function DashboardLayoutContent({ children }) {
       
       if (daysRemaining > 0) {
         return {
-          text: `Gekündigt (${daysRemaining}d)`,
+          text: `PRO (${daysRemaining}d)`, // 🔥 SAMO ovde prikazujemo dane!
           color: 'bg-gradient-to-r from-orange-500 to-red-500'
         }
       }
     }
-    
-    return null
+    // Cancelled i isteklo → freemium
+    return {
+      text: 'Upgrade',
+      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+    }
   }
+  
+  // 💎 ACTIVE PAID SUBSCRIPTION - NO days shown
+  if (isPaid && subscription?.status === 'active') {
+    return {
+      text: 'PRO', // 🔥 BEZ DANA - samo PRO!
+      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+    }
+  }
+  
+  return null
+}
 
   // Navigation with subscription item
   const getNavigation = () => {
