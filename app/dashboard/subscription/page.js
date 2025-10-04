@@ -171,9 +171,10 @@ export default function SubscriptionPage() {
               setRefreshing(false)
               setRefreshProgress(100)
               
-              // 🔥 REDIRECT NA DASHBOARD nakon 1s
+              // 🔥 REDIRECT NA DASHBOARD nakon 1s (window.location umesto router.push)
               setTimeout(() => {
-                router.push('/dashboard?cancelled=true')
+                console.log('🚀 Executing redirect NOW...')
+                window.location.href = '/dashboard?cancelled=true'
               }, 1000)
             }, 1000)
           }
@@ -306,6 +307,16 @@ export default function SubscriptionPage() {
                   {Math.round(refreshProgress)}% - Warte auf Paddle Webhook...
                   {refreshProgress >= 90 && ' → Weiterleitung zum Dashboard...'}
                 </p>
+                
+                {/* 🔥 Manual redirect button after 100% */}
+                {refreshProgress >= 100 && (
+                  <button
+                    onClick={() => window.location.href = '/dashboard'}
+                    className="mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    🏠 Zurück zum Dashboard
+                  </button>
+                )}
               </div>
             </div>
           </div>
