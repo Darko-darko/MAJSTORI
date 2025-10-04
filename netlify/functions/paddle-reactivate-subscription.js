@@ -1,4 +1,4 @@
-// netlify/functions/paddle-reactivate-subscription.js - FIXED
+// netlify/functions/paddle-reactivate-subscription.js - UNIVERSAL
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -14,7 +14,7 @@ const PADDLE_API_BASE_URL = process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === 'sand
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
@@ -37,7 +37,6 @@ export async function handler(event, context) {
     const { subscriptionId, majstorId } = JSON.parse(event.body)
 
     if (!subscriptionId || !majstorId) {
-      console.error('❌ Missing subscriptionId or majstorId')
       return {
         statusCode: 400,
         headers: corsHeaders,
@@ -49,34 +48,112 @@ export async function handler(event, context) {
     console.log('👤 Majstor ID:', majstorId)
 
     if (!PADDLE_API_KEY) {
-      console.error('❌ PADDLE_API_KEY not configured')
       return {
         statusCode: 500,
         headers: corsHeaders,
-        body: JSON.stringify({ 
-          error: 'Paddle API key not configured',
-          hint: 'Add PADDLE_API_KEY to environment variables'
-        })
+        body: JSON.stringify({ error: 'Paddle API key not configured' })
       }
     }
 
-    // 🔥 FIXED: Use RESUME endpoint instead of creating new subscription
-    console.log('🔗 Calling Paddle API to RESUME subscription...')
-    console.log('URL:', `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/resume`)
-    
-    const paddleResponse = await fetch(
-      `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/resume`,
+    // PRVO: Proveri trenutni status u Paddle-u
+    console.log('📡 Fetching current subscription status from Paddle...')
+    const getResponse = await fetch(
+      `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}`,
       {
-        method: 'POST',
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${PADDLE_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          effective_from: 'immediately'  // Resume odmah, ne čekaj period end
-        })
+          'Authorization': `Bearer ${PADDLE_API_KEY}`
+        }
       }
     )
+
+    if (!getResponse.ok) {
+      const errorText = await getResponse.text()
+      console.error('❌ Failed to fetch subscription:', errorText)
+      return {
+        statusCode: getResponse.status,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Failed to fetch subscription status' })
+      }
+    }
+
+    const subscriptionData = await getResponse.json()
+    const currentStatus = subscriptionData.data.status
+    const hasScheduledChange = subscriptionData.data.scheduled_change !== null
+
+    console.log('Current Paddle status:', currentStatus)
+    console.log('Has scheduled change:', hasScheduledChange)
+
+    let paddleResponse
+    let method
+
+    // LOGIKA: Odaberi pravi endpoint
+    if (currentStatus === 'trialing' && hasScheduledChange) {
+      // TRIALING sa zakazanim cancel → PATCH (ukloni scheduled change)
+      console.log('🔧 Using PATCH to cancel scheduled change (trialing subscription)')
+      method = 'PATCH'
+      
+      paddleResponse = await fetch(
+        `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${PADDLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            scheduled_change: null
+          })
+        }
+      )
+    } else if (currentStatus === 'cancelled') {
+      // CANCELLED (active koji je cancelled) → RESUME
+      console.log('▶️ Using RESUME endpoint (cancelled active subscription)')
+      method = 'RESUME'
+      
+      paddleResponse = await fetch(
+        `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/resume`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${PADDLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            effective_from: 'immediately'
+          })
+        }
+      )
+    } else if (currentStatus === 'active' && hasScheduledChange) {
+      // ACTIVE sa zakazanim cancel → PATCH
+      console.log('🔧 Using PATCH to cancel scheduled change (active subscription)')
+      method = 'PATCH'
+      
+      paddleResponse = await fetch(
+        `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${PADDLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            scheduled_change: null
+          })
+        }
+      )
+    } else {
+      // Subscription nije cancelled niti nema scheduled change
+      console.log('⚠️ Subscription is already active without scheduled cancellation')
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          error: 'Subscription is already active',
+          currentStatus: currentStatus
+        })
+      }
+    }
 
     console.log('📡 Paddle response status:', paddleResponse.status)
     
@@ -88,14 +165,13 @@ export async function handler(event, context) {
       try {
         errorData = JSON.parse(responseText)
       } catch (e) {
-        console.error('❌ Failed to parse Paddle error response')
         return {
           statusCode: paddleResponse.status,
           headers: corsHeaders,
           body: JSON.stringify({ 
             error: 'Paddle API error',
             details: responseText.substring(0, 200),
-            status: paddleResponse.status
+            method: method
           })
         }
       }
@@ -105,74 +181,68 @@ export async function handler(event, context) {
         statusCode: paddleResponse.status,
         headers: corsHeaders,
         body: JSON.stringify({ 
-          error: errorData.error?.detail || errorData.error?.message || 'Paddle resume failed',
+          error: errorData.error?.detail || errorData.error?.message || 'Reactivation failed',
           details: errorData,
-          paddleStatus: paddleResponse.status
+          method: method
         })
       }
     }
 
     const paddleData = JSON.parse(responseText)
-    console.log('✅ Paddle subscription resumed successfully!')
-    console.log('📋 Paddle data:', JSON.stringify(paddleData, null, 2))
+    console.log('✅ Subscription reactivated successfully!')
 
-    // Update user_subscriptions in Supabase
-    console.log('💾 Updating user_subscriptions in Supabase...')
+    // Update Supabase
+    console.log('💾 Updating Supabase...')
+    
+    const newStatus = currentStatus === 'trialing' ? 'trial' : 'active'
+    
     const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
-        status: 'active',  // Resume → active
-        cancelled_at: null,  // Clear cancellation date
+        status: newStatus,
+        cancelled_at: null,
         updated_at: new Date().toISOString()
       })
       .eq('paddle_subscription_id', subscriptionId)
 
     if (updateError) {
       console.error('❌ Supabase update error:', updateError)
-      // Don't fail the request if DB update fails - Paddle already resumed
     } else {
-      console.log('✅ user_subscriptions updated')
+      console.log('✅ Database updated')
     }
 
-    // Update majstors table
-    console.log('💾 Updating majstors table...')
-    const { error: majstorUpdateError } = await supabaseAdmin
+    // Update majstors
+    await supabaseAdmin
       .from('majstors')
       .update({
-        subscription_status: 'active',
+        subscription_status: newStatus,
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
 
-    if (majstorUpdateError) {
-      console.error('❌ Majstor update error:', majstorUpdateError)
-    } else {
-      console.log('✅ majstors table updated')
-    }
-
-    console.log('✅ Subscription reactivation complete!')
+    console.log('✅ Reactivation complete!')
 
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        message: 'Subscription resumed successfully',
+        message: 'Subscription reactivated successfully',
+        method: method,
+        newStatus: newStatus,
         data: paddleData
       })
     }
 
   } catch (error) {
-    console.error('💥 Reactivate subscription error:', error)
-    console.error('Stack:', error.stack)
+    console.error('💥 Reactivate error:', error)
     
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({ 
         error: 'Failed to reactivate subscription',
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: error.message
       })
     }
   }
