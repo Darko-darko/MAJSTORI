@@ -1,4 +1,4 @@
-// app/dashboard/subscription/page.js - COMPLETE WITH REACTIVATE
+// app/dashboard/subscription/page.js - COMPLETE WITH TRIAL SUPPORT
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -14,11 +14,13 @@ export default function SubscriptionPage() {
   const [reactivating, setReactivating] = useState(false)
   const [error, setError] = useState('')
   
+  // 🔥 Refresh progress states
   const [refreshing, setRefreshing] = useState(false)
   const [refreshProgress, setRefreshProgress] = useState(0)
   
   const router = useRouter()
   
+  // Subscription hook with refresh function
   const { 
     subscription, 
     plan, 
@@ -26,10 +28,12 @@ export default function SubscriptionPage() {
     isFreemium, 
     isPaid, 
     trialDaysRemaining,
+    isCancelled,
     isActive,
     refresh
   } = useSubscription(majstor?.id)
   
+  // Upgrade modal hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
 
   useEffect(() => {
@@ -64,6 +68,7 @@ export default function SubscriptionPage() {
   }
 
   const handleUpgradeClick = () => {
+    console.log('🔥 Upgrade button clicked!')
     const currentPlanLabel = isInTrial 
       ? 'Trial' 
       : plan?.display_name || 'Freemium'
@@ -71,18 +76,122 @@ export default function SubscriptionPage() {
     showUpgradeModal('subscription', 'PRO Mitgliedschaft', currentPlanLabel)
   }
 
-  // 🔥 REACTIVATE SUBSCRIPTION
-  const handleReactivateSubscription = async () => {
+  // 🔥 Cancel subscription with progressive auto-refresh
+  const handleCancelSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
-      alert('Keine gekündigte Subscription gefunden')
+      alert('Keine aktive Subscription gefunden')
       return
     }
 
     const confirmed = window.confirm(
-      'Möchten Sie Ihre PRO-Mitgliedschaft reaktivieren?\n\n' +
-      '✅ Ihr Abonnement wird sofort reaktiviert.\n' +
-      '💳 Die nächste Zahlung erfolgt wie geplant.\n\n' +
-      'Fortfahren?'
+      'Möchten Sie Ihr Abonnement wirklich kündigen?\n\n' +
+      '⏰ Die Kündigung wird zum Ende der Abrechnungsperiode wirksam.\n\n' +
+      'Sie haben bis dahin vollen Zugriff auf alle PRO-Funktionen.'
+    )
+    if (!confirmed) return
+
+    setCancelling(true)
+    setError('')
+
+    try {
+      console.log('🚫 Starting cancellation process...')
+      console.log('📋 Subscription ID:', subscription.paddle_subscription_id)
+      console.log('👤 Majstor ID:', majstor.id)
+
+      const response = await fetch('/.netlify/functions/paddle-cancel-subscription', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          subscriptionId: subscription.paddle_subscription_id,
+          majstorId: majstor.id
+        })
+      })
+
+      console.log('📡 Response status:', response.status)
+
+      const data = await response.json()
+      console.log('📄 Response data:', data)
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Fehler beim Kündigen')
+      }
+
+      console.log('✅ Subscription cancelled successfully!')
+      
+      alert(
+        'Abonnement erfolgreich gekündigt!\n\n' +
+        '✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
+        '📅 Danach wechseln Sie automatisch zu Freemium.\n\n' +
+        '⏳ Status wird aktualisiert...'
+      )
+      
+      // 🔥 PROGRESSIVE AUTO-REFRESH STRATEGY
+      console.log('🔄 Starting progressive auto-refresh...')
+      
+      setRefreshing(true)
+      setRefreshProgress(0)
+      
+      // 🔥 Emit custom event for sidebar refresh
+      window.dispatchEvent(new CustomEvent('subscription-changed', {
+        detail: { action: 'cancelled', timestamp: Date.now() }
+      }))
+      
+      const refreshIntervals = [0, 1000, 3000, 6000, 10000, 15000]
+      let refreshCount = 0
+      const totalRefreshes = refreshIntervals.length
+      
+      refreshIntervals.forEach((delay, index) => {
+        setTimeout(() => {
+          refreshCount++
+          console.log(`🔄 Auto-refresh #${refreshCount}/${totalRefreshes} (${delay}ms after cancel)`)
+          
+          const progress = (refreshCount / totalRefreshes) * 100
+          setRefreshProgress(progress)
+          
+          if (refresh && typeof refresh === 'function') {
+            refresh()
+            console.log('✅ Subscription data refreshed via hook')
+          } else {
+            console.log('⚠️ Refresh function not available, reloading page...')
+            window.location.reload()
+          }
+          
+          if (index === refreshIntervals.length - 1) {
+            setTimeout(() => {
+              console.log('✅ Auto-refresh sequence complete!')
+              setRefreshing(false)
+              setRefreshProgress(100)
+            }, 1000)
+          }
+        }, delay)
+      })
+
+    } catch (err) {
+      console.error('💥 Cancel error:', err)
+      const errorMessage = err.message || 'Fehler beim Kündigen des Abonnements.'
+      setError(errorMessage)
+      alert(`❌ Fehler: ${errorMessage}\n\nBitte versuchen Sie es später erneut oder kontaktieren Sie den Support.`)
+    } finally {
+      setTimeout(() => {
+        setCancelling(false)
+      }, 16000)
+    }
+  }
+
+  // 🔥 NEW: Reactivate subscription
+  const handleReactivateSubscription = async () => {
+    if (!subscription?.paddle_subscription_id) {
+      alert('Keine Subscription gefunden')
+      return
+    }
+
+    const confirmed = window.confirm(
+      'Möchten Sie Ihr Abonnement reaktivieren?\n\n' +
+      '✅ Ihr PRO-Zugriff wird fortgesetzt.\n' +
+      '💳 Die Abrechnung erfolgt normal am Ende des Zeitraums.'
     )
     if (!confirmed) return
 
@@ -90,7 +199,7 @@ export default function SubscriptionPage() {
     setError('')
 
     try {
-      console.log('🔄 Starting reactivation...')
+      console.log('🔄 Starting reactivation process...')
 
       const response = await fetch('/.netlify/functions/paddle-reactivate-subscription', {
         method: 'POST',
@@ -107,125 +216,55 @@ export default function SubscriptionPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Reaktivieren')
+        throw new Error(data.error || 'Fehler bei der Reaktivierung')
       }
 
-      console.log('✅ Reactivated successfully!')
+      console.log('✅ Subscription reactivated successfully!')
       
       alert(
         'Abonnement erfolgreich reaktiviert!\n\n' +
-        '✅ Ihre PRO-Mitgliedschaft ist wieder aktiv.\n' +
-        '💳 Zahlungen werden wie geplant fortgesetzt.'
-      )
-      
-      // Refresh subscription data
-      if (refresh) {
-        setTimeout(() => refresh(), 500)
-        setTimeout(() => refresh(), 2000)
-        setTimeout(() => refresh(), 5000)
-      }
-
-      // Reload page
-      setTimeout(() => {
-        window.location.reload()
-      }, 5000)
-
-    } catch (err) {
-      console.error('💥 Reactivate error:', err)
-      setError(err.message || 'Fehler beim Reaktivieren')
-      alert(`❌ Fehler: ${err.message}`)
-    } finally {
-      setTimeout(() => setReactivating(false), 6000)
-    }
-  }
-
-  // CANCEL SUBSCRIPTION
-  const handleCancelSubscription = async () => {
-    if (!subscription?.paddle_subscription_id) {
-      alert('Keine aktive Subscription gefunden')
-      return
-    }
-
-    const confirmed = window.confirm(
-      'Möchten Sie Ihr Abonnement wirklich kündigen?\n\n' +
-      '⏰ Die Kündigung wird zum Ende der Abrechnungsperiode wirksam (30-Tage Kündigungsfrist).\n\n' +
-      'Sie haben bis dahin vollen Zugriff auf alle PRO-Funktionen.'
-    )
-    if (!confirmed) return
-
-    setCancelling(true)
-    setError('')
-
-    try {
-      console.log('🚫 Starting cancellation...')
-
-      const response = await fetch('/.netlify/functions/paddle-cancel-subscription', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.paddle_subscription_id,
-          majstorId: majstor.id
-        })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Fehler beim Kündigen')
-      }
-
-      console.log('✅ Cancelled successfully!')
-      
-      alert(
-        'Abonnement erfolgreich gekündigt!\n\n' +
-        '✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
-        '📅 Danach wechseln Sie automatisch zu Freemium.\n\n' +
+        '✅ Ihr PRO-Zugriff wird fortgesetzt.\n\n' +
         '⏳ Status wird aktualisiert...'
       )
       
+      // Progressive refresh
       setRefreshing(true)
       setRefreshProgress(0)
       
       window.dispatchEvent(new CustomEvent('subscription-changed', {
-        detail: { action: 'cancelled', timestamp: Date.now() }
+        detail: { action: 'reactivated', timestamp: Date.now() }
       }))
       
-      const refreshIntervals = [0, 1000, 3000, 6000, 10000, 15000]
+      const refreshIntervals = [0, 1000, 3000, 6000, 10000]
       let refreshCount = 0
       
       refreshIntervals.forEach((delay, index) => {
         setTimeout(() => {
           refreshCount++
-          const progress = (refreshCount / 6) * 100
-          setRefreshProgress(progress)
+          setRefreshProgress((refreshCount / refreshIntervals.length) * 100)
           
-          if (refresh) refresh()
+          if (refresh && typeof refresh === 'function') {
+            refresh()
+          }
           
           if (index === refreshIntervals.length - 1) {
             setTimeout(() => {
-              console.log('✅ Auto-refresh complete!')
               setRefreshing(false)
               setRefreshProgress(100)
-              
-              setTimeout(() => {
-                console.log('🚀 Executing redirect...')
-                window.location.href = '/dashboard?cancelled=true'
-              }, 1000)
             }, 1000)
           }
         }, delay)
       })
 
     } catch (err) {
-      console.error('💥 Cancel error:', err)
-      const errorMessage = err.message || 'Fehler beim Kündigen'
+      console.error('💥 Reactivate error:', err)
+      const errorMessage = err.message || 'Fehler bei der Reaktivierung.'
       setError(errorMessage)
       alert(`❌ Fehler: ${errorMessage}`)
     } finally {
-      setTimeout(() => setCancelling(false), 18000)
+      setTimeout(() => {
+        setReactivating(false)
+      }, 12000)
     }
   }
 
@@ -240,26 +279,43 @@ export default function SubscriptionPage() {
     )
   }
 
+  // 🔥 UPDATED: Get current status info with TRIAL support
   const getStatusInfo = () => {
-    if (!plan && isInTrial && trialDaysRemaining > 0) {
+    if (!subscription) {
+      // Freemium (bez subscription-a)
+      return {
+        status: 'freemium',
+        statusLabel: 'Freemium',
+        statusColor: 'text-slate-400',
+        bgColor: 'bg-slate-500/10',
+        borderColor: 'border-slate-500/30',
+        icon: '📋',
+        description: 'Sie nutzen aktuell die kostenlose Version mit eingeschränkten Funktionen.',
+        showUpgrade: true
+      }
+    }
+
+    const now = new Date()
+    const periodEnd = new Date(subscription.current_period_end)
+    const daysRemaining = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+    
+    // 🔥 TRIAL (besplatnih X dana sa karticom)
+    if (subscription.status === 'trial' && daysRemaining > 0) {
       return {
         status: 'trial',
-        statusLabel: 'Kostenlose Testphase',
+        statusLabel: 'PRO Trial',
         statusColor: 'text-blue-400',
         bgColor: 'bg-blue-500/10',
         borderColor: 'border-blue-500/30',
         icon: '🎯',
-        description: `Sie haben noch ${trialDaysRemaining} Tag${trialDaysRemaining !== 1 ? 'e' : ''} vollen Zugriff auf alle PRO-Funktionen.`,
-        showUpgrade: true
+        description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
+        showUpgrade: false,
+        showCancel: true
       }
     }
     
-    if (isPaid && subscription?.status === 'active') {
-      const now = new Date()
-      const endDate = new Date(subscription.current_period_end)
-      const diffTime = endDate.getTime() - now.getTime()
-      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
+    // 🔥 ACTIVE (platio, renewal aktivan)
+    if (subscription.status === 'active' && daysRemaining > 0) {
       return {
         status: 'pro',
         statusLabel: 'PRO Mitgliedschaft',
@@ -267,34 +323,29 @@ export default function SubscriptionPage() {
         bgColor: 'bg-green-500/10',
         borderColor: 'border-green-500/30',
         icon: '💎',
-        description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Kündigungsfrist: ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}.`,
+        description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
         showUpgrade: false,
         showCancel: true
       }
     }
     
-    if (subscription?.status === 'cancelled') {
-      const now = new Date()
-      const endDate = new Date(subscription.current_period_end)
-      const diffTime = endDate.getTime() - now.getTime()
-      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
-      if (daysRemaining > 0) {
-        return {
-          status: 'cancelled',
-          statusLabel: 'Gekündigte Mitgliedschaft',
-          statusColor: 'text-orange-400',
-          bgColor: 'bg-orange-500/10',
-          borderColor: 'border-orange-500/30',
-          icon: '⏰',
-          description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
-          showUpgrade: false,
-          showCancel: false,
-          showReactivate: true
-        }
+    // 🔥 CANCELLED (otkazao ali još važi)
+    if (subscription.status === 'cancelled' && daysRemaining > 0) {
+      return {
+        status: 'cancelled',
+        statusLabel: 'Gekündigte Mitgliedschaft',
+        statusColor: 'text-orange-400',
+        bgColor: 'bg-orange-500/10',
+        borderColor: 'border-orange-500/30',
+        icon: '⏰',
+        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+        showUpgrade: false,
+        showCancel: false,
+        showReactivate: true
       }
     }
     
+    // 🔥 EXPIRED / FREEMIUM fallback
     return {
       status: 'freemium',
       statusLabel: 'Freemium',
@@ -312,12 +363,14 @@ export default function SubscriptionPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       
+      {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Meine Mitgliedschaft</h1>
         <p className="text-slate-400">
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
         </p>
         
+        {/* 🔥 Refresh Progress Indicator */}
         {refreshing && (
           <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 animate-pulse">
             <div className="flex items-center gap-3">
@@ -334,29 +387,21 @@ export default function SubscriptionPage() {
                 </div>
                 <p className="text-blue-400 text-xs mt-1">
                   {Math.round(refreshProgress)}% - Warte auf Paddle Webhook...
-                  {refreshProgress >= 90 && ' → Weiterleitung zum Dashboard...'}
                 </p>
-                
-                {refreshProgress >= 100 && (
-                  <button
-                    onClick={() => window.location.href = '/dashboard'}
-                    className="mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    🏠 Zurück zum Dashboard
-                  </button>
-                )}
               </div>
             </div>
           </div>
         )}
       </div>
 
+      {/* Error Message */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
           <p className="text-red-300">{error}</p>
         </div>
       )}
 
+      {/* Current Status Card */}
       <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-2xl p-8`}>
         <div className="flex items-start gap-6">
           <div className="text-6xl">{statusInfo.icon}</div>
@@ -368,12 +413,12 @@ export default function SubscriptionPage() {
               {statusInfo.description}
             </p>
             
-            <div className="flex gap-4 flex-wrap">
+            {/* Action Buttons */}
+            <div className="flex gap-4">
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  disabled={refreshing}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
                 >
                   🚀 Auf PRO upgraden
                 </button>
@@ -382,20 +427,20 @@ export default function SubscriptionPage() {
               {statusInfo.showCancel && (
                 <button
                   onClick={handleCancelSubscription}
-                  disabled={cancelling || refreshing}
-                  className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50"
+                  disabled={cancelling}
+                  className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {cancelling ? 'Wird gekündigt...' : 'Abonnement kündigen'}
                 </button>
               )}
-              
+
               {statusInfo.showReactivate && (
                 <button
                   onClick={handleReactivateSubscription}
-                  disabled={reactivating || refreshing}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg disabled:opacity-50"
+                  disabled={reactivating}
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {reactivating ? '⏳ Reaktiviere...' : '✅ Abonnement reaktivieren'}
+                  {reactivating ? 'Wird reaktiviert...' : '✅ Subscription reaktivieren'}
                 </button>
               )}
             </div>
@@ -480,7 +525,7 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {/* Pricing (only for Freemium) */}
+      {/* Pricing Comparison (only for non-PRO users) */}
       {statusInfo.showUpgrade && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
           <h3 className="text-2xl font-bold text-white mb-6 text-center">
@@ -488,6 +533,7 @@ export default function SubscriptionPage() {
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Monthly Plan */}
             <div className="bg-slate-900 border-2 border-blue-500/30 rounded-xl p-6">
               <div className="text-center mb-6">
                 <div className="text-4xl mb-2">📅</div>
@@ -505,22 +551,22 @@ export default function SubscriptionPage() {
                 </li>
                 <li className="flex items-center gap-2 text-slate-300 text-sm">
                   <span className="text-green-400">✓</span>
-                  <span>Monatlich kündbar</span>
+                  <span>1 Tag kostenlos testen</span>
                 </li>
                 <li className="flex items-center gap-2 text-slate-300 text-sm">
                   <span className="text-green-400">✓</span>
-                  <span>30 Tage Kündigungsfrist</span>
+                  <span>Jederzeit kündbar</span>
                 </li>
               </ul>
               <button
                 onClick={handleUpgradeClick}
-                disabled={refreshing}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
               >
                 Monatlich wählen
               </button>
             </div>
 
+            {/* Yearly Plan */}
             <div className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-2 border-purple-500/50 rounded-xl p-6 relative">
               <div className="absolute -top-3 -right-3 bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-full">
                 16% SPAREN
@@ -544,11 +590,11 @@ export default function SubscriptionPage() {
                 </li>
                 <li className="flex items-center gap-2 text-slate-300 text-sm">
                   <span className="text-green-400">✓</span>
-                  <span>Jährlich kündbar</span>
+                  <span>1 Tag kostenlos testen</span>
                 </li>
                 <li className="flex items-center gap-2 text-slate-300 text-sm">
                   <span className="text-green-400">✓</span>
-                  <span>30 Tage Kündigungsfrist</span>
+                  <span>Jährlich kündbar</span>
                 </li>
                 <li className="flex items-center gap-2 text-green-300 text-sm font-semibold">
                   <span className="text-green-400">★</span>
@@ -557,8 +603,7 @@ export default function SubscriptionPage() {
               </ul>
               <button
                 onClick={handleUpgradeClick}
-                disabled={refreshing}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
               >
                 Jährlich wählen (BESTE WAHL!)
               </button>
@@ -570,8 +615,11 @@ export default function SubscriptionPage() {
               <span className="text-2xl">ℹ️</span>
               <div className="text-sm text-blue-200">
                 <p className="mb-2">
-                  <strong>30 Tage Kündigungsfrist:</strong> Sie können Ihr Abonnement jederzeit kündigen. 
-                  Die Kündigung wird zum Ende der Abrechnungsperiode wirksam.
+                  <strong>Kostenloser Test:</strong> 1 Tag vollen PRO-Zugriff ohne Risiko. Erste Zahlung erfolgt nach dem Testzeitraum.
+                </p>
+                <p className="mb-2">
+                  <strong>Jederzeit kündbar:</strong> Sie können Ihr Abonnement jederzeit kündigen. 
+                  Sie behalten Zugriff bis zum Ende der Abrechnungsperiode.
                 </p>
                 <p>
                   <strong>Sichere Zahlung:</strong> Alle Zahlungen werden sicher über Paddle abgewickelt.
@@ -582,8 +630,8 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Subscription Details (for PRO users) */}
-      {isPaid && subscription && (
+      {/* Subscription Details (for PRO/Trial users) */}
+      {subscription && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
           <h3 className="text-xl font-bold text-white mb-6">Abonnement Details</h3>
           
@@ -591,9 +639,13 @@ export default function SubscriptionPage() {
             <div className="flex justify-between py-3 border-b border-slate-700">
               <span className="text-slate-400">Status:</span>
               <span className={`font-semibold ${
-                subscription.status === 'cancelled' ? 'text-orange-400' : 'text-green-400'
+                subscription.status === 'trial' ? 'text-blue-400' :
+                subscription.status === 'cancelled' ? 'text-orange-400' : 
+                'text-green-400'
               }`}>
-                {subscription.status === 'cancelled' ? 'Gekündigt (läuft noch)' : 'Aktiv'}
+                {subscription.status === 'trial' ? 'Trial (kostenlos)' :
+                 subscription.status === 'cancelled' ? 'Gekündigt (läuft noch)' : 
+                 'Aktiv'}
               </span>
             </div>
             
@@ -612,7 +664,9 @@ export default function SubscriptionPage() {
             {subscription.current_period_end && (
               <div className="flex justify-between py-3 border-b border-slate-700">
                 <span className="text-slate-400">
-                  {subscription.status === 'cancelled' ? 'Endet am:' : 'Nächste Abrechnung:'}
+                  {subscription.status === 'trial' ? 'Trial endet am:' :
+                   subscription.status === 'cancelled' ? 'Endet am:' : 
+                   'Nächste Abrechnung:'}
                 </span>
                 <span className="text-white font-semibold">
                   {new Date(subscription.current_period_end).toLocaleDateString('de-DE')}
@@ -632,6 +686,7 @@ export default function SubscriptionPage() {
         </div>
       )}
 
+      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}

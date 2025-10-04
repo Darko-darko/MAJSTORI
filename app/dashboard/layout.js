@@ -224,49 +224,49 @@ function DashboardLayoutContent({ children }) {
   // Get subscription badge for menu item
  // app/dashboard/layout.js
 // 🔥 ZAMENI getSubscriptionBadge() FUNKCIJU SA OVIM:
+// app/dashboard/layout.js - IZMENI SAMO OVU FUNKCIJU
 
 const getSubscriptionBadge = () => {
-  if (!plan) return null
-  
-  // 🆓 FREEMIUM - show upgrade
-  if (isFreemium) {
+  if (!subscription) {
     return {
       text: 'Upgrade',
       color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
     }
   }
   
-  // 🔥 CANCELLED SUBSCRIPTION - show remaining days (GRACE PERIOD)
-  if (subscription?.status === 'cancelled') {
-    if (subscription.current_period_end) {
-      const now = new Date()
-      const endDate = new Date(subscription.current_period_end)
-      const diffTime = endDate.getTime() - now.getTime()
-      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
-      if (daysRemaining > 0) {
-        return {
-          text: `PRO (${daysRemaining}d)`, // 🔥 SAMO ovde prikazujemo dane!
-          color: 'bg-gradient-to-r from-orange-500 to-red-500'
-        }
-      }
-    }
-    // Cancelled i isteklo → freemium
+  const now = new Date()
+  const periodEnd = new Date(subscription.current_period_end)
+  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+  
+  // 🔥 TRIAL (besplatnih X dana sa karticom)
+  if (subscription.status === 'trial' && daysLeft > 0) {
     return {
-      text: 'Upgrade',
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      text: `PRO (trial ${daysLeft}d)`,
+      color: 'bg-gradient-to-r from-blue-500 to-purple-500'
     }
   }
   
-  // 💎 ACTIVE PAID SUBSCRIPTION - NO days shown
-  if (isPaid && subscription?.status === 'active') {
+  // 🔥 ACTIVE (platio, renewal active)
+  if (subscription.status === 'active' && daysLeft > 0) {
     return {
-      text: 'PRO', // 🔥 BEZ DANA - samo PRO!
+      text: 'PRO',
       color: 'bg-gradient-to-r from-green-500 to-emerald-500'
     }
   }
   
-  return null
+  // 🔥 CANCELLED (otkazao ali još važi)
+  if (subscription.status === 'cancelled' && daysLeft > 0) {
+    return {
+      text: `PRO (${daysLeft}d)`,
+      color: 'bg-gradient-to-r from-orange-500 to-red-500'
+    }
+  }
+  
+  // 🔥 EXPIRED (period istekao)
+  return {
+    text: 'Upgrade',
+    color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+  }
 }
 
   // Navigation with subscription item
