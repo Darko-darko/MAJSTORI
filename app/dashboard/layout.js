@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - COMPLETE FILE WITH SIDEBAR AUTO-REFRESH
+// app/dashboard/layout.js - OPTIMIZED SIDEBAR REFRESH
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -17,25 +17,21 @@ function DashboardLayoutContent({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Subscription hook for menu badges
-  // 🔥 UPDATED: Added 'refresh' to enable cross-component refresh
   const { subscription, plan, isFreemium, isPaid, refresh } = useSubscription(majstor?.id)
   
-  // 🔥 NEW: Listen for subscription changes from other components (subscription page cancel)
+  // 🔥 OPTIMIZED: Listen for subscription changes - SINGLE refresh after 15s
   useEffect(() => {
     const handleSubscriptionChange = (event) => {
-      console.log('🔔 Sidebar detected subscription change:', event.detail)
-      console.log('🔄 Refreshing sidebar subscription data...')
+      console.log('📢 Sidebar detected subscription change:', event.detail)
       
       if (refresh && typeof refresh === 'function') {
-        // Progressive refresh sa istim intervalima kao subscription page
-        const refreshIntervals = [0, 1000, 3000, 6000, 10000, 15000]
+        // 🎯 OPTIMIZED: Just ONE refresh after 15 seconds (not 6x like subscription page)
+        console.log('🔄 Sidebar will refresh in 15 seconds...')
         
-        refreshIntervals.forEach((delay, index) => {
-          setTimeout(() => {
-            refresh()
-            console.log(`🔄 Sidebar auto-refresh #${index + 1}/6 (${delay}ms)`)
-          }, delay)
-        })
+        setTimeout(() => {
+          refresh()
+          console.log('✅ Sidebar refreshed (single refresh)')
+        }, 15000) // 15 seconds - enough time for webhook to process
       }
     }
     
@@ -301,7 +297,7 @@ function DashboardLayoutContent({ children }) {
       { 
         name: 'Meine Kunden', 
         href: '/dashboard/customers', 
-        icon: '💥', 
+        icon: '👥', 
         protected: true,
         feature: 'customer_management'
       },
