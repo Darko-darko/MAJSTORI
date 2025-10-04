@@ -1,4 +1,4 @@
-// app/dashboard/subscription/page.js - COMPLETE WITH TRIAL SUPPORT
+// app/dashboard/subscription/page.js - COMPLETE WITH REACTIVATE
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -14,7 +14,7 @@ export default function SubscriptionPage() {
   const [reactivating, setReactivating] = useState(false)
   const [error, setError] = useState('')
   
-  // 🔥 Refresh progress states
+  // Refresh progress states
   const [refreshing, setRefreshing] = useState(false)
   const [refreshProgress, setRefreshProgress] = useState(0)
   
@@ -76,7 +76,7 @@ export default function SubscriptionPage() {
     showUpgradeModal('subscription', 'PRO Mitgliedschaft', currentPlanLabel)
   }
 
-  // 🔥 Cancel subscription with progressive auto-refresh
+  // Cancel subscription with progressive auto-refresh
   const handleCancelSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine aktive Subscription gefunden')
@@ -128,13 +128,13 @@ export default function SubscriptionPage() {
         '⏳ Status wird aktualisiert...'
       )
       
-      // 🔥 PROGRESSIVE AUTO-REFRESH STRATEGY
+      // PROGRESSIVE AUTO-REFRESH STRATEGY
       console.log('🔄 Starting progressive auto-refresh...')
       
       setRefreshing(true)
       setRefreshProgress(0)
       
-      // 🔥 Emit custom event for sidebar refresh
+      // Emit custom event for sidebar refresh
       window.dispatchEvent(new CustomEvent('subscription-changed', {
         detail: { action: 'cancelled', timestamp: Date.now() }
       }))
@@ -181,7 +181,7 @@ export default function SubscriptionPage() {
     }
   }
 
-  // 🔥 NEW: Reactivate subscription
+  // 🔥 NEW: Reactivate subscription (RESUME existing subscription)
   const handleReactivateSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine Subscription gefunden')
@@ -200,6 +200,7 @@ export default function SubscriptionPage() {
 
     try {
       console.log('🔄 Starting reactivation process...')
+      console.log('📋 Subscription ID:', subscription.paddle_subscription_id)
 
       const response = await fetch('/.netlify/functions/paddle-reactivate-subscription', {
         method: 'POST',
@@ -213,7 +214,10 @@ export default function SubscriptionPage() {
         })
       })
 
+      console.log('📡 Response status:', response.status)
+
       const data = await response.json()
+      console.log('📄 Response data:', data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Fehler bei der Reaktivierung')
@@ -268,6 +272,37 @@ export default function SubscriptionPage() {
     }
   }
 
+  // 🔥 MANUAL REFRESH - dodato za debugging
+  const handleManualRefresh = () => {
+    console.log('🔄 Manual refresh triggered by user')
+    setRefreshing(true)
+    setRefreshProgress(0)
+    
+    const refreshIntervals = [0, 1000, 2000, 3000]
+    let refreshCount = 0
+    
+    refreshIntervals.forEach((delay, index) => {
+      setTimeout(() => {
+        refreshCount++
+        setRefreshProgress((refreshCount / refreshIntervals.length) * 100)
+        
+        if (refresh && typeof refresh === 'function') {
+          refresh()
+          console.log(`🔄 Manual refresh #${refreshCount}`)
+        }
+        
+        if (index === refreshIntervals.length - 1) {
+          setTimeout(() => {
+            setRefreshing(false)
+            setRefreshProgress(100)
+            // Full page reload to be sure
+            window.location.reload()
+          }, 500)
+        }
+      }, delay)
+    })
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -279,7 +314,7 @@ export default function SubscriptionPage() {
     )
   }
 
-  // 🔥 UPDATED: Get current status info with TRIAL support
+  // Get current status info with TRIAL support
   const getStatusInfo = () => {
     if (!subscription) {
       // Freemium (bez subscription-a)
@@ -299,7 +334,7 @@ export default function SubscriptionPage() {
     const periodEnd = new Date(subscription.current_period_end)
     const daysRemaining = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
     
-    // 🔥 TRIAL (besplatnih X dana sa karticom)
+    // TRIAL (besplatnih X dana sa karticom)
     if (subscription.status === 'trial' && daysRemaining > 0) {
       return {
         status: 'trial',
@@ -314,7 +349,7 @@ export default function SubscriptionPage() {
       }
     }
     
-    // 🔥 ACTIVE (platio, renewal aktivan)
+    // ACTIVE (platio, renewal aktivan)
     if (subscription.status === 'active' && daysRemaining > 0) {
       return {
         status: 'pro',
@@ -329,7 +364,7 @@ export default function SubscriptionPage() {
       }
     }
     
-    // 🔥 CANCELLED (otkazao ali još važi)
+    // 🔥 CANCELLED (otkazao ali još važi) - POKAZUJ REACTIVATE!
     if (subscription.status === 'cancelled' && daysRemaining > 0) {
       return {
         status: 'cancelled',
@@ -341,11 +376,11 @@ export default function SubscriptionPage() {
         description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
         showUpgrade: false,
         showCancel: false,
-        showReactivate: true
+        showReactivate: true  // 🔥 OVO JE KLJUČNO!
       }
     }
     
-    // 🔥 EXPIRED / FREEMIUM fallback
+    // EXPIRED / FREEMIUM fallback
     return {
       status: 'freemium',
       statusLabel: 'Freemium',
@@ -365,12 +400,23 @@ export default function SubscriptionPage() {
       
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Meine Mitgliedschaft</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
+          
+          {/* 🔥 MANUAL REFRESH BUTTON - za debugging */}
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm hover:bg-slate-600 transition-colors disabled:opacity-50"
+          >
+            🔄 Status aktualisieren
+          </button>
+        </div>
         <p className="text-slate-400">
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
         </p>
         
-        {/* 🔥 Refresh Progress Indicator */}
+        {/* Refresh Progress Indicator */}
         {refreshing && (
           <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 animate-pulse">
             <div className="flex items-center gap-3">
@@ -401,6 +447,19 @@ export default function SubscriptionPage() {
         </div>
       )}
 
+      {/* 🔥 DEBUG INFO - prikaži status iz baze */}
+      {subscription && (
+        <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 text-xs text-slate-400">
+          <div className="font-mono">
+            <div>DB Status: <span className="text-white">{subscription.status}</span></div>
+            <div>Period End: <span className="text-white">{new Date(subscription.current_period_end).toLocaleString('de-DE')}</span></div>
+            {subscription.cancelled_at && (
+              <div>Cancelled At: <span className="text-orange-400">{new Date(subscription.cancelled_at).toLocaleString('de-DE')}</span></div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Current Status Card */}
       <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-2xl p-8`}>
         <div className="flex items-start gap-6">
@@ -414,7 +473,7 @@ export default function SubscriptionPage() {
             </p>
             
             {/* Action Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-wrap">
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
@@ -434,11 +493,12 @@ export default function SubscriptionPage() {
                 </button>
               )}
 
+              {/* 🔥 REACTIVATE BUTTON - prikazuje se kada je cancelled */}
               {statusInfo.showReactivate && (
                 <button
                   onClick={handleReactivateSubscription}
                   disabled={reactivating}
-                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {reactivating ? 'Wird reaktiviert...' : '✅ Subscription reaktivieren'}
                 </button>
