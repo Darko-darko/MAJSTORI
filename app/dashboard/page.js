@@ -272,48 +272,67 @@ function DashboardPageContent() {
     <div className="space-y-8">
       <WelcomeMessage />
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Kundenanfragen</p>
-              <p className="text-3xl font-bold text-white">{stats.totalInquiries}</p>
-              <p className="text-sm text-slate-400">
-                {stats.newInquiries} neue
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl">
-              📩
-            </div>
-          </div>
-        </div>
+    {/* Quick Stats */}
+<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+  
+  {/* Kundenanfragen - KLIKABILNA KARTICA */}
+  <Link 
+    href="/dashboard/inquiries"
+    className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer group"
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-sm">Kundenanfragen</p>
+        <p className="text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">
+          {stats.totalInquiries}
+        </p>
+        <p className="text-sm text-slate-400">
+          {stats.newInquiries} neue
+        </p>
+      </div>
+      <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+        📩
+      </div>
+    </div>
+  </Link>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Rechnungen</p>
-              <p className="text-3xl font-bold text-white">{stats.totalInvoices}</p>
-              <p className="text-sm text-slate-slate-400">Erstellt</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-2xl">
-              📄
-            </div>
-          </div>
-        </div>
+       {/* Rechnungen - KLIKABILNA KARTICA */}
+<Link
+  href="/dashboard/invoices"
+  className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-purple-500 hover:shadow-lg transition-all cursor-pointer group"
+>
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-slate-400 text-sm">Rechnungen</p>
+      <p className="text-3xl font-bold text-white group-hover:text-purple-400 transition-colors">
+        {stats.totalInvoices}
+      </p>
+      <p className="text-sm text-slate-400">Erstellt</p>
+    </div>
+    <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+      📄
+    </div>
+  </div>
+</Link>
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Kunden</p>
-              <p className="text-3xl font-bold text-white">{stats.totalCustomers}</p>
-              <p className="text-sm text-slate-400">Registriert</p>
-            </div>
-            <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl">
-              👥
-            </div>
-          </div>
-        </div>
+        {/* Kunden - KLIKABILNA KARTICA */}
+<Link
+  href="/dashboard/customers"
+  className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-green-500 hover:shadow-lg transition-all cursor-pointer group"
+>
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-slate-400 text-sm">Kunden</p>
+      <p className="text-3xl font-bold text-white group-hover:text-green-400 transition-colors">
+        {stats.totalCustomers}
+      </p>
+      <p className="text-sm text-slate-400">Registriert</p>
+    </div>
+    <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+      👥
+    </div>
+  </div>
+</Link>
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
           <div className="flex items-center justify-between">
