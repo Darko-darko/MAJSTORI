@@ -18,7 +18,6 @@ export default function EmailInvoiceModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Generate default subject and message when modal opens
   useEffect(() => {
     if (invoice && majstor) {
       const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
@@ -57,7 +56,29 @@ export default function EmailInvoiceModal({
     setError('')
 
     try {
-      console.log('📧 Sending email for invoice:', invoice.id)
+      // NOVA LOGIKA: Proveri da li PDF postoji
+      if (!invoice.pdf_storage_path || !invoice.pdf_generated_at) {
+        console.log('PDF ne postoji, generišem automatski...')
+        
+        try {
+          const pdfGenResponse = await fetch(`/api/invoices/${invoice.id}/pdf`)
+          
+          if (!pdfGenResponse.ok) {
+            throw new Error('PDF generisanje nije uspelo')
+          }
+          
+          console.log('PDF automatski generisan')
+          await new Promise(resolve => setTimeout(resolve, 1500))
+          
+        } catch (pdfGenError) {
+          console.error('PDF generation error:', pdfGenError)
+          setError('PDF generisanje nije uspelo. Molimo pokušajte ponovo.')
+          setLoading(false)
+          return
+        }
+      }
+      
+      console.log('Sending email for invoice:', invoice.id)
       
       const response = await fetch(`/api/invoices/${invoice.id}/email`, {
         method: 'POST',
@@ -73,10 +94,9 @@ export default function EmailInvoiceModal({
         throw new Error(result.error || 'E-Mail-Versand fehlgeschlagen')
       }
 
-      console.log('✅ Email sent successfully:', result)
+      console.log('Email sent successfully:', result)
       
-      // Show success message
-      alert(`✅ E-Mail erfolgreich gesendet!\n\nEmpfänger: ${formData.recipientEmail}\nBetreff: ${formData.subject}`)
+      alert(`E-Mail erfolgreich gesendet!\n\nEmpfänger: ${formData.recipientEmail}\nBetreff: ${formData.subject}`)
       
       onSuccess && onSuccess(result)
       onClose()
@@ -98,11 +118,10 @@ export default function EmailInvoiceModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         
-        {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-slate-700">
           <div>
             <h3 className="text-xl font-semibold text-white">
-              📧 {documentType} per E-Mail senden
+              {documentType} per E-Mail senden
             </h3>
             <p className="text-slate-400 text-sm">
               {documentType} {documentNumber} an {invoice?.customer_name}
@@ -113,14 +132,12 @@ export default function EmailInvoiceModal({
             className="text-slate-400 hover:text-white text-2xl"
             disabled={loading}
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           
-          {/* Recipient Email */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Empfänger-E-Mail *
@@ -136,7 +153,6 @@ export default function EmailInvoiceModal({
             />
           </div>
 
-          {/* CC Email */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               CC (Kopie an Sie)
@@ -154,7 +170,6 @@ export default function EmailInvoiceModal({
             </p>
           </div>
 
-          {/* Subject */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Betreff *
@@ -170,7 +185,6 @@ export default function EmailInvoiceModal({
             />
           </div>
 
-          {/* Message */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Nachricht
@@ -188,7 +202,6 @@ export default function EmailInvoiceModal({
             </p>
           </div>
 
-          {/* Preview Info */}
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <span className="text-blue-400 text-lg">📎</span>
@@ -198,20 +211,18 @@ export default function EmailInvoiceModal({
                   {documentType}_{documentNumber}_{invoice?.customer_name?.replace(/[^a-zA-Z0-9]/g, '_')}.pdf
                 </p>
                 <p className="text-blue-300 text-xs mt-1">
-                  PDF wird automatisch aus dem Archiv angehängt
+                  PDF wird automatisch generiert falls noch nicht vorhanden
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
               <p className="text-red-400 text-sm">{error}</p>
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex gap-3 pt-4 border-t border-slate-700">
             <button
               type="button"
@@ -229,11 +240,11 @@ export default function EmailInvoiceModal({
               {loading ? (
                 <>
                   <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                  Wird gesendet...
+                  {invoice.pdf_storage_path ? 'Wird gesendet...' : 'PDF wird generiert...'}
                 </>
               ) : (
                 <>
-                  📤 E-Mail senden
+                  E-Mail senden
                 </>
               )}
             </button>
