@@ -387,42 +387,85 @@ export default function InquiriesPage() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="text-2xl font-bold text-white">{stats.total}</div>
-          <div className="text-sm text-slate-400">Gesamt</div>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <div className="text-2xl font-bold text-white">{stats.new}</div>
-          </div>
-          <div className="text-sm text-slate-400">Neu</div>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <div className="text-2xl font-bold text-white">{stats.read}</div>
-          </div>
-          <div className="text-sm text-slate-400">Gelesen</div>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <div className="text-2xl font-bold text-white">{stats.responded}</div>
-          </div>
-          <div className="text-sm text-slate-400">Beantwortet</div>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <div className="text-2xl font-bold text-white">{stats.closed}</div>
-          </div>
-          <div className="text-sm text-slate-400">Abgeschlossen</div>
-        </div>
-      </div>
+    {/* Stats - KLIKABILNE FILTER KARTICE */}
+<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+  {/* Gesamt - sve */}
+  <button
+    onClick={() => setFilter('all')}
+    className={`bg-slate-800/50 border rounded-xl p-4 text-left transition-all hover:bg-slate-700/50 hover:border-slate-600 hover:scale-105 ${
+      filter === 'all' 
+        ? 'border-blue-500 ring-2 ring-blue-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="text-2xl font-bold text-white">{stats.total}</div>
+    <div className="text-sm text-slate-400">Gesamt</div>
+  </button>
 
+  {/* Neu */}
+  <button
+    onClick={() => setFilter('new')}
+    className={`bg-slate-800/50 border rounded-xl p-4 text-left transition-all hover:bg-slate-700/50 hover:border-red-600 hover:scale-105 ${
+      filter === 'new' 
+        ? 'border-red-500 ring-2 ring-red-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+      <div className="text-2xl font-bold text-white">{stats.new}</div>
+    </div>
+    <div className="text-sm text-slate-400">Neu</div>
+  </button>
+
+  {/* Gelesen */}
+  <button
+    onClick={() => setFilter('read')}
+    className={`bg-slate-800/50 border rounded-xl p-4 text-left transition-all hover:bg-slate-700/50 hover:border-yellow-600 hover:scale-105 ${
+      filter === 'read' 
+        ? 'border-yellow-500 ring-2 ring-yellow-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+      <div className="text-2xl font-bold text-white">{stats.read}</div>
+    </div>
+    <div className="text-sm text-slate-400">Gelesen</div>
+  </button>
+
+  {/* Beantwortet */}
+  <button
+    onClick={() => setFilter('responded')}
+    className={`bg-slate-800/50 border rounded-xl p-4 text-left transition-all hover:bg-slate-700/50 hover:border-blue-600 hover:scale-105 ${
+      filter === 'responded' 
+        ? 'border-blue-500 ring-2 ring-blue-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+      <div className="text-2xl font-bold text-white">{stats.responded}</div>
+    </div>
+    <div className="text-sm text-slate-400">Beantwortet</div>
+  </button>
+
+  {/* Abgeschlossen */}
+  <button
+    onClick={() => setFilter('closed')}
+    className={`bg-slate-800/50 border rounded-xl p-4 text-left transition-all hover:bg-slate-700/50 hover:border-green-600 hover:scale-105 ${
+      filter === 'closed' 
+        ? 'border-green-500 ring-2 ring-green-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+      <div className="text-2xl font-bold text-white">{stats.closed}</div>
+    </div>
+    <div className="text-sm text-slate-400">Abgeschlossen</div>
+  </button>
+</div>
       {/* Filters and Sort */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex gap-2">

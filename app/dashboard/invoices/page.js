@@ -1526,64 +1526,118 @@ const convertQuoteToInvoice = async (quote) => {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Angebote</p>
-              <p className="text-2xl font-bold text-white">{quotes.length}</p>
-            </div>
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-              📄
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Rechnungen</p>
-              <p className="text-2xl font-bold text-white">{invoices.length}</p>
-            </div>
-            <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
-              🧾
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
-              <p className="text-2xl font-bold text-white">
-                {invoices.filter(inv => isInvoiceOverdue(inv)).length}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">
-              ⏰
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm">Monatsumsatz</p>
-              <p className="text-2xl font-bold text-white">
-                {formatCurrency(
-                  invoices
-                    .filter(inv => inv.status === 'paid')
-                    .reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
-                )}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white">
-              💰
-            </div>
-          </div>
-        </div>
+     {/* Stats Cards - KLIKABILNE */}
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  
+  {/* Angebote - vodi na quotes tab */}
+  <button
+    onClick={() => {
+      setActiveTab('quotes')
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', 'quotes')
+      window.history.replaceState({}, '', url.toString())
+    }}
+    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-blue-600 hover:scale-105 ${
+      activeTab === 'quotes' 
+        ? 'border-blue-500 ring-2 ring-blue-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-sm">Angebote</p>
+        <p className="text-2xl font-bold text-white">{quotes.length}</p>
       </div>
+      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+        📄
+      </div>
+    </div>
+  </button>
+  
+  {/* Rechnungen - vodi na invoices tab */}
+  <button
+    onClick={() => {
+      setActiveTab('invoices')
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', 'invoices')
+      window.history.replaceState({}, '', url.toString())
+    }}
+    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-purple-600 hover:scale-105 ${
+      activeTab === 'invoices' 
+        ? 'border-purple-500 ring-2 ring-purple-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-sm">Rechnungen</p>
+        <p className="text-2xl font-bold text-white">{invoices.length}</p>
+      </div>
+      <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
+        🧾
+      </div>
+    </div>
+  </button>
+
+  {/* Überfällige Rechnungen - TAKOĐE vodi na invoices tab */}
+  <button
+    onClick={() => {
+      setActiveTab('invoices')
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', 'invoices')
+      window.history.replaceState({}, '', url.toString())
+    }}
+    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-orange-600 hover:scale-105 ${
+      activeTab === 'invoices' 
+        ? 'border-orange-500 ring-2 ring-orange-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
+        <p className="text-2xl font-bold text-white">
+          {invoices.filter(inv => isInvoiceOverdue(inv)).length}
+        </p>
+      </div>
+      <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">
+        ⏰
+      </div>
+    </div>
+  </button>
+
+  {/* Monatsumsatz - TAKOĐE vodi na invoices tab */}
+  <button
+    onClick={() => {
+      setActiveTab('invoices')
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', 'invoices')
+      window.history.replaceState({}, '', url.toString())
+    }}
+    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-green-600 hover:scale-105 ${
+      activeTab === 'invoices' 
+        ? 'border-green-500 ring-2 ring-green-500/20' 
+        : 'border-slate-700'
+    }`}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-sm">Monatsumsatz</p>
+        <p className="text-2xl font-bold text-white">
+          {formatCurrency(
+            invoices
+              .filter(inv => inv.status === 'paid')
+              .reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+          )}
+        </p>
+      </div>
+      <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white">
+        💰
+      </div>
+    </div>
+  </button>
+  
+</div>
 
       {/* TABS with URL parameter handling */}
       <div className="border-b border-slate-700">
