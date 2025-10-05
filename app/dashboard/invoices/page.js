@@ -1,3 +1,4 @@
+// app/dashboard/invoices/page.js - COMPLETE FILE WITH HARD RESET INTEGRATION
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -19,7 +20,9 @@ function DashboardPageContent() {
   const [createType, setCreateType] = useState('quote') // quote or invoice
   const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({}) // mapping quotes to invoices
 
-  
+  // 🔥 NEW: Hard Reset states
+  const [showHardResetModal, setShowHardResetModal] = useState(false)
+  const [hardResetLoading, setHardResetLoading] = useState(false)
   
   // Edit functionality states
   const [editingItem, setEditingItem] = useState(null) // item being edited
@@ -29,10 +32,8 @@ function DashboardPageContent() {
   const [pendingInvoiceCreation, setPendingInvoiceCreation] = useState(false)
   const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
 
-const [showEmailModal, setShowEmailModal] = useState(false)
-const [emailItem, setEmailItem] = useState(null)
-
-
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailItem, setEmailItem] = useState(null)
 
   // ENHANCED: Settings state with business profile fields
   const [settingsData, setSettingsData] = useState({
@@ -49,7 +50,7 @@ const [emailItem, setEmailItem] = useState(null)
     payment_terms_days: 14,
     invoice_footer: '',
     // ENHANCED: Business profile data
-    full_name: '',                    // DODAJ OVO
+    full_name: '',
     business_name: '',
     phone: '',
     city: '',
@@ -203,9 +204,9 @@ const [emailItem, setEmailItem] = useState(null)
         payment_terms_days: majstorData.payment_terms_days || 14,
         invoice_footer: majstorData.invoice_footer || '',
         // ENHANCED: Business profile data
-       full_name: (majstorData.business_name || (majstorData.full_name && majstorData.full_name !== majstorData.email?.split('@')[0])) 
-    ? majstorData.full_name || '' 
-    : '',  // PROMENI OVU LINIJU
+        full_name: (majstorData.business_name || (majstorData.full_name && majstorData.full_name !== majstorData.email?.split('@')[0])) 
+          ? majstorData.full_name || '' 
+          : '',
         business_name: majstorData.business_name || '',
         phone: majstorData.phone || '',
         city: majstorData.city || '',
@@ -222,57 +223,52 @@ const [emailItem, setEmailItem] = useState(null)
     }
   }
 
+  const loadInvoicesData = async (majstorId) => {
+    try {
+      // Load quotes (type: 'quote') - FILTER OUT DUMMY ENTRIES
+      const { data: quotesData, error: quotesError } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('majstor_id', majstorId)
+        .eq('type', 'quote')
+        .neq('status', 'dummy')
+        .order('created_at', { ascending: false })
 
+      // Load invoices (type: 'invoice') - FILTER OUT DUMMY ENTRIES  
+      const { data: invoicesData, error: invoicesError } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('majstor_id', majstorId)
+        .eq('type', 'invoice')
+        .neq('status', 'dummy')
+        .order('created_at', { ascending: false })
 
+      if (!quotesError) setQuotes(quotesData || [])
+      if (!invoicesError) setInvoices(invoicesData || [])
+      
+      // Build mapping između quotes i invoices
+      buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
 
-
-
-const loadInvoicesData = async (majstorId) => {
-  try {
-    // Load quotes (type: 'quote') - FILTER OUT DUMMY ENTRIES
-    const { data: quotesData, error: quotesError } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('majstor_id', majstorId)
-      .eq('type', 'quote')
-      .neq('status', 'dummy') // 🔢 NEW: Exclude dummy entries
-      .order('created_at', { ascending: false })
-
-    // Load invoices (type: 'invoice') - FILTER OUT DUMMY ENTRIES  
-    const { data: invoicesData, error: invoicesError } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('majstor_id', majstorId)
-      .eq('type', 'invoice')
-      .neq('status', 'dummy') // 🔢 NEW: Exclude dummy entries
-      .order('created_at', { ascending: false })
-
-    if (!quotesError) setQuotes(quotesData || [])
-    if (!invoicesError) setInvoices(invoicesData || [])
-    
-    // Build mapping između quotes i invoices
-    buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
-
-  } catch (err) {
-    console.error('Error loading invoices:', err)
+    } catch (err) {
+      console.error('Error loading invoices:', err)
+    }
   }
-}
 
-// PDF view handler
-const handlePDFView = async (document) => {
-  try {
-    const pdfUrl = `/api/invoices/${document.id}/pdf`
-    window.open(pdfUrl, '_blank')
-  } catch (error) {
-    console.error('PDF viewing error:', error)
-    alert('Fehler beim Laden der PDF: ' + error.message)
+  // PDF view handler
+  const handlePDFView = async (document) => {
+    try {
+      const pdfUrl = `/api/invoices/${document.id}/pdf`
+      window.open(pdfUrl, '_blank')
+    } catch (error) {
+      console.error('PDF viewing error:', error)
+      alert('Fehler beim Laden der PDF: ' + error.message)
+    }
   }
-}
+
   // Build mapping between quotes and invoices
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
     const map = {}
     
-    // Prođi kroz sve fakture i vidi koje su napravljene od profaktura
     invoicesData.forEach(invoice => {
       if (invoice.converted_from_quote_id) {
         map[invoice.converted_from_quote_id] = invoice.id
@@ -291,7 +287,7 @@ const handlePDFView = async (document) => {
   const handleEditClick = (item) => {
     console.log('Editing item:', item)
     setEditingItem(item)
-    setCreateType(item.type) // 'quote' or 'invoice'
+    setCreateType(item.type)
     setIsEditMode(true)
     setShowCreateModal(true)
   }
@@ -300,11 +296,9 @@ const handlePDFView = async (document) => {
   const handleCreateSuccess = (newData) => {
     console.log('Operation successful:', newData)
     
-    // Reset edit states
     setEditingItem(null)
     setIsEditMode(false)
     
-    // Reload data
     if (majstor?.id) {
       loadInvoicesData(majstor.id)
     }
@@ -317,26 +311,24 @@ const handlePDFView = async (document) => {
     setIsEditMode(false)
   }
 
-
   // Handle email button click
-const handleEmailClick = (item) => {
-  console.log('Opening email modal for:', item.invoice_number || item.quote_number)
-  setEmailItem(item)
-  setShowEmailModal(true)
-}
-
-// Handle email success
-// Handle email success - ISPRAVNO
-const handleEmailSuccess = (result) => {
-  console.log('Email sent successfully:', result)
-  setShowEmailModal(false)
-  setEmailItem(null)
-  
-  // 🔥 DODAJ OVO - Ponovo učitaj podatke iz baze
-  if (majstor?.id) {
-    loadInvoicesData(majstor.id)
+  const handleEmailClick = (item) => {
+    console.log('Opening email modal for:', item.invoice_number || item.quote_number)
+    setEmailItem(item)
+    setShowEmailModal(true)
   }
-}
+
+  // Handle email success
+  const handleEmailSuccess = (result) => {
+    console.log('Email sent successfully:', result)
+    setShowEmailModal(false)
+    setEmailItem(null)
+    
+    if (majstor?.id) {
+      loadInvoicesData(majstor.id)
+    }
+  }
+
   const getStatusColor = (status) => {
     const colors = {
       'draft': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
@@ -360,7 +352,6 @@ const handleEmailSuccess = (result) => {
     return new Date(dateString).toLocaleDateString('de-DE')
   }
 
-  // Helper funkcija za proveru da li je faktura prestara  
   const isInvoiceOverdue = (invoice) => {
     if (invoice.status !== 'sent' && invoice.status !== 'draft') {
       return false
@@ -381,7 +372,6 @@ const handleEmailSuccess = (result) => {
     return isOverdue
   }
 
-  // Funkcija za računanje dana kašnjenja
   const getDaysOverdue = (invoice) => {
     if (!isInvoiceOverdue(invoice)) return 0
     
@@ -397,225 +387,207 @@ const handleEmailSuccess = (result) => {
     return Math.max(0, diffDays)
   }
 
-  // Convert quote to invoice
-// POTPUNO ZAMENI postojeću convertQuoteToInvoice funkciju u /app/dashboard/invoices/page.js
+  // Convert quote to invoice - EXISTING CODE
+  const convertQuoteToInvoice = async (quote) => {
+    try {
+      console.log('Converting quote to invoice:', quote.quote_number)
 
-const convertQuoteToInvoice = async (quote) => {
-  try {
-    console.log('Converting quote to invoice:', quote.quote_number)
-
-    // 🔥 NOVA LOGIKA: Umesto AN-2025-001 → RE-2025-001
-    // Pronađi sledeći dostupan broj fakture u nizu
-    const year = new Date().getFullYear()
-    
-    console.log('🔍 Searching for next available invoice number for year:', year)
-    
-    // Pronađi sve postojeće fakture za trenutnu godinu
-    const { data: existingInvoices, error: searchError } = await supabase
-      .from('invoices')
-      .select('invoice_number')
-      .eq('majstor_id', majstor.id)
-      .eq('type', 'invoice')  // Samo fakture, ne profakture
-      .like('invoice_number', `RE-${year}-%`)
-      .order('invoice_number', { ascending: false })
-
-    if (searchError) {
-      console.error('Error searching existing invoices:', searchError)
-      throw new Error('Fehler beim Suchen bestehender Rechnungen')
-    }
-
-    let nextNumber = 1  // Default: prva faktura
-
-    if (existingInvoices && existingInvoices.length > 0) {
-      console.log('📊 Found existing invoices:', existingInvoices.map(inv => inv.invoice_number))
+      const year = new Date().getFullYear()
       
-      // Izvuci brojeve iz svih postojećih faktura
-      const numbers = existingInvoices
-        .map(invoice => {
-          // RE-2025-003 → 3
-          const match = invoice.invoice_number.match(/RE-\d{4}-(\d+)/)
-          return match ? parseInt(match[1], 10) : 0
-        })
-        .filter(num => !isNaN(num) && num > 0)  // Samo validni brojevi
+      console.log('🔍 Searching for next available invoice number for year:', year)
       
-      console.log('🔢 Extracted numbers from existing invoices:', numbers)
-      
-      if (numbers.length > 0) {
-        const maxNumber = Math.max(...numbers)
-        nextNumber = maxNumber + 1
-        console.log('📈 Max existing number:', maxNumber, '→ Next number:', nextNumber)
+      const { data: existingInvoices, error: searchError } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('majstor_id', majstor.id)
+        .eq('type', 'invoice')
+        .like('invoice_number', `RE-${year}-%`)
+        .order('invoice_number', { ascending: false })
+
+      if (searchError) {
+        console.error('Error searching existing invoices:', searchError)
+        throw new Error('Fehler beim Suchen bestehender Rechnungen')
       }
-    } else {
-      console.log('📝 No existing invoices found, starting with 001')
-    }
 
-    // Generiši finalni broj fakture
-    const finalInvoiceNumber = `RE-${year}-${nextNumber.toString().padStart(3, '0')}`
-    
-    console.log('✅ Generated sequential invoice number:', finalInvoiceNumber)
+      let nextNumber = 1
 
-    // Ostatak koda ostaje isti kao pre
-    // Calculate financial data
-    const subtotal = parseFloat(quote.subtotal) || 0
-    const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
-    const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
-    const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
-    const totalAmount = subtotal + taxAmount
+      if (existingInvoices && existingInvoices.length > 0) {
+        console.log('📊 Found existing invoices:', existingInvoices.map(inv => inv.invoice_number))
+        
+        const numbers = existingInvoices
+          .map(invoice => {
+            const match = invoice.invoice_number.match(/RE-\d{4}-(\d+)/)
+            return match ? parseInt(match[1], 10) : 0
+          })
+          .filter(num => !isNaN(num) && num > 0)
+        
+        console.log('🔢 Extracted numbers from existing invoices:', numbers)
+        
+        if (numbers.length > 0) {
+          const maxNumber = Math.max(...numbers)
+          nextNumber = maxNumber + 1
+          console.log('📈 Max existing number:', maxNumber, '→ Next number:', nextNumber)
+        }
+      } else {
+        console.log('📝 No existing invoices found, starting with 001')
+      }
 
-    // Calculate dates
-    const now = new Date()
-    const issueDate = now.toISOString().split('T')[0]
-    const dueDate = new Date(now)
-    dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
-    const dueDateString = dueDate.toISOString().split('T')[0]
+      const finalInvoiceNumber = `RE-${year}-${nextNumber.toString().padStart(3, '0')}`
+      
+      console.log('✅ Generated sequential invoice number:', finalInvoiceNumber)
 
-    // Prepare invoice data
-    const invoiceData = {
-      majstor_id: quote.majstor_id,
-      type: 'invoice',
-      invoice_number: finalInvoiceNumber, // 🔥 KORISTIMO SEKVENCIJALNI BROJ
-      customer_name: quote.customer_name,
-      customer_email: quote.customer_email,
-      customer_phone: quote.customer_phone || null,
-      customer_address: quote.customer_address || null,
-      items: quote.items,
-      subtotal: subtotal,
-      tax_rate: taxRate,
-      tax_amount: taxAmount,
-      total_amount: totalAmount,
-      status: 'draft',
-      issue_date: issueDate,
-      due_date: dueDateString,
-      payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
-      notes: quote.notes || null,
-      is_kleinunternehmer: isKleinunternehmer,
-      converted_from_quote_id: quote.id,
-      company_name: majstor?.business_name || majstor?.full_name || null,
-      company_address: majstor?.address || null,
-      tax_number: settingsData?.tax_number || null,
-      vat_id: settingsData?.vat_id || null,
-      iban: settingsData?.iban || null,
-      bic: settingsData?.bic || null,
-      bank_name: settingsData?.bank_name || null,
-      created_at: now.toISOString(),
-      updated_at: now.toISOString()
-    }
+      const subtotal = parseFloat(quote.subtotal) || 0
+      const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
+      const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
+      const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
+      const totalAmount = subtotal + taxAmount
 
-    console.log('💾 Inserting invoice with data:', {
-      invoice_number: finalInvoiceNumber,
-      customer: invoiceData.customer_name,
-      total: totalAmount,
-      tax_rate: taxRate + '%',
-      kleinunternehmer: isKleinunternehmer,
-      sequence_number: nextNumber
-    })
+      const now = new Date()
+      const issueDate = now.toISOString().split('T')[0]
+      const dueDate = new Date(now)
+      dueDate.setDate(dueDate.getDate() + (parseInt(settingsData?.payment_terms_days) || 14))
+      const dueDateString = dueDate.toISOString().split('T')[0]
 
-    // Insert invoice into database
-    const { data: newInvoice, error: insertError } = await supabase
-      .from('invoices')
-      .insert(invoiceData)
-      .select(`
-        id,
-        invoice_number,
-        customer_name,
-        total_amount,
-        status,
-        created_at
-      `)
-      .single()
-
-    if (insertError) {
-      console.error('Database insert error:', insertError)
-      throw new Error(`Database error: ${insertError.message}`)
-    }
-
-    if (!newInvoice) {
-      throw new Error('No invoice data returned from database')
-    }
-
-    console.log('✅ Invoice successfully created:', newInvoice)
-
-  
-
-    // Update quote status to converted
-    const { error: quoteUpdateError } = await supabase
-      .from('invoices')
-      .update({ 
-        status: 'converted',
+      const invoiceData = {
+        majstor_id: quote.majstor_id,
+        type: 'invoice',
+        invoice_number: finalInvoiceNumber,
+        customer_name: quote.customer_name,
+        customer_email: quote.customer_email,
+        customer_phone: quote.customer_phone || null,
+        customer_address: quote.customer_address || null,
+        items: quote.items,
+        subtotal: subtotal,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total_amount: totalAmount,
+        status: 'draft',
+        issue_date: issueDate,
+        due_date: dueDateString,
+        payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
+        notes: quote.notes || null,
+        is_kleinunternehmer: isKleinunternehmer,
+        converted_from_quote_id: quote.id,
+        company_name: majstor?.business_name || majstor?.full_name || null,
+        company_address: majstor?.address || null,
+        tax_number: settingsData?.tax_number || null,
+        vat_id: settingsData?.vat_id || null,
+        iban: settingsData?.iban || null,
+        bic: settingsData?.bic || null,
+        bank_name: settingsData?.bank_name || null,
+        created_at: now.toISOString(),
         updated_at: now.toISOString()
+      }
+
+      console.log('💾 Inserting invoice with data:', {
+        invoice_number: finalInvoiceNumber,
+        customer: invoiceData.customer_name,
+        total: totalAmount,
+        tax_rate: taxRate + '%',
+        kleinunternehmer: isKleinunternehmer,
+        sequence_number: nextNumber
       })
-      .eq('id', quote.id)
 
-    if (quoteUpdateError) {
-      console.warn('Could not update quote status:', quoteUpdateError.message)
-    } else {
-      console.log('📝 Quote status updated to converted')
+      const { data: newInvoice, error: insertError } = await supabase
+        .from('invoices')
+        .insert(invoiceData)
+        .select(`
+          id,
+          invoice_number,
+          customer_name,
+          total_amount,
+          status,
+          created_at
+        `)
+        .single()
+
+      if (insertError) {
+        console.error('Database insert error:', insertError)
+        throw new Error(`Database error: ${insertError.message}`)
+      }
+
+      if (!newInvoice) {
+        throw new Error('No invoice data returned from database')
+      }
+
+      console.log('✅ Invoice successfully created:', newInvoice)
+
+      const { error: quoteUpdateError } = await supabase
+        .from('invoices')
+        .update({ 
+          status: 'converted',
+          updated_at: now.toISOString()
+        })
+        .eq('id', quote.id)
+
+      if (quoteUpdateError) {
+        console.warn('Could not update quote status:', quoteUpdateError.message)
+      } else {
+        console.log('📝 Quote status updated to converted')
+      }
+
+      console.log('🔄 Refreshing invoices data...')
+      
+      if (majstor?.id) {
+        await loadInvoicesData(majstor.id)
+      }
+
+      setActiveTab('invoices')
+      
+      const successMessage = [
+        `✅ Erfolgreich umgewandelt!`,
+        ``,
+        `📄 Angebot: ${quote.quote_number}`,
+        `🧾 Rechnung: ${newInvoice.invoice_number}`,
+        ``,
+        `👤 Kunde: ${newInvoice.customer_name}`,
+        `💰 Betrag: ${formatCurrency(newInvoice.total_amount)}`,
+        `📊 Status: ${newInvoice.status}`,
+        ``,
+        `🔢 Automatische Nummerierung: ${nextNumber}. Rechnung für ${year}`
+      ].join('\n')
+
+      alert(successMessage)
+
+      return newInvoice
+
+    } catch (error) {
+      console.error('❌ Conversion failed with error:', error)
+      
+      let userMessage = 'Conversion failed'
+      let technicalDetails = error.message || 'Unknown error'
+      
+      if (error.message?.includes('duplicate key')) {
+        userMessage = 'Rechnungsnummer bereits vergeben'
+        technicalDetails = 'Database constraint violation'
+      } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
+        userMessage = 'Keine Berechtigung für diese Aktion'
+        technicalDetails = 'Row Level Security or permissions issue'
+      } else if (error.message?.includes('connection') || error.message?.includes('network')) {
+        userMessage = 'Netzwerkfehler'
+        technicalDetails = 'Database connection failed'
+      } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
+        userMessage = 'Ungültige Daten'
+        technicalDetails = 'Data validation failed'
+      }
+
+      const errorMessage = [
+        `❌ ${userMessage}`,
+        ``,
+        `📄 Angebot: ${quote.quote_number}`,
+        `👤 Kunde: ${quote.customer_name}`,
+        ``,
+        `🔧 Technische Details:`,
+        technicalDetails,
+        ``,
+        `🔄 Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
+      ].join('\n')
+
+      alert(errorMessage)
+      
+      throw error
     }
-
-    // Refresh data in UI
-    console.log('🔄 Refreshing invoices data...')
-    
-    if (majstor?.id) {
-      await loadInvoicesData(majstor.id)
-    }
-
-    setActiveTab('invoices')
-    
-    // Show success message
-    const successMessage = [
-      `✅ Erfolgreich umgewandelt!`,
-      ``,
-      `📄 Angebot: ${quote.quote_number}`,
-      `🧾 Rechnung: ${newInvoice.invoice_number}`,
-      ``,
-      `👤 Kunde: ${newInvoice.customer_name}`,
-      `💰 Betrag: ${formatCurrency(newInvoice.total_amount)}`,
-      `📊 Status: ${newInvoice.status}`,
-      ``,
-      `🔢 Automatische Nummerierung: ${nextNumber}. Rechnung für ${year}`
-    ].join('\n')
-
-    alert(successMessage)
-
-    return newInvoice
-
-  } catch (error) {
-    console.error('❌ Conversion failed with error:', error)
-    
-    let userMessage = 'Conversion failed'
-    let technicalDetails = error.message || 'Unknown error'
-    
-    if (error.message?.includes('duplicate key')) {
-      userMessage = 'Rechnungsnummer bereits vergeben'
-      technicalDetails = 'Database constraint violation'
-    } else if (error.message?.includes('permission denied') || error.message?.includes('RLS')) {
-      userMessage = 'Keine Berechtigung für diese Aktion'
-      technicalDetails = 'Row Level Security or permissions issue'
-    } else if (error.message?.includes('connection') || error.message?.includes('network')) {
-      userMessage = 'Netzwerkfehler'
-      technicalDetails = 'Database connection failed'
-    } else if (error.message?.includes('validation') || error.message?.includes('invalid')) {
-      userMessage = 'Ungültige Daten'
-      technicalDetails = 'Data validation failed'
-    }
-
-    const errorMessage = [
-      `❌ ${userMessage}`,
-      ``,
-      `📄 Angebot: ${quote.quote_number}`,
-      `👤 Kunde: ${quote.customer_name}`,
-      ``,
-      `🔧 Technische Details:`,
-      technicalDetails,
-      ``,
-      `🔄 Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
-    ].join('\n')
-
-    alert(errorMessage)
-    
-    throw error
   }
-}
 
   // Delete invoice with safety checks
   const handleDeleteInvoice = async (invoice) => {
@@ -768,6 +740,314 @@ const convertQuoteToInvoice = async (quote) => {
     }))
   }
 
+  // 🔥 NEW: Hard Reset Modal Component
+  const HardResetModal = () => {
+    const [resetData, setResetData] = useState({
+      nextQuoteNumber: majstor?.next_quote_number || 1,
+      nextInvoiceNumber: majstor?.next_invoice_number || 1,
+      confirmText: ''
+    })
+
+    const totalDocuments = quotes.length + invoices.length
+    const currentYear = new Date().getFullYear()
+
+    const handleHardReset = async () => {
+      if (resetData.confirmText !== 'LÖSCHEN') {
+        alert('❌ Bitte geben Sie "LÖSCHEN" ein um zu bestätigen')
+        return
+      }
+
+      const finalConfirm = confirm(
+        `⚠️ LETZTE WARNUNG!\n\n` +
+        `Sie sind dabei ${totalDocuments} Dokumente unwiderruflich zu löschen.\n\n` +
+        `Was wird gelöscht:\n` +
+        `• ${quotes.length} Angebote\n` +
+        `• ${invoices.length} Rechnungen\n` +
+        `• Alle zugehörigen PDF-Dateien\n\n` +
+        `Neue Nummerierung:\n` +
+        `• Angebote ab: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}\n` +
+        `• Rechnungen ab: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}\n\n` +
+        `Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
+        `Wirklich fortfahren?`
+      )
+
+      if (!finalConfirm) return
+
+      try {
+        setHardResetLoading(true)
+
+        console.log('🔥 Starting hard reset...')
+
+        // 1️⃣ Get all invoices with storage paths
+        const { data: allInvoices, error: fetchError } = await supabase
+          .from('invoices')
+          .select('id, pdf_storage_path, type, invoice_number, quote_number')
+          .eq('majstor_id', majstor.id)
+
+        if (fetchError) throw fetchError
+
+        console.log(`📋 Found ${allInvoices.length} invoices to delete`)
+
+        // 2️⃣ Delete all PDFs from storage
+        const pdfPaths = allInvoices
+          .map(inv => inv.pdf_storage_path)
+          .filter(path => path)
+
+        if (pdfPaths.length > 0) {
+          console.log(`🗑️ Deleting ${pdfPaths.length} PDFs from storage...`)
+          
+          const { error: storageError } = await supabase.storage
+            .from('invoice-pdfs')
+            .remove(pdfPaths)
+
+          if (storageError) {
+            console.warn('⚠️ Some PDFs could not be deleted:', storageError)
+          } else {
+            console.log('✅ PDFs deleted successfully')
+          }
+        }
+
+        // 3️⃣ Delete all invoices from database
+        console.log('🗑️ Deleting all invoices from database...')
+        const { error: deleteError } = await supabase
+          .from('invoices')
+          .delete()
+          .eq('majstor_id', majstor.id)
+
+        if (deleteError) throw deleteError
+        console.log('✅ Invoices deleted from database')
+
+        // 4️⃣ Reset numbers to custom values
+        console.log('🔢 Updating numbering to custom values...')
+        const { error: updateError } = await supabase
+          .from('majstors')
+          .update({
+            next_quote_number: resetData.nextQuoteNumber,
+            next_invoice_number: resetData.nextInvoiceNumber,
+            numbers_initialized: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', majstor.id)
+
+        if (updateError) throw updateError
+        console.log('✅ Numbering updated')
+
+        // 5️⃣ Success!
+        const successMessage = [
+          '✅ Hard Reset erfolgreich abgeschlossen!',
+          '',
+          `📊 Gelöschte Dokumente:`,
+          `• ${allInvoices.filter(i => i.type === 'quote').length} Angebote`,
+          `• ${allInvoices.filter(i => i.type === 'invoice').length} Rechnungen`,
+          `• ${pdfPaths.length} PDF-Dateien`,
+          '',
+          `🔢 Neue Nummerierung:`,
+          `• Nächstes Angebot: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}`,
+          `• Nächste Rechnung: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}`,
+          '',
+          '🎉 Sie können jetzt mit einer sauberen Nummerierung neu starten!'
+        ].join('\n')
+
+        alert(successMessage)
+
+        // Reload data
+        await loadMajstorAndData()
+        setShowHardResetModal(false)
+
+      } catch (error) {
+        console.error('❌ Hard reset failed:', error)
+        alert(
+          '❌ Fehler beim Hard Reset:\n\n' + 
+          error.message + '\n\n' +
+          'Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.'
+        )
+      } finally {
+        setHardResetLoading(false)
+      }
+    }
+
+    if (!showHardResetModal) return null
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+        <div className="bg-slate-800 rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+          
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-2xl">
+              🔥
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-white">
+                Hard Reset - Alles löschen
+              </h3>
+              <p className="text-slate-400 text-sm">
+                Neue Nummerierung ab Wunschnummer
+              </p>
+            </div>
+          </div>
+
+          {/* Current Status */}
+          <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
+            <h4 className="text-white font-medium mb-3">📊 Aktueller Stand</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <p className="text-slate-400 text-xs mb-1">Angebote</p>
+                <p className="text-white font-bold text-xl">{quotes.length}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-slate-400 text-xs mb-1">Rechnungen</p>
+                <p className="text-white font-bold text-xl">{invoices.length}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-slate-400 text-xs mb-1">Gesamt</p>
+                <p className="text-white font-bold text-xl">{totalDocuments}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* What will be deleted */}
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-red-400 text-xl">⚠️</span>
+              <div>
+                <h5 className="text-red-300 font-medium mb-2">
+                  Folgendes wird unwiderruflich gelöscht:
+                </h5>
+                <ul className="text-red-200 text-sm space-y-1">
+                  <li>❌ Alle {quotes.length} Angebote aus der Datenbank</li>
+                  <li>❌ Alle {invoices.length} Rechnungen aus der Datenbank</li>
+                  <li>❌ Alle zugehörigen PDF-Dateien</li>
+                  <li>❌ Alle Email-Versand Historie</li>
+                </ul>
+                <p className="text-red-300 text-sm mt-3 font-semibold">
+                  ⚠️ Diese Aktion kann NICHT rückgängig gemacht werden!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Start Numbers */}
+          <div className="space-y-4 mb-6">
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+              <p className="text-blue-300 text-sm">
+                💡 <strong>Tipp:</strong> Wenn Sie von einem anderen System wechseln, 
+                können Sie hier die Nummern so einstellen, dass sie nahtlos weiterlaufen.
+              </p>
+            </div>
+
+            {/* Next Quote Number */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Nächste Angebotsnummer
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={resetData.nextQuoteNumber}
+                onChange={(e) => setResetData(prev => ({ 
+                  ...prev, 
+                  nextQuoteNumber: parseInt(e.target.value) || 1 
+                }))}
+                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
+                disabled={hardResetLoading}
+              />
+              <div className="mt-2 bg-slate-900/50 rounded p-2">
+                <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
+                <p className="text-green-400 font-mono text-sm">
+                  AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(3, '0')}
+                </p>
+              </div>
+            </div>
+
+            {/* Next Invoice Number */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Nächste Rechnungsnummer
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={resetData.nextInvoiceNumber}
+                onChange={(e) => setResetData(prev => ({ 
+                  ...prev, 
+                  nextInvoiceNumber: parseInt(e.target.value) || 1 
+                }))}
+                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
+                disabled={hardResetLoading}
+              />
+              <div className="mt-2 bg-slate-900/50 rounded p-2">
+                <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
+                <p className="text-green-400 font-mono text-sm">
+                  RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(3, '0')}
+                </p>
+              </div>
+            </div>
+
+            {/* Use Case Examples */}
+            <div className="bg-slate-900/50 rounded-lg p-3">
+              <p className="text-slate-400 text-xs mb-2">💡 Beispiele:</p>
+              <ul className="text-slate-300 text-xs space-y-1">
+                <li>• <strong>Neustart:</strong> Setzen Sie auf 1 für einen kompletten Neuanfang</li>
+                <li>• <strong>Systemwechsel:</strong> Geben Sie die nächste Nummer nach Ihrem alten System ein (z.B. 144 wenn Ihre letzte Rechnung RE-2025-143 war)</li>
+                <li>• <strong>Nach Tests:</strong> Überspringen Sie Test-Nummern (z.B. starten Sie bei 50 wenn Sie 1-49 für Tests verwendet haben)</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Final Confirmation */}
+          <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mb-6">
+            <label className="block text-sm font-medium text-red-300 mb-2">
+              ⚠️ Zur Bestätigung geben Sie <strong>&quot;LÖSCHEN&quot;</strong> ein:
+            </label>
+            <input
+              type="text"
+              value={resetData.confirmText}
+              onChange={(e) => setResetData(prev => ({ 
+                ...prev, 
+                confirmText: e.target.value 
+              }))}
+              placeholder="LÖSCHEN"
+              className="w-full px-3 py-3 bg-slate-900/50 border-2 border-red-500 rounded-lg text-white font-semibold text-center tracking-wider"
+              disabled={hardResetLoading}
+            />
+            <p className="text-red-200 text-xs mt-2 text-center">
+              Sie müssen &quot;LÖSCHEN&quot; (in Großbuchstaben) eingeben
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowHardResetModal(false)}
+              disabled={hardResetLoading}
+              className="flex-1 bg-slate-600 text-white py-3 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={handleHardReset}
+              disabled={resetData.confirmText !== 'LÖSCHEN' || hardResetLoading}
+              className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+            >
+              {hardResetLoading ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  Wird gelöscht...
+                </>
+              ) : (
+                <>
+                  🔥 Alles löschen & neu starten
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // EXISTING COMPONENTS (QuotesList, InvoicesList, SettingsTab)
   const QuotesList = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -850,11 +1130,11 @@ const convertQuoteToInvoice = async (quote) => {
 
                 <div className="flex gap-3 flex-wrap">
                   <button 
-  onClick={() => handlePDFView(quote)}
-  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
->
-  👁️ PDF ansehen
-</button>
+                    onClick={() => handlePDFView(quote)}
+                    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                  >
+                    👁️ PDF ansehen
+                  </button>
                   
                   <button 
                     onClick={() => handleEditClick(quote)}
@@ -864,11 +1144,11 @@ const convertQuoteToInvoice = async (quote) => {
                   </button>
                   
                   <button 
-  onClick={() => handleEmailClick(quote)}
-  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
->
-  Per E-Mail senden
-</button>
+                    onClick={() => handleEmailClick(quote)}
+                    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                  >
+                    Per E-Mail senden
+                  </button>
                   
                   {quote.status !== 'converted' && !hasInvoice && (
                     <button
@@ -940,13 +1220,13 @@ const convertQuoteToInvoice = async (quote) => {
                       <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
                       
                       {overdueStatus && (
-                      <div 
-  className="flex items-center gap-1 text-red-400 text-sm cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
-  title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
->
-  <span className="text-red-400">⏰</span>
-  <span className="font-medium">{daysOverdue}d</span>
-</div>
+                        <div 
+                          className="flex items-center gap-1 text-red-400 text-sm cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
+                          title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
+                        >
+                          <span className="text-red-400">⏰</span>
+                          <span className="font-medium">{daysOverdue}d</span>
+                        </div>
                       )}
                     </div>
                     <p className="text-slate-400">{invoice.customer_name}</p>
@@ -959,7 +1239,7 @@ const convertQuoteToInvoice = async (quote) => {
                       </div>
                     )}
                   </div>
-                 <div className="text-right">
+                  <div className="text-right">
                     <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
                       {invoice.status === 'draft' && 'Entwurf'}
                       {invoice.status === 'sent' && 'Gesendet'}
@@ -973,9 +1253,7 @@ const convertQuoteToInvoice = async (quote) => {
                       </div>
                     )}
                   </div>
-                  
                 </div>
-
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
                   <div>
@@ -998,11 +1276,11 @@ const convertQuoteToInvoice = async (quote) => {
 
                 <div className="flex gap-3 flex-wrap">
                   <button 
-  onClick={() => handlePDFView(invoice)}
-  className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
->
-  👁️ PDF ansehen
-</button>
+                    onClick={() => handlePDFView(invoice)}
+                    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                  >
+                    👁️ PDF ansehen
+                  </button>
                   
                   <button 
                     onClick={() => handleEditClick(invoice)}
@@ -1011,24 +1289,21 @@ const convertQuoteToInvoice = async (quote) => {
                     Bearbeiten
                   </button>
                   
-                
-
-
-{invoice.email_sent_at ? (
-  <button 
-    onClick={() => handleEmailClick(invoice)}
-    className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
-  >
-    🔄 Erneut senden
-  </button>
-) : (
-  <button 
-    onClick={() => handleEmailClick(invoice)}
-    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-  >
-    Per E-Mail senden
-  </button>
-)}
+                  {invoice.email_sent_at ? (
+                    <button 
+                      onClick={() => handleEmailClick(invoice)}
+                      className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                    >
+                      🔄 Erneut senden
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => handleEmailClick(invoice)}
+                      className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                    >
+                      Per E-Mail senden
+                    </button>
+                  )}
                   
                   {(invoice.status === 'draft' || invoice.status === 'sent') && (
                     <button
@@ -1064,7 +1339,7 @@ const convertQuoteToInvoice = async (quote) => {
     </div>
   )
 
-  // ENHANCED: UPDATED SETTINGS TAB with business profile fields
+  // SETTINGS TAB WITH HARD RESET INTEGRATION
   const SettingsTab = () => {
     const [localSettings, setLocalSettings] = useState(settingsData)
     const [hasChanges, setHasChanges] = useState(false)
@@ -1085,27 +1360,22 @@ const convertQuoteToInvoice = async (quote) => {
       setHasChanges(true)
     }
 
-    // ENHANCED: Save function with proper state synchronization
     const handleLocalSave = async () => {
       setSettingsLoading(true)
       setSettingsError('')
 
       try {
         const updateData = {
-          // Tax settings
           is_kleinunternehmer: localSettings.is_kleinunternehmer,
           tax_number: localSettings.tax_number || null,
           vat_id: localSettings.vat_id || null,
           default_tax_rate: localSettings.default_tax_rate,
-          // Bank data
           iban: localSettings.iban || null,
           bic: localSettings.bic || null,
           bank_name: localSettings.bank_name || null,
-          // Payment settings
           payment_terms_days: localSettings.payment_terms_days,
           invoice_footer: localSettings.invoice_footer || null,
-          // ENHANCED: Business profile data
-          full_name: localSettings.full_name || null,        // DODAJ OVO
+          full_name: localSettings.full_name || null,
           business_name: localSettings.business_name || null,
           phone: localSettings.phone || null,
           city: localSettings.city || null,
@@ -1120,15 +1390,13 @@ const convertQuoteToInvoice = async (quote) => {
 
         if (error) throw error
 
-        // CRITICAL: Properly sync ALL state
         const newMajstorData = { ...majstor, ...localSettings }
         
         setSettingsData(localSettings)
-        setMajstor(newMajstorData)  // This triggers business data recheck!
+        setMajstor(newMajstorData)
 
         setHasChanges(false)
         
-        // Check completion with updated data
         const isNowComplete = isBusinessDataComplete(newMajstorData)
         
         console.log('Settings saved and states synchronized:', {
@@ -1172,30 +1440,106 @@ const convertQuoteToInvoice = async (quote) => {
         
         <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
 
-           {/* NOVA SEKCIJA - Logo & Branding */}
-<LogoUpload
-  majstor={majstor}
-  context="invoice"
-  onLogoUpdate={(logoUrl) => {
-    console.log('Logo updated:', logoUrl)
-    // Update local majstor state
-    setMajstor(prev => ({
-      ...prev,
-      business_logo_url: logoUrl
-    }))
+         {/* 🔥 HARD RESET SECTION - PRIKAŽI SAMO AKO IMA DOKUMENATA */}
+{(quotes.length > 0 || invoices.length > 0) && (
+  <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border-2 border-red-500/30 rounded-lg p-6 mb-6">
+    <div className="flex items-start justify-between mb-4">
+      <div>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-xl">
+            🔥
+          </div>
+          <h4 className="text-white font-semibold text-lg">Nummerierung zurücksetzen</h4>
+        </div>
+        <p className="text-slate-400 text-sm">
+          Alle Dokumente löschen und mit neuer Nummerierung neu starten
+        </p>
+      </div>
+    </div>
+
+    {/* Current Stats */}
+    <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="bg-slate-900/50 rounded-lg p-3">
+        <p className="text-slate-400 text-xs mb-1">Angebote</p>
+        <p className="text-white font-semibold text-xl">{quotes.length}</p>
+      </div>
+      <div className="bg-slate-900/50 rounded-lg p-3">
+        <p className="text-slate-400 text-xs mb-1">Rechnungen</p>
+        <p className="text-white font-semibold text-xl">{invoices.length}</p>
+      </div>
+      <div className="bg-slate-900/50 rounded-lg p-3">
+        <p className="text-slate-400 text-xs mb-1">Gesamt</p>
+        <p className="text-white font-semibold text-xl">{quotes.length + invoices.length}</p>
+      </div>
+    </div>
+
+    {/* Current Numbers */}
+    <div className="bg-slate-900/50 rounded-lg p-3 mb-4">
+      <p className="text-slate-400 text-xs mb-2">Aktuelle Nummerierung:</p>
+      <div className="flex gap-4 text-sm">
+        <div>
+          <span className="text-slate-400">Nächstes Angebot:</span>
+          <span className="text-green-400 font-mono ml-2">
+            AN-{new Date().getFullYear()}-{String(majstor?.next_quote_number || 1).padStart(3, '0')}
+          </span>
+        </div>
+        <div>
+          <span className="text-slate-400">Nächste Rechnung:</span>
+          <span className="text-green-400 font-mono ml-2">
+            RE-{new Date().getFullYear()}-{String(majstor?.next_invoice_number || 1).padStart(3, '0')}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {/* Warning Info */}
+    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+      <p className="text-red-300 text-sm">
+        ⚠️ <strong>Vorsicht:</strong> Diese Aktion löscht ALLE Angebote und Rechnungen unwiderruflich 
+        und ermöglicht einen kompletten Neustart mit Wunschnummern.
+      </p>
+    </div>
+
+    {/* Reset Button */}
+    <button
+      type="button"
+      onClick={() => setShowHardResetModal(true)}
+      disabled={quotes.length === 0 && invoices.length === 0}
+      className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      🔥 Hard Reset durchführen
+    </button>
     
-    // Update settingsData state to reflect change
-    setSettingsData(prev => ({
-      ...prev,
-      business_logo_url: logoUrl
-    }))
-    
-    alert(logoUrl ? 'Logo erfolgreich hochgeladen!' : 'Logo entfernt!')
-  }}
-  className="mb-6"
-/>
+    {(quotes.length === 0 && invoices.length === 0) && (
+      <p className="text-slate-500 text-xs text-center mt-2">
+        Keine Dokumente vorhanden - Reset nicht erforderlich
+      </p>
+    )}
+  </div>
+)}
+
+          {/* Logo & Branding */}
+          <LogoUpload
+            majstor={majstor}
+            context="invoice"
+            onLogoUpdate={(logoUrl) => {
+              console.log('Logo updated:', logoUrl)
+              setMajstor(prev => ({
+                ...prev,
+                business_logo_url: logoUrl
+              }))
+              
+              setSettingsData(prev => ({
+                ...prev,
+                business_logo_url: logoUrl
+              }))
+              
+              alert(logoUrl ? 'Logo erfolgreich hochgeladen!' : 'Logo entfernt!')
+            }}
+            className="mb-6"
+          />
           
-          {/* ENHANCED: Geschäftsprofil Section */}
+          {/* Business Profile Section */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-2">Geschäftsprofil</h4>
             <p className="text-slate-400 text-sm mb-4">
@@ -1203,27 +1547,22 @@ const convertQuoteToInvoice = async (quote) => {
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Vollständiger Name *
+                  <span className="text-slate-500 text-xs ml-1">(Ihr persönlicher Name)</span>
+                </label>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={localSettings.full_name || ''}
+                  onChange={handleLocalChange}
+                  placeholder="Max Müller"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  required
+                />
+              </div>
 
-             
-
-              {/* NOVO POLJE - VOLLSTÄNDIGER NAME */}
-    <div className="md:col-span-2">
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Vollständiger Name *
-        <span className="text-slate-500 text-xs ml-1">(Ihr persönlicher Name)</span>
-      </label>
-      <input
-        type="text"
-        name="full_name"
-        value={localSettings.full_name || ''}
-        onChange={handleLocalChange}
-        placeholder="Max Müller"
-        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-        required
-      />
-    </div>
-
-              {/* Business Name */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Firmenname *
@@ -1240,7 +1579,6 @@ const convertQuoteToInvoice = async (quote) => {
                 />
               </div>
               
-              {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Telefonnummer *
@@ -1257,7 +1595,6 @@ const convertQuoteToInvoice = async (quote) => {
                 />
               </div>
               
-              {/* City */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Stadt/Ort *
@@ -1274,7 +1611,6 @@ const convertQuoteToInvoice = async (quote) => {
                 />
               </div>
               
-              {/* Optional: Address */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Geschäftsadresse (optional)
@@ -1291,7 +1627,6 @@ const convertQuoteToInvoice = async (quote) => {
               </div>
             </div>
             
-            {/* Info Box */}
             <div className="mt-4 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
               <div className="flex items-start gap-2">
                 <span className="text-blue-400 text-sm">💡</span>
@@ -1309,7 +1644,7 @@ const convertQuoteToInvoice = async (quote) => {
             </div>
           </div>
 
-          {/* Steuer Einstellungen */}
+          {/* Tax Settings */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-4">Steuer-Einstellungen</h4>
             
@@ -1371,13 +1706,12 @@ const convertQuoteToInvoice = async (quote) => {
                   onChange={handleLocalChange}
                   placeholder="DE123456789"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                  required
                 />
               </div>
             </div>
           </div>
 
-          {/* Bankdaten */}
+          {/* Bank Data */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-4">Bankdaten</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1419,7 +1753,7 @@ const convertQuoteToInvoice = async (quote) => {
             </div>
           </div>
 
-          {/* Zahlungsbedingungen */}
+          {/* Payment Terms */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-4">Zahlungsbedingungen</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1528,120 +1862,114 @@ const convertQuoteToInvoice = async (quote) => {
         </div>
       )}
 
-     {/* Stats Cards - KLIKABILNE */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-  
-  {/* Angebote - vodi na quotes tab */}
-  <button
-    onClick={() => {
-      setActiveTab('quotes')
-      const url = new URL(window.location.href)
-      url.searchParams.set('tab', 'quotes')
-      window.history.replaceState({}, '', url.toString())
-    }}
-    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-blue-600 hover:scale-105 ${
-      activeTab === 'quotes' 
-        ? 'border-blue-500 ring-2 ring-blue-500/20' 
-        : 'border-slate-700'
-    }`}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-sm">Angebote</p>
-        <p className="text-2xl font-bold text-white">{quotes.length}</p>
-      </div>
-      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-        📄
-      </div>
-    </div>
-  </button>
-  
-  {/* Rechnungen - vodi na invoices tab */}
-  <button
-    onClick={() => {
-      setActiveTab('invoices')
-      const url = new URL(window.location.href)
-      url.searchParams.set('tab', 'invoices')
-      window.history.replaceState({}, '', url.toString())
-    }}
-    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-purple-600 hover:scale-105 ${
-      activeTab === 'invoices' 
-        ? 'border-purple-500 ring-2 ring-purple-500/20' 
-        : 'border-slate-700'
-    }`}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-sm">Rechnungen</p>
-        <p className="text-2xl font-bold text-white">{invoices.length}</p>
-      </div>
-      <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
-        🧾
-      </div>
-    </div>
-  </button>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <button
+          onClick={() => {
+            setActiveTab('quotes')
+            const url = new URL(window.location.href)
+            url.searchParams.set('tab', 'quotes')
+            window.history.replaceState({}, '', url.toString())
+          }}
+          className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-blue-600 hover:scale-105 ${
+            activeTab === 'quotes' 
+              ? 'border-blue-500 ring-2 ring-blue-500/20' 
+              : 'border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Angebote</p>
+              <p className="text-2xl font-bold text-white">{quotes.length}</p>
+            </div>
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+              📄
+            </div>
+          </div>
+        </button>
+        
+        <button
+          onClick={() => {
+            setActiveTab('invoices')
+            const url = new URL(window.location.href)
+            url.searchParams.set('tab', 'invoices')
+            window.history.replaceState({}, '', url.toString())
+          }}
+          className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-purple-600 hover:scale-105 ${
+            activeTab === 'invoices' 
+              ? 'border-purple-500 ring-2 ring-purple-500/20' 
+              : 'border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Rechnungen</p>
+              <p className="text-2xl font-bold text-white">{invoices.length}</p>
+            </div>
+            <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
+              🧾
+            </div>
+          </div>
+        </button>
 
-  {/* Überfällige Rechnungen - TAKOĐE vodi na invoices tab */}
-  <button
-    onClick={() => {
-      setActiveTab('invoices')
-      const url = new URL(window.location.href)
-      url.searchParams.set('tab', 'invoices')
-      window.history.replaceState({}, '', url.toString())
-    }}
-    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-orange-600 hover:scale-105 ${
-      activeTab === 'invoices' 
-        ? 'border-orange-500 ring-2 ring-orange-500/20' 
-        : 'border-slate-700'
-    }`}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
-        <p className="text-2xl font-bold text-white">
-          {invoices.filter(inv => isInvoiceOverdue(inv)).length}
-        </p>
-      </div>
-      <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">
-        ⏰
-      </div>
-    </div>
-  </button>
+        <button
+          onClick={() => {
+            setActiveTab('invoices')
+            const url = new URL(window.location.href)
+            url.searchParams.set('tab', 'invoices')
+            window.history.replaceState({}, '', url.toString())
+          }}
+          className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-orange-600 hover:scale-105 ${
+            activeTab === 'invoices' 
+              ? 'border-orange-500 ring-2 ring-orange-500/20' 
+              : 'border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
+              <p className="text-2xl font-bold text-white">
+                {invoices.filter(inv => isInvoiceOverdue(inv)).length}
+              </p>
+            </div>
+            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">
+              ⏰
+            </div>
+          </div>
+        </button>
 
-  {/* Monatsumsatz - TAKOĐE vodi na invoices tab */}
-  <button
-    onClick={() => {
-      setActiveTab('invoices')
-      const url = new URL(window.location.href)
-      url.searchParams.set('tab', 'invoices')
-      window.history.replaceState({}, '', url.toString())
-    }}
-    className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-green-600 hover:scale-105 ${
-      activeTab === 'invoices' 
-        ? 'border-green-500 ring-2 ring-green-500/20' 
-        : 'border-slate-700'
-    }`}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-sm">Monatsumsatz</p>
-        <p className="text-2xl font-bold text-white">
-          {formatCurrency(
-            invoices
-              .filter(inv => inv.status === 'paid')
-              .reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
-          )}
-        </p>
+        <button
+          onClick={() => {
+            setActiveTab('invoices')
+            const url = new URL(window.location.href)
+            url.searchParams.set('tab', 'invoices')
+            window.history.replaceState({}, '', url.toString())
+          }}
+          className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-green-600 hover:scale-105 ${
+            activeTab === 'invoices' 
+              ? 'border-green-500 ring-2 ring-green-500/20' 
+              : 'border-slate-700'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Monatsumsatz</p>
+              <p className="text-2xl font-bold text-white">
+                {formatCurrency(
+                  invoices
+                    .filter(inv => inv.status === 'paid')
+                    .reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+                )}
+              </p>
+            </div>
+            <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white">
+              💰
+            </div>
+          </div>
+        </button>
       </div>
-      <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white">
-        💰
-      </div>
-    </div>
-  </button>
-  
-</div>
 
-      {/* TABS with URL parameter handling */}
+      {/* TABS */}
       <div className="border-b border-slate-700">
         <nav className="flex space-x-8">
           {tabs.map((tab) => (
@@ -1649,7 +1977,6 @@ const convertQuoteToInvoice = async (quote) => {
               key={tab.id}
               onClick={() => {
                 setActiveTab(tab.id)
-                // Update URL without refresh
                 const url = new URL(window.location.href)
                 url.searchParams.set('tab', tab.id)
                 window.history.replaceState({}, '', url.toString())
@@ -1692,22 +2019,26 @@ const convertQuoteToInvoice = async (quote) => {
       )}
 
       {/* Email Modal */}
-{showEmailModal && emailItem && (
-  <EmailInvoiceModal
-    isOpen={showEmailModal}
-    onClose={() => {
-      setShowEmailModal(false)
-      setEmailItem(null)
-    }}
-    invoice={emailItem}
-    majstor={majstor}
-    onSuccess={handleEmailSuccess}
-  />
-)}
+      {showEmailModal && emailItem && (
+        <EmailInvoiceModal
+          isOpen={showEmailModal}
+          onClose={() => {
+            setShowEmailModal(false)
+            setEmailItem(null)
+          }}
+          invoice={emailItem}
+          majstor={majstor}
+          onSuccess={handleEmailSuccess}
+        />
+      )}
+
+      {/* 🔥 NEW: Hard Reset Modal */}
+      <HardResetModal />
     </div>
   )
 }
-export default function DashboardPage() {  // ili InvoicesPage
+
+export default function DashboardPage() {
   return (
     <Suspense fallback={<div className="text-white">Laden...</div>}>
       <DashboardPageContent />

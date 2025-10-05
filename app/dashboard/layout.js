@@ -224,10 +224,6 @@ function DashboardLayoutContent({ children }) {
   }
 
   // Get subscription badge for menu item
- // app/dashboard/layout.js
-// 🔥 ZAMENI getSubscriptionBadge() FUNKCIJU SA OVIM:
-// app/dashboard/layout.js - IZMENI SAMO OVU FUNKCIJU
-
 const getSubscriptionBadge = () => {
   if (!subscription) {
     return {
@@ -238,39 +234,76 @@ const getSubscriptionBadge = () => {
   
   const now = new Date()
   const periodEnd = new Date(subscription.current_period_end)
+  const createdAt = new Date(subscription.created_at)
   const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
   
-  // 🔥 TRIAL (besplatnih X dana sa karticom)
-  if (subscription.status === 'trial' && daysLeft > 0) {
+  if (periodEnd <= now) {
     return {
-      text: `PRO (trial ${daysLeft}d)`,
-      color: 'bg-gradient-to-r from-blue-500 to-purple-500'
+      text: 'Upgrade',
+      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
     }
   }
   
-  // 🔥 ACTIVE (platio, renewal active)
-  if (subscription.status === 'active' && daysLeft > 0) {
+  // Helper za nemačke dane
+  const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+  
+  // 1. OTKAZANO - narandžasto
+  if (subscription.cancelled_at) {
+    return {
+      text: `PRO\n(${formatDays(daysLeft)})`,
+      color: 'bg-gradient-to-r from-orange-500 to-red-500',
+      multiline: true
+    }
+  }
+  
+  // 2. TRIAL
+  let isInTrial = false
+  let trialDaysLeft = 0
+  
+  if (subscription.trial_ends_at) {
+    const trialEnd = new Date(subscription.trial_ends_at)
+    if (trialEnd > now) {
+      isInTrial = true
+      trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+    }
+  } else if (subscription.trial_starts_at) {
+    const trialStart = new Date(subscription.trial_starts_at)
+    const estimatedTrialEnd = new Date(trialStart)
+    estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+    
+    if (estimatedTrialEnd > now) {
+      isInTrial = true
+      trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+    }
+  } else if (subscription.status === 'active') {
+    const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+    if (hoursSinceCreation < 48 && daysLeft <= 1) {
+      isInTrial = true
+      trialDaysLeft = daysLeft
+    }
+  }
+  
+  if (isInTrial && trialDaysLeft > 0) {
+    return {
+      text: `PRO\n(${formatDays(trialDaysLeft)})`,
+      color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+      multiline: true
+    }
+  }
+  
+  // 3. PRO ACTIVE
+  if (subscription.status === 'active') {
     return {
       text: 'PRO',
       color: 'bg-gradient-to-r from-green-500 to-emerald-500'
     }
   }
   
-  // 🔥 CANCELLED (otkazao ali još važi)
-  if (subscription.status === 'cancelled' && daysLeft > 0) {
-    return {
-      text: `PRO (${daysLeft}d)`,
-      color: 'bg-gradient-to-r from-orange-500 to-red-500'
-    }
-  }
-  
-  // 🔥 EXPIRED (period istekao)
   return {
     text: 'Upgrade',
     color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
   }
 }
-
   // Navigation with subscription item
   const getNavigation = () => {
     const baseNavigation = [
@@ -396,11 +429,13 @@ const getSubscriptionBadge = () => {
             {item.badge}
           </span>
         )}
-        {item.badge && typeof item.badge === 'object' && (
-          <span className={`ml-2 px-2 py-1 text-xs ${item.badge.color} text-white rounded-full font-medium shadow-sm`}>
-            {item.badge.text}
-          </span>
-        )}
+      {item.badge && typeof item.badge === 'object' && (
+  <span className={`ml-2 px-2 py-1 text-xs ${item.badge.color} text-white rounded-full font-medium shadow-sm ${
+    item.badge.multiline ? 'whitespace-pre-line text-center leading-tight' : ''
+  }`}>
+    {item.badge.text}
+  </span>
+)}
       </div>
     )
 
@@ -539,37 +574,88 @@ const getSubscriptionBadge = () => {
             </Link>
           </div>
 
-          {/* User Info */}
-          <div className="px-4 py-4 border-b border-slate-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {majstor?.full_name || user?.email || 'Loading...'}
-                </p>
-                <p className="text-xs text-slate-400 truncate">
-                  {majstor?.business_name || 'Handwerker'}
-                </p>
-              </div>
-            </div>
+     {/* User Info */}
+<div className="px-4 py-4 border-b border-slate-700">
+  <div className="flex items-center space-x-3">
+    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-white truncate">
+        {majstor?.full_name || user?.email || 'Loading...'}
+      </p>
+      <p className="text-xs text-slate-400 truncate">
+        {majstor?.business_name || 'Handwerker'}
+      </p>
+    </div>
+  </div>
 
-            {/* Subscription Status Badge */}
-            {plan && (
-              <div className="mt-3 px-2 py-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                <p className="text-xs font-medium">
-                  {isPaid ? (
-                    <span className="text-green-300">💎 PRO Mitglied</span>
-                  ) : isFreemium ? (
-                    <span className="text-slate-300">📋 Freemium</span>
-                  ) : subscription?.status === 'cancelled' ? (
-                    <span className="text-orange-300">⏰ Gekündigt</span>
-                  ) : null}
-                </p>
-              </div>
-            )}
-          </div>
+  {/* 🔥 USKLAĐEN BADGE */}
+ {subscription && (
+  <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+    <p className="text-xs font-medium leading-tight whitespace-pre-line">
+      {(() => {
+        const now = new Date()
+        const periodEnd = new Date(subscription.current_period_end)
+        const createdAt = new Date(subscription.created_at)
+        const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+        const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+        
+        if (periodEnd <= now) {
+          return <span className="text-slate-300">📋 Freemium</span>
+        }
+        
+        if (subscription.cancelled_at) {
+          return <span className="text-orange-300">⏰ PRO\n({formatDays(daysLeft)})</span>
+        }
+        
+        // Trial detection (ista logika)
+        let isInTrial = false
+        let trialDaysLeft = 0
+        
+        if (subscription.trial_ends_at) {
+          const trialEnd = new Date(subscription.trial_ends_at)
+          if (trialEnd > now) {
+            isInTrial = true
+            trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+          }
+        } else if (subscription.trial_starts_at) {
+          const trialStart = new Date(subscription.trial_starts_at)
+          const estimatedTrialEnd = new Date(trialStart)
+          estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+          
+          if (estimatedTrialEnd > now) {
+            isInTrial = true
+            trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+          }
+        } else if (subscription.status === 'active') {
+          const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+          if (hoursSinceCreation < 48 && daysLeft <= 1) {
+            isInTrial = true
+            trialDaysLeft = daysLeft
+          }
+        }
+        
+        if (isInTrial && trialDaysLeft > 0) {
+          return <span className="text-green-300">💎 PRO\n({formatDays(trialDaysLeft)})</span>
+        }
+        
+        if (subscription.status === 'active') {
+          return <span className="text-green-300">💎 PRO Mitglied</span>
+        }
+        
+        return <span className="text-slate-300">📋 Freemium</span>
+      })()}
+    </p>
+  </div>
+)}
+
+{!subscription && (
+  <div className="mt-3 px-2 py-1 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
+    <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
+  </div>
+)}
+</div>
 
           {/* Desktop Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
@@ -609,22 +695,87 @@ const getSubscriptionBadge = () => {
             </button>
           </div>
 
-          {/* Mobile User Info */}
-          <div className="px-4 py-4 border-b border-slate-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {majstor?.full_name || user?.email || 'Loading...'}
-                </p>
-                <p className="text-xs text-slate-400 truncate">
-                  {majstor?.business_name || 'Handwerker'}
-                </p>
-              </div>
-            </div>
-          </div>
+     {/* Mobile User Info */}
+<div className="px-4 py-4 border-b border-slate-700">
+  <div className="flex items-center space-x-3">
+    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-white truncate">
+        {majstor?.full_name || user?.email || 'Loading...'}
+      </p>
+      <p className="text-xs text-slate-400 truncate">
+        {majstor?.business_name || 'Handwerker'}
+      </p>
+    </div>
+  </div>
+
+  {/* Subscription Status Badge */}
+  {subscription && (
+    <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+      <p className="text-xs font-medium leading-tight whitespace-pre-line">
+        {(() => {
+          const now = new Date()
+          const periodEnd = new Date(subscription.current_period_end)
+          const createdAt = new Date(subscription.created_at)
+          const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+          const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+          
+          if (periodEnd <= now) {
+            return <span className="text-slate-300">📋 Freemium</span>
+          }
+          
+          if (subscription.cancelled_at) {
+            return <span className="text-orange-300">⏰ PRO\n({formatDays(daysLeft)})</span>
+          }
+          
+          let isInTrial = false
+          let trialDaysLeft = 0
+          
+          if (subscription.trial_ends_at) {
+            const trialEnd = new Date(subscription.trial_ends_at)
+            if (trialEnd > now) {
+              isInTrial = true
+              trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+            }
+          } else if (subscription.trial_starts_at) {
+            const trialStart = new Date(subscription.trial_starts_at)
+            const estimatedTrialEnd = new Date(trialStart)
+            estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+            
+            if (estimatedTrialEnd > now) {
+              isInTrial = true
+              trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+            }
+          } else if (subscription.status === 'active') {
+            const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+            if (hoursSinceCreation < 48 && daysLeft <= 1) {
+              isInTrial = true
+              trialDaysLeft = daysLeft
+            }
+          }
+          
+          if (isInTrial && trialDaysLeft > 0) {
+            return <span className="text-green-300">💎 PRO\n({formatDays(trialDaysLeft)})</span>
+          }
+          
+          if (subscription.status === 'active') {
+            return <span className="text-green-300">💎 PRO Mitglied</span>
+          }
+          
+          return <span className="text-slate-300">📋 Freemium</span>
+        })()}
+      </p>
+    </div>
+  )}
+
+  {!subscription && plan && (
+    <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
+      <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
+    </div>
+  )}
+</div>
 
           {/* Mobile Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">

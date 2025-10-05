@@ -1,5 +1,5 @@
-// netlify/functions/paddle-cancel-subscription.js - IMMEDIATE STATUS UPDATE
-import { createClient } from '@supabase/supabase-js'
+// netlify/functions/paddle-cancel-subscription.js - CommonJS verzija
+const { createClient } = require('@supabase/supabase-js')
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -17,7 +17,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
-export async function handler(event, context) {
+exports.handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -78,7 +78,6 @@ export async function handler(event, context) {
       }
     }
 
-    // Call Paddle API
     console.log('🔗 Calling Paddle API...')
     console.log('URL:', `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/cancel`)
     
@@ -134,13 +133,12 @@ export async function handler(event, context) {
     console.log('✅ Paddle subscription cancelled!')
     console.log('📋 Scheduled cancellation at end of billing period')
 
-    // ✅ UPDATE STATUS ODMAH NA 'cancelled'
     console.log('💾 Updating Supabase database...')
     
     const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
-        status: 'cancelled',  // ✅ IMMEDIATE STATUS UPDATE
+        status: 'cancelled',
         cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -152,11 +150,10 @@ export async function handler(event, context) {
       console.log('✅ user_subscriptions status updated to "cancelled"')
     }
 
-    // Update majstors table
     const { error: majstorUpdateError } = await supabaseAdmin
       .from('majstors')
       .update({
-        subscription_status: 'cancelled',  // ✅ IMMEDIATE UPDATE
+        subscription_status: 'cancelled',
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)

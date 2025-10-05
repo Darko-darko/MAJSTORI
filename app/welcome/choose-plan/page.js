@@ -1,4 +1,4 @@
-// app/welcome/choose-plan/page.js - PRODUCTION READY
+// app/welcome/choose-plan/page.js - FIXED VERSION
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -101,90 +101,44 @@ export default function ChoosePlanPage() {
     }
   }
 
-  // Create pending subscription after Paddle checkout
-  const createPendingSubscription = async (billingInterval, paddleData) => {
-    try {
-      console.log('📄 Creating pending subscription...')
-
-      const planName = billingInterval === 'yearly' ? 'pro' : 'pro'
-      const { data: plan, error: planError } = await supabase
-        .from('subscription_plans')
-        .select('id, name, display_name')
-        .eq('name', planName)
-        .single()
-
-      if (planError) throw planError
-
-      // 30-day trial period
-      const now = new Date()
-      const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-
-      const { data: subscription, error: subError } = await supabase
-        .from('user_subscriptions')
-        .insert({
-          majstor_id: user.id,
-          plan_id: plan.id,
-          status: 'trial',
-          paddle_subscription_id: paddleData?.subscription_id || null,
-          paddle_customer_id: paddleData?.customer_id || null,
-          trial_starts_at: now.toISOString(),
-          trial_ends_at: trialEnd.toISOString(),
-          current_period_start: now.toISOString(),
-          current_period_end: trialEnd.toISOString(),
-          created_at: now.toISOString(),
-          updated_at: now.toISOString()
-        })
-        .select()
-        .single()
-
-      if (subError) throw subError
-
-      // Update majstor record
-      await supabase
-        .from('majstors')
-        .update({
-          subscription_status: 'trial',
-          subscription_ends_at: trialEnd.toISOString(),
-          updated_at: now.toISOString()
-        })
-        .eq('id', user.id)
-
-      console.log('✅ Subscription created:', subscription)
-      return subscription
-
-    } catch (err) {
-      console.error('❌ Error creating subscription:', err)
-      throw err
-    }
-  }
-
-  // Wait for webhook processing
-  const waitForWebhookProcessing = async (maxAttempts = 10) => {
-    console.log('⏰ Waiting for webhook...')
+  // 🔥 NOVA FUNKCIJA - Čeka da WEBHOOK kreira subscription
+  const waitForWebhookToCreateSubscription = async (maxAttempts = 15) => {
+    console.log('⏰ Čekam webhook da kreira subscription...')
     
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 1000)) // 1s pauza
       
-      setProcessingMessage(`Verarbeite Zahlung... (${i + 1}/${maxAttempts})`)
+      setProcessingMessage(`Verarbeite Zahlung... (${i + 1}/${maxAttempts}s)`)
 
-      const { data: subscription } = await supabase
+      // Proveri da li webhook kreirao subscription
+      const { data: subscription, error } = await supabase
         .from('user_subscriptions')
-        .select('paddle_subscription_id, status')
+        .select('*, subscription_plans(*)')
         .eq('majstor_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      if (subscription?.paddle_subscription_id) {
-        console.log('✅ Webhook processed!')
+      if (!error && subscription) {
+        console.log('✅ Webhook kreirao subscription:', {
+          id: subscription.id,
+          status: subscription.status,
+          plan: subscription.subscription_plans?.name,
+          paddle_id: subscription.paddle_subscription_id,
+          trial_starts: subscription.trial_starts_at,
+          trial_ends: subscription.trial_ends_at
+        })
         return true
       }
+      
+      console.log(`⏰ Attempt ${i + 1}/${maxAttempts} - No subscription yet...`)
     }
 
+    console.warn('⚠️ Webhook timeout posle 15s')
     return false
   }
 
-  // 💎 PRO Subscription Handler
+  // 💎 PRO Subscription Handler - FIXED
   const handleProSelect = async () => {
     if (!paddleReady) {
       setError('Paddle wird noch geladen...')
@@ -197,13 +151,19 @@ export default function ChoosePlanPage() {
     setError('')
 
     try {
+      console.log(`🚀 Opening Paddle Checkout: ${selectedProInterval}`)
+
       const priceId = selectedProInterval === 'yearly' 
         ? PADDLE_CONFIG.priceIds.yearly 
         : PADDLE_CONFIG.priceIds.monthly
 
       if (!priceId) {
-        throw new Error(`Price ID nicht gefunden`)
+        throw new Error(`Price ID nicht gefunden für ${selectedProInterval}`)
       }
+
+      console.log('📋 Price ID:', priceId)
+      console.log('👤 User:', user.email)
+      console.log('🆔 Majstor ID:', user.id)
 
       openPaddleCheckout({
         priceId: priceId,
@@ -212,42 +172,51 @@ export default function ChoosePlanPage() {
         billingInterval: selectedProInterval,
         
         onSuccess: async (checkoutData) => {
-          console.log('✅ Paddle Checkout successful')
+          console.log('✅ Paddle Checkout successful!')
+          console.log('🔍 Checkout Data:', checkoutData)
           
           setProcessingMessage('Zahlung erfolgreich! Aktiviere Account...')
 
           try {
-            // Clear cache BEFORE creating subscription
+            // 🔥 KRITIČNO: Clear cache PRE čekanja webhook-a
+            console.log('🗑️ Clearing cache before webhook wait...')
             clearSubscriptionCache(user.id)
             
-            // Create pending subscription
-            await createPendingSubscription(selectedProInterval, checkoutData)
+            // 🔥 ČEKAJ DA WEBHOOK KREIRA SUBSCRIPTION (max 15s)
+            console.log('⏰ Waiting for webhook to create subscription...')
+            const webhookSuccess = await waitForWebhookToCreateSubscription(15)
+            
+            if (webhookSuccess) {
+              console.log('✅ Webhook successfully created subscription!')
+            } else {
+              console.warn('⚠️ Webhook timeout, but checkout succeeded')
+              console.warn('⚠️ Subscription will be created when webhook arrives')
+            }
 
-            // Wait for webhook (max 10s)
-            await waitForWebhookProcessing(10)
-
-            // Clear cache AGAIN
+            // 🔥 Clear cache PONOVO posle webhook-a
+            console.log('🗑️ Clearing cache after webhook processing...')
             clearSubscriptionCache(user.id)
 
-            setProcessingMessage('Fertig! Weiterleitung...')
+            setProcessingMessage('Fertig! Weiterleitung zum Dashboard...')
 
             // Redirect with cache-busting
             setTimeout(() => {
               const timestamp = Date.now()
+              console.log('🔄 Redirecting to dashboard...')
               window.location.replace(`/dashboard?paddle_success=true&plan=${selectedProInterval}&t=${timestamp}`)
-            }, 1000)
+            }, 1500)
 
           } catch (err) {
             console.error('❌ Error processing subscription:', err)
-            setError('Zahlung erfolgreich, aber Fehler bei Aktivierung.')
+            setError('Zahlung erfolgreich, aber Fehler bei Aktivierung. Bitte Dashboard prüfen.')
             setCheckoutInProgress(false)
             setProcessingMessage('')
           }
         },
         
         onError: (error) => {
-          console.error('❌ Paddle error:', error)
-          setError('Checkout fehlgeschlagen.')
+          console.error('❌ Paddle Checkout error:', error)
+          setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
           setLoading(false)
           setCheckoutInProgress(false)
           setProcessingMessage('')
@@ -257,7 +226,7 @@ export default function ChoosePlanPage() {
       setProcessingMessage('Warte auf Zahlung...')
 
     } catch (err) {
-      console.error('Error:', err)
+      console.error('❌ Error opening Paddle Checkout:', err)
       setError('Fehler beim Öffnen des Checkouts: ' + err.message)
       setLoading(false)
       setCheckoutInProgress(false)
@@ -271,6 +240,8 @@ export default function ChoosePlanPage() {
     setError('')
 
     try {
+      console.log('📋 Setting up freemium access for user:', user.id)
+
       await supabase
         .from('majstors')
         .update({
@@ -284,7 +255,7 @@ export default function ChoosePlanPage() {
       router.push('/dashboard?welcome=freemium')
 
     } catch (err) {
-      console.error('Error:', err)
+      console.error('❌ Error setting up freemium:', err)
       setError('Fehler beim Einrichten von Freemium')
     } finally {
       setLoading(false)
@@ -305,7 +276,10 @@ export default function ChoosePlanPage() {
           </p>
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
             <p className="text-blue-300 text-sm">
-              ⏰ Dies kann bis zu 30 Sekunden dauern
+              ⏰ Warte auf Paddle Webhook...
+            </p>
+            <p className="text-blue-400 text-xs mt-2">
+              Dies kann bis zu 30 Sekunden dauern
             </p>
           </div>
         </div>
@@ -473,7 +447,7 @@ export default function ChoosePlanPage() {
               )}
               <div className="mt-3 bg-blue-500/10 border border-blue-400/30 rounded-lg px-3 py-2">
                 <p className="text-blue-300 text-sm font-semibold">
-                  🎯 30 Tage kostenlos testen
+                  🎯 Trial: Testen Sie kostenlos
                 </p>
               </div>
             </div>
@@ -493,7 +467,7 @@ export default function ChoosePlanPage() {
               </div>
               <div className="flex items-center gap-3 text-sm text-slate-300">
                 <span className="text-green-400">✅</span>
-                <span>Jederzeit kündbar</span>
+                <span>30 Tage Kündigungsfrist</span>
               </div>
             </div>
 
@@ -502,12 +476,12 @@ export default function ChoosePlanPage() {
               disabled={loading || !paddleReady}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 shadow-xl"
             >
-              {loading ? 'Wird geladen...' : !paddleReady ? 'Laden...' : '🚀 30 Tage kostenlos starten'}
+              {loading ? 'Wird geladen...' : !paddleReady ? 'Laden...' : '🚀 Jetzt starten'}
             </button>
 
             <div className="text-xs text-slate-400 text-center mt-4 space-y-1">
               <p>✓ Kreditkarte erforderlich</p>
-              <p>✓ Erste Zahlung nach 30 Tagen</p>
+              <p>✓ Trial-Periode lt. Paddle</p>
               <p>✓ 30 Tage Kündigungsfrist</p>
             </div>
           </div>
@@ -538,31 +512,31 @@ export default function ChoosePlanPage() {
             </div>
 
             <div className="space-y-3 mb-8">
-  <div className="flex items-center gap-3 text-sm text-slate-400">
-    <span className="text-slate-600">✅</span>
-    <span>Alle PRO Funktionen</span>
-  </div>
-  <div className="flex items-center gap-3 text-sm text-slate-400">
-    <span className="text-slate-600">📅</span>
-    <span>Terminplaner & Kalender</span>
-  </div>
-  <div className="flex items-center gap-3 text-sm text-slate-400">
-    <span className="text-slate-600">👥</span>
-    <span>Team-Verwaltung</span>
-  </div>
-  <div className="flex items-center gap-3 text-sm text-slate-400">
-    <span className="text-slate-600">📊</span>
-    <span>Business Analytics</span>
-  </div>
-  <div className="flex items-center gap-3 text-sm text-slate-400">
-    <span className="text-slate-600">📱</span>
-    <span>Mobile App</span>
-  </div>
-  <div className="flex items-center gap-3 text-sm text-slate-400">
-    <span className="text-slate-600">⚡</span>
-    <span>24/7 Support</span>
-  </div>
-</div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <span className="text-slate-600">✅</span>
+                <span>Alle PRO Funktionen</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <span className="text-slate-600">📅</span>
+                <span>Terminplaner & Kalender</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <span className="text-slate-600">👥</span>
+                <span>Team-Verwaltung</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <span className="text-slate-600">📊</span>
+                <span>Business Analytics</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <span className="text-slate-600">📱</span>
+                <span>Mobile App</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <span className="text-slate-600">⚡</span>
+                <span>24/7 Support</span>
+              </div>
+            </div>
 
             <button
               disabled
@@ -612,7 +586,7 @@ export default function ChoosePlanPage() {
           <h4 className="text-white font-semibold mb-3 text-center">📋 Transparente Preise</h4>
           <div className="text-slate-400 text-sm space-y-2 max-w-3xl mx-auto">
             <p>• Alle Preise zzgl. MwSt.</p>
-            <p>• <strong className="text-white">30 Tage Trial:</strong> Kreditkarte erforderlich. Erste Zahlung nach 30 Tagen.</p>
+            <p>• <strong className="text-white">Trial-Periode:</strong> Kreditkarte erforderlich. Erste Zahlung nach Trial.</p>
             <p>• <strong className="text-white">Kündigungsfrist:</strong> 30 Tage. Zugriff bis Periodenende.</p>
             <p>• Automatische Verlängerung. Jederzeit online kündbar.</p>
           </div>
