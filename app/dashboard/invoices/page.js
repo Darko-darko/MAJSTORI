@@ -535,6 +535,22 @@ const convertQuoteToInvoice = async (quote) => {
 
     console.log('✅ Invoice successfully created:', newInvoice)
 
+   // 🔥 AUTO-PDF GENERATION for converted invoice
+    try {
+      console.log('🤖 Auto-generating PDF for converted invoice:', newInvoice.id)
+      
+      const pdfResponse = await fetch(`/api/invoices/${newInvoice.id}/pdf`)
+      
+      if (pdfResponse.ok) {
+        console.log('✅ PDF automatically generated and stored for converted invoice')
+      } else {
+        console.warn('⚠️ Auto PDF generation failed:', pdfResponse.statusText)
+      }
+    } catch (pdfError) {
+      console.warn('⚠️ Auto PDF generation error:', pdfError)
+      // Ne prekidaj user flow zbog PDF greške
+    }
+
     // Update quote status to converted
     const { error: quoteUpdateError } = await supabase
       .from('invoices')
