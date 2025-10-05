@@ -250,7 +250,7 @@ const getSubscriptionBadge = () => {
   // 1. OTKAZANO - narandžasto
   if (subscription.cancelled_at) {
     return {
-      text: `PRO\n(${formatDays(daysLeft)})`,
+      text: `PRO(${formatDays(daysLeft)})`,
       color: 'bg-gradient-to-r from-orange-500 to-red-500',
       multiline: true
     }
@@ -285,7 +285,7 @@ const getSubscriptionBadge = () => {
   
   if (isInTrial && trialDaysLeft > 0) {
     return {
-      text: `PRO\n(${formatDays(trialDaysLeft)})`,
+      text: `PRO(${formatDays(trialDaysLeft)})`,
       color: 'bg-gradient-to-r from-green-500 to-emerald-500',
       multiline: true
     }
@@ -606,7 +606,7 @@ const getSubscriptionBadge = () => {
         }
         
         if (subscription.cancelled_at) {
-          return <span className="text-orange-300">⏰ PRO\n({formatDays(daysLeft)})</span>
+          return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
         }
         
         // Trial detection (ista logika)
@@ -637,7 +637,7 @@ const getSubscriptionBadge = () => {
         }
         
         if (isInTrial && trialDaysLeft > 0) {
-          return <span className="text-green-300">💎 PRO\n({formatDays(trialDaysLeft)})</span>
+          return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
         }
         
         if (subscription.status === 'active') {
@@ -727,7 +727,7 @@ const getSubscriptionBadge = () => {
           }
           
           if (subscription.cancelled_at) {
-            return <span className="text-orange-300">⏰ PRO\n({formatDays(daysLeft)})</span>
+            return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
           }
           
           let isInTrial = false
@@ -757,7 +757,7 @@ const getSubscriptionBadge = () => {
           }
           
           if (isInTrial && trialDaysLeft > 0) {
-            return <span className="text-green-300">💎 PRO\n({formatDays(trialDaysLeft)})</span>
+            return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
           }
           
           if (subscription.status === 'active') {
