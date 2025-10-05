@@ -60,43 +60,39 @@ export default function InquiriesPage() {
     return () => clearInterval(interval)
   }, [filter, sortBy])
 
-  const loadInquiries = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+const loadInquiries = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      let query = supabase
-        .from('inquiries')
-        .select('*')
-        .eq('majstor_id', user.id)
+    // 🔥 UČITAJ SVE INQUIRIES (bez filtera)
+    let query = supabase
+      .from('inquiries')
+      .select('*')
+      .eq('majstor_id', user.id)
 
-      // Apply filter
-      if (filter !== 'all') {
-        query = query.eq('status', filter)
-      }
-
-      // Apply sorting
-      if (sortBy === 'newest') {
-        query = query.order('created_at', { ascending: false })
-      } else if (sortBy === 'oldest') {
-        query = query.order('created_at', { ascending: true })
-      } else if (sortBy === 'priority') {
-        query = query.order('priority', { ascending: false }).order('created_at', { ascending: false })
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error loading inquiries:', error)
-      } else {
-        setInquiries(data || [])
-      }
-    } catch (error) {
-      console.error('Error:', error)
-    } finally {
-      setLoading(false)
+    // Apply sorting only (filter se primenjuje LOKALNO)
+    if (sortBy === 'newest') {
+      query = query.order('created_at', { ascending: false })
+    } else if (sortBy === 'oldest') {
+      query = query.order('created_at', { ascending: true })
+    } else if (sortBy === 'priority') {
+      query = query.order('priority', { ascending: false }).order('created_at', { ascending: false })
     }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error loading inquiries:', error)
+    } else {
+      setInquiries(data || [])
+    }
+  } catch (error) {
+    console.error('Error:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   const loadInquiryImages = async (inquiryId) => {
     try {
@@ -351,15 +347,19 @@ export default function InquiriesPage() {
     })
   }
 
-  const filteredInquiries = inquiries
+ // 🔥 LOKALNO FILTRIRANJE (filter se NE primenjuje na bazu, samo na prikaz)
+const filteredInquiries = filter === 'all' 
+  ? inquiries 
+  : inquiries.filter(i => i.status === filter)
 
-  const stats = {
-    total: inquiries.length,
-    new: inquiries.filter(i => i.status === 'new').length,
-    read: inquiries.filter(i => i.status === 'read').length,
-    responded: inquiries.filter(i => i.status === 'responded').length,
-    closed: inquiries.filter(i => i.status === 'closed').length
-  }
+// 🔥 STATS se UVEK računaju iz SVIH inquiries
+const stats = {
+  total: inquiries.length,
+  new: inquiries.filter(i => i.status === 'new').length,
+  read: inquiries.filter(i => i.status === 'read').length,
+  responded: inquiries.filter(i => i.status === 'responded').length,
+  closed: inquiries.filter(i => i.status === 'closed').length
+}
 
   if (loading) {
     return (
