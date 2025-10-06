@@ -988,64 +988,65 @@ setTimeout(async () => {
               können Sie hier die Nummern so einstellen, dass sie nahtlos weiterlaufen.
             </p>
           </div>
+{/* Next Quote Number */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Nächste Angebotsnummer
+  </label>
+  <input
+    type="number"
+    min="1"
+    value={resetData.nextQuoteNumber}
+    onChange={(e) => setResetData(prev => ({ 
+      ...prev, 
+      nextQuoteNumber: parseInt(e.target.value) || 1 
+    }))}
+    onFocus={(e) => e.target.select()} // 🔥 FIX: Auto-select on tap/click
+    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
+    disabled={hardResetLoading}
+  />
+  <div className="mt-2 bg-slate-900/50 rounded p-2">
+    <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
+    <p className="text-green-400 font-mono text-sm">
+      AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(3, '0')}
+    </p>
+    {resetData.nextQuoteNumber > 1 && (
+      <p className="text-xs text-slate-500 mt-1">
+        Dummy wird erstellt: AN-{currentYear}-{String(resetData.nextQuoteNumber - 1).padStart(3, '0')}
+      </p>
+    )}
+  </div>
+</div>
 
-          {/* Next Quote Number */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Nächste Angebotsnummer
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={resetData.nextQuoteNumber}
-              onChange={(e) => setResetData(prev => ({ 
-                ...prev, 
-                nextQuoteNumber: parseInt(e.target.value) || 1 
-              }))}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
-              disabled={hardResetLoading}
-            />
-            <div className="mt-2 bg-slate-900/50 rounded p-2">
-              <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
-              <p className="text-green-400 font-mono text-sm">
-                AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(3, '0')}
-              </p>
-              {resetData.nextQuoteNumber > 1 && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Dummy wird erstellt: AN-{currentYear}-{String(resetData.nextQuoteNumber - 1).padStart(3, '0')}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Next Invoice Number */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Nächste Rechnungsnummer
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={resetData.nextInvoiceNumber}
-              onChange={(e) => setResetData(prev => ({ 
-                ...prev, 
-                nextInvoiceNumber: parseInt(e.target.value) || 1 
-              }))}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
-              disabled={hardResetLoading}
-            />
-            <div className="mt-2 bg-slate-900/50 rounded p-2">
-              <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
-              <p className="text-green-400 font-mono text-sm">
-                RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(3, '0')}
-              </p>
-              {resetData.nextInvoiceNumber > 1 && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Dummy wird erstellt: RE-{currentYear}-{String(resetData.nextInvoiceNumber - 1).padStart(3, '0')}
-                </p>
-              )}
-            </div>
-          </div>
+{/* Next Invoice Number */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Nächste Rechnungsnummer
+  </label>
+  <input
+    type="number"
+    min="1"
+    value={resetData.nextInvoiceNumber}
+    onChange={(e) => setResetData(prev => ({ 
+      ...prev, 
+      nextInvoiceNumber: parseInt(e.target.value) || 1 
+    }))}
+    onFocus={(e) => e.target.select()} // 🔥 FIX: Auto-select on tap/click
+    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
+    disabled={hardResetLoading}
+  />
+  <div className="mt-2 bg-slate-900/50 rounded p-2">
+    <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
+    <p className="text-green-400 font-mono text-sm">
+      RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(3, '0')}
+    </p>
+    {resetData.nextInvoiceNumber > 1 && (
+      <p className="text-xs text-slate-500 mt-1">
+        Dummy wird erstellt: RE-{currentYear}-{String(resetData.nextInvoiceNumber - 1).padStart(3, '0')}
+      </p>
+    )}
+  </div>
+</div>
 
           {/* Use Case Examples */}
           <div className="bg-slate-900/50 rounded-lg p-3">
