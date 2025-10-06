@@ -1,4 +1,4 @@
-// app/dashboard/invoices/page.js - COMPLETE FILE WITH HARD RESET INTEGRATION
+// app/dashboard/invoices/page.js - COMPLETE FILE WITH COMPACT HARD RESET BUTTON
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -10,46 +10,39 @@ import LogoUpload from '@/app/components/LogoUpload'
 
 
 function DashboardPageContent() {
-  const [activeTab, setActiveTab] = useState('quotes') // quotes, invoices, settings
+  const [activeTab, setActiveTab] = useState('quotes')
   const [quotes, setQuotes] = useState([])
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [majstor, setMajstor] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createType, setCreateType] = useState('quote') // quote or invoice
-  const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({}) // mapping quotes to invoices
+  const [createType, setCreateType] = useState('quote')
+  const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({})
 
-  // 🔥 NEW: Hard Reset states
+  // Hard Reset states
   const [showHardResetModal, setShowHardResetModal] = useState(false)
   const [hardResetLoading, setHardResetLoading] = useState(false)
   
-  // Edit functionality states
-  const [editingItem, setEditingItem] = useState(null) // item being edited
+  const [editingItem, setEditingItem] = useState(null)
   const [isEditMode, setIsEditMode] = useState(false)
 
-  // State for tracking if user comes from invoice creation
   const [pendingInvoiceCreation, setPendingInvoiceCreation] = useState(false)
   const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
 
-  // ENHANCED: Settings state with business profile fields
   const [settingsData, setSettingsData] = useState({
-    // Tax settings
     is_kleinunternehmer: false,
     tax_number: '',
     vat_id: '',
     default_tax_rate: 19.00,
-    // Bank data
     iban: '',
     bic: '',
     bank_name: '',
-    // Payment settings
     payment_terms_days: 14,
     invoice_footer: '',
-    // ENHANCED: Business profile data
     full_name: '',
     business_name: '',
     phone: '',
@@ -62,17 +55,15 @@ function DashboardPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Handle URL tab parameter AND redirect from invoice creation
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
-    const fromInvoice = searchParams.get('from') // new parameter
+    const fromInvoice = searchParams.get('from')
     
     if (tabFromUrl && ['quotes', 'invoices', 'settings'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
       console.log('Setting active tab from URL:', tabFromUrl)
     }
 
-    // If coming from invoice creation
     if (fromInvoice === 'invoice-creation') {
       setPendingInvoiceCreation(true)
       setPendingInvoiceType(searchParams.get('type') || 'quote')
@@ -83,22 +74,18 @@ function DashboardPageContent() {
     }
   }, [searchParams])
 
-  // useEffect for monitoring business data completion
   useEffect(() => {
     if (pendingInvoiceCreation && majstor && isBusinessDataComplete(majstor)) {
       console.log('Business data now complete, redirecting back to invoice creation')
       
-      // Clear pending state
       setPendingInvoiceCreation(false)
       
-      // Switch to appropriate tab and open modal
       setActiveTab(pendingInvoiceType === 'invoice' ? 'invoices' : 'quotes')
       setCreateType(pendingInvoiceType)
       setIsEditMode(false)
       setEditingItem(null)
       setShowCreateModal(true)
       
-      // Clean URL
       const url = new URL(window.location.href)
       url.searchParams.delete('from')
       url.searchParams.delete('type')
@@ -109,7 +96,6 @@ function DashboardPageContent() {
     }
   }, [majstor, pendingInvoiceCreation, pendingInvoiceType])
 
-  // ENHANCED: Business data validation logic
   const isBusinessDataComplete = (majstorData) => {
     if (!majstorData) return false
     
@@ -120,7 +106,6 @@ function DashboardPageContent() {
       majstorData[field] && majstorData[field].trim().length > 0
     )
     
-    // Need AT LEAST 2 out of 3 recommended fields
     const validRecommendedCount = recommendedFields.filter(field => 
       majstorData[field] && majstorData[field].trim().length > 0
     ).length
@@ -139,7 +124,6 @@ function DashboardPageContent() {
     return result
   }
 
-  // Customer data from URL handling
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search)
@@ -154,7 +138,6 @@ function DashboardPageContent() {
         })
         setShowCreateModal(true)
         
-        // Clear URL parameters
         window.history.replaceState({}, '', '/dashboard/invoices')
       }
     }
@@ -168,14 +151,12 @@ function DashboardPageContent() {
     try {
       setLoading(true)
       
-      // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
         router.push('/login')
         return
       }
 
-      // Get majstor profile
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
         .select('*')
@@ -189,21 +170,16 @@ function DashboardPageContent() {
 
       setMajstor(majstorData)
       
-      // ENHANCED: Load settings including business profile data
       setSettingsData({
-        // Tax settings
         is_kleinunternehmer: majstorData.is_kleinunternehmer || false,
         tax_number: majstorData.tax_number || '',
         vat_id: majstorData.vat_id || '',
         default_tax_rate: majstorData.default_tax_rate || 19.00,
-        // Bank data
         iban: majstorData.iban || '',
         bic: majstorData.bic || '',
         bank_name: majstorData.bank_name || '',
-        // Payment settings
         payment_terms_days: majstorData.payment_terms_days || 14,
         invoice_footer: majstorData.invoice_footer || '',
-        // ENHANCED: Business profile data
         full_name: (majstorData.business_name || (majstorData.full_name && majstorData.full_name !== majstorData.email?.split('@')[0])) 
           ? majstorData.full_name || '' 
           : '',
@@ -225,7 +201,6 @@ function DashboardPageContent() {
 
   const loadInvoicesData = async (majstorId) => {
     try {
-      // Load quotes (type: 'quote') - FILTER OUT DUMMY ENTRIES
       const { data: quotesData, error: quotesError } = await supabase
         .from('invoices')
         .select('*')
@@ -234,7 +209,6 @@ function DashboardPageContent() {
         .neq('status', 'dummy')
         .order('created_at', { ascending: false })
 
-      // Load invoices (type: 'invoice') - FILTER OUT DUMMY ENTRIES  
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*')
@@ -246,7 +220,6 @@ function DashboardPageContent() {
       if (!quotesError) setQuotes(quotesData || [])
       if (!invoicesError) setInvoices(invoicesData || [])
       
-      // Build mapping između quotes i invoices
       buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
 
     } catch (err) {
@@ -254,7 +227,6 @@ function DashboardPageContent() {
     }
   }
 
-  // PDF view handler
   const handlePDFView = async (document) => {
     try {
       const pdfUrl = `/api/invoices/${document.id}/pdf`
@@ -265,7 +237,6 @@ function DashboardPageContent() {
     }
   }
 
-  // Build mapping between quotes and invoices
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
     const map = {}
     
@@ -278,12 +249,10 @@ function DashboardPageContent() {
     setQuoteInvoiceMap(map)
   }
 
-  // Check if quote has an invoice
   const quoteHasInvoice = (quoteId) => {
     return quoteInvoiceMap.hasOwnProperty(quoteId)
   }
 
-  // Handle edit button click
   const handleEditClick = (item) => {
     console.log('Editing item:', item)
     setEditingItem(item)
@@ -292,7 +261,6 @@ function DashboardPageContent() {
     setShowCreateModal(true)
   }
 
-  // Handle create success (both create and edit)
   const handleCreateSuccess = (newData) => {
     console.log('Operation successful:', newData)
     
@@ -304,21 +272,18 @@ function DashboardPageContent() {
     }
   }
 
-  // Handle modal close
   const handleModalClose = () => {
     setShowCreateModal(false)
     setEditingItem(null)
     setIsEditMode(false)
   }
 
-  // Handle email button click
   const handleEmailClick = (item) => {
     console.log('Opening email modal for:', item.invoice_number || item.quote_number)
     setEmailItem(item)
     setShowEmailModal(true)
   }
 
-  // Handle email success
   const handleEmailSuccess = (result) => {
     console.log('Email sent successfully:', result)
     setShowEmailModal(false)
@@ -387,7 +352,6 @@ function DashboardPageContent() {
     return Math.max(0, diffDays)
   }
 
-  // Convert quote to invoice - EXISTING CODE
   const convertQuoteToInvoice = async (quote) => {
     try {
       console.log('Converting quote to invoice:', quote.quote_number)
@@ -429,7 +393,7 @@ function DashboardPageContent() {
           console.log('📈 Max existing number:', maxNumber, '→ Next number:', nextNumber)
         }
       } else {
-        console.log('📝 No existing invoices found, starting with 001')
+        console.log('🆕 No existing invoices found, starting with 001')
       }
 
       const finalInvoiceNumber = `RE-${year}-${nextNumber.toString().padStart(3, '0')}`
@@ -589,7 +553,6 @@ function DashboardPageContent() {
     }
   }
 
-  // Delete invoice with safety checks
   const handleDeleteInvoice = async (invoice) => {
     const isQuote = invoice.type === 'quote'
     const documentType = isQuote ? 'Angebot' : 'Rechnung'
@@ -678,7 +641,6 @@ function DashboardPageContent() {
     }
   }
 
-  // Mark invoice as paid
   const handleMarkAsPaid = async (invoice) => {
     try {
       const { error } = await supabase
@@ -701,7 +663,6 @@ function DashboardPageContent() {
     }
   }
 
-  // Undo paid status
   const handleUndoPaid = async (invoice) => {
     const confirmed = confirm(
       `Möchten Sie die Bezahlung der Rechnung ${invoice.invoice_number} wirklich rückgängig machen?\n\n` +
@@ -731,7 +692,6 @@ function DashboardPageContent() {
     }
   }
 
-  // Handle settings input change
   const handleSettingsChange = (e) => {
     const { name, value, type, checked } = e.target
     setSettingsData(prev => ({
@@ -740,314 +700,416 @@ function DashboardPageContent() {
     }))
   }
 
-  // 🔥 NEW: Hard Reset Modal Component
-  const HardResetModal = () => {
-    const [resetData, setResetData] = useState({
-      nextQuoteNumber: majstor?.next_quote_number || 1,
-      nextInvoiceNumber: majstor?.next_invoice_number || 1,
-      confirmText: ''
-    })
+// Hard Reset Modal Component - FIXED VERSION
+const HardResetModal = () => {
+  const [resetData, setResetData] = useState({
+    nextQuoteNumber: majstor?.next_quote_number || 1,
+    nextInvoiceNumber: majstor?.next_invoice_number || 1,
+    confirmText: ''
+  })
 
-    const totalDocuments = quotes.length + invoices.length
-    const currentYear = new Date().getFullYear()
+  const totalDocuments = quotes.length + invoices.length
+  const currentYear = new Date().getFullYear()
 
-    const handleHardReset = async () => {
-      if (resetData.confirmText !== 'LÖSCHEN') {
-        alert('❌ Bitte geben Sie "LÖSCHEN" ein um zu bestätigen')
-        return
-      }
-
-      const finalConfirm = confirm(
-        `⚠️ LETZTE WARNUNG!\n\n` +
-        `Sie sind dabei ${totalDocuments} Dokumente unwiderruflich zu löschen.\n\n` +
-        `Was wird gelöscht:\n` +
-        `• ${quotes.length} Angebote\n` +
-        `• ${invoices.length} Rechnungen\n` +
-        `• Alle zugehörigen PDF-Dateien\n\n` +
-        `Neue Nummerierung:\n` +
-        `• Angebote ab: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}\n` +
-        `• Rechnungen ab: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}\n\n` +
-        `Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
-        `Wirklich fortfahren?`
-      )
-
-      if (!finalConfirm) return
-
-      try {
-        setHardResetLoading(true)
-
-        console.log('🔥 Starting hard reset...')
-
-        // 1️⃣ Get all invoices with storage paths
-        const { data: allInvoices, error: fetchError } = await supabase
-          .from('invoices')
-          .select('id, pdf_storage_path, type, invoice_number, quote_number')
-          .eq('majstor_id', majstor.id)
-
-        if (fetchError) throw fetchError
-
-        console.log(`📋 Found ${allInvoices.length} invoices to delete`)
-
-        // 2️⃣ Delete all PDFs from storage
-        const pdfPaths = allInvoices
-          .map(inv => inv.pdf_storage_path)
-          .filter(path => path)
-
-        if (pdfPaths.length > 0) {
-          console.log(`🗑️ Deleting ${pdfPaths.length} PDFs from storage...`)
-          
-          const { error: storageError } = await supabase.storage
-            .from('invoice-pdfs')
-            .remove(pdfPaths)
-
-          if (storageError) {
-            console.warn('⚠️ Some PDFs could not be deleted:', storageError)
-          } else {
-            console.log('✅ PDFs deleted successfully')
-          }
-        }
-
-        // 3️⃣ Delete all invoices from database
-        console.log('🗑️ Deleting all invoices from database...')
-        const { error: deleteError } = await supabase
-          .from('invoices')
-          .delete()
-          .eq('majstor_id', majstor.id)
-
-        if (deleteError) throw deleteError
-        console.log('✅ Invoices deleted from database')
-
-        // 4️⃣ Reset numbers to custom values
-        console.log('🔢 Updating numbering to custom values...')
-        const { error: updateError } = await supabase
-          .from('majstors')
-          .update({
-            next_quote_number: resetData.nextQuoteNumber,
-            next_invoice_number: resetData.nextInvoiceNumber,
-            numbers_initialized: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', majstor.id)
-
-        if (updateError) throw updateError
-        console.log('✅ Numbering updated')
-
-        // 5️⃣ Success!
-        const successMessage = [
-          '✅ Hard Reset erfolgreich abgeschlossen!',
-          '',
-          `📊 Gelöschte Dokumente:`,
-          `• ${allInvoices.filter(i => i.type === 'quote').length} Angebote`,
-          `• ${allInvoices.filter(i => i.type === 'invoice').length} Rechnungen`,
-          `• ${pdfPaths.length} PDF-Dateien`,
-          '',
-          `🔢 Neue Nummerierung:`,
-          `• Nächstes Angebot: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}`,
-          `• Nächste Rechnung: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}`,
-          '',
-          '🎉 Sie können jetzt mit einer sauberen Nummerierung neu starten!'
-        ].join('\n')
-
-        alert(successMessage)
-
-        // Reload data
-        await loadMajstorAndData()
-        setShowHardResetModal(false)
-
-      } catch (error) {
-        console.error('❌ Hard reset failed:', error)
-        alert(
-          '❌ Fehler beim Hard Reset:\n\n' + 
-          error.message + '\n\n' +
-          'Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.'
-        )
-      } finally {
-        setHardResetLoading(false)
-      }
+  const handleHardReset = async () => {
+    if (resetData.confirmText !== 'LÖSCHEN') {
+      alert('❌ Bitte geben Sie "LÖSCHEN" ein um zu bestätigen')
+      return
     }
 
-    if (!showHardResetModal) return null
+    const finalConfirm = confirm(
+      `⚠️ LETZTE WARNUNG!\n\n` +
+      `Sie sind dabei ${totalDocuments} Dokumente unwiderruflich zu löschen.\n\n` +
+      `Was wird gelöscht:\n` +
+      `• ${quotes.length} Angebote\n` +
+      `• ${invoices.length} Rechnungen\n` +
+      `• Alle zugehörigen PDF-Dateien\n\n` +
+      `Neue Nummerierung:\n` +
+      `• Angebote ab: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}\n` +
+      `• Rechnungen ab: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}\n\n` +
+      `Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
+      `Wirklich fortfahren?`
+    )
 
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
-        <div className="bg-slate-800 rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-          
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-2xl">
-              🔥
+    if (!finalConfirm) return
+
+    try {
+      setHardResetLoading(true)
+
+      console.log('🔥 Starting hard reset...')
+
+      // 1️⃣ Get all invoices (including dummies)
+      const { data: allInvoices, error: fetchError } = await supabase
+        .from('invoices')
+        .select('id, pdf_storage_path, type, invoice_number, quote_number, status')
+        .eq('majstor_id', majstor.id)
+
+      if (fetchError) throw fetchError
+
+      console.log(`📋 Found ${allInvoices.length} total invoices (including dummies)`)
+
+      // 2️⃣ Delete all PDFs from storage (only non-dummy invoices have PDFs)
+      const pdfPaths = allInvoices
+        .filter(inv => inv.status !== 'dummy')
+        .map(inv => inv.pdf_storage_path)
+        .filter(path => path)
+
+      if (pdfPaths.length > 0) {
+        console.log(`🗑️ Deleting ${pdfPaths.length} PDFs from storage...`)
+        
+        const { error: storageError } = await supabase.storage
+          .from('invoice-pdfs')
+          .remove(pdfPaths)
+
+        if (storageError) {
+          console.warn('⚠️ Some PDFs could not be deleted:', storageError)
+        } else {
+          console.log('✅ PDFs deleted successfully')
+        }
+      }
+
+      // 3️⃣ Delete ALL invoices from database (including old dummies)
+      console.log('🗑️ Deleting all invoices (including old dummies) from database...')
+      const { error: deleteError } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('majstor_id', majstor.id)
+
+      if (deleteError) throw deleteError
+      console.log('✅ All invoices deleted from database')
+// 4️⃣ Create NEW dummy entries with (n-1) numbers
+console.log('🔢 Creating dummy entries for numbering...')
+
+const dummyQuoteNumber = resetData.nextQuoteNumber - 1
+const dummyInvoiceNumber = resetData.nextInvoiceNumber - 1
+
+const now = new Date().toISOString()
+const today = now.split('T')[0]
+
+// Create dummy QUOTE if nextQuoteNumber > 1
+// Create dummy QUOTE if nextQuoteNumber > 1
+if (resetData.nextQuoteNumber > 1) {
+  console.log(`📝 Creating dummy quote: AN-${currentYear}-${String(dummyQuoteNumber).padStart(3, '0')}`)
+  
+  const { error: quoteError } = await supabase
+    .from('invoices')
+    .insert({
+      majstor_id: majstor.id,
+      type: 'quote',
+      quote_number: `AN-${currentYear}-${String(dummyQuoteNumber).padStart(3, '0')}`,
+      invoice_number: null,
+      customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
+      customer_email: 'dummy@internal.system',
+      customer_phone: null,
+      customer_address: null,
+      items: JSON.stringify([{ description: 'Dummy', quantity: 1, price: 0, total: 0 }]),
+      subtotal: 0,
+      tax_rate: 0,
+      tax_amount: 0,
+      total_amount: 0,
+      status: 'dummy',
+      issue_date: today,
+      valid_until: today,
+      due_date: today, // 🔥 FIX: NOT NULL in database, even for quotes!
+      payment_terms_days: 14, // 🔥 FIX: Can't be null
+      notes: null,
+      is_kleinunternehmer: false,
+      converted_from_quote_id: null,
+      created_at: now,
+      updated_at: now
+    })
+  
+  if (quoteError) {
+    console.error('❌ Dummy quote creation failed:', quoteError)
+    throw quoteError
+  }
+  
+  console.log(`✅ Dummy quote created (next real: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')})`)
+}
+
+// Create dummy INVOICE if nextInvoiceNumber > 1
+if (resetData.nextInvoiceNumber > 1) {
+  console.log(`📝 Creating dummy invoice: RE-${currentYear}-${String(dummyInvoiceNumber).padStart(3, '0')}`)
+  
+  const { error: invoiceError } = await supabase
+    .from('invoices')
+    .insert({
+      majstor_id: majstor.id,
+      type: 'invoice',
+      invoice_number: `RE-${currentYear}-${String(dummyInvoiceNumber).padStart(3, '0')}`,
+      quote_number: null, // 🔥 Explicitly null for invoices
+      customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
+      customer_email: 'dummy@internal.system',
+      customer_phone: null, // 🔥 Explicitly null
+      customer_address: null, // 🔥 Explicitly null
+      items: JSON.stringify([{ description: 'Dummy', quantity: 1, price: 0, total: 0 }]),
+      subtotal: 0,
+      tax_rate: 0,
+      tax_amount: 0,
+      total_amount: 0,
+      status: 'dummy',
+      issue_date: today,
+      due_date: today, // Required for invoices
+      valid_until: null, // 🔥 NULL for invoices
+      payment_terms_days: 14, // Default
+      notes: null,
+      is_kleinunternehmer: false,
+      converted_from_quote_id: null,
+      created_at: now,
+      updated_at: now
+    })
+  
+  if (invoiceError) {
+    console.error('❌ Dummy invoice creation failed:', invoiceError)
+    throw invoiceError
+  }
+  
+  console.log(`✅ Dummy invoice created (next real: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')})`)
+}
+
+if (resetData.nextQuoteNumber === 1 && resetData.nextInvoiceNumber === 1) {
+  console.log('ℹ️ No dummy entries needed (starting from 001)')
+}
+      // 5️⃣ Success!
+const successMessage = [
+  '✅ Hard Reset erfolgreich abgeschlossen!',
+  '',
+  `📊 Gelöschte Dokumente:`,
+  `• ${allInvoices.filter(i => i.type === 'quote' && i.status !== 'dummy').length} Angebote`,
+  `• ${allInvoices.filter(i => i.type === 'invoice' && i.status !== 'dummy').length} Rechnungen`,
+  `• ${pdfPaths.length} PDF-Dateien`,
+  '',
+  `🔢 Neue Nummerierung:`,
+  `• Nächstes Angebot: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}`,
+  `• Nächste Rechnung: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}`,
+  '',
+  resetData.nextQuoteNumber > 1 || resetData.nextInvoiceNumber > 1
+    ? `📝 Dummy-Einträge erstellt für korrekte Nummerierung`
+    : '🆕 Nummerierung beginnt bei 001',
+  '',
+  '🎉 Sie können jetzt mit der neuen Nummerierung starten!'
+].join('\n')
+
+alert(successMessage)
+
+// Close modal first
+setShowHardResetModal(false)
+
+// Reload data with delay to avoid conflicts with dummy entries
+console.log('🔄 Reloading data...')
+setTimeout(async () => {
+  try {
+    await loadMajstorAndData()
+    console.log('✅ Data reloaded successfully')
+  } catch (reloadError) {
+    console.error('⚠️ Data reload error (non-critical):', reloadError)
+    // Non-critical error - user can manually refresh
+  }
+}, 500)
+
+} catch (error) {
+  console.error('❌ Hard reset failed:', error)
+  alert(
+    '❌ Fehler beim Hard Reset:\n\n' + 
+    (error.message || 'Unbekannter Fehler') + '\n\n' +
+    'Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.'
+  )
+} finally {
+  setHardResetLoading(false)
+}
+  }
+
+  if (!showHardResetModal) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+      <div className="bg-slate-800 rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+        
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-2xl">
+            🔥
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-white">
+              Hard Reset - Alles löschen
+            </h3>
+            <p className="text-slate-400 text-sm">
+              Neue Nummerierung ab Wunschnummer
+            </p>
+          </div>
+        </div>
+
+        {/* Current Status */}
+        <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
+          <h4 className="text-white font-medium mb-3">📊 Aktueller Stand</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-slate-400 text-xs mb-1">Angebote</p>
+              <p className="text-white font-bold text-xl">{quotes.length}</p>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold text-white">
-                Hard Reset - Alles löschen
-              </h3>
-              <p className="text-slate-400 text-sm">
-                Neue Nummerierung ab Wunschnummer
-              </p>
+            <div className="text-center">
+              <p className="text-slate-400 text-xs mb-1">Rechnungen</p>
+              <p className="text-white font-bold text-xl">{invoices.length}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-slate-400 text-xs mb-1">Gesamt</p>
+              <p className="text-white font-bold text-xl">{totalDocuments}</p>
             </div>
           </div>
+        </div>
 
-          {/* Current Status */}
-          <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
-            <h4 className="text-white font-medium mb-3">📊 Aktueller Stand</h4>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <p className="text-slate-400 text-xs mb-1">Angebote</p>
-                <p className="text-white font-bold text-xl">{quotes.length}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-slate-400 text-xs mb-1">Rechnungen</p>
-                <p className="text-white font-bold text-xl">{invoices.length}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-slate-400 text-xs mb-1">Gesamt</p>
-                <p className="text-white font-bold text-xl">{totalDocuments}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* What will be deleted */}
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <span className="text-red-400 text-xl">⚠️</span>
-              <div>
-                <h5 className="text-red-300 font-medium mb-2">
-                  Folgendes wird unwiderruflich gelöscht:
-                </h5>
-                <ul className="text-red-200 text-sm space-y-1">
-                  <li>❌ Alle {quotes.length} Angebote aus der Datenbank</li>
-                  <li>❌ Alle {invoices.length} Rechnungen aus der Datenbank</li>
-                  <li>❌ Alle zugehörigen PDF-Dateien</li>
-                  <li>❌ Alle Email-Versand Historie</li>
-                </ul>
-                <p className="text-red-300 text-sm mt-3 font-semibold">
-                  ⚠️ Diese Aktion kann NICHT rückgängig gemacht werden!
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Start Numbers */}
-          <div className="space-y-4 mb-6">
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
-              <p className="text-blue-300 text-sm">
-                💡 <strong>Tipp:</strong> Wenn Sie von einem anderen System wechseln, 
-                können Sie hier die Nummern so einstellen, dass sie nahtlos weiterlaufen.
-              </p>
-            </div>
-
-            {/* Next Quote Number */}
+        {/* What will be deleted */}
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-red-400 text-xl">⚠️</span>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Nächste Angebotsnummer
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={resetData.nextQuoteNumber}
-                onChange={(e) => setResetData(prev => ({ 
-                  ...prev, 
-                  nextQuoteNumber: parseInt(e.target.value) || 1 
-                }))}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
-                disabled={hardResetLoading}
-              />
-              <div className="mt-2 bg-slate-900/50 rounded p-2">
-                <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
-                <p className="text-green-400 font-mono text-sm">
-                  AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(3, '0')}
-                </p>
-              </div>
-            </div>
-
-            {/* Next Invoice Number */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Nächste Rechnungsnummer
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={resetData.nextInvoiceNumber}
-                onChange={(e) => setResetData(prev => ({ 
-                  ...prev, 
-                  nextInvoiceNumber: parseInt(e.target.value) || 1 
-                }))}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
-                disabled={hardResetLoading}
-              />
-              <div className="mt-2 bg-slate-900/50 rounded p-2">
-                <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
-                <p className="text-green-400 font-mono text-sm">
-                  RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(3, '0')}
-                </p>
-              </div>
-            </div>
-
-            {/* Use Case Examples */}
-            <div className="bg-slate-900/50 rounded-lg p-3">
-              <p className="text-slate-400 text-xs mb-2">💡 Beispiele:</p>
-              <ul className="text-slate-300 text-xs space-y-1">
-                <li>• <strong>Neustart:</strong> Setzen Sie auf 1 für einen kompletten Neuanfang</li>
-                <li>• <strong>Systemwechsel:</strong> Geben Sie die nächste Nummer nach Ihrem alten System ein (z.B. 144 wenn Ihre letzte Rechnung RE-2025-143 war)</li>
-                <li>• <strong>Nach Tests:</strong> Überspringen Sie Test-Nummern (z.B. starten Sie bei 50 wenn Sie 1-49 für Tests verwendet haben)</li>
+              <h5 className="text-red-300 font-medium mb-2">
+                Folgendes wird unwiderruflich gelöscht:
+              </h5>
+              <ul className="text-red-200 text-sm space-y-1">
+                <li>❌ Alle {quotes.length} Angebote aus der Datenbank</li>
+                <li>❌ Alle {invoices.length} Rechnungen aus der Datenbank</li>
+                <li>❌ Alle zugehörigen PDF-Dateien</li>
+                <li>❌ Alle Email-Versand Historie</li>
               </ul>
+              <p className="text-red-300 text-sm mt-3 font-semibold">
+                ⚠️ Diese Aktion kann NICHT rückgängig gemacht werden!
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* Final Confirmation */}
-          <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mb-6">
-            <label className="block text-sm font-medium text-red-300 mb-2">
-              ⚠️ Zur Bestätigung geben Sie <strong>&quot;LÖSCHEN&quot;</strong> ein:
-            </label>
-            <input
-              type="text"
-              value={resetData.confirmText}
-              onChange={(e) => setResetData(prev => ({ 
-                ...prev, 
-                confirmText: e.target.value 
-              }))}
-              placeholder="LÖSCHEN"
-              className="w-full px-3 py-3 bg-slate-900/50 border-2 border-red-500 rounded-lg text-white font-semibold text-center tracking-wider"
-              disabled={hardResetLoading}
-            />
-            <p className="text-red-200 text-xs mt-2 text-center">
-              Sie müssen &quot;LÖSCHEN&quot; (in Großbuchstaben) eingeben
+        {/* Custom Start Numbers */}
+        <div className="space-y-4 mb-6">
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+            <p className="text-blue-300 text-sm">
+              💡 <strong>Tipp:</strong> Wenn Sie von einem anderen System wechseln, 
+              können Sie hier die Nummern so einstellen, dass sie nahtlos weiterlaufen.
             </p>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowHardResetModal(false)}
+          {/* Next Quote Number */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Nächste Angebotsnummer
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={resetData.nextQuoteNumber}
+              onChange={(e) => setResetData(prev => ({ 
+                ...prev, 
+                nextQuoteNumber: parseInt(e.target.value) || 1 
+              }))}
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
               disabled={hardResetLoading}
-              className="flex-1 bg-slate-600 text-white py-3 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
-            >
-              Abbrechen
-            </button>
-            <button
-              onClick={handleHardReset}
-              disabled={resetData.confirmText !== 'LÖSCHEN' || hardResetLoading}
-              className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
-            >
-              {hardResetLoading ? (
-                <>
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                  Wird gelöscht...
-                </>
-              ) : (
-                <>
-                  🔥 Alles löschen & neu starten
-                </>
+            />
+            <div className="mt-2 bg-slate-900/50 rounded p-2">
+              <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
+              <p className="text-green-400 font-mono text-sm">
+                AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(3, '0')}
+              </p>
+              {resetData.nextQuoteNumber > 1 && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Dummy wird erstellt: AN-{currentYear}-{String(resetData.nextQuoteNumber - 1).padStart(3, '0')}
+                </p>
               )}
-            </button>
+            </div>
+          </div>
+
+          {/* Next Invoice Number */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Nächste Rechnungsnummer
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={resetData.nextInvoiceNumber}
+              onChange={(e) => setResetData(prev => ({ 
+                ...prev, 
+                nextInvoiceNumber: parseInt(e.target.value) || 1 
+              }))}
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
+              disabled={hardResetLoading}
+            />
+            <div className="mt-2 bg-slate-900/50 rounded p-2">
+              <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
+              <p className="text-green-400 font-mono text-sm">
+                RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(3, '0')}
+              </p>
+              {resetData.nextInvoiceNumber > 1 && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Dummy wird erstellt: RE-{currentYear}-{String(resetData.nextInvoiceNumber - 1).padStart(3, '0')}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Use Case Examples */}
+          <div className="bg-slate-900/50 rounded-lg p-3">
+            <p className="text-slate-400 text-xs mb-2">💡 Beispiele:</p>
+            <ul className="text-slate-300 text-xs space-y-1">
+              <li>• <strong>Neustart:</strong> Setzen Sie auf 1 für einen kompletten Neuanfang</li>
+              <li>• <strong>Systemwechsel:</strong> Geben Sie die nächste Nummer nach Ihrem alten System ein (z.B. 144 wenn Ihre letzte Rechnung RE-2025-143 war)</li>
+              <li>• <strong>Nach Tests:</strong> Überspringen Sie Test-Nummern (z.B. starten Sie bei 50 wenn Sie 1-49 für Tests verwendet haben)</li>
+            </ul>
           </div>
         </div>
-      </div>
-    )
-  }
 
-  // EXISTING COMPONENTS (QuotesList, InvoicesList, SettingsTab)
+        {/* Final Confirmation */}
+        <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mb-6">
+          <label className="block text-sm font-medium text-red-300 mb-2">
+            ⚠️ Zur Bestätigung geben Sie <strong>&quot;LÖSCHEN&quot;</strong> ein:
+          </label>
+          <input
+            type="text"
+            value={resetData.confirmText}
+            onChange={(e) => setResetData(prev => ({ 
+              ...prev, 
+              confirmText: e.target.value 
+            }))}
+            placeholder="LÖSCHEN"
+            className="w-full px-3 py-3 bg-slate-900/50 border-2 border-red-500 rounded-lg text-white font-semibold text-center tracking-wider"
+            disabled={hardResetLoading}
+          />
+          <p className="text-red-200 text-xs mt-2 text-center">
+            Sie müssen &quot;LÖSCHEN&quot; (in Großbuchstaben) eingeben
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowHardResetModal(false)}
+            disabled={hardResetLoading}
+            className="flex-1 bg-slate-600 text-white py-3 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={handleHardReset}
+            disabled={resetData.confirmText !== 'LÖSCHEN' || hardResetLoading}
+            className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+          >
+            {hardResetLoading ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                Wird gelöscht...
+              </>
+            ) : (
+              <>
+                🔥 Alles löschen & neu starten
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
   const QuotesList = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -1339,7 +1401,7 @@ function DashboardPageContent() {
     </div>
   )
 
-  // SETTINGS TAB WITH HARD RESET INTEGRATION
+  // SETTINGS TAB WITH COMPACT HARD RESET BUTTON
   const SettingsTab = () => {
     const [localSettings, setLocalSettings] = useState(settingsData)
     const [hasChanges, setHasChanges] = useState(false)
@@ -1425,10 +1487,26 @@ function DashboardPageContent() {
       }
     }
 
+    const totalDocuments = quotes.length + invoices.length
+    const hasDocuments = totalDocuments > 0
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Rechnungseinstellungen</h3>
+          
+          {/* 🔥 COMPACT HARD RESET BUTTON - Only show if has documents */}
+          {hasDocuments && (
+            <button
+              onClick={() => setShowHardResetModal(true)}
+              className="flex items-center gap-2 bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg transition-colors text-sm"
+            >
+              <span>🔥</span>
+              <span>Hard Reset</span>
+              <span className="text-xs text-red-300">({totalDocuments})</span>
+            </button>
+          )}
+          
           {pendingInvoiceCreation && (
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-4 py-2">
               <p className="text-blue-300 text-sm">
@@ -1439,84 +1517,6 @@ function DashboardPageContent() {
         </div>
         
         <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
-
-         {/* 🔥 HARD RESET SECTION - PRIKAŽI SAMO AKO IMA DOKUMENATA */}
-{(quotes.length > 0 || invoices.length > 0) && (
-  <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border-2 border-red-500/30 rounded-lg p-6 mb-6">
-    <div className="flex items-start justify-between mb-4">
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-xl">
-            🔥
-          </div>
-          <h4 className="text-white font-semibold text-lg">Nummerierung zurücksetzen</h4>
-        </div>
-        <p className="text-slate-400 text-sm">
-          Alle Dokumente löschen und mit neuer Nummerierung neu starten
-        </p>
-      </div>
-    </div>
-
-    {/* Current Stats */}
-    <div className="grid grid-cols-3 gap-4 mb-4">
-      <div className="bg-slate-900/50 rounded-lg p-3">
-        <p className="text-slate-400 text-xs mb-1">Angebote</p>
-        <p className="text-white font-semibold text-xl">{quotes.length}</p>
-      </div>
-      <div className="bg-slate-900/50 rounded-lg p-3">
-        <p className="text-slate-400 text-xs mb-1">Rechnungen</p>
-        <p className="text-white font-semibold text-xl">{invoices.length}</p>
-      </div>
-      <div className="bg-slate-900/50 rounded-lg p-3">
-        <p className="text-slate-400 text-xs mb-1">Gesamt</p>
-        <p className="text-white font-semibold text-xl">{quotes.length + invoices.length}</p>
-      </div>
-    </div>
-
-    {/* Current Numbers */}
-    <div className="bg-slate-900/50 rounded-lg p-3 mb-4">
-      <p className="text-slate-400 text-xs mb-2">Aktuelle Nummerierung:</p>
-      <div className="flex gap-4 text-sm">
-        <div>
-          <span className="text-slate-400">Nächstes Angebot:</span>
-          <span className="text-green-400 font-mono ml-2">
-            AN-{new Date().getFullYear()}-{String(majstor?.next_quote_number || 1).padStart(3, '0')}
-          </span>
-        </div>
-        <div>
-          <span className="text-slate-400">Nächste Rechnung:</span>
-          <span className="text-green-400 font-mono ml-2">
-            RE-{new Date().getFullYear()}-{String(majstor?.next_invoice_number || 1).padStart(3, '0')}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    {/* Warning Info */}
-    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
-      <p className="text-red-300 text-sm">
-        ⚠️ <strong>Vorsicht:</strong> Diese Aktion löscht ALLE Angebote und Rechnungen unwiderruflich 
-        und ermöglicht einen kompletten Neustart mit Wunschnummern.
-      </p>
-    </div>
-
-    {/* Reset Button */}
-    <button
-      type="button"
-      onClick={() => setShowHardResetModal(true)}
-      disabled={quotes.length === 0 && invoices.length === 0}
-      className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      🔥 Hard Reset durchführen
-    </button>
-    
-    {(quotes.length === 0 && invoices.length === 0) && (
-      <p className="text-slate-500 text-xs text-center mt-2">
-        Keine Dokumente vorhanden - Reset nicht erforderlich
-      </p>
-    )}
-  </div>
-)}
 
           {/* Logo & Branding */}
           <LogoUpload
@@ -2032,7 +2032,7 @@ function DashboardPageContent() {
         />
       )}
 
-      {/* 🔥 NEW: Hard Reset Modal */}
+      {/* Hard Reset Modal */}
       <HardResetModal />
     </div>
   )
