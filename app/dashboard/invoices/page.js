@@ -1423,71 +1423,80 @@ setTimeout(async () => {
       setHasChanges(true)
     }
 
-    const handleLocalSave = async () => {
-      setSettingsLoading(true)
-      setSettingsError('')
+  const handleLocalSave = async () => {
+  setSettingsLoading(true)
+  setSettingsError('')
 
-      try {
-        const updateData = {
-          is_kleinunternehmer: localSettings.is_kleinunternehmer,
-          tax_number: localSettings.tax_number || null,
-          vat_id: localSettings.vat_id || null,
-          default_tax_rate: localSettings.default_tax_rate,
-          iban: localSettings.iban || null,
-          bic: localSettings.bic || null,
-          bank_name: localSettings.bank_name || null,
-          payment_terms_days: localSettings.payment_terms_days,
-          invoice_footer: localSettings.invoice_footer || null,
-          full_name: localSettings.full_name || null,
-          business_name: localSettings.business_name || null,
-          phone: localSettings.phone || null,
-          city: localSettings.city || null,
-          address: localSettings.address || null,
-          updated_at: new Date().toISOString()
-        }
-
-        const { error } = await supabase
-          .from('majstors')
-          .update(updateData)
-          .eq('id', majstor.id)
-
-        if (error) throw error
-
-        const newMajstorData = { ...majstor, ...localSettings }
-        
-        setSettingsData(localSettings)
-        setMajstor(newMajstorData)
-
-        setHasChanges(false)
-        
-        const isNowComplete = isBusinessDataComplete(newMajstorData)
-        
-        console.log('Settings saved and states synchronized:', {
-          pendingInvoiceCreation,
-          pendingInvoiceType,
-          businessDataWasComplete: isBusinessDataComplete(majstor),
-          businessDataNowComplete: isNowComplete,
-          updatedFields: Object.keys(updateData)
-        })
-        
-        if (pendingInvoiceCreation) {
-          if (isNowComplete) {
-            alert('Einstellungen gespeichert!\n\nSie werden jetzt zur Rechnungserstellung weitergeleitet...')
-          } else {
-            alert('Einstellungen gespeichert!\n\nFür professionelle Rechnungen fehlen noch einige Daten.')
-          }
-        } else {
-          alert('Einstellungen erfolgreich gespeichert!')
-        }
-
-      } catch (err) {
-        console.error('Error saving settings:', err)
-        setSettingsError('Fehler beim Speichern: ' + err.message)
-      } finally {
-        setSettingsLoading(false)
-      }
+  try {
+    // 🔥 Validation: At least one tax ID must be provided
+    const hasTaxNumber = localSettings.tax_number && localSettings.tax_number.trim().length > 0
+    const hasVatId = localSettings.vat_id && localSettings.vat_id.trim().length > 0
+    
+    if (!hasTaxNumber && !hasVatId) {
+      setSettingsError('Bitte geben Sie entweder eine Steuernummer oder eine USt-IdNr ein (mindestens eines ist erforderlich)')
+      setSettingsLoading(false)
+      return
     }
 
+    const updateData = {
+      is_kleinunternehmer: localSettings.is_kleinunternehmer,
+      tax_number: localSettings.tax_number || null,
+      vat_id: localSettings.vat_id || null,
+      default_tax_rate: localSettings.default_tax_rate,
+      iban: localSettings.iban || null,
+      bic: localSettings.bic || null,
+      bank_name: localSettings.bank_name || null,
+      payment_terms_days: localSettings.payment_terms_days,
+      invoice_footer: localSettings.invoice_footer || null,
+      full_name: localSettings.full_name || null,
+      business_name: localSettings.business_name || null,
+      phone: localSettings.phone || null,
+      city: localSettings.city || null,
+      address: localSettings.address || null,
+      updated_at: new Date().toISOString()
+    }
+
+    const { error } = await supabase
+      .from('majstors')
+      .update(updateData)
+      .eq('id', majstor.id)
+
+    if (error) throw error
+
+    const newMajstorData = { ...majstor, ...localSettings }
+    
+    setSettingsData(localSettings)
+    setMajstor(newMajstorData)
+
+    setHasChanges(false)
+    
+    const isNowComplete = isBusinessDataComplete(newMajstorData)
+    
+    console.log('Settings saved and states synchronized:', {
+      pendingInvoiceCreation,
+      pendingInvoiceType,
+      businessDataWasComplete: isBusinessDataComplete(majstor),
+      businessDataNowComplete: isNowComplete,
+      updatedFields: Object.keys(updateData)
+    })
+    
+    if (pendingInvoiceCreation) {
+      if (isNowComplete) {
+        alert('Einstellungen gespeichert!\n\nSie werden jetzt zur Rechnungserstellung weitergeleitet...')
+      } else {
+        alert('Einstellungen gespeichert!\n\nFür professionelle Rechnungen fehlen noch einige Daten.')
+      }
+    } else {
+      alert('Einstellungen erfolgreich gespeichert!')
+    }
+
+  } catch (err) {
+    console.error('Error saving settings:', err)
+    setSettingsError('Fehler beim Speichern: ' + err.message)
+  } finally {
+    setSettingsLoading(false)
+  }
+}
     const totalDocuments = quotes.length + invoices.length
     const hasDocuments = totalDocuments > 0
 
@@ -1694,12 +1703,12 @@ setTimeout(async () => {
                   onChange={handleLocalChange}
                   placeholder="12/345/67890"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                  required
+                 
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">USt-IdNr (optional)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">USt-IdNr</label>
                 <input
                   type="text"
                   name="vat_id"
@@ -1709,6 +1718,11 @@ setTimeout(async () => {
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                 />
               </div>
+              <div className="md:col-span-2 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+  <p className="text-blue-300 text-sm">
+    ℹ️ <strong>Hinweis:</strong> Sie müssen mindestens eine Steuernummer ODER eine USt-IdNr angeben. Beide können ausgefüllt werden.
+  </p>
+</div>
             </div>
           </div>
 
