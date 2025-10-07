@@ -206,10 +206,12 @@ export default function Home() {
               <div className="w-16 h-16 bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl mb-6 flex items-center justify-center">
                 <span className="text-2xl">🚀</span>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-2">
-                Weitere Features
-                <span className="ml-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full">BALD VERFÜGBAR</span>
-              </h3>
+              <div className="mb-2">
+                <h3 className="text-2xl font-bold text-white mb-2 sm:mb-0 sm:inline-block">
+                  Weitere Features
+                </h3>
+                <span className="inline-block sm:ml-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full">BALD VERFÜGBAR</span>
+              </div>
               <p className="text-slate-400 mb-6 leading-relaxed">
                 Planner für Terminverwaltung und Referral-System für passives Einkommen kommen bald.
               </p>
@@ -353,10 +355,12 @@ export default function Home() {
             {/* PRO+ Plan - Coming Soon */}
             <div className="bg-slate-800/30 border border-slate-600/50 rounded-2xl p-8 opacity-75">
               <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  PRO+
-                  <span className="ml-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full">BALD VERFÜGBAR</span>
-                </h3>
+                <div className="mb-4">
+                  <h3 className="text-2xl font-bold text-white mb-2 sm:mb-0 sm:inline-block">
+                    PRO+
+                  </h3>
+                  <span className="inline-block sm:ml-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full">BALD VERFÜGBAR</span>
+                </div>
                 <div className="flex items-baseline justify-center gap-2 mb-6">
                   <span className="text-4xl font-bold text-slate-400">39,90€</span>
                   <span className="text-slate-500">/Monat</span>
