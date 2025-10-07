@@ -403,14 +403,7 @@ export default function SubscriptionPage() {
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
           
-          {/* 🔥 MANUAL REFRESH BUTTON - za debugging */}
-          <button
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-            className="bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm hover:bg-slate-600 transition-colors disabled:opacity-50"
-          >
-            🔄 Status aktualisieren
-          </button>
+         
         </div>
         <p className="text-slate-400">
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
