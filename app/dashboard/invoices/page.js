@@ -396,7 +396,7 @@ function DashboardPageContent() {
         console.log('🆕 No existing invoices found, starting with 001')
       }
 
-      const finalInvoiceNumber = `RE-${year}-${nextNumber.toString().padStart(3, '0')}`
+      const finalInvoiceNumber = `RE-${year}-${nextNumber.toString().padStart(4, '0')}`
       
       console.log('✅ Generated sequential invoice number:', finalInvoiceNumber)
 
@@ -725,8 +725,8 @@ const HardResetModal = () => {
       `• ${invoices.length} Rechnungen\n` +
       `• Alle zugehörigen PDF-Dateien\n\n` +
       `Neue Nummerierung:\n` +
-      `• Angebote ab: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}\n` +
-      `• Rechnungen ab: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}\n\n` +
+      `• Angebote ab: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(4, '0')}\n` +
+      `• Rechnungen ab: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(4, '0')}\n\n` +
       `Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
       `Wirklich fortfahren?`
     )
@@ -789,14 +789,14 @@ const today = now.split('T')[0]
 // Create dummy QUOTE if nextQuoteNumber > 1
 // Create dummy QUOTE if nextQuoteNumber > 1
 if (resetData.nextQuoteNumber > 1) {
-  console.log(`📝 Creating dummy quote: AN-${currentYear}-${String(dummyQuoteNumber).padStart(3, '0')}`)
+  console.log(`📝 Creating dummy quote: AN-${currentYear}-${String(dummyQuoteNumber).padStart(4, '0')}`)
   
   const { error: quoteError } = await supabase
     .from('invoices')
     .insert({
       majstor_id: majstor.id,
       type: 'quote',
-      quote_number: `AN-${currentYear}-${String(dummyQuoteNumber).padStart(3, '0')}`,
+      quote_number: `AN-${currentYear}-${String(dummyQuoteNumber).padStart(4, '0')}`,
       invoice_number: null,
       customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
       customer_email: 'dummy@internal.system',
@@ -824,19 +824,19 @@ if (resetData.nextQuoteNumber > 1) {
     throw quoteError
   }
   
-  console.log(`✅ Dummy quote created (next real: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')})`)
+  console.log(`✅ Dummy quote created (next real: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(4, '0')})`)
 }
 
 // Create dummy INVOICE if nextInvoiceNumber > 1
 if (resetData.nextInvoiceNumber > 1) {
-  console.log(`📝 Creating dummy invoice: RE-${currentYear}-${String(dummyInvoiceNumber).padStart(3, '0')}`)
+  console.log(`📝 Creating dummy invoice: RE-${currentYear}-${String(dummyInvoiceNumber).padStart(4, '0')}`)
   
   const { error: invoiceError } = await supabase
     .from('invoices')
     .insert({
       majstor_id: majstor.id,
       type: 'invoice',
-      invoice_number: `RE-${currentYear}-${String(dummyInvoiceNumber).padStart(3, '0')}`,
+      invoice_number: `RE-${currentYear}-${String(dummyInvoiceNumber).padStart(4, '0')}`,
       quote_number: null, // 🔥 Explicitly null for invoices
       customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
       customer_email: 'dummy@internal.system',
@@ -864,7 +864,7 @@ if (resetData.nextInvoiceNumber > 1) {
     throw invoiceError
   }
   
-  console.log(`✅ Dummy invoice created (next real: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')})`)
+  console.log(`✅ Dummy invoice created (next real: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(4, '0')})`)
 }
 
 if (resetData.nextQuoteNumber === 1 && resetData.nextInvoiceNumber === 1) {
@@ -880,8 +880,8 @@ const successMessage = [
   `• ${pdfPaths.length} PDF-Dateien`,
   '',
   `🔢 Neue Nummerierung:`,
-  `• Nächstes Angebot: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(3, '0')}`,
-  `• Nächste Rechnung: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(3, '0')}`,
+  `• Nächstes Angebot: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(4, '0')}`,
+  `• Nächste Rechnung: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(4, '0')}`,
   '',
   resetData.nextQuoteNumber > 1 || resetData.nextInvoiceNumber > 1
     ? `📝 Dummy-Einträge erstellt für korrekte Nummerierung`
@@ -1008,11 +1008,11 @@ setTimeout(async () => {
   <div className="mt-2 bg-slate-900/50 rounded p-2">
     <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
     <p className="text-green-400 font-mono text-sm">
-      AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(3, '0')}
+      AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(4, '0')}
     </p>
     {resetData.nextQuoteNumber > 1 && (
       <p className="text-xs text-slate-500 mt-1">
-        Dummy wird erstellt: AN-{currentYear}-{String(resetData.nextQuoteNumber - 1).padStart(3, '0')}
+        Dummy wird erstellt: AN-{currentYear}-{String(resetData.nextQuoteNumber - 1).padStart(4, '0')}
       </p>
     )}
   </div>
@@ -1038,11 +1038,11 @@ setTimeout(async () => {
   <div className="mt-2 bg-slate-900/50 rounded p-2">
     <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
     <p className="text-green-400 font-mono text-sm">
-      RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(3, '0')}
+      RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(4, '0')}
     </p>
     {resetData.nextInvoiceNumber > 1 && (
       <p className="text-xs text-slate-500 mt-1">
-        Dummy wird erstellt: RE-{currentYear}-{String(resetData.nextInvoiceNumber - 1).padStart(3, '0')}
+        Dummy wird erstellt: RE-{currentYear}-{String(resetData.nextInvoiceNumber - 1).padStart(4, '0')}
       </p>
     )}
   </div>

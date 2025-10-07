@@ -1,4 +1,4 @@
-// app/dashboard/page.js - SA AUTO-REFRESH NAKON PADDLE NAPLATE
+// app/dashboard/page.js - STATS SA PROTECTED LINKOVIMA (BEZ VIZUELNIH ZNAKOVA)
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -14,22 +14,21 @@ function DashboardPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  // 🔥 NOVO: Upgrade processing states
+  // Upgrade processing states
   const [upgradingInProgress, setUpgradingInProgress] = useState(false)
   const [upgradeProgress, setUpgradeProgress] = useState(0)
   const [upgradeMessage, setUpgradeMessage] = useState('')
   
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  // 🔥 NOVO: Hook za subscription sa refresh funkcijom
-  const { refresh: refreshSubscription } = useSubscription(majstor?.id)
+  // 🔥 NOVO: Hook za proveru subscription statusa
+  const { isFreemium, refresh: refreshSubscription } = useSubscription(majstor?.id)
   
   const [stats, setStats] = useState({
     totalInquiries: 0,
     newInquiries: 0,
     totalInvoices: 0,
-    totalCustomers: 0,
-    qrScans: 0
+    totalCustomers: 0
   })
 
   const [welcomeMessage, setWelcomeMessage] = useState(false)
@@ -45,7 +44,7 @@ function DashboardPageContent() {
     loadMajstorAndStats()
   }, [searchParams])
 
-  // 🔥 NOVO: Detektuj uspešnu Paddle naplatu i pokreni auto-refresh
+  // Detektuj Paddle payment
   useEffect(() => {
     const paddleSuccess = searchParams.get('paddle_success')
     const planType = searchParams.get('plan')
@@ -56,18 +55,15 @@ function DashboardPageContent() {
     }
   }, [searchParams, majstor?.id])
 
-  // 🔥 NOVO: Progressive auto-refresh nakon Paddle naplate
   const startUpgradeRefresh = (planType) => {
     setUpgradingInProgress(true)
     setUpgradeProgress(0)
     setUpgradeMessage('Aktiviere PRO Mitgliedschaft...')
     
-    // Emit event za sidebar
     window.dispatchEvent(new CustomEvent('subscription-changed', {
       detail: { action: 'upgraded', timestamp: Date.now(), plan: planType }
     }))
     
-    // Progressive refresh strategy (isto kao cancel/reactivate)
     const refreshIntervals = [
       { delay: 0, message: 'Verbindung zu Paddle...' },
       { delay: 2000, message: 'Warte auf Bestätigung...' },
@@ -88,27 +84,21 @@ function DashboardPageContent() {
         setUpgradeProgress(progress)
         setUpgradeMessage(step.message)
         
-        console.log(`🔄 Auto-refresh #${refreshCount}/${totalRefreshes} - ${step.message}`)
-        
-        // Pozovi refresh funkciju iz hook-a
         if (refreshSubscription && typeof refreshSubscription === 'function') {
           refreshSubscription()
         }
         
-        // Završi nakon poslednjeg koraka
         if (index === refreshIntervals.length - 1) {
           setTimeout(() => {
             setUpgradingInProgress(false)
             setUpgradeProgress(100)
             setUpgradeMessage('PRO Mitgliedschaft aktiviert!')
             
-            // Ukloni paddle_success parametar iz URL-a
             const url = new URL(window.location.href)
             url.searchParams.delete('paddle_success')
             url.searchParams.delete('plan')
             window.history.replaceState({}, '', url.toString())
             
-            // Reload za clean state
             setTimeout(() => {
               window.location.reload()
             }, 1500)
@@ -234,7 +224,6 @@ function DashboardPageContent() {
     )
   }
 
-  // 🔥 NOVO: Upgrade Processing Modal
   const UpgradeProcessingModal = () => {
     if (!upgradingInProgress) return null
 
@@ -242,7 +231,6 @@ function DashboardPageContent() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
         <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-700 shadow-2xl">
           
-          {/* Icon */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4 animate-pulse">
               <span className="text-4xl">💎</span>
@@ -255,13 +243,11 @@ function DashboardPageContent() {
             </p>
           </div>
 
-          {/* Progress Message */}
           <div className="mb-4">
             <p className="text-center text-blue-300 font-medium mb-3 animate-pulse">
               {upgradeMessage}
             </p>
             
-            {/* Progress Bar */}
             <div className="bg-slate-700 rounded-full h-3 overflow-hidden">
               <div 
                 className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-500 ease-out"
@@ -269,33 +255,75 @@ function DashboardPageContent() {
               />
             </div>
             
-            {/* Progress Percentage */}
             <p className="text-center text-slate-400 text-sm mt-2">
               {Math.round(upgradeProgress)}%
             </p>
           </div>
 
-          {/* Info */}
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mt-6">
             <div className="flex items-start gap-3">
               <span className="text-xl">ℹ️</span>
               <div className="text-xs text-blue-200">
-                <p className="mb-1">
-                  ✅ Zahlung erfolgreich
-                </p>
-                <p>
-                  🔄 Synchronisierung mit Paddle läuft...
-                </p>
+                <p className="mb-1">✅ Zahlung erfolgreich</p>
+                <p>🔄 Synchronisierung mit Paddle läuft...</p>
               </div>
             </div>
           </div>
 
-          {/* Loading Spinner */}
           <div className="flex justify-center mt-6">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
           </div>
         </div>
       </div>
+    )
+  }
+
+  // 🔥 NOVA KOMPONENTA: Protected Stat Card
+  const ProtectedStatCard = ({ href, icon, title, value, subtitle, badgeCount, iconBg }) => {
+    // Ako je Freemium - obični div (neklikabilno)
+    if (isFreemium) {
+      return (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">{title}</p>
+              <p className="text-3xl font-bold text-white">
+                {value}
+              </p>
+              <p className="text-sm text-slate-400">{subtitle}</p>
+            </div>
+            <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-2xl`}>
+              {icon}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Ako je PRO - klikabilni Link
+    return (
+      <Link 
+        href={href}
+        className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer group relative"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-slate-400 text-sm">{title}</p>
+            <p className="text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">
+              {value}
+            </p>
+            <p className="text-sm text-slate-400">{subtitle}</p>
+          </div>
+          <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform`}>
+            {icon}
+          </div>
+        </div>
+        {badgeCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+            {badgeCount > 9 ? '9+' : badgeCount}
+          </span>
+        )}
+      </Link>
     )
   }
 
@@ -418,86 +446,46 @@ function DashboardPageContent() {
 
   return (
     <>
-      {/* 🔥 NOVO: Upgrade Processing Modal */}
       <UpgradeProcessingModal />
     
       <div className="space-y-8">
         <WelcomeMessage />
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* 🔥 Quick Stats - SAMO 3 KARTICE (bez QR Scans) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
-          {/* Kundenanfragen */}
-          <Link 
+          {/* Kundenanfragen - Protected */}
+          <ProtectedStatCard
             href="/dashboard/inquiries"
-            className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Kundenanfragen</p>
-                <p className="text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">
-                  {stats.totalInquiries}
-                </p>
-                <p className="text-sm text-slate-400">
-                  {stats.newInquiries} neue
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                📩
-              </div>
-            </div>
-          </Link>
+            icon="📩"
+            iconBg="bg-blue-600"
+            title="Kundenanfragen"
+            value={stats.totalInquiries}
+            subtitle={`${stats.newInquiries} neue`}
+            badgeCount={stats.newInquiries}
+          />
 
-          {/* Rechnungen */}
-          <Link
+          {/* Rechnungen - Protected */}
+          <ProtectedStatCard
             href="/dashboard/invoices"
-            className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-purple-500 hover:shadow-lg transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Rechnungen</p>
-                <p className="text-3xl font-bold text-white group-hover:text-purple-400 transition-colors">
-                  {stats.totalInvoices}
-                </p>
-                <p className="text-sm text-slate-400">Erstellt</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                📄
-              </div>
-            </div>
-          </Link>
+            icon="📄"
+            iconBg="bg-purple-600"
+            title="Rechnungen"
+            value={stats.totalInvoices}
+            subtitle="Erstellt"
+            badgeCount={0}
+          />
 
-          {/* Kunden */}
-          <Link
+          {/* Kunden - Protected */}
+          <ProtectedStatCard
             href="/dashboard/customers"
-            className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-green-500 hover:shadow-lg transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Kunden</p>
-                <p className="text-3xl font-bold text-white group-hover:text-green-400 transition-colors">
-                  {stats.totalCustomers}
-                </p>
-                <p className="text-sm text-slate-400">Registriert</p>
-              </div>
-              <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                👥
-              </div>
-            </div>
-          </Link>
-
-          <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">QR Scans</p>
-                <p className="text-3xl font-bold text-white">{stats.qrScans}</p>
-                <p className="text-sm text-slate-400">Heute</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center text-2xl">
-                📱
-              </div>
-            </div>
-          </div>
+            icon="👥"
+            iconBg="bg-green-600"
+            title="Kunden"
+            value={stats.totalCustomers}
+            subtitle="Registriert"
+            badgeCount={0}
+          />
         </div>
 
         {/* Quick Actions */}

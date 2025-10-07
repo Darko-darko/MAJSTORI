@@ -41,8 +41,8 @@ export default function InvoiceNumbersSetupModal({
     const confirmMessage = `
 Bestätigung: Rechnungsnummern einrichten
 
-Nächstes Angebot: AN-${new Date().getFullYear()}-${String(quoteNumber).padStart(3, '0')}
-Nächste Rechnung: RE-${new Date().getFullYear()}-${String(invoiceNumber).padStart(3, '0')}
+Nächstes Angebot: AN-${new Date().getFullYear()}-${String(quoteNumber).padStart(4, '0')}
+Nächste Rechnung: RE-${new Date().getFullYear()}-${String(invoiceNumber).padStart(4, '0')}
 
 ACHTUNG: Diese Aktion ist DAUERHAFT und kann nicht rückgängig gemacht werden!
 
@@ -63,7 +63,7 @@ Sind Sie sicher, dass Sie fortfahren möchten?`
       
       // Create dummy quote if next number > 1
       if (quoteNumber > 1) {
-        const dummyQuoteNumber = `AN-${currentYear}-${String(quoteNumber - 1).padStart(3, '0')}`
+        const dummyQuoteNumber = `AN-${currentYear}-${String(quoteNumber - 1).padStart(4, '0')}`
         dummyEntries.push({
           majstor_id: majstor.id,
           type: 'quote',
@@ -83,7 +83,7 @@ Sind Sie sicher, dass Sie fortfahren möchten?`
       
       // Create dummy invoice if next number > 1
       if (invoiceNumber > 1) {
-        const dummyInvoiceNumber = `RE-${currentYear}-${String(invoiceNumber - 1).padStart(3, '0')}`
+        const dummyInvoiceNumber = `RE-${currentYear}-${String(invoiceNumber - 1).padStart(4, '0')}`
         dummyEntries.push({
           majstor_id: majstor.id,
           type: 'invoice',
@@ -133,8 +133,8 @@ Sind Sie sicher, dass Sie fortfahren möchten?`
   }
 
   const currentYear = new Date().getFullYear()
-  const previewQuoteNumber = `AN-${currentYear}-${String(formData.next_quote_number || '1').padStart(3, '0')}`
-  const previewInvoiceNumber = `RE-${currentYear}-${String(formData.next_invoice_number || '1').padStart(3, '0')}`
+  const previewQuoteNumber = `AN-${currentYear}-${String(formData.next_quote_number || '1').padStart(4, '0')}`
+  const previewInvoiceNumber = `RE-${currentYear}-${String(formData.next_invoice_number || '1').padStart(4, '0')}`
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
