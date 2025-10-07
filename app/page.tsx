@@ -1,33 +1,39 @@
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Navigation */}
+      {/* Navigation - FIXED ZA MOBILNI */}
       <nav className="fixed top-0 w-full bg-white/10 backdrop-blur-md border-b border-white/10 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold text-white">
-            Pro-meister<span className="text-blue-400">.de</span>
-          </div>
-          <div className="flex gap-4">
-            <a
-              href="/login"
-              className="text-white/80 hover:text-white px-4 py-2 transition-colors"
-            >
-              Anmelden
-            </a>
-            <a
-              href="/signup"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105"
-            >
-              Registrieren
-            </a>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {/* Mobile: Dva reda */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+            {/* Logo - uvek na vrhu */}
+            <div className="text-xl sm:text-2xl font-bold text-white text-center sm:text-left">
+              Pro-meister<span className="text-blue-400">.de</span>
+            </div>
+            
+            {/* Dugmad - ispod na mobilnom */}
+            <div className="flex gap-2 sm:gap-4 justify-center">
+              <a
+                href="/login"
+                className="text-white/80 hover:text-white px-3 sm:px-4 py-2 transition-colors text-sm sm:text-base"
+              >
+                Anmelden
+              </a>
+              <a
+                href="/signup"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm sm:text-base"
+              >
+                Registrieren
+              </a>
+            </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 md:pt-32 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6">
+      {/* Hero Section - ADJUSTED PADDING ZA MOBILNI */}
+      <section className="pt-32 sm:pt-28 md:pt-32 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto text-center">
-          {/* Badge */}
+          {/* Badge - SPUŠTEN MALO DOLE */}
           <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 sm:px-4 py-2 mb-6 sm:mb-8">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
             <span className="text-blue-300 text-xs sm:text-sm font-medium">Deutsche Rechnungsstandards • ZUGFeRD 2.1 konform</span>
@@ -65,7 +71,7 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Hero Demo - Updated */}
+          {/* Hero Demo */}
           <div className="relative max-w-4xl mx-auto px-2">
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 border border-slate-600 shadow-2xl">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 text-left">
@@ -96,7 +102,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Section - Updated */}
+      {/* Features Section */}
       <section id="features" className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -217,7 +223,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section - Updated */}
+      {/* Pricing Section */}
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
