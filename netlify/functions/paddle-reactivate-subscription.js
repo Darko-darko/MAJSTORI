@@ -1,6 +1,6 @@
-// netlify/functions/paddle-reactivate-subscription.js - UNIVERSAL
+// netlify/functions/paddle-reactivate-subscription.js - CommonJS verzija
 
-import { createClient } from '@supabase/supabase-js'
+const { createClient } = require('@supabase/supabase-js')
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,11 +18,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
-export async function OPTIONS(request) {
-  return { statusCode: 200, headers: corsHeaders, body: '' }
-}
+exports.handler = async (event, context) => {
+  // OPTIONS request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: ''
+    }
+  }
 
-export async function handler(event, context) {
+  // Only allow POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -34,13 +40,30 @@ export async function handler(event, context) {
   try {
     console.log('🔄 Reactivate subscription request received')
     
-    const { subscriptionId, majstorId } = JSON.parse(event.body)
-
-    if (!subscriptionId || !majstorId) {
+    // Parse body
+    let body
+    try {
+      body = JSON.parse(event.body)
+    } catch (e) {
+      console.error('❌ Invalid JSON body')
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Missing subscriptionId or majstorId' })
+        body: JSON.stringify({ error: 'Invalid JSON' })
+      }
+    }
+
+    const { subscriptionId, majstorId } = body
+
+    if (!subscriptionId || !majstorId) {
+      console.error('❌ Missing subscriptionId or majstorId')
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          error: 'Missing required fields',
+          required: ['subscriptionId', 'majstorId']
+        })
       }
     }
 
@@ -48,10 +71,14 @@ export async function handler(event, context) {
     console.log('👤 Majstor ID:', majstorId)
 
     if (!PADDLE_API_KEY) {
+      console.error('❌ PADDLE_API_KEY not configured')
       return {
         statusCode: 500,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Paddle API key not configured' })
+        body: JSON.stringify({ 
+          error: 'Server configuration error',
+          hint: 'PADDLE_API_KEY missing'
+        })
       }
     }
 
@@ -73,7 +100,10 @@ export async function handler(event, context) {
       return {
         statusCode: getResponse.status,
         headers: corsHeaders,
-        body: JSON.stringify({ error: 'Failed to fetch subscription status' })
+        body: JSON.stringify({ 
+          error: 'Failed to fetch subscription status',
+          details: errorText.substring(0, 200)
+        })
       }
     }
 
@@ -150,7 +180,8 @@ export async function handler(event, context) {
         headers: corsHeaders,
         body: JSON.stringify({ 
           error: 'Subscription is already active',
-          currentStatus: currentStatus
+          currentStatus: currentStatus,
+          hasScheduledChange: hasScheduledChange
         })
       }
     }
@@ -158,20 +189,22 @@ export async function handler(event, context) {
     console.log('📡 Paddle response status:', paddleResponse.status)
     
     const responseText = await paddleResponse.text()
-    console.log('📄 Paddle response:', responseText.substring(0, 300))
+    console.log('📄 Paddle response preview:', responseText.substring(0, 300))
 
     if (!paddleResponse.ok) {
       let errorData
       try {
         errorData = JSON.parse(responseText)
       } catch (e) {
+        console.error('❌ Failed to parse Paddle error response')
         return {
           statusCode: paddleResponse.status,
           headers: corsHeaders,
           body: JSON.stringify({ 
             error: 'Paddle API error',
-            details: responseText.substring(0, 200),
-            method: method
+            details: responseText.substring(0, 300),
+            method: method,
+            status: paddleResponse.status
           })
         }
       }
@@ -182,7 +215,7 @@ export async function handler(event, context) {
         headers: corsHeaders,
         body: JSON.stringify({ 
           error: errorData.error?.detail || errorData.error?.message || 'Reactivation failed',
-          details: errorData,
+          paddleError: errorData,
           method: method
         })
       }
@@ -206,19 +239,25 @@ export async function handler(event, context) {
       .eq('paddle_subscription_id', subscriptionId)
 
     if (updateError) {
-      console.error('❌ Supabase update error:', updateError)
+      console.error('⚠️ Supabase update error:', updateError)
     } else {
-      console.log('✅ Database updated')
+      console.log('✅ user_subscriptions updated')
     }
 
     // Update majstors
-    await supabaseAdmin
+    const { error: majstorError } = await supabaseAdmin
       .from('majstors')
       .update({
         subscription_status: newStatus,
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
+
+    if (majstorError) {
+      console.error('⚠️ Majstor update error:', majstorError)
+    } else {
+      console.log('✅ majstors table updated')
+    }
 
     console.log('✅ Reactivation complete!')
 
@@ -230,19 +269,24 @@ export async function handler(event, context) {
         message: 'Subscription reactivated successfully',
         method: method,
         newStatus: newStatus,
-        data: paddleData
+        data: {
+          subscriptionId: paddleData.data?.id || subscriptionId,
+          status: newStatus
+        }
       })
     }
 
   } catch (error) {
     console.error('💥 Reactivate error:', error)
+    console.error('Stack:', error.stack)
     
     return {
       statusCode: 500,
       headers: corsHeaders,
       body: JSON.stringify({ 
         error: 'Failed to reactivate subscription',
-        details: error.message
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       })
     }
   }
