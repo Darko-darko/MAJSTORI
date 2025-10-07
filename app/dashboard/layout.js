@@ -21,30 +21,7 @@ function DashboardLayoutContent({ children }) {
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh } = useSubscription(majstor?.id)
   
-  // 🔥 OPTIMIZED: Listen for subscription changes - SINGLE refresh after 15s
-  useEffect(() => {
-    const handleSubscriptionChange = (event) => {
-      console.log('📢 Sidebar detected subscription change:', event.detail)
-      
-      if (refresh && typeof refresh === 'function') {
-        // 🎯 OPTIMIZED: Just ONE refresh after 15 seconds (not 6x like subscription page)
-        console.log('🔄 Sidebar will refresh in 15 seconds...')
-        
-        setTimeout(() => {
-          refresh()
-          console.log('✅ Sidebar refreshed (single refresh)')
-        }, 15000) // 15 seconds - enough time for webhook to process
-      }
-    }
-    
-    // Add event listener
-    window.addEventListener('subscription-changed', handleSubscriptionChange)
-    
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('subscription-changed', handleSubscriptionChange)
-    }
-  }, [refresh])
+
   
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
