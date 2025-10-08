@@ -1,4 +1,4 @@
-// app/dashboard/invoices/page.js - COMPLETE FILE WITH COMPACT HARD RESET BUTTON
+// app/dashboard/invoices/page.js - COMPLETE FILE WITH OVERDUE FILTER
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -32,6 +32,9 @@ function DashboardPageContent() {
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
+
+  // 🔥 OVERDUE FILTER
+  const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
 
   const [settingsData, setSettingsData] = useState({
     is_kleinunternehmer: false,
@@ -487,7 +490,7 @@ function DashboardPageContent() {
       if (quoteUpdateError) {
         console.warn('Could not update quote status:', quoteUpdateError.message)
       } else {
-        console.log('📝 Quote status updated to converted')
+        console.log('🔄 Quote status updated to converted')
       }
 
       console.log('🔄 Refreshing invoices data...')
@@ -700,25 +703,22 @@ function DashboardPageContent() {
     }))
   }
 
-// Hard Reset Modal Component - FIXED VERSION
-// 🔥 KOMPLETNA HardResetModal funkcija - ZAMENI CELU FUNKCIJU
+// 🔥 HardResetModal - COMPLETE WITH MINIMAL APPROACH
 const HardResetModal = () => {
   const [resetData, setResetData] = useState({
-    nextQuoteNumber: '',  // 🔥 Počinje prazno
-    nextInvoiceNumber: '', // 🔥 Počinje prazno
+    nextQuoteNumber: '',
+    nextInvoiceNumber: '',
     confirmText: ''
   })
 
   const totalDocuments = quotes.length + invoices.length
   const currentYear = new Date().getFullYear()
 
-  // 🔥 Jednostavan handler - samo filtrira brojeve
   const handleNumberInput = (field, value) => {
     const numericValue = value.replace(/[^0-9]/g, '')
     setResetData(prev => ({ ...prev, [field]: numericValue }))
   }
 
-  // 🔥 Uzmi stvarnu vrednost za processing (prazno = 1)
   const getActualNumber = (value) => {
     if (value === '' || value === '0') return 1
     return parseInt(value, 10)
@@ -754,7 +754,6 @@ const HardResetModal = () => {
 
       console.log('🔥 Starting hard reset...')
 
-      // 1️⃣ Get all invoices
       const { data: allInvoices, error: fetchError } = await supabase
         .from('invoices')
         .select('id, pdf_storage_path, type, invoice_number, quote_number, status')
@@ -764,7 +763,6 @@ const HardResetModal = () => {
 
       console.log(`📋 Found ${allInvoices.length} total invoices`)
 
-      // 2️⃣ Delete PDFs
       const pdfPaths = allInvoices
         .filter(inv => inv.status !== 'dummy')
         .map(inv => inv.pdf_storage_path)
@@ -783,7 +781,6 @@ const HardResetModal = () => {
         }
       }
 
-      // 3️⃣ Delete all invoices
       console.log('🗑️ Deleting all invoices...')
       const { error: deleteError } = await supabase
         .from('invoices')
@@ -793,7 +790,6 @@ const HardResetModal = () => {
       if (deleteError) throw deleteError
       console.log('✅ All invoices deleted')
 
-      // 4️⃣ Create dummy entries
       const dummyQuoteNumber = actualQuoteNumber - 1
       const dummyInvoiceNumber = actualInvoiceNumber - 1
       const now = new Date().toISOString()
@@ -894,7 +890,6 @@ const HardResetModal = () => {
 
   if (!showHardResetModal) return null
 
-  // 🔥 Za preview koristimo getActualNumber
   const previewQuoteNumber = getActualNumber(resetData.nextQuoteNumber)
   const previewInvoiceNumber = getActualNumber(resetData.nextInvoiceNumber)
 
@@ -902,7 +897,6 @@ const HardResetModal = () => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
       <div className="bg-slate-800 rounded-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         
-        {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-2xl">
             🔄
@@ -917,7 +911,6 @@ const HardResetModal = () => {
           </div>
         </div>
 
-        {/* Current Status */}
         <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
           <h4 className="text-white font-medium mb-3">📊 Aktueller Stand</h4>
           <div className="grid grid-cols-3 gap-3">
@@ -936,7 +929,6 @@ const HardResetModal = () => {
           </div>
         </div>
 
-        {/* Warning */}
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
             <span className="text-red-400 text-xl">⚠️</span>
@@ -953,15 +945,13 @@ const HardResetModal = () => {
           </div>
         </div>
 
-        {/* Number Inputs */}
         <div className="space-y-4 mb-6">
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
             <p className="text-blue-300 text-sm">
-              💡 Leer lassen = Startet bei 0001
+              💡 Leer lassen = Startet bei 001
             </p>
           </div>
 
-          {/* Quote Number */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Nächste Angebotsnummer
@@ -979,12 +969,11 @@ const HardResetModal = () => {
             <div className="mt-2 bg-slate-900/50 rounded p-2">
               <p className="text-xs text-slate-400">Vorschau:</p>
               <p className="text-green-400 font-mono text-sm">
-                AN-{currentYear}-{String(previewQuoteNumber).padStart(4, '0')}
+                AN-{currentYear}-{String(previewQuoteNumber).padStart(3, '0')}
               </p>
             </div>
           </div>
 
-          {/* Invoice Number */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Nächste Rechnungsnummer
@@ -1002,13 +991,12 @@ const HardResetModal = () => {
             <div className="mt-2 bg-slate-900/50 rounded p-2">
               <p className="text-xs text-slate-400">Vorschau:</p>
               <p className="text-green-400 font-mono text-sm">
-                RE-{currentYear}-{String(previewInvoiceNumber).padStart(4, '0')}
+                RE-{currentYear}-{String(previewInvoiceNumber).padStart(3, '0')}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Confirmation */}
         <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mb-6">
           <label className="block text-sm font-medium text-red-300 mb-2">
             ⚠️ Bestätigung: <strong>"LÖSCHEN"</strong> eingeben:
@@ -1023,7 +1011,6 @@ const HardResetModal = () => {
           />
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={() => setShowHardResetModal(false)}
@@ -1053,6 +1040,7 @@ const HardResetModal = () => {
     </div>
   )
 }
+
   const QuotesList = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -1188,163 +1176,190 @@ const HardResetModal = () => {
     </div>
   )
 
-  const InvoicesList = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-white">Rechnungen</h3>
-        <button
-          onClick={() => {
-            setCreateType('invoice')
-            setIsEditMode(false)
-            setEditingItem(null)
-            setShowCreateModal(true)
-          }}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-        >
-          + Neue Rechnung
-        </button>
-      </div>
+  // 🔥 UPDATED InvoicesList with overdue filter
+  const InvoicesList = () => {
+    const displayInvoices = showOnlyOverdue 
+      ? invoices.filter(inv => isInvoiceOverdue(inv))
+      : invoices
 
-      {invoices.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
-          <div className="text-4xl mb-4">🧾</div>
-          <p>Noch keine Rechnungen erstellt</p>
-          <p className="text-sm mt-2">Wandeln Sie Angebote in Rechnungen um oder erstellen Sie direkt eine neue Rechnung</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {invoices.map((invoice) => {
-            const overdueStatus = isInvoiceOverdue(invoice)
-            const daysOverdue = getDaysOverdue(invoice)
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Rechnungen</h3>
             
-            return (
-              <div key={invoice.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
-                      
-                      {overdueStatus && (
-                        <div 
-                          className="flex items-center gap-1 text-red-400 text-sm cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
-                          title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
-                        >
-                          <span className="text-red-400">⏰</span>
-                          <span className="font-medium">{daysOverdue}d</span>
+            {showOnlyOverdue && (
+              <p className="text-orange-400 text-sm mt-1">
+                ⏰ Zeige nur überfällige Rechnungen ({displayInvoices.length})
+              </p>
+            )}
+          </div>
+          
+          <button
+            onClick={() => {
+              setCreateType('invoice')
+              setIsEditMode(false)
+              setEditingItem(null)
+              setShowCreateModal(true)
+            }}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            + Neue Rechnung
+          </button>
+        </div>
+
+        {displayInvoices.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <div className="text-4xl mb-4">
+              {showOnlyOverdue ? '🎉' : '🧾'}
+            </div>
+            <p>
+              {showOnlyOverdue 
+                ? 'Keine überfälligen Rechnungen!' 
+                : 'Noch keine Rechnungen erstellt'
+              }
+            </p>
+            <p className="text-sm mt-2">
+              {showOnlyOverdue 
+                ? 'Alle Rechnungen sind rechtzeitig bezahlt oder noch nicht fällig.'
+                : 'Wandeln Sie Angebote in Rechnungen um oder erstellen Sie direkt eine neue Rechnung'
+              }
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {displayInvoices.map((invoice) => {
+              const overdueStatus = isInvoiceOverdue(invoice)
+              const daysOverdue = getDaysOverdue(invoice)
+              
+              return (
+                <div key={invoice.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
+                        
+                        {overdueStatus && (
+                          <div 
+                            className="flex items-center gap-1 text-red-400 text-sm cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
+                            title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
+                          >
+                            <span className="text-red-400">⏰</span>
+                            <span className="font-medium">{daysOverdue}d</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-slate-400">{invoice.customer_name}</p>
+                      <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
+                      {invoice.converted_from_quote_id && (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-green-300 text-xs">
+                            Aus Angebot erstellt
+                          </span>
                         </div>
                       )}
                     </div>
-                    <p className="text-slate-400">{invoice.customer_name}</p>
-                    <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
-                    {invoice.converted_from_quote_id && (
-                      <div className="mt-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-green-300 text-xs">
-                          Aus Angebot erstellt
-                        </span>
-                      </div>
-                    )}
+                    <div className="text-right">
+                      <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
+                        {invoice.status === 'draft' && 'Entwurf'}
+                        {invoice.status === 'sent' && 'Gesendet'}
+                        {invoice.status === 'paid' && 'Bezahlt'}
+                        {invoice.status === 'overdue' && 'Überfällig'}
+                        {invoice.status === 'cancelled' && 'Storniert'}
+                      </span>
+                      {invoice.status === 'paid' && (
+                        <div className="text-green-400 font-semibold text-sm mt-1">
+                          💰 {formatCurrency(invoice.total_amount)}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
-                      {invoice.status === 'draft' && 'Entwurf'}
-                      {invoice.status === 'sent' && 'Gesendet'}
-                      {invoice.status === 'paid' && 'Bezahlt'}
-                      {invoice.status === 'overdue' && 'Überfällig'}
-                      {invoice.status === 'cancelled' && 'Storniert'}
-                    </span>
-                    {invoice.status === 'paid' && (
-                      <div className="text-green-400 font-semibold text-sm mt-1">
-                        💰 {formatCurrency(invoice.total_amount)}
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-                  <div>
-                    <span className="text-slate-400">Betrag:</span>
-                    <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                    <div>
+                      <span className="text-slate-400">Betrag:</span>
+                      <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Rechnungsdatum:</span>
+                      <p className="text-white">{formatDate(invoice.issue_date)}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Fälligkeitsdatum:</span>
+                      <p className="text-white">{formatDate(invoice.due_date)}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Positionen:</span>
+                      <p className="text-white">{invoice.items ? JSON.parse(invoice.items).length : 0}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-400">Rechnungsdatum:</span>
-                    <p className="text-white">{formatDate(invoice.issue_date)}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Fälligkeitsdatum:</span>
-                    <p className="text-white">{formatDate(invoice.due_date)}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Positionen:</span>
-                    <p className="text-white">{invoice.items ? JSON.parse(invoice.items).length : 0}</p>
-                  </div>
-                </div>
 
-                <div className="flex gap-3 flex-wrap">
-                  <button 
-                    onClick={() => handlePDFView(invoice)}
-                    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-                  >
-                    👁️ PDF ansehen
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleEditClick(invoice)}
-                    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-                  >
-                    Bearbeiten
-                  </button>
-                  
-                  {invoice.email_sent_at ? (
+                  <div className="flex gap-3 flex-wrap">
                     <button 
-                      onClick={() => handleEmailClick(invoice)}
-                      className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
-                    >
-                      🔄 Erneut senden
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => handleEmailClick(invoice)}
+                      onClick={() => handlePDFView(invoice)}
                       className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                     >
-                      Per E-Mail senden
+                      👁️ PDF ansehen
                     </button>
-                  )}
-                  
-                  {(invoice.status === 'draft' || invoice.status === 'sent') && (
-                    <button
-                      onClick={() => handleMarkAsPaid(invoice)}
-                      className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                    
+                    <button 
+                      onClick={() => handleEditClick(invoice)}
+                      className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                     >
-                      Als bezahlt markieren
+                      Bearbeiten
                     </button>
-                  )}
+                    
+                    {invoice.email_sent_at ? (
+                      <button 
+                        onClick={() => handleEmailClick(invoice)}
+                        className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                      >
+                        🔄 Erneut senden
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleEmailClick(invoice)}
+                        className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                      >
+                        Per E-Mail senden
+                      </button>
+                    )}
+                    
+                    {(invoice.status === 'draft' || invoice.status === 'sent') && (
+                      <button
+                        onClick={() => handleMarkAsPaid(invoice)}
+                        className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                      >
+                        Als bezahlt markieren
+                      </button>
+                    )}
 
-                  {invoice.status === 'paid' && (
-                    <button
-                      onClick={() => handleUndoPaid(invoice)}
-                      className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
+                    {invoice.status === 'paid' && (
+                      <button
+                        onClick={() => handleUndoPaid(invoice)}
+                        className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
+                      >
+                        Bezahlung rückgängig
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => handleDeleteInvoice(invoice)}
+                      className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                      title="Rechnung löschen"
                     >
-                      Bezahlung rückgängig
+                      Löschen
                     </button>
-                  )}
-                  
-                  <button 
-                    onClick={() => handleDeleteInvoice(invoice)}
-                    className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
-                    title="Rechnung löschen"
-                  >
-                    Löschen
-                  </button>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
 
-  // SETTINGS TAB WITH COMPACT HARD RESET BUTTON
   const SettingsTab = () => {
     const [localSettings, setLocalSettings] = useState(settingsData)
     const [hasChanges, setHasChanges] = useState(false)
@@ -1370,7 +1385,6 @@ const HardResetModal = () => {
   setSettingsError('')
 
   try {
-    // 🔥 Validation: At least one tax ID must be provided
     const hasTaxNumber = localSettings.tax_number && localSettings.tax_number.trim().length > 0
     const hasVatId = localSettings.vat_id && localSettings.vat_id.trim().length > 0
     
@@ -1450,13 +1464,12 @@ const HardResetModal = () => {
         <span className="inline sm:hidden">Einstellungen</span>
       </h3>
           
-          {/* 🔥 COMPACT HARD RESET BUTTON - Only show if has documents */}
           {hasDocuments && (
             <button
               onClick={() => setShowHardResetModal(true)}
               className="flex items-center gap-2 bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg transition-colors text-sm"
             >
-              <span>🔥</span>
+              <span>🔄</span>
               <span>Neustart</span>
               <span className="text-xs text-red-300">({totalDocuments})</span>
             </button>
@@ -1473,7 +1486,6 @@ const HardResetModal = () => {
         
         <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
 
-          {/* Logo & Branding */}
           <LogoUpload
             majstor={majstor}
             context="invoice"
@@ -1494,7 +1506,6 @@ const HardResetModal = () => {
             className="mb-6"
           />
           
-          {/* Business Profile Section */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-2">Geschäftsprofil</h4>
             <p className="text-slate-400 text-sm mb-4">
@@ -1599,7 +1610,6 @@ const HardResetModal = () => {
             </div>
           </div>
 
-          {/* Tax Settings */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-4">Steuer-Einstellungen</h4>
             
@@ -1671,7 +1681,6 @@ const HardResetModal = () => {
             </div>
           </div>
 
-          {/* Bank Data */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-4">Bankdaten</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1713,7 +1722,6 @@ const HardResetModal = () => {
             </div>
           </div>
 
-          {/* Payment Terms */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
             <h4 className="text-white font-semibold mb-4">Zahlungsbedingungen</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1745,14 +1753,12 @@ const HardResetModal = () => {
             </div>
           </div>
 
-          {/* Error Display */}
           {settingsError && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
               <p className="text-red-400">{settingsError}</p>
             </div>
           )}
 
-          {/* Changes Indicator */}
           {hasChanges && (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2">
@@ -1762,7 +1768,6 @@ const HardResetModal = () => {
             </div>
           )}
 
-          {/* Save Button */}
           <button 
             type="submit"
             disabled={settingsLoading || !hasChanges}
@@ -1799,7 +1804,6 @@ const HardResetModal = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Rechnungen & Angebote</h1>
@@ -1815,18 +1819,18 @@ const HardResetModal = () => {
         </Link>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
           <p className="text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Stats Cards */}
+      {/* 🔥 UPDATED Stats Cards with overdue filter */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <button
           onClick={() => {
             setActiveTab('quotes')
+            setShowOnlyOverdue(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'quotes')
             window.history.replaceState({}, '', url.toString())
@@ -1851,12 +1855,13 @@ const HardResetModal = () => {
         <button
           onClick={() => {
             setActiveTab('invoices')
+            setShowOnlyOverdue(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'invoices')
             window.history.replaceState({}, '', url.toString())
           }}
           className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-purple-600 hover:scale-105 ${
-            activeTab === 'invoices' 
+            activeTab === 'invoices' && !showOnlyOverdue
               ? 'border-purple-500 ring-2 ring-purple-500/20' 
               : 'border-slate-700'
           }`}
@@ -1875,12 +1880,13 @@ const HardResetModal = () => {
         <button
           onClick={() => {
             setActiveTab('invoices')
+            setShowOnlyOverdue(true)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'invoices')
             window.history.replaceState({}, '', url.toString())
           }}
           className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-orange-600 hover:scale-105 ${
-            activeTab === 'invoices' 
+            activeTab === 'invoices' && showOnlyOverdue
               ? 'border-orange-500 ring-2 ring-orange-500/20' 
               : 'border-slate-700'
           }`}
@@ -1901,12 +1907,13 @@ const HardResetModal = () => {
         <button
           onClick={() => {
             setActiveTab('invoices')
+            setShowOnlyOverdue(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'invoices')
             window.history.replaceState({}, '', url.toString())
           }}
           className={`bg-slate-800/50 border rounded-lg p-4 text-left transition-all hover:bg-slate-700/50 hover:border-green-600 hover:scale-105 ${
-            activeTab === 'invoices' 
+            activeTab === 'invoices' && !showOnlyOverdue
               ? 'border-green-500 ring-2 ring-green-500/20' 
               : 'border-slate-700'
           }`}
@@ -1929,43 +1936,43 @@ const HardResetModal = () => {
         </button>
       </div>
 
-    {/* TABS */}
-<div className="border-b border-slate-700 overflow-x-auto">
-  <nav className="flex space-x-1 sm:space-x-8 min-w-max">
-    {tabs.map((tab) => (
-      <button
-        key={tab.id}
-        onClick={() => {
-          setActiveTab(tab.id)
-          const url = new URL(window.location.href)
-          url.searchParams.set('tab', tab.id)
-          window.history.replaceState({}, '', url.toString())
-        }}
-        className={`py-2 px-1.5 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
-          activeTab === tab.id
-            ? 'border-blue-500 text-blue-400'
-            : 'border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-300'
-        }`}
-      >
-        {tab.name}
-        {tab.count !== undefined && (
-          <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
-            {tab.count}
-          </span>
-        )}
-      </button>
-    ))}
-  </nav>
-</div>
+      <div className="border-b border-slate-700 overflow-x-auto">
+        <nav className="flex space-x-1 sm:space-x-8 min-w-max">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id)
+                if (tab.id !== 'invoices') {
+                  setShowOnlyOverdue(false)
+                }
+                const url = new URL(window.location.href)
+                url.searchParams.set('tab', tab.id)
+                window.history.replaceState({}, '', url.toString())
+              }}
+              className={`py-2 px-1.5 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'border-blue-500 text-blue-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-300'
+              }`}
+            >
+              {tab.name}
+              {tab.count !== undefined && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-      {/* Tab Content */}
       <div>
         {activeTab === 'quotes' && <QuotesList />}
         {activeTab === 'invoices' && <InvoicesList />}
         {activeTab === 'settings' && <SettingsTab />}
       </div>
 
-      {/* Create/Edit Modal */}
       {showCreateModal && (
         <InvoiceCreator
           isOpen={showCreateModal}
@@ -1978,7 +1985,6 @@ const HardResetModal = () => {
         />
       )}
 
-      {/* Email Modal */}
       {showEmailModal && emailItem && (
         <EmailInvoiceModal
           isOpen={showEmailModal}
@@ -1992,7 +1998,6 @@ const HardResetModal = () => {
         />
       )}
 
-      {/* Hard Reset Modal */}
       <HardResetModal />
     </div>
   )

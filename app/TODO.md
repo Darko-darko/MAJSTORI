@@ -81,3 +81,4 @@
 - na landing page ... staviti pro-meister.de  iznad regostracije
 - na stranici za invoice približiti tabove
 - na invoice kad klikn stats da filtrira samo one kojim je valuta istekla
+- blokirati dugme rehnungen einstelungen iz kundenfrage za freemium
