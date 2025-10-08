@@ -1501,9 +1501,12 @@ setTimeout(async () => {
     const hasDocuments = totalDocuments > 0
 
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Rechnungseinstellungen</h3>
+  <div className="space-y-6">
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-semibold text-white">
+        <span className="hidden sm:inline">Rechnungseinstellungen</span>
+        <span className="inline sm:hidden">Einstellungen</span>
+      </h3>
           
           {/* 🔥 COMPACT HARD RESET BUTTON - Only show if has documents */}
           {hasDocuments && (
