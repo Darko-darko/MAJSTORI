@@ -999,7 +999,7 @@ const HardResetModal = () => {
 
         <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mb-6">
           <label className="block text-sm font-medium text-red-300 mb-2">
-            ⚠️ Bestätigung: <strong>"LÖSCHEN"</strong> eingeben:
+            ⚠️ Bestätigung: <strong>&quot;LÖSCHEN&quot;</strong> eingeben:
           </label>
           <input
             type="text"
