@@ -701,21 +701,37 @@ function DashboardPageContent() {
   }
 
 // Hard Reset Modal Component - FIXED VERSION
+// 🔥 KOMPLETNA HardResetModal funkcija - ZAMENI CELU FUNKCIJU
 const HardResetModal = () => {
   const [resetData, setResetData] = useState({
-    nextQuoteNumber: majstor?.next_quote_number || 1,
-    nextInvoiceNumber: majstor?.next_invoice_number || 1,
+    nextQuoteNumber: '',  // 🔥 Počinje prazno
+    nextInvoiceNumber: '', // 🔥 Počinje prazno
     confirmText: ''
   })
 
   const totalDocuments = quotes.length + invoices.length
   const currentYear = new Date().getFullYear()
 
+  // 🔥 Jednostavan handler - samo filtrira brojeve
+  const handleNumberInput = (field, value) => {
+    const numericValue = value.replace(/[^0-9]/g, '')
+    setResetData(prev => ({ ...prev, [field]: numericValue }))
+  }
+
+  // 🔥 Uzmi stvarnu vrednost za processing (prazno = 1)
+  const getActualNumber = (value) => {
+    if (value === '' || value === '0') return 1
+    return parseInt(value, 10)
+  }
+
   const handleHardReset = async () => {
     if (resetData.confirmText !== 'LÖSCHEN') {
       alert('❌ Bitte geben Sie "LÖSCHEN" ein um zu bestätigen')
       return
     }
+
+    const actualQuoteNumber = getActualNumber(resetData.nextQuoteNumber)
+    const actualInvoiceNumber = getActualNumber(resetData.nextInvoiceNumber)
 
     const finalConfirm = confirm(
       `⚠️ LETZTE WARNUNG!\n\n` +
@@ -725,8 +741,8 @@ const HardResetModal = () => {
       `• ${invoices.length} Rechnungen\n` +
       `• Alle zugehörigen PDF-Dateien\n\n` +
       `Neue Nummerierung:\n` +
-      `• Angebote ab: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(4, '0')}\n` +
-      `• Rechnungen ab: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(4, '0')}\n\n` +
+      `• Angebote ab: AN-${currentYear}-${String(actualQuoteNumber).padStart(3, '0')}\n` +
+      `• Rechnungen ab: RE-${currentYear}-${String(actualInvoiceNumber).padStart(3, '0')}\n\n` +
       `Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
       `Wirklich fortfahren?`
     )
@@ -738,7 +754,7 @@ const HardResetModal = () => {
 
       console.log('🔥 Starting hard reset...')
 
-      // 1️⃣ Get all invoices (including dummies)
+      // 1️⃣ Get all invoices
       const { data: allInvoices, error: fetchError } = await supabase
         .from('invoices')
         .select('id, pdf_storage_path, type, invoice_number, quote_number, status')
@@ -746,17 +762,16 @@ const HardResetModal = () => {
 
       if (fetchError) throw fetchError
 
-      console.log(`📋 Found ${allInvoices.length} total invoices (including dummies)`)
+      console.log(`📋 Found ${allInvoices.length} total invoices`)
 
-      // 2️⃣ Delete all PDFs from storage (only non-dummy invoices have PDFs)
+      // 2️⃣ Delete PDFs
       const pdfPaths = allInvoices
         .filter(inv => inv.status !== 'dummy')
         .map(inv => inv.pdf_storage_path)
         .filter(path => path)
 
       if (pdfPaths.length > 0) {
-        console.log(`🗑️ Deleting ${pdfPaths.length} PDFs from storage...`)
-        
+        console.log(`🗑️ Deleting ${pdfPaths.length} PDFs...`)
         const { error: storageError } = await supabase.storage
           .from('invoice-pdfs')
           .remove(pdfPaths)
@@ -764,162 +779,124 @@ const HardResetModal = () => {
         if (storageError) {
           console.warn('⚠️ Some PDFs could not be deleted:', storageError)
         } else {
-          console.log('✅ PDFs deleted successfully')
+          console.log('✅ PDFs deleted')
         }
       }
 
-      // 3️⃣ Delete ALL invoices from database (including old dummies)
-      console.log('🗑️ Deleting all invoices (including old dummies) from database...')
+      // 3️⃣ Delete all invoices
+      console.log('🗑️ Deleting all invoices...')
       const { error: deleteError } = await supabase
         .from('invoices')
         .delete()
         .eq('majstor_id', majstor.id)
 
       if (deleteError) throw deleteError
-      console.log('✅ All invoices deleted from database')
-// 4️⃣ Create NEW dummy entries with (n-1) numbers
-console.log('🔢 Creating dummy entries for numbering...')
+      console.log('✅ All invoices deleted')
 
-const dummyQuoteNumber = resetData.nextQuoteNumber - 1
-const dummyInvoiceNumber = resetData.nextInvoiceNumber - 1
+      // 4️⃣ Create dummy entries
+      const dummyQuoteNumber = actualQuoteNumber - 1
+      const dummyInvoiceNumber = actualInvoiceNumber - 1
+      const now = new Date().toISOString()
+      const today = now.split('T')[0]
 
-const now = new Date().toISOString()
-const today = now.split('T')[0]
+      if (actualQuoteNumber > 1) {
+        console.log(`📝 Creating dummy quote: AN-${currentYear}-${String(dummyQuoteNumber).padStart(3, '0')}`)
+        
+        const { error: quoteError } = await supabase
+          .from('invoices')
+          .insert({
+            majstor_id: majstor.id,
+            type: 'quote',
+            quote_number: `AN-${currentYear}-${String(dummyQuoteNumber).padStart(3, '0')}`,
+            invoice_number: null,
+            customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
+            customer_email: 'dummy@internal.system',
+            customer_phone: null,
+            customer_address: null,
+            items: JSON.stringify([{ description: 'Dummy', quantity: 1, price: 0, total: 0 }]),
+            subtotal: 0,
+            tax_rate: 0,
+            tax_amount: 0,
+            total_amount: 0,
+            status: 'dummy',
+            issue_date: today,
+            valid_until: today,
+            due_date: today,
+            payment_terms_days: 14,
+            notes: null,
+            is_kleinunternehmer: false,
+            converted_from_quote_id: null,
+            created_at: now,
+            updated_at: now
+          })
+        
+        if (quoteError) throw quoteError
+        console.log(`✅ Dummy quote created`)
+      }
 
-// Create dummy QUOTE if nextQuoteNumber > 1
-// Create dummy QUOTE if nextQuoteNumber > 1
-if (resetData.nextQuoteNumber > 1) {
-  console.log(`📝 Creating dummy quote: AN-${currentYear}-${String(dummyQuoteNumber).padStart(4, '0')}`)
-  
-  const { error: quoteError } = await supabase
-    .from('invoices')
-    .insert({
-      majstor_id: majstor.id,
-      type: 'quote',
-      quote_number: `AN-${currentYear}-${String(dummyQuoteNumber).padStart(4, '0')}`,
-      invoice_number: null,
-      customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
-      customer_email: 'dummy@internal.system',
-      customer_phone: null,
-      customer_address: null,
-      items: JSON.stringify([{ description: 'Dummy', quantity: 1, price: 0, total: 0 }]),
-      subtotal: 0,
-      tax_rate: 0,
-      tax_amount: 0,
-      total_amount: 0,
-      status: 'dummy',
-      issue_date: today,
-      valid_until: today,
-      due_date: today, // 🔥 FIX: NOT NULL in database, even for quotes!
-      payment_terms_days: 14, // 🔥 FIX: Can't be null
-      notes: null,
-      is_kleinunternehmer: false,
-      converted_from_quote_id: null,
-      created_at: now,
-      updated_at: now
-    })
-  
-  if (quoteError) {
-    console.error('❌ Dummy quote creation failed:', quoteError)
-    throw quoteError
-  }
-  
-  console.log(`✅ Dummy quote created (next real: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(4, '0')})`)
-}
+      if (actualInvoiceNumber > 1) {
+        console.log(`📝 Creating dummy invoice: RE-${currentYear}-${String(dummyInvoiceNumber).padStart(3, '0')}`)
+        
+        const { error: invoiceError } = await supabase
+          .from('invoices')
+          .insert({
+            majstor_id: majstor.id,
+            type: 'invoice',
+            invoice_number: `RE-${currentYear}-${String(dummyInvoiceNumber).padStart(3, '0')}`,
+            quote_number: null,
+            customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
+            customer_email: 'dummy@internal.system',
+            customer_phone: null,
+            customer_address: null,
+            items: JSON.stringify([{ description: 'Dummy', quantity: 1, price: 0, total: 0 }]),
+            subtotal: 0,
+            tax_rate: 0,
+            tax_amount: 0,
+            total_amount: 0,
+            status: 'dummy',
+            issue_date: today,
+            due_date: today,
+            valid_until: null,
+            payment_terms_days: 14,
+            notes: null,
+            is_kleinunternehmer: false,
+            converted_from_quote_id: null,
+            created_at: now,
+            updated_at: now
+          })
+        
+        if (invoiceError) throw invoiceError
+        console.log(`✅ Dummy invoice created`)
+      }
 
-// Create dummy INVOICE if nextInvoiceNumber > 1
-if (resetData.nextInvoiceNumber > 1) {
-  console.log(`📝 Creating dummy invoice: RE-${currentYear}-${String(dummyInvoiceNumber).padStart(4, '0')}`)
-  
-  const { error: invoiceError } = await supabase
-    .from('invoices')
-    .insert({
-      majstor_id: majstor.id,
-      type: 'invoice',
-      invoice_number: `RE-${currentYear}-${String(dummyInvoiceNumber).padStart(4, '0')}`,
-      quote_number: null, // 🔥 Explicitly null for invoices
-      customer_name: 'DUMMY_ENTRY_FOR_NUMBERING',
-      customer_email: 'dummy@internal.system',
-      customer_phone: null, // 🔥 Explicitly null
-      customer_address: null, // 🔥 Explicitly null
-      items: JSON.stringify([{ description: 'Dummy', quantity: 1, price: 0, total: 0 }]),
-      subtotal: 0,
-      tax_rate: 0,
-      tax_amount: 0,
-      total_amount: 0,
-      status: 'dummy',
-      issue_date: today,
-      due_date: today, // Required for invoices
-      valid_until: null, // 🔥 NULL for invoices
-      payment_terms_days: 14, // Default
-      notes: null,
-      is_kleinunternehmer: false,
-      converted_from_quote_id: null,
-      created_at: now,
-      updated_at: now
-    })
-  
-  if (invoiceError) {
-    console.error('❌ Dummy invoice creation failed:', invoiceError)
-    throw invoiceError
-  }
-  
-  console.log(`✅ Dummy invoice created (next real: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(4, '0')})`)
-}
+      const successMessage = [
+        '✅ Neustart erfolgreich!',
+        '',
+        `📊 Gelöscht: ${allInvoices.filter(i => i.status !== 'dummy').length} Dokumente`,
+        '',
+        `🔢 Neue Nummerierung:`,
+        `• AN-${currentYear}-${String(actualQuoteNumber).padStart(3, '0')}`,
+        `• RE-${currentYear}-${String(actualInvoiceNumber).padStart(3, '0')}`,
+      ].join('\n')
 
-if (resetData.nextQuoteNumber === 1 && resetData.nextInvoiceNumber === 1) {
-  console.log('ℹ️ No dummy entries needed (starting from 001)')
-}
-      // 5️⃣ Success!
-const successMessage = [
-  '✅ Hard Reset erfolgreich abgeschlossen!',
-  '',
-  `📊 Gelöschte Dokumente:`,
-  `• ${allInvoices.filter(i => i.type === 'quote' && i.status !== 'dummy').length} Angebote`,
-  `• ${allInvoices.filter(i => i.type === 'invoice' && i.status !== 'dummy').length} Rechnungen`,
-  `• ${pdfPaths.length} PDF-Dateien`,
-  '',
-  `🔢 Neue Nummerierung:`,
-  `• Nächstes Angebot: AN-${currentYear}-${String(resetData.nextQuoteNumber).padStart(4, '0')}`,
-  `• Nächste Rechnung: RE-${currentYear}-${String(resetData.nextInvoiceNumber).padStart(4, '0')}`,
-  '',
-  resetData.nextQuoteNumber > 1 || resetData.nextInvoiceNumber > 1
-    ? `📝 Dummy-Einträge erstellt für korrekte Nummerierung`
-    : '🆕 Nummerierung beginnt bei 001',
-  '',
-  '🎉 Sie können jetzt mit der neuen Nummerierung starten!'
-].join('\n')
+      alert(successMessage)
+      setShowHardResetModal(false)
 
-alert(successMessage)
+      setTimeout(() => loadMajstorAndData(), 500)
 
-// Close modal first
-setShowHardResetModal(false)
-
-// Reload data with delay to avoid conflicts with dummy entries
-console.log('🔄 Reloading data...')
-setTimeout(async () => {
-  try {
-    await loadMajstorAndData()
-    console.log('✅ Data reloaded successfully')
-  } catch (reloadError) {
-    console.error('⚠️ Data reload error (non-critical):', reloadError)
-    // Non-critical error - user can manually refresh
-  }
-}, 500)
-
-} catch (error) {
-  console.error('❌ Hard reset failed:', error)
-  alert(
-    '❌ Fehler beim Hard Reset:\n\n' + 
-    (error.message || 'Unbekannter Fehler') + '\n\n' +
-    'Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.'
-  )
-} finally {
-  setHardResetLoading(false)
-}
+    } catch (error) {
+      console.error('❌ Reset failed:', error)
+      alert('❌ Fehler beim Neustart:\n\n' + (error.message || 'Unbekannter Fehler'))
+    } finally {
+      setHardResetLoading(false)
+    }
   }
 
   if (!showHardResetModal) return null
+
+  // 🔥 Za preview koristimo getActualNumber
+  const previewQuoteNumber = getActualNumber(resetData.nextQuoteNumber)
+  const previewInvoiceNumber = getActualNumber(resetData.nextInvoiceNumber)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
@@ -928,11 +905,11 @@ setTimeout(async () => {
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-2xl">
-            🔥
+            🔄
           </div>
           <div>
             <h3 className="text-xl font-semibold text-white">
-              Hard Reset - Alles löschen
+              Neustart - Alles löschen
             </h3>
             <p className="text-slate-400 text-sm">
               Neue Nummerierung ab Wunschnummer
@@ -959,7 +936,7 @@ setTimeout(async () => {
           </div>
         </div>
 
-        {/* What will be deleted */}
+        {/* Warning */}
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
             <span className="text-red-400 text-xl">⚠️</span>
@@ -968,116 +945,82 @@ setTimeout(async () => {
                 Folgendes wird unwiderruflich gelöscht:
               </h5>
               <ul className="text-red-200 text-sm space-y-1">
-                <li>❌ Alle {quotes.length} Angebote aus der Datenbank</li>
-                <li>❌ Alle {invoices.length} Rechnungen aus der Datenbank</li>
-                <li>❌ Alle zugehörigen PDF-Dateien</li>
-                <li>❌ Alle Email-Versand Historie</li>
+                <li>❌ Alle {quotes.length} Angebote</li>
+                <li>❌ Alle {invoices.length} Rechnungen</li>
+                <li>❌ Alle PDF-Dateien</li>
               </ul>
-              <p className="text-red-300 text-sm mt-3 font-semibold">
-                ⚠️ Diese Aktion kann NICHT rückgängig gemacht werden!
+            </div>
+          </div>
+        </div>
+
+        {/* Number Inputs */}
+        <div className="space-y-4 mb-6">
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+            <p className="text-blue-300 text-sm">
+              💡 Leer lassen = Startet bei 0001
+            </p>
+          </div>
+
+          {/* Quote Number */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Nächste Angebotsnummer
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={resetData.nextQuoteNumber}
+              onChange={(e) => handleNumberInput('nextQuoteNumber', e.target.value)}
+              onFocus={(e) => e.target.select()}
+              placeholder="1"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono placeholder:text-slate-600"
+              disabled={hardResetLoading}
+            />
+            <div className="mt-2 bg-slate-900/50 rounded p-2">
+              <p className="text-xs text-slate-400">Vorschau:</p>
+              <p className="text-green-400 font-mono text-sm">
+                AN-{currentYear}-{String(previewQuoteNumber).padStart(4, '0')}
+              </p>
+            </div>
+          </div>
+
+          {/* Invoice Number */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Nächste Rechnungsnummer
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={resetData.nextInvoiceNumber}
+              onChange={(e) => handleNumberInput('nextInvoiceNumber', e.target.value)}
+              onFocus={(e) => e.target.select()}
+              placeholder="1"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono placeholder:text-slate-600"
+              disabled={hardResetLoading}
+            />
+            <div className="mt-2 bg-slate-900/50 rounded p-2">
+              <p className="text-xs text-slate-400">Vorschau:</p>
+              <p className="text-green-400 font-mono text-sm">
+                RE-{currentYear}-{String(previewInvoiceNumber).padStart(4, '0')}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Custom Start Numbers */}
-        <div className="space-y-4 mb-6">
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
-            <p className="text-blue-300 text-sm">
-              💡 <strong>Tipp:</strong> Wenn Sie von einem anderen System wechseln, 
-              können Sie hier die Nummern so einstellen, dass sie nahtlos weiterlaufen.
-            </p>
-          </div>
-{/* Next Quote Number */}
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Nächste Angebotsnummer
-  </label>
-  <input
-    type="number"
-    min="1"
-    value={resetData.nextQuoteNumber}
-    onChange={(e) => setResetData(prev => ({ 
-      ...prev, 
-      nextQuoteNumber: parseInt(e.target.value) || 1 
-    }))}
-    onFocus={(e) => e.target.select()} // 🔥 FIX: Auto-select on tap/click
-    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
-    disabled={hardResetLoading}
-  />
-  <div className="mt-2 bg-slate-900/50 rounded p-2">
-    <p className="text-xs text-slate-400">Vorschau nächstes Angebot:</p>
-    <p className="text-green-400 font-mono text-sm">
-      AN-{currentYear}-{String(resetData.nextQuoteNumber).padStart(4, '0')}
-    </p>
-    {resetData.nextQuoteNumber > 1 && (
-      <p className="text-xs text-slate-500 mt-1">
-        Dummy wird erstellt: AN-{currentYear}-{String(resetData.nextQuoteNumber - 1).padStart(4, '0')}
-      </p>
-    )}
-  </div>
-</div>
-
-{/* Next Invoice Number */}
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Nächste Rechnungsnummer
-  </label>
-  <input
-    type="number"
-    min="1"
-    value={resetData.nextInvoiceNumber}
-    onChange={(e) => setResetData(prev => ({ 
-      ...prev, 
-      nextInvoiceNumber: parseInt(e.target.value) || 1 
-    }))}
-    onFocus={(e) => e.target.select()} // 🔥 FIX: Auto-select on tap/click
-    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-lg font-mono"
-    disabled={hardResetLoading}
-  />
-  <div className="mt-2 bg-slate-900/50 rounded p-2">
-    <p className="text-xs text-slate-400">Vorschau nächste Rechnung:</p>
-    <p className="text-green-400 font-mono text-sm">
-      RE-{currentYear}-{String(resetData.nextInvoiceNumber).padStart(4, '0')}
-    </p>
-    {resetData.nextInvoiceNumber > 1 && (
-      <p className="text-xs text-slate-500 mt-1">
-        Dummy wird erstellt: RE-{currentYear}-{String(resetData.nextInvoiceNumber - 1).padStart(4, '0')}
-      </p>
-    )}
-  </div>
-</div>
-
-          {/* Use Case Examples */}
-          <div className="bg-slate-900/50 rounded-lg p-3">
-            <p className="text-slate-400 text-xs mb-2">💡 Beispiele:</p>
-            <ul className="text-slate-300 text-xs space-y-1">
-              <li>• <strong>Neustart:</strong> Setzen Sie auf 1 für einen kompletten Neuanfang</li>
-              <li>• <strong>Systemwechsel:</strong> Geben Sie die nächste Nummer nach Ihrem alten System ein (z.B. 144 wenn Ihre letzte Rechnung RE-2025-143 war)</li>
-              <li>• <strong>Nach Tests:</strong> Überspringen Sie Test-Nummern (z.B. starten Sie bei 50 wenn Sie 1-49 für Tests verwendet haben)</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Final Confirmation */}
+        {/* Confirmation */}
         <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mb-6">
           <label className="block text-sm font-medium text-red-300 mb-2">
-            ⚠️ Zur Bestätigung geben Sie <strong>&quot;LÖSCHEN&quot;</strong> ein:
+            ⚠️ Bestätigung: <strong>"LÖSCHEN"</strong> eingeben:
           </label>
           <input
             type="text"
             value={resetData.confirmText}
-            onChange={(e) => setResetData(prev => ({ 
-              ...prev, 
-              confirmText: e.target.value 
-            }))}
+            onChange={(e) => setResetData(prev => ({ ...prev, confirmText: e.target.value }))}
             placeholder="LÖSCHEN"
-            className="w-full px-3 py-3 bg-slate-900/50 border-2 border-red-500 rounded-lg text-white font-semibold text-center tracking-wider"
+            className="w-full px-3 py-3 bg-slate-900/50 border-2 border-red-500 rounded-lg text-white font-semibold text-center tracking-wider uppercase"
             disabled={hardResetLoading}
           />
-          <p className="text-red-200 text-xs mt-2 text-center">
-            Sie müssen &quot;LÖSCHEN&quot; (in Großbuchstaben) eingeben
-          </p>
         </div>
 
         {/* Actions */}
@@ -1092,7 +1035,7 @@ setTimeout(async () => {
           <button
             onClick={handleHardReset}
             disabled={resetData.confirmText !== 'LÖSCHEN' || hardResetLoading}
-            className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+            className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-semibold flex items-center justify-center gap-2"
           >
             {hardResetLoading ? (
               <>
@@ -1101,7 +1044,7 @@ setTimeout(async () => {
               </>
             ) : (
               <>
-                🔥 Alles löschen & neu starten
+                🔄 Alles löschen
               </>
             )}
           </button>
@@ -1110,7 +1053,6 @@ setTimeout(async () => {
     </div>
   )
 }
-
   const QuotesList = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
