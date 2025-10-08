@@ -1984,34 +1984,34 @@ setTimeout(async () => {
         </button>
       </div>
 
-      {/* TABS */}
-      <div className="border-b border-slate-700">
-        <nav className="flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id)
-                const url = new URL(window.location.href)
-                url.searchParams.set('tab', tab.id)
-                window.history.replaceState({}, '', url.toString())
-              }}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              {tab.name}
-              {tab.count !== undefined && (
-                <span className="ml-2 px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded-full">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-      </div>
+    {/* TABS */}
+<div className="border-b border-slate-700 overflow-x-auto">
+  <nav className="flex space-x-1 sm:space-x-8 min-w-max">
+    {tabs.map((tab) => (
+      <button
+        key={tab.id}
+        onClick={() => {
+          setActiveTab(tab.id)
+          const url = new URL(window.location.href)
+          url.searchParams.set('tab', tab.id)
+          window.history.replaceState({}, '', url.toString())
+        }}
+        className={`py-2 px-1.5 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
+          activeTab === tab.id
+            ? 'border-blue-500 text-blue-400'
+            : 'border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-300'
+        }`}
+      >
+        {tab.name}
+        {tab.count !== undefined && (
+          <span className="ml-1 px-1.5 py-0.5 text-xs bg-slate-700 text-slate-300 rounded-full">
+            {tab.count}
+          </span>
+        )}
+      </button>
+    ))}
+  </nav>
+</div>
 
       {/* Tab Content */}
       <div>
