@@ -153,11 +153,11 @@ export default function SubscriptionPage() {
               setCancelling(false)
               setRefreshProgress(0)
               
-              alert(
-                'Abonnement erfolgreich gekündigt!\n\n' +
-                '✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
-                '📅 Danach wechseln Sie automatisch zu Freemium.'
-              )
+              //alert(
+               // 'Abonnement erfolgreich gekündigt!\n\n' +
+                //'✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
+                //'📅 Danach wechseln Sie automatisch zu Freemium.'
+             // )
             }, 500)
           }
         }, stage.delay)
@@ -252,10 +252,10 @@ export default function SubscriptionPage() {
               setReactivating(false)
               setRefreshProgress(0)
               
-              alert(
-                'Abonnement erfolgreich reaktiviert!\n\n' +
-                '✅ Ihr PRO-Zugriff wird fortgesetzt.'
-              )
+             // alert(
+               // 'Abonnement erfolgreich reaktiviert!\n\n' +
+                //'✅ Ihr PRO-Zugriff wird fortgesetzt.'
+              //)
             }, 500)
           }
         }, stage.delay)
