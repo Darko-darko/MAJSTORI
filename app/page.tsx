@@ -135,10 +135,11 @@ export default function Home() {
 
             {/* Feature 2 - Rechnungen (Main Feature) */}
             <div className="group bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-2 border-purple-500/30 rounded-2xl p-8 hover:border-purple-400/50 transition-all duration-300 hover:-translate-y-2 relative">
-              <div className="absolute top-4 right-4">
-                <span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold">HAUPTPRODUKT</span>
+              {/* Badge - Responsive pozicija */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 sm:top-4 sm:left-auto sm:right-4 sm:translate-x-0">
+                <span className="bg-purple-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">HAUPTPRODUKT</span>
               </div>
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mt-2 sm:mt-0">
                 <span className="text-2xl">📄</span>
               </div>
               <h3 className="text-2xl font-bold text-white mb-4">Professionelle Rechnungen</h3>
@@ -202,16 +203,17 @@ export default function Home() {
             </div>
 
             {/* Feature 6 - Coming Soon Features */}
-            <div className="group bg-slate-800/30 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-8 opacity-75">
-              <div className="w-16 h-16 bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl mb-6 flex items-center justify-center">
+            <div className="group bg-slate-800/30 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-8 opacity-75 relative">
+              {/* Badge - Responsive pozicija */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 sm:static sm:translate-x-0 sm:mb-2">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">BALD VERFÜGBAR</span>
+              </div>
+              <div className="w-16 h-16 bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl mb-6 flex items-center justify-center mt-2 sm:mt-0">
                 <span className="text-2xl">🚀</span>
               </div>
-              <div className="mb-2">
-                <h3 className="text-2xl font-bold text-white mb-2 sm:mb-0 sm:inline-block">
-                  Weitere Features
-                </h3>
-                <span className="inline-block sm:ml-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full">BALD VERFÜGBAR</span>
-              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">
+                Weitere Features
+              </h3>
               <p className="text-slate-400 mb-6 leading-relaxed">
                 Planner für Terminverwaltung und Referral-System für passives Einkommen kommen bald.
               </p>
@@ -353,14 +355,15 @@ export default function Home() {
             </div>
 
             {/* PRO+ Plan - Coming Soon */}
-            <div className="bg-slate-800/30 border border-slate-600/50 rounded-2xl p-8 opacity-75">
-              <div className="text-center mb-8">
-                <div className="mb-4">
-                  <h3 className="text-2xl font-bold text-white mb-2 sm:mb-0 sm:inline-block">
-                    PRO+
-                  </h3>
-                  <span className="inline-block sm:ml-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full">BALD VERFÜGBAR</span>
-                </div>
+            <div className="bg-slate-800/30 border border-slate-600/50 rounded-2xl p-8 opacity-75 relative">
+              {/* Badge - Responsive pozicija */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 sm:static sm:translate-x-0 sm:mb-4">
+                <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">BALD VERFÜGBAR</span>
+              </div>
+              <div className="text-center mb-8 mt-2 sm:mt-0">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  PRO+
+                </h3>
                 <div className="flex items-baseline justify-center gap-2 mb-6">
                   <span className="text-4xl font-bold text-slate-400">39,90€</span>
                   <span className="text-slate-500">/Monat</span>
