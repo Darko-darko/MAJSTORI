@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - OPTIMIZED SIDEBAR REFRESH
+// app/dashboard/layout.js - SA EVENT LISTENER
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -16,12 +16,10 @@ function DashboardLayoutContent({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
+  const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh } = useSubscription(majstor?.id)
-  
-
   
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
@@ -35,6 +33,27 @@ function DashboardLayoutContent({ children }) {
   
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // 🔥 DODAJ: Event listener za subscription changes
+  useEffect(() => {
+    const handleSubscriptionChanged = (event) => {
+      console.log('🔔 LAYOUT: subscription-changed event received!')
+      console.log('Event detail:', event.detail)
+      
+      if (refresh && typeof refresh === 'function') {
+        console.log('🔄 LAYOUT: Triggering subscription refresh...')
+        refresh()
+      } else {
+        console.warn('⚠️ LAYOUT: refresh function not available')
+      }
+    }
+
+    window.addEventListener('subscription-changed', handleSubscriptionChanged)
+
+    return () => {
+      window.removeEventListener('subscription-changed', handleSubscriptionChanged)
+    }
+  }, [refresh])
 
   useEffect(() => {
     checkUser()
@@ -200,88 +219,83 @@ function DashboardLayoutContent({ children }) {
     return count.toString()
   }
 
-  // Get subscription badge for menu item
-const getSubscriptionBadge = () => {
-  if (!subscription) {
-    return {
-      text: 'Upgrade',
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+  const getSubscriptionBadge = () => {
+    if (!subscription) {
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
     }
-  }
-  
-  const now = new Date()
-  const periodEnd = new Date(subscription.current_period_end)
-  const createdAt = new Date(subscription.created_at)
-  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-  
-  if (periodEnd <= now) {
-    return {
-      text: 'Upgrade',
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-    }
-  }
-  
-  // Helper za nemačke dane
-  const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-  
-  // 1. OTKAZANO - narandžasto
-  if (subscription.cancelled_at) {
-    return {
-      text: `PRO(${formatDays(daysLeft)})`,
-      color: 'bg-gradient-to-r from-orange-500 to-red-500',
-      multiline: true
-    }
-  }
-  
-  // 2. TRIAL
-  let isInTrial = false
-  let trialDaysLeft = 0
-  
-  if (subscription.trial_ends_at) {
-    const trialEnd = new Date(subscription.trial_ends_at)
-    if (trialEnd > now) {
-      isInTrial = true
-      trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-    }
-  } else if (subscription.trial_starts_at) {
-    const trialStart = new Date(subscription.trial_starts_at)
-    const estimatedTrialEnd = new Date(trialStart)
-    estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
     
-    if (estimatedTrialEnd > now) {
-      isInTrial = true
-      trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+    const now = new Date()
+    const periodEnd = new Date(subscription.current_period_end)
+    const createdAt = new Date(subscription.created_at)
+    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+    
+    if (periodEnd <= now) {
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
     }
-  } else if (subscription.status === 'active') {
-    const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-    if (hoursSinceCreation < 48 && daysLeft <= 1) {
-      isInTrial = true
-      trialDaysLeft = daysLeft
+    
+    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+    
+    if (subscription.cancelled_at) {
+      return {
+        text: `PRO(${formatDays(daysLeft)})`,
+        color: 'bg-gradient-to-r from-orange-500 to-red-500',
+        multiline: true
+      }
     }
-  }
-  
-  if (isInTrial && trialDaysLeft > 0) {
+    
+    let isInTrial = false
+    let trialDaysLeft = 0
+    
+    if (subscription.trial_ends_at) {
+      const trialEnd = new Date(subscription.trial_ends_at)
+      if (trialEnd > now) {
+        isInTrial = true
+        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+      }
+    } else if (subscription.trial_starts_at) {
+      const trialStart = new Date(subscription.trial_starts_at)
+      const estimatedTrialEnd = new Date(trialStart)
+      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+      
+      if (estimatedTrialEnd > now) {
+        isInTrial = true
+        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+      }
+    } else if (subscription.status === 'active') {
+      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+      if (hoursSinceCreation < 48 && daysLeft <= 1) {
+        isInTrial = true
+        trialDaysLeft = daysLeft
+      }
+    }
+    
+    if (isInTrial && trialDaysLeft > 0) {
+      return {
+        text: `PRO(${formatDays(trialDaysLeft)})`,
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+        multiline: true
+      }
+    }
+    
+    if (subscription.status === 'active') {
+      return {
+        text: 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
     return {
-      text: `PRO(${formatDays(trialDaysLeft)})`,
-      color: 'bg-gradient-to-r from-green-500 to-emerald-500',
-      multiline: true
+      text: 'Upgrade',
+      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
     }
   }
-  
-  // 3. PRO ACTIVE
-  if (subscription.status === 'active') {
-    return {
-      text: 'PRO',
-      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-    }
-  }
-  
-  return {
-    text: 'Upgrade',
-    color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-  }
-}
-  // Navigation with subscription item
+
   const getNavigation = () => {
     const baseNavigation = [
       { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
@@ -337,7 +351,6 @@ const getSubscriptionBadge = () => {
       }
     ]
 
-    // Subscription management item
     const subscriptionItem = {
       name: 'Meine Mitgliedschaft',
       href: '/dashboard/subscription',
@@ -364,13 +377,11 @@ const getSubscriptionBadge = () => {
     ]
   }
 
-  // NavigationItem with subscription styling
   const NavigationItem = ({ item, isMobile = false }) => {
     const separator = item.isSeparator ? (
       <div className="my-2 border-t border-slate-700"></div>
     ) : null
 
-    // Special styling for subscription item
     const isSubscriptionItem = item.href === '/dashboard/subscription'
     
     let subscriptionStyles = ''
@@ -406,17 +417,16 @@ const getSubscriptionBadge = () => {
             {item.badge}
           </span>
         )}
-      {item.badge && typeof item.badge === 'object' && (
-  <span className={`ml-2 px-2 py-1 text-xs ${item.badge.color} text-white rounded-full font-medium shadow-sm ${
-    item.badge.multiline ? 'whitespace-pre-line text-center leading-tight' : ''
-  }`}>
-    {item.badge.text}
-  </span>
-)}
+        {item.badge && typeof item.badge === 'object' && (
+          <span className={`ml-2 px-2 py-1 text-xs ${item.badge.color} text-white rounded-full font-medium shadow-sm ${
+            item.badge.multiline ? 'whitespace-pre-line text-center leading-tight' : ''
+          }`}>
+            {item.badge.text}
+          </span>
+        )}
       </div>
     )
 
-    // Protected items
     if (item.protected && item.feature && !item.comingSoon) {
       return (
         <>
@@ -464,7 +474,6 @@ const getSubscriptionBadge = () => {
       )
     }
 
-    // Coming soon items
     if (item.comingSoon) {
       return (
         <>
@@ -476,7 +485,6 @@ const getSubscriptionBadge = () => {
       )
     }
 
-    // Free/unprotected items
     return (
       <>
         {separator}
@@ -532,7 +540,6 @@ const getSubscriptionBadge = () => {
   return (
     <div className="min-h-screen bg-slate-900 flex">
       
-      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
@@ -544,104 +551,98 @@ const getSubscriptionBadge = () => {
       <div className="hidden lg:flex lg:flex-shrink-0">
         <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
           
-          {/* Logo */}
           <div className="flex items-center h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
               Pro-meister<span className="text-blue-400">.de</span>
             </Link>
           </div>
 
-     {/* User Info */}
-<div className="px-4 py-4 border-b border-slate-700">
-  <div className="flex items-center space-x-3">
-    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-white truncate">
-        {majstor?.full_name || user?.email || 'Loading...'}
-      </p>
-      <p className="text-xs text-slate-400 truncate">
-        {majstor?.business_name || 'Handwerker'}
-      </p>
-    </div>
-  </div>
+          <div className="px-4 py-4 border-b border-slate-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {majstor?.full_name || user?.email || 'Loading...'}
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  {majstor?.business_name || 'Handwerker'}
+                </p>
+              </div>
+            </div>
 
-  {/* 🔥 USKLAĐEN BADGE */}
- {subscription && (
-  <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-    <p className="text-xs font-medium leading-tight whitespace-pre-line">
-      {(() => {
-        const now = new Date()
-        const periodEnd = new Date(subscription.current_period_end)
-        const createdAt = new Date(subscription.created_at)
-        const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-        const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-        
-        if (periodEnd <= now) {
-          return <span className="text-slate-300">📋 Freemium</span>
-        }
-        
-        if (subscription.cancelled_at) {
-          return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
-        }
-        
-        // Trial detection (ista logika)
-        let isInTrial = false
-        let trialDaysLeft = 0
-        
-        if (subscription.trial_ends_at) {
-          const trialEnd = new Date(subscription.trial_ends_at)
-          if (trialEnd > now) {
-            isInTrial = true
-            trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-          }
-        } else if (subscription.trial_starts_at) {
-          const trialStart = new Date(subscription.trial_starts_at)
-          const estimatedTrialEnd = new Date(trialStart)
-          estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-          
-          if (estimatedTrialEnd > now) {
-            isInTrial = true
-            trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-          }
-        } else if (subscription.status === 'active') {
-          const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-          if (hoursSinceCreation < 48 && daysLeft <= 1) {
-            isInTrial = true
-            trialDaysLeft = daysLeft
-          }
-        }
-        
-        if (isInTrial && trialDaysLeft > 0) {
-          return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
-        }
-        
-        if (subscription.status === 'active') {
-          return <span className="text-green-300">💎 PRO Mitglied</span>
-        }
-        
-        return <span className="text-slate-300">📋 Freemium</span>
-      })()}
-    </p>
-  </div>
-)}
+            {subscription && (
+              <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+                <p className="text-xs font-medium leading-tight whitespace-pre-line">
+                  {(() => {
+                    const now = new Date()
+                    const periodEnd = new Date(subscription.current_period_end)
+                    const createdAt = new Date(subscription.created_at)
+                    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+                    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+                    
+                    if (periodEnd <= now) {
+                      return <span className="text-slate-300">📋 Freemium</span>
+                    }
+                    
+                    if (subscription.cancelled_at) {
+                      return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
+                    }
+                    
+                    let isInTrial = false
+                    let trialDaysLeft = 0
+                    
+                    if (subscription.trial_ends_at) {
+                      const trialEnd = new Date(subscription.trial_ends_at)
+                      if (trialEnd > now) {
+                        isInTrial = true
+                        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+                      }
+                    } else if (subscription.trial_starts_at) {
+                      const trialStart = new Date(subscription.trial_starts_at)
+                      const estimatedTrialEnd = new Date(trialStart)
+                      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+                      
+                      if (estimatedTrialEnd > now) {
+                        isInTrial = true
+                        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+                      }
+                    } else if (subscription.status === 'active') {
+                      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+                      if (hoursSinceCreation < 48 && daysLeft <= 1) {
+                        isInTrial = true
+                        trialDaysLeft = daysLeft
+                      }
+                    }
+                    
+                    if (isInTrial && trialDaysLeft > 0) {
+                      return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                    }
+                    
+                    if (subscription.status === 'active') {
+                      return <span className="text-green-300">💎 PRO Mitglied</span>
+                    }
+                    
+                    return <span className="text-slate-300">📋 Freemium</span>
+                  })()}
+                </p>
+              </div>
+            )}
 
-{!subscription && (
-  <div className="mt-3 px-2 py-1 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
-    <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
-  </div>
-)}
-</div>
+            {!subscription && (
+              <div className="mt-3 px-2 py-1 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
+                <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
+              </div>
+            )}
+          </div>
 
-          {/* Desktop Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavigationItem key={item.name} item={item} />
             ))}
           </nav>
 
-          {/* Sign Out */}
           <div className="p-2 border-t border-slate-700">
             <button
               onClick={handleSignOut}
@@ -659,7 +660,6 @@ const getSubscriptionBadge = () => {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
-          {/* Mobile Header */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
             <Link href="/" className="text-xl font-bold text-white">
               Pro-meister<span className="text-blue-400">.de</span>
@@ -672,96 +672,92 @@ const getSubscriptionBadge = () => {
             </button>
           </div>
 
-     {/* Mobile User Info */}
-<div className="px-4 py-4 border-b border-slate-700">
-  <div className="flex items-center space-x-3">
-    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-white truncate">
-        {majstor?.full_name || user?.email || 'Loading...'}
-      </p>
-      <p className="text-xs text-slate-400 truncate">
-        {majstor?.business_name || 'Handwerker'}
-      </p>
-    </div>
-  </div>
+          <div className="px-4 py-4 border-b border-slate-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {majstor?.full_name || user?.email || 'Loading...'}
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  {majstor?.business_name || 'Handwerker'}
+                </p>
+              </div>
+            </div>
 
-  {/* Subscription Status Badge */}
-  {subscription && (
-    <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-      <p className="text-xs font-medium leading-tight whitespace-pre-line">
-        {(() => {
-          const now = new Date()
-          const periodEnd = new Date(subscription.current_period_end)
-          const createdAt = new Date(subscription.created_at)
-          const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-          const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-          
-          if (periodEnd <= now) {
-            return <span className="text-slate-300">📋 Freemium</span>
-          }
-          
-          if (subscription.cancelled_at) {
-            return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
-          }
-          
-          let isInTrial = false
-          let trialDaysLeft = 0
-          
-          if (subscription.trial_ends_at) {
-            const trialEnd = new Date(subscription.trial_ends_at)
-            if (trialEnd > now) {
-              isInTrial = true
-              trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-            }
-          } else if (subscription.trial_starts_at) {
-            const trialStart = new Date(subscription.trial_starts_at)
-            const estimatedTrialEnd = new Date(trialStart)
-            estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-            
-            if (estimatedTrialEnd > now) {
-              isInTrial = true
-              trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-            }
-          } else if (subscription.status === 'active') {
-            const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-            if (hoursSinceCreation < 48 && daysLeft <= 1) {
-              isInTrial = true
-              trialDaysLeft = daysLeft
-            }
-          }
-          
-          if (isInTrial && trialDaysLeft > 0) {
-            return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
-          }
-          
-          if (subscription.status === 'active') {
-            return <span className="text-green-300">💎 PRO Mitglied</span>
-          }
-          
-          return <span className="text-slate-300">📋 Freemium</span>
-        })()}
-      </p>
-    </div>
-  )}
+            {subscription && (
+              <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+                <p className="text-xs font-medium leading-tight whitespace-pre-line">
+                  {(() => {
+                    const now = new Date()
+                    const periodEnd = new Date(subscription.current_period_end)
+                    const createdAt = new Date(subscription.created_at)
+                    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+                    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+                    
+                    if (periodEnd <= now) {
+                      return <span className="text-slate-300">📋 Freemium</span>
+                    }
+                    
+                    if (subscription.cancelled_at) {
+                      return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
+                    }
+                    
+                    let isInTrial = false
+                    let trialDaysLeft = 0
+                    
+                    if (subscription.trial_ends_at) {
+                      const trialEnd = new Date(subscription.trial_ends_at)
+                      if (trialEnd > now) {
+                        isInTrial = true
+                        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+                      }
+                    } else if (subscription.trial_starts_at) {
+                      const trialStart = new Date(subscription.trial_starts_at)
+                      const estimatedTrialEnd = new Date(trialStart)
+                      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+                      
+                      if (estimatedTrialEnd > now) {
+                        isInTrial = true
+                        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+                      }
+                    } else if (subscription.status === 'active') {
+                      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+                      if (hoursSinceCreation < 48 && daysLeft <= 1) {
+                        isInTrial = true
+                        trialDaysLeft = daysLeft
+                      }
+                    }
+                    
+                    if (isInTrial && trialDaysLeft > 0) {
+                      return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                    }
+                    
+                    if (subscription.status === 'active') {
+                      return <span className="text-green-300">💎 PRO Mitglied</span>
+                    }
+                    
+                    return <span className="text-slate-300">📋 Freemium</span>
+                  })()}
+                </p>
+              </div>
+            )}
 
-  {!subscription && plan && (
-    <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
-      <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
-    </div>
-  )}
-</div>
+            {!subscription && plan && (
+              <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
+                <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
+              </div>
+            )}
+          </div>
 
-          {/* Mobile Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => (
               <NavigationItem key={item.name} item={item} isMobile={true} />
             ))}
           </nav>
 
-          {/* Mobile Sign Out */}
           <div className="p-2 border-t border-slate-700">
             <button
               onClick={handleSignOut}
@@ -777,11 +773,9 @@ const getSubscriptionBadge = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* Top Bar */}
         <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* Mobile menu button */}
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden text-slate-400 hover:text-white p-1"
@@ -800,7 +794,6 @@ const getSubscriptionBadge = () => {
             </div>
 
             <div className="flex items-center space-x-3">
-              {/* Notifications */}
               <button 
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
                 onClick={loadBadgeCounts}
@@ -811,16 +804,15 @@ const getSubscriptionBadge = () => {
                   <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                 )}
               </button>
-               {/* 🔥  - Support Button */}
-  <button 
-    className="relative p-2 text-slate-400 hover:text-white transition-colors"
-    onClick={openSupport}
-    title="Support kontaktieren"
-  >
-    <span className="text-xl">📨</span>
-  </button>
+              
+              <button 
+                className="relative p-2 text-slate-400 hover:text-white transition-colors"
+                onClick={openSupport}
+                title="Support kontaktieren"
+              >
+                <span className="text-xl">📨</span>
+              </button>
 
-              {/* Profile */}
               <Link 
                 href="/dashboard/settings"
                 className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
@@ -833,13 +825,11 @@ const getSubscriptionBadge = () => {
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
           {children}
         </main>
       </div>
 
-      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}
@@ -847,7 +837,7 @@ const getSubscriptionBadge = () => {
         featureName={modalProps.featureName}
         currentPlan={modalProps.currentPlan}
       />
-      {/* 🔥 DODAJ OVO OVDE - Support Modal */}
+      
       <SupportModal 
         isOpen={supportOpen}
         onClose={closeSupport}

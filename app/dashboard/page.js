@@ -1,4 +1,4 @@
-// app/dashboard/page.js - STATS SA PROTECTED LINKOVIMA (BEZ VIZUELNIH ZNAKOVA)
+// app/dashboard/page.js - SA EVENT LISTENER
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -14,14 +14,13 @@ function DashboardPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  // Upgrade processing states
   const [upgradingInProgress, setUpgradingInProgress] = useState(false)
   const [upgradeProgress, setUpgradeProgress] = useState(0)
   const [upgradeMessage, setUpgradeMessage] = useState('')
   
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  // 🔥 NOVO: Hook za proveru subscription statusa
+  // 🔥 Hook za proveru subscription statusa
   const { isFreemium, refresh: refreshSubscription } = useSubscription(majstor?.id)
   
   const [stats, setStats] = useState({
@@ -35,6 +34,27 @@ function DashboardPageContent() {
   
   const searchParams = useSearchParams()
 
+  // 🔥 DODAJ: Event listener za subscription changes
+  useEffect(() => {
+    const handleSubscriptionChanged = (event) => {
+      console.log('🔔 DASHBOARD: subscription-changed event received!')
+      console.log('Event detail:', event.detail)
+      
+      if (refreshSubscription && typeof refreshSubscription === 'function') {
+        console.log('🔄 DASHBOARD: Triggering subscription refresh...')
+        refreshSubscription()
+      } else {
+        console.warn('⚠️ DASHBOARD: refreshSubscription function not available')
+      }
+    }
+
+    window.addEventListener('subscription-changed', handleSubscriptionChanged)
+
+    return () => {
+      window.removeEventListener('subscription-changed', handleSubscriptionChanged)
+    }
+  }, [refreshSubscription])
+
   useEffect(() => {
     if (searchParams.get('welcome')) {
       setWelcomeMessage(true)
@@ -44,7 +64,6 @@ function DashboardPageContent() {
     loadMajstorAndStats()
   }, [searchParams])
 
-  // Detektuj Paddle payment
   useEffect(() => {
     const paddleSuccess = searchParams.get('paddle_success')
     const planType = searchParams.get('plan')
@@ -278,9 +297,7 @@ function DashboardPageContent() {
     )
   }
 
-  // 🔥 NOVA KOMPONENTA: Protected Stat Card
   const ProtectedStatCard = ({ href, icon, title, value, subtitle, badgeCount, iconBg }) => {
-    // Ako je Freemium - obični div (neklikabilno)
     if (isFreemium) {
       return (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
@@ -300,7 +317,6 @@ function DashboardPageContent() {
       )
     }
 
-    // Ako je PRO - klikabilni Link
     return (
       <Link 
         href={href}
@@ -451,10 +467,8 @@ function DashboardPageContent() {
       <div className="space-y-8">
         <WelcomeMessage />
 
-        {/* 🔥 Quick Stats - SAMO 3 KARTICE (bez QR Scans) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
-          {/* Kundenanfragen - Protected */}
           <ProtectedStatCard
             href="/dashboard/inquiries"
             icon="📩"
@@ -465,7 +479,6 @@ function DashboardPageContent() {
             badgeCount={stats.newInquiries}
           />
 
-          {/* Rechnungen - Protected */}
           <ProtectedStatCard
             href="/dashboard/invoices"
             icon="📄"
@@ -476,7 +489,6 @@ function DashboardPageContent() {
             badgeCount={0}
           />
 
-          {/* Kunden - Protected */}
           <ProtectedStatCard
             href="/dashboard/customers"
             icon="👥"
@@ -488,7 +500,6 @@ function DashboardPageContent() {
           />
         </div>
 
-        {/* Quick Actions */}
         <div>
           <h2 className="text-2xl font-bold text-white mb-6">Schnellzugriff</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -516,7 +527,6 @@ function DashboardPageContent() {
           </div>
         </div>
 
-        {/* Navigation Menu */}
         <div>
           <h2 className="text-2xl font-bold text-white mb-6">Dashboard Navigation</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

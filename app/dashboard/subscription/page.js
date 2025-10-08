@@ -1,4 +1,4 @@
-// app/dashboard/subscription/page.js - COMPLETE WITH REACTIVATE
+// app/dashboard/subscription/page.js - SA TAČNIM TIMING-OM
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -14,13 +14,12 @@ export default function SubscriptionPage() {
   const [reactivating, setReactivating] = useState(false)
   const [error, setError] = useState('')
   
-  // Refresh progress states
   const [refreshing, setRefreshing] = useState(false)
   const [refreshProgress, setRefreshProgress] = useState(0)
+  const [refreshMessage, setRefreshMessage] = useState('')
   
   const router = useRouter()
   
-  // Subscription hook with refresh function
   const { 
     subscription, 
     plan, 
@@ -33,7 +32,6 @@ export default function SubscriptionPage() {
     refresh
   } = useSubscription(majstor?.id)
   
-  // Upgrade modal hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
 
   useEffect(() => {
@@ -76,7 +74,7 @@ export default function SubscriptionPage() {
     showUpgradeModal('subscription', 'PRO Mitgliedschaft', currentPlanLabel)
   }
 
-  // Cancel subscription with progressive auto-refresh
+  // 🔥 CANCEL SUBSCRIPTION - SA 13s TIMING-om za event dispatch
   const handleCancelSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine aktive Subscription gefunden')
@@ -92,12 +90,13 @@ export default function SubscriptionPage() {
 
     setCancelling(true)
     setError('')
+    setRefreshing(true)
+    setRefreshProgress(0)
+    setRefreshMessage('Sende Kündigungsanfrage...')
 
     try {
       console.log('🚫 Starting cancellation process...')
-      console.log('📋 Subscription ID:', subscription.paddle_subscription_id)
-      console.log('👤 Majstor ID:', majstor.id)
-
+      
       const response = await fetch('/.netlify/functions/paddle-cancel-subscription', {
         method: 'POST',
         headers: { 
@@ -110,78 +109,71 @@ export default function SubscriptionPage() {
         })
       })
 
-      console.log('📡 Response status:', response.status)
-
       const data = await response.json()
-      console.log('📄 Response data:', data)
 
       if (!response.ok) {
         throw new Error(data.error || data.message || 'Fehler beim Kündigen')
       }
 
-      console.log('✅ Subscription cancelled successfully!')
+      console.log('✅ Paddle subscription cancelled!')
       
-      alert(
-        'Abonnement erfolgreich gekündigt!\n\n' +
-        '✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
-        '📅 Danach wechseln Sie automatisch zu Freemium.\n\n' +
-        '⏳ Status wird aktualisiert...'
-      )
-      
-      // PROGRESSIVE AUTO-REFRESH STRATEGY
-      console.log('🔄 Starting progressive auto-refresh...')
-      
-      setRefreshing(true)
-      setRefreshProgress(0)
-      
-      // Emit custom event for sidebar refresh
-      window.dispatchEvent(new CustomEvent('subscription-changed', {
-        detail: { action: 'cancelled', timestamp: Date.now() }
-      }))
-      
-      const refreshIntervals = [0, 1000, 3000, 6000, 10000, 15000]
-      let refreshCount = 0
-      const totalRefreshes = refreshIntervals.length
-      
-      refreshIntervals.forEach((delay, index) => {
+      // 🔥 TIMING STRATEGIJA: 15 sekundi progress, dispatche event nakon 13s
+      const stages = [
+        { delay: 0, progress: 0, message: 'Kündigung wird verarbeitet...' },
+        { delay: 2000, progress: 15, message: 'Warte auf Paddle Webhook...' },
+        { delay: 4000, progress: 30, message: 'Synchronisiere mit Paddle...' },
+        { delay: 6000, progress: 45, message: 'Webhook wird empfangen...' },
+        { delay: 8000, progress: 60, message: 'Datenbank wird aktualisiert...' },
+        { delay: 10000, progress: 75, message: 'Fast fertig...' },
+        { delay: 13000, progress: 90, message: 'Status wird aktualisiert...' }, // 🔥 OVDE SE DISPATCHE EVENT!
+        { delay: 15000, progress: 100, message: 'Kündigung erfolgreich!' }
+      ]
+
+      stages.forEach((stage, index) => {
         setTimeout(() => {
-          refreshCount++
-          console.log(`🔄 Auto-refresh #${refreshCount}/${totalRefreshes} (${delay}ms after cancel)`)
+          setRefreshProgress(stage.progress)
+          setRefreshMessage(stage.message)
           
-          const progress = (refreshCount / totalRefreshes) * 100
-          setRefreshProgress(progress)
-          
-          if (refresh && typeof refresh === 'function') {
-            refresh()
-            console.log('✅ Subscription data refreshed via hook')
-          } else {
-            console.log('⚠️ Refresh function not available, reloading page...')
-            window.location.reload()
+          // 🔥 DISPATCHE EVENT NAKON 13 SEKUNDI (index 6)
+          if (index === 6) {
+            console.log('🔔 DISPATCHING subscription-changed event after 13s!')
+            window.dispatchEvent(new CustomEvent('subscription-changed', {
+              detail: { 
+                action: 'cancelled', 
+                timestamp: Date.now(),
+                subscriptionId: subscription.paddle_subscription_id
+              }
+            }))
           }
           
-          if (index === refreshIntervals.length - 1) {
+          // Završetak
+          if (index === stages.length - 1) {
             setTimeout(() => {
-              console.log('✅ Auto-refresh sequence complete!')
               setRefreshing(false)
-              setRefreshProgress(100)
-            }, 1000)
+              setCancelling(false)
+              setRefreshProgress(0)
+              
+              alert(
+                'Abonnement erfolgreich gekündigt!\n\n' +
+                '✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
+                '📅 Danach wechseln Sie automatisch zu Freemium.'
+              )
+            }, 500)
           }
-        }, delay)
+        }, stage.delay)
       })
 
     } catch (err) {
       console.error('💥 Cancel error:', err)
       const errorMessage = err.message || 'Fehler beim Kündigen des Abonnements.'
       setError(errorMessage)
-      alert(`❌ Fehler: ${errorMessage}\n\nBitte versuchen Sie es später erneut oder kontaktieren Sie den Support.`)
-    } finally {
-      setTimeout(() => {
-        setCancelling(false)
-      }, 16000)
+      setRefreshing(false)
+      setCancelling(false)
+      alert(`❌ Fehler: ${errorMessage}\n\nBitte versuchen Sie es später erneut.`)
     }
   }
 
-  // 🔥 NEW: Reactivate subscription (RESUME existing subscription)
+  // 🔥 REACTIVATE SUBSCRIPTION - SA 13s TIMING-om za event dispatch
   const handleReactivateSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine Subscription gefunden')
@@ -197,11 +189,13 @@ export default function SubscriptionPage() {
 
     setReactivating(true)
     setError('')
+    setRefreshing(true)
+    setRefreshProgress(0)
+    setRefreshMessage('Sende Reaktivierungsanfrage...')
 
     try {
       console.log('🔄 Starting reactivation process...')
-      console.log('📋 Subscription ID:', subscription.paddle_subscription_id)
-
+      
       const response = await fetch('/.netlify/functions/paddle-reactivate-subscription', {
         method: 'POST',
         headers: { 
@@ -214,10 +208,7 @@ export default function SubscriptionPage() {
         })
       })
 
-      console.log('📡 Response status:', response.status)
-
       const data = await response.json()
-      console.log('📄 Response data:', data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Fehler bei der Reaktivierung')
@@ -225,58 +216,67 @@ export default function SubscriptionPage() {
 
       console.log('✅ Subscription reactivated successfully!')
       
-      alert(
-        'Abonnement erfolgreich reaktiviert!\n\n' +
-        '✅ Ihr PRO-Zugriff wird fortgesetzt.\n\n' +
-        '⏳ Status wird aktualisiert...'
-      )
-      
-      // Progressive refresh
-      setRefreshing(true)
-      setRefreshProgress(0)
-      
-      window.dispatchEvent(new CustomEvent('subscription-changed', {
-        detail: { action: 'reactivated', timestamp: Date.now() }
-      }))
-      
-      const refreshIntervals = [0, 1000, 3000, 6000, 10000]
-      let refreshCount = 0
-      
-      refreshIntervals.forEach((delay, index) => {
+      // 🔥 TIMING STRATEGIJA: 15 sekundi progress, dispatche event nakon 13s
+      const stages = [
+        { delay: 0, progress: 0, message: 'Reaktivierung wird verarbeitet...' },
+        { delay: 2000, progress: 15, message: 'Warte auf Paddle Webhook...' },
+        { delay: 4000, progress: 30, message: 'Synchronisiere mit Paddle...' },
+        { delay: 6000, progress: 45, message: 'Webhook wird empfangen...' },
+        { delay: 8000, progress: 60, message: 'Datenbank wird aktualisiert...' },
+        { delay: 10000, progress: 75, message: 'Fast fertig...' },
+        { delay: 13000, progress: 90, message: 'Status wird aktualisiert...' }, // 🔥 OVDE SE DISPATCHE EVENT!
+        { delay: 15000, progress: 100, message: 'Reaktivierung erfolgreich!' }
+      ]
+
+      stages.forEach((stage, index) => {
         setTimeout(() => {
-          refreshCount++
-          setRefreshProgress((refreshCount / refreshIntervals.length) * 100)
+          setRefreshProgress(stage.progress)
+          setRefreshMessage(stage.message)
           
-          if (refresh && typeof refresh === 'function') {
-            refresh()
+          // 🔥 DISPATCHE EVENT NAKON 13 SEKUNDI (index 6)
+          if (index === 6) {
+            console.log('🔔 DISPATCHING subscription-changed event after 13s!')
+            window.dispatchEvent(new CustomEvent('subscription-changed', {
+              detail: { 
+                action: 'reactivated', 
+                timestamp: Date.now(),
+                subscriptionId: subscription.paddle_subscription_id
+              }
+            }))
           }
           
-          if (index === refreshIntervals.length - 1) {
+          // Završetak
+          if (index === stages.length - 1) {
             setTimeout(() => {
               setRefreshing(false)
-              setRefreshProgress(100)
-            }, 1000)
+              setReactivating(false)
+              setRefreshProgress(0)
+              
+              alert(
+                'Abonnement erfolgreich reaktiviert!\n\n' +
+                '✅ Ihr PRO-Zugriff wird fortgesetzt.'
+              )
+            }, 500)
           }
-        }, delay)
+        }, stage.delay)
       })
 
     } catch (err) {
       console.error('💥 Reactivate error:', err)
       const errorMessage = err.message || 'Fehler bei der Reaktivierung.'
       setError(errorMessage)
+      setRefreshing(false)
+      setReactivating(false)
       alert(`❌ Fehler: ${errorMessage}`)
-    } finally {
-      setTimeout(() => {
-        setReactivating(false)
-      }, 12000)
     }
   }
 
-  // 🔥 MANUAL REFRESH - dodato za debugging
+  // 🔥 MANUAL REFRESH
   const handleManualRefresh = () => {
     console.log('🔄 Manual refresh triggered by user')
     setRefreshing(true)
     setRefreshProgress(0)
+    setRefreshMessage('Lade Subscription Status...')
     
     const refreshIntervals = [0, 1000, 2000, 3000]
     let refreshCount = 0
@@ -295,7 +295,6 @@ export default function SubscriptionPage() {
           setTimeout(() => {
             setRefreshing(false)
             setRefreshProgress(100)
-            // Full page reload to be sure
             window.location.reload()
           }, 500)
         }
@@ -314,10 +313,8 @@ export default function SubscriptionPage() {
     )
   }
 
-  // Get current status info with TRIAL support
   const getStatusInfo = () => {
     if (!subscription) {
-      // Freemium (bez subscription-a)
       return {
         status: 'freemium',
         statusLabel: 'Freemium',
@@ -334,7 +331,6 @@ export default function SubscriptionPage() {
     const periodEnd = new Date(subscription.current_period_end)
     const daysRemaining = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
     
-    // TRIAL (besplatnih X dana sa karticom)
     if (subscription.status === 'trial' && daysRemaining > 0) {
       return {
         status: 'trial',
@@ -349,7 +345,6 @@ export default function SubscriptionPage() {
       }
     }
     
-    // ACTIVE (platio, renewal aktivan)
     if (subscription.status === 'active' && daysRemaining > 0) {
       return {
         status: 'pro',
@@ -364,7 +359,6 @@ export default function SubscriptionPage() {
       }
     }
     
-    // 🔥 CANCELLED (otkazao ali još važi) - POKAZUJ REACTIVATE!
     if (subscription.status === 'cancelled' && daysRemaining > 0) {
       return {
         status: 'cancelled',
@@ -376,11 +370,10 @@ export default function SubscriptionPage() {
         description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
         showUpgrade: false,
         showCancel: false,
-        showReactivate: true  // 🔥 OVO JE KLJUČNO!
+        showReactivate: true
       }
     }
     
-    // EXPIRED / FREEMIUM fallback
     return {
       status: 'freemium',
       statusLabel: 'Freemium',
@@ -403,20 +396,20 @@ export default function SubscriptionPage() {
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
           
-         
+          
         </div>
         <p className="text-slate-400">
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
         </p>
         
-        {/* Refresh Progress Indicator */}
+        {/* 🔥 REFRESH PROGRESS INDICATOR */}
         {refreshing && (
           <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 animate-pulse">
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
               <div className="flex-1">
                 <p className="text-blue-300 font-medium text-sm">
-                  Aktualisiere Subscription Status...
+                  {refreshMessage}
                 </p>
                 <div className="mt-2 bg-blue-900/30 rounded-full h-2 overflow-hidden">
                   <div 
@@ -425,7 +418,7 @@ export default function SubscriptionPage() {
                   ></div>
                 </div>
                 <p className="text-blue-400 text-xs mt-1">
-                  {Math.round(refreshProgress)}% - Warte auf Paddle Webhook...
+                  {Math.round(refreshProgress)}%
                 </p>
               </div>
             </div>
@@ -440,7 +433,7 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* 🔥 DEBUG INFO - prikaži status iz baze */}
+      {/* 🔥 DEBUG INFO */}
       {subscription && (
         <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 text-xs text-slate-400">
           <div className="font-mono">
@@ -470,7 +463,8 @@ export default function SubscriptionPage() {
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+                  disabled={refreshing}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
                 >
                   🚀 Auf PRO upgraden
                 </button>
@@ -479,18 +473,17 @@ export default function SubscriptionPage() {
               {statusInfo.showCancel && (
                 <button
                   onClick={handleCancelSubscription}
-                  disabled={cancelling}
+                  disabled={cancelling || refreshing}
                   className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {cancelling ? 'Wird gekündigt...' : 'Abonnement kündigen'}
                 </button>
               )}
 
-              {/* 🔥 REACTIVATE BUTTON - prikazuje se kada je cancelled */}
               {statusInfo.showReactivate && (
                 <button
                   onClick={handleReactivateSubscription}
-                  disabled={reactivating}
+                  disabled={reactivating || refreshing}
                   className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {reactivating ? 'Wird reaktiviert...' : '✅ Subscription reaktivieren'}
@@ -586,7 +579,6 @@ export default function SubscriptionPage() {
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Monthly Plan */}
             <div className="bg-slate-900 border-2 border-blue-500/30 rounded-xl p-6">
               <div className="text-center mb-6">
                 <div className="text-4xl mb-2">📅</div>
@@ -619,7 +611,6 @@ export default function SubscriptionPage() {
               </button>
             </div>
 
-            {/* Yearly Plan */}
             <div className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-2 border-purple-500/50 rounded-xl p-6 relative">
               <div className="absolute -top-3 -right-3 bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-full">
                 16% SPAREN
@@ -683,7 +674,7 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Subscription Details (for PRO/Trial users) */}
+      {/* Subscription Details */}
       {subscription && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
           <h3 className="text-xl font-bold text-white mb-6">Abonnement Details</h3>
@@ -739,7 +730,6 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={upgradeModalOpen}
         onClose={hideUpgradeModal}
