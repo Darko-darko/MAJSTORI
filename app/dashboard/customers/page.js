@@ -99,27 +99,45 @@ function CustomersPageContent() {
     }
   }
 
-  const loadCustomers = async () => {
-    if (!majstor?.id) return
-    
-    try {
-      const { data: freshData, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('majstor_id', majstor.id)
-        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING') // 🔢 DODAJ OVU LINIJU
-      
-      console.log('DIRECT DATA:', freshData)
-      
-      if (error) {
-        console.error('Direct Supabase error:', error)
-      } else {
-        setCustomers(freshData || [])
-      }
-    } catch (err) {
-      console.error('Error:', err)
+// Replace the loadCustomers function in customers/page.js
+
+const loadCustomers = async () => {
+  if (!majstor?.id) return
+  
+  try {
+    // Start building the query
+    let query = supabase
+      .from('customers')
+      .select('*')
+      .eq('majstor_id', majstor.id)
+      .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING')
+
+    // 🔍 SEARCH FILTER - search across name, email, phone, company_name
+    if (searchTerm.trim()) {
+      query = query.or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
     }
+
+    // ⭐ FAVORITES FILTER
+    if (filterFavorites) {
+      query = query.eq('is_favorite', true)
+    }
+
+    // 📊 SORTING
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+
+    const { data: freshData, error } = await query
+
+    console.log('Loaded customers:', freshData?.length || 0)
+    
+    if (error) {
+      console.error('Direct Supabase error:', error)
+    } else {
+      setCustomers(freshData || [])
+    }
+  } catch (err) {
+    console.error('Error:', err)
   }
+}
 
   const resetForm = () => {
     setFormData({

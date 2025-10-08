@@ -63,8 +63,8 @@
 - nakon downgrade da ga prebaci na dashboard (freemium)✅
 - Da stats ima link... dašnoard je urađen✅
 
-- 1 za brisanje u hard resetu backspace
-- guards na stats
+- 1 za brisanje u hard resetu backspace✅
+- guards na stats✅
 - adresa na upitu
 - emeil potvrda
 - zmghnfz  plaćena verzja supa basea
@@ -77,8 +77,13 @@
 - novi sad izbrista paddle support
 - arhiva 10 godina
 - zvono? da vodi na side bar
-- kad se klinke na račun kome je istekla valuta da filtrira
-- na landing page ... staviti pro-meister.de  iznad regostracije
-- na stranici za invoice približiti tabove
-- na invoice kad klikn stats da filtrira samo one kojim je valuta istekla
+- kad se klinke na račun kome je istekla valuta da filtrira✅
+- na landing page ... staviti pro-meister.de  iznad regostracije✅
+- na stranici za invoice približiti tabove✅
+- na invoice kad klikn stats da filtrira samo one kojim je valuta istekla✅
 - blokirati dugme rehnungen einstelungen iz kundenfrage za freemium
+- kunden ne radi filter
+- fakturu ulepšati
+- fakture ako je pravno lice?
+- ćošak iz rehnunga kontejner
+- ispitati kada se sve refrešuje leyout
