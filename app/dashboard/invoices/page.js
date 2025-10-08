@@ -1515,7 +1515,7 @@ setTimeout(async () => {
               className="flex items-center gap-2 bg-red-600/10 hover:bg-red-600/20 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg transition-colors text-sm"
             >
               <span>🔥</span>
-              <span>Hard Reset</span>
+              <span>Neustart</span>
               <span className="text-xs text-red-300">({totalDocuments})</span>
             </button>
           )}
