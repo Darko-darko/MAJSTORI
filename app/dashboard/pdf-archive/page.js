@@ -456,189 +456,170 @@ export default function PDFArchivePage() {
   }
 
   // 🆕 DETAIL VIEW COMPONENT
-  const DetailView = ({ invoice }) => {
-    if (!invoice) return null
+// Replace the DetailView component in pdf-archive/page.js
 
-    const items = JSON.parse(invoice.items || '[]')
-    const isQuote = invoice.type === 'quote'
+const DetailView = ({ invoice }) => {
+  if (!invoice) return null
 
-    return (
-      <div className="space-y-6">
-        {/* Header with back button */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={backToList}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+  const items = JSON.parse(invoice.items || '[]')
+  const isQuote = invoice.type === 'quote'
+
+  return (
+    <div className="space-y-6">
+      {/* Header with back button */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={backToList}
+          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+        >
+          ← Zurück zur Liste
+        </button>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => openPDFInNewTab(invoice.id)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            ← Zurück zur Liste
+            👁️ PDF öffnen
           </button>
-          
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => openPDFInNewTab(invoice.id)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              👁️ PDF öffnen
-            </button>
-            <button 
-              onClick={() => downloadPDF(invoice.id)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              📥 Download
-            </button>
-          </div>
+          <button 
+            onClick={() => downloadPDF(invoice.id)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            📥 Download
+          </button>
         </div>
-
-        {/* Document Details Card */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <h4 className="text-white font-semibold text-lg">
-                  {invoice.invoice_number || invoice.quote_number}
-                </h4>
-                <span className={`px-3 py-1 rounded-full text-sm border ${getDocumentTypeColor(invoice.type)}`}>
-                  {isQuote ? 'Angebot' : 'Rechnung'}
-                </span>
-              </div>
-              <p className="text-slate-400">{invoice.customer_name}</p>
-              <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
-              {invoice.customer_phone && (
-                <p className="text-slate-500 text-sm">Tel: {invoice.customer_phone}</p>
-              )}
-              {invoice.customer_address && (
-                <p className="text-slate-500 text-sm">{invoice.customer_address}</p>
-              )}
-            </div>
-            <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
-              {invoice.status === 'draft' && 'Entwurf'}
-              {invoice.status === 'sent' && 'Gesendet'}
-              {invoice.status === 'paid' && 'Bezahlt'}
-              {invoice.status === 'overdue' && 'Überfällig'}
-              {invoice.status === 'cancelled' && 'Storniert'}
-              {invoice.status === 'converted' && 'Umgewandelt'}
-            </span>
-          </div>
-
-          {/* Document Info Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-            <div>
-              <span className="text-slate-400">Betrag:</span>
-              <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
-            </div>
-            <div>
-              <span className="text-slate-400">{isQuote ? 'Angebotsdatum:' : 'Rechnungsdatum:'}</span>
-              <p className="text-white">{formatDate(invoice.issue_date)}</p>
-            </div>
-            <div>
-              <span className="text-slate-400">
-                {isQuote ? 'Gültig bis:' : 'Fälligkeitsdatum:'}
-              </span>
-              <p className="text-white">
-                {formatDate(isQuote ? invoice.valid_until : invoice.due_date)}
-              </p>
-            </div>
-            <div>
-              <span className="text-slate-400">Positionen:</span>
-              <p className="text-white">{items.length}</p>
-            </div>
-          </div>
-
-          {/* PDF Info */}
-          <div className="bg-slate-900/50 rounded-lg p-3 mb-4">
-            <h5 className="text-white font-medium mb-2">📁 PDF Information</h5>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-slate-400">Erstellt:</span>
-                <p className="text-slate-300">{formatDate(invoice.pdf_generated_at)}</p>
-              </div>
-              <div>
-                <span className="text-slate-400">Dateigröße:</span>
-                <p className="text-slate-300">{formatFileSize(invoice.pdf_file_size)}</p>
-              </div>
-              <div>
-                <span className="text-slate-400">Speicherpfad:</span>
-                <p className="text-slate-300 truncate" title={invoice.pdf_storage_path}>
-                  {invoice.pdf_storage_path}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Items Table */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-          <h5 className="text-white font-semibold mb-4">📋 Positionen</h5>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-600">
-                  <th className="text-left py-3 text-slate-400">Pos.</th>
-                  <th className="text-left py-3 text-slate-400">Beschreibung</th>
-                  <th className="text-right py-3 text-slate-400">Menge</th>
-                  <th className="text-right py-3 text-slate-400">Einzelpreis</th>
-                  <th className="text-right py-3 text-slate-400">Gesamtpreis</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={index} className="border-b border-slate-700 last:border-b-0">
-                    <td className="py-3 text-slate-300">{index + 1}</td>
-                    <td className="py-3 text-white">{item.description}</td>
-                    <td className="py-3 text-right text-slate-300">{item.quantity}</td>
-                    <td className="py-3 text-right text-slate-300">{formatCurrency(item.price)}</td>
-                    <td className="py-3 text-right text-white font-semibold">{formatCurrency(item.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Totals */}
-          <div className="mt-6 border-t border-slate-600 pt-4">
-            <div className="max-w-md ml-auto space-y-2">
-              <div className="flex justify-between">
-                <span className="text-slate-400">
-                  {invoice.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Nettobetrag:'}
-                </span>
-                <span className="text-white">{formatCurrency(invoice.subtotal)}</span>
-              </div>
-              
-              {!invoice.is_kleinunternehmer && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400">zzgl. MwSt ({invoice.tax_rate}%):</span>
-                  <span className="text-white">{formatCurrency(invoice.tax_amount)}</span>
-                </div>
-              )}
-              
-              {invoice.is_kleinunternehmer && (
-                <div className="text-xs text-slate-500 italic">
-                  * Gemäß §19 UStG wird keine Umsatzsteuer berechnet
-                </div>
-              )}
-              
-              {!invoice.is_kleinunternehmer && (
-                <div className="border-t border-slate-600 pt-2">
-                  <div className="flex justify-between font-semibold">
-                    <span className="text-white">Bruttobetrag:</span>
-                    <span className="text-white text-lg">{formatCurrency(invoice.total_amount)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        {invoice.notes && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-            <h5 className="text-white font-semibold mb-2">📝 Notizen</h5>
-            <p className="text-slate-300">{invoice.notes}</p>
-          </div>
-        )}
       </div>
-    )
-  }
+
+      {/* Document Details Card */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="text-white font-semibold text-lg">
+                {invoice.invoice_number || invoice.quote_number}
+              </h4>
+              <span className={`px-3 py-1 rounded-full text-sm border ${getDocumentTypeColor(invoice.type)}`}>
+                {isQuote ? 'Angebot' : 'Rechnung'}
+              </span>
+            </div>
+            <p className="text-slate-400">{invoice.customer_name}</p>
+            <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
+            {invoice.customer_phone && (
+              <p className="text-slate-500 text-sm">Tel: {invoice.customer_phone}</p>
+            )}
+            {invoice.customer_address && (
+              <p className="text-slate-500 text-sm">{invoice.customer_address}</p>
+            )}
+          </div>
+          <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
+            {invoice.status === 'draft' && 'Entwurf'}
+            {invoice.status === 'sent' && 'Gesendet'}
+            {invoice.status === 'paid' && 'Bezahlt'}
+            {invoice.status === 'overdue' && 'Überfällig'}
+            {invoice.status === 'cancelled' && 'Storniert'}
+            {invoice.status === 'converted' && 'Umgewandelt'}
+          </span>
+        </div>
+
+        {/* Document Info Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="text-slate-400">Betrag:</span>
+            <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
+          </div>
+          <div>
+            <span className="text-slate-400">{isQuote ? 'Angebotsdatum:' : 'Rechnungsdatum:'}</span>
+            <p className="text-white">{formatDate(invoice.issue_date)}</p>
+          </div>
+          <div>
+            <span className="text-slate-400">
+              {isQuote ? 'Gültig bis:' : 'Fälligkeitsdatum:'}
+            </span>
+            <p className="text-white">
+              {formatDate(isQuote ? invoice.valid_until : invoice.due_date)}
+            </p>
+          </div>
+          <div>
+            <span className="text-slate-400">Positionen:</span>
+            <p className="text-white">{items.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Items Table */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+        <h5 className="text-white font-semibold mb-4">📋 Positionen</h5>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-600">
+                <th className="text-left py-3 text-slate-400">Pos.</th>
+                <th className="text-left py-3 text-slate-400">Beschreibung</th>
+                <th className="text-right py-3 text-slate-400">Menge</th>
+                <th className="text-right py-3 text-slate-400">Einzelpreis</th>
+                <th className="text-right py-3 text-slate-400">Gesamtpreis</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={index} className="border-b border-slate-700 last:border-b-0">
+                  <td className="py-3 text-slate-300">{index + 1}</td>
+                  <td className="py-3 text-white">{item.description}</td>
+                  <td className="py-3 text-right text-slate-300">{item.quantity}</td>
+                  <td className="py-3 text-right text-slate-300">{formatCurrency(item.price)}</td>
+                  <td className="py-3 text-right text-white font-semibold">{formatCurrency(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Totals */}
+        <div className="mt-6 border-t border-slate-600 pt-4">
+          <div className="max-w-md ml-auto space-y-2">
+            <div className="flex justify-between">
+              <span className="text-slate-400">
+                {invoice.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Nettobetrag:'}
+              </span>
+              <span className="text-white">{formatCurrency(invoice.subtotal)}</span>
+            </div>
+            
+            {!invoice.is_kleinunternehmer && (
+              <div className="flex justify-between">
+                <span className="text-slate-400">zzgl. MwSt ({invoice.tax_rate}%):</span>
+                <span className="text-white">{formatCurrency(invoice.tax_amount)}</span>
+              </div>
+            )}
+            
+            {invoice.is_kleinunternehmer && (
+              <div className="text-xs text-slate-500 italic">
+                * Gemäß §19 UStG wird keine Umsatzsteuer berechnet
+              </div>
+            )}
+            
+            {!invoice.is_kleinunternehmer && (
+              <div className="border-t border-slate-600 pt-2">
+                <div className="flex justify-between font-semibold">
+                  <span className="text-white">Bruttobetrag:</span>
+                  <span className="text-white text-lg">{formatCurrency(invoice.total_amount)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      {invoice.notes && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+          <h5 className="text-white font-semibold mb-2">📝 Notizen</h5>
+          <p className="text-slate-300">{invoice.notes}</p>
+        </div>
+      )}
+    </div>
+  )
+}
 
   // Bookkeeper Settings Modal (lokalni state)
   const BookkeeperSettingsModal = () => {
