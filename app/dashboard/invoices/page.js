@@ -292,9 +292,9 @@ function DashboardPageContent() {
     setShowEmailModal(false)
     setEmailItem(null)
     
-    if (majstor?.id) {
-      loadInvoicesData(majstor.id)
-    }
+  //  if (majstor?.id) {
+   //   loadInvoicesData(majstor.id)
+   // }
   }
 
   const getStatusColor = (status) => {
