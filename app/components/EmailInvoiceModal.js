@@ -98,7 +98,7 @@ export default function EmailInvoiceModal({
       
       alert(`E-Mail erfolgreich gesendet!\n\nEmpfänger: ${formData.recipientEmail}\nBetreff: ${formData.subject}`)
       
-      onSuccess && onSuccess(result)
+      //onSuccess && onSuccess(result)
       onClose()
 
     } catch (err) {
