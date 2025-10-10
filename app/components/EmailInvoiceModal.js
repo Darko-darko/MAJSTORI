@@ -56,59 +56,58 @@ export default function EmailInvoiceModal({
     setError('')
 
     try {
-      // NOVA LOGIKA: Proveri da li PDF postoji
-      if (!invoice.pdf_storage_path || !invoice.pdf_generated_at) {
-        console.log('PDF ne postoji, generišem automatski...')
-        
-        try {
-          const pdfGenResponse = await fetch(`/api/invoices/${invoice.id}/pdf`)
-          
-          if (!pdfGenResponse.ok) {
-            throw new Error('PDF generisanje nije uspelo')
-          }
-          
-          console.log('PDF automatski generisan')
-          await new Promise(resolve => setTimeout(resolve, 1500))
-          
-        } catch (pdfGenError) {
-          console.error('PDF generation error:', pdfGenError)
-          setError('PDF generisanje nije uspelo. Molimo pokušajte ponovo.')
-          setLoading(false)
-          return
-        }
+  // PDF generation logic ako treba
+  if (!invoice.pdf_storage_path || !invoice.pdf_generated_at) {
+    console.log('PDF ne postoji, generišem automatski...')
+    
+    try {
+      const pdfGenResponse = await fetch(`/api/invoices/${invoice.id}/pdf`)
+      
+      if (!pdfGenResponse.ok) {
+        throw new Error('PDF generisanje nije uspelo')
       }
       
-      console.log('Sending email for invoice:', invoice.id)
+      console.log('PDF automatski generisan')
+      await new Promise(resolve => setTimeout(resolve, 1500))
       
-      const response = await fetch(`/api/invoices/${invoice.id}/email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'E-Mail-Versand fehlgeschlagen')
-      }
-
-      console.log('Email sent successfully:', result)
-      
-      alert(`E-Mail erfolgreich gesendet!\n\nEmpfänger: ${formData.recipientEmail}\nBetreff: ${formData.subject}`)
-      
-      //onSuccess && onSuccess(result)
-      onClose()
-
-    } catch (err) {
-      console.error('Email sending error:', err)
-      setError(err.message)
-    } finally {
+    } catch (pdfGenError) {
+      console.error('PDF generation error:', pdfGenError)
+      setError('PDF generisanje nije uspelo. Molimo pokušajte ponovo.')
       setLoading(false)
+      return
     }
   }
+  
+  console.log('Sending email for invoice:', invoice.id)
+  
+  const response = await fetch(`/api/invoices/${invoice.id}/email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(formData)
+  })
 
+  const result = await response.json()
+
+  if (!response.ok) {
+    throw new Error(result.error || 'E-Mail-Versand fehlgeschlagen')
+  }
+
+  console.log('Email sent successfully:', result)
+  
+  setLoading(false)
+  
+  alert(`E-Mail erfolgreich gesendet!\n\nEmpfänger: ${formData.recipientEmail}\nBetreff: ${formData.subject}`)
+  
+  onClose()
+
+} catch (err) {
+  console.error('Email sending error:', err)
+  setError(err.message)
+  setLoading(false)
+}
+}
   if (!isOpen) return null
 
   const documentType = invoice?.type === 'quote' ? 'Angebot' : 'Rechnung'
