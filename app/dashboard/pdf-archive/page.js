@@ -138,65 +138,9 @@ export default function PDFArchivePage() {
     }
   }
 
-  // 🔥 NEW: Check if PDF is outdated
-  const isPdfOutdated = (invoice) => {
-    if (!invoice.pdf_generated_at) return true
-    return new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
-  }
+  
 
-  // 🔥 NEW: Manual PDF regeneration
-  const handleRegeneratePDF = async (invoice) => {
-    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
-    const documentNumber = invoice.invoice_number || invoice.quote_number
-    
-    const confirmed = confirm(
-      `PDF regenerieren für ${documentType} ${documentNumber}?\n\n` +
-      (invoice.type === 'invoice' 
-        ? '🇪🇺 Das ZUGFeRD XML wird ebenfalls aktualisiert.\n\n'
-        : '') +
-      'Dies kann einige Sekunden dauern.'
-    )
-    
-    if (!confirmed) return
-    
-    try {
-      setLoading(true)
-      console.log('🔄 Manually regenerating PDF from archive for:', documentNumber)
-      
-      const response = await fetch(
-        `/api/invoices/${invoice.id}/pdf?forceRegenerate=true`,
-        {
-          method: 'GET',
-          headers: { 'Cache-Control': 'no-cache' }
-        }
-      )
-      
-      if (response.ok) {
-        alert(
-          `✅ PDF erfolgreich regeneriert!\n\n` +
-          `${documentType} ${documentNumber}\n` +
-          (invoice.type === 'invoice' ? `🇪🇺 ZUGFeRD XML aktualisiert\n` : '') +
-          `\nDas Archiv wurde aktualisiert.`
-        )
-        
-        // Reload archive data
-        if (majstor?.id) {
-          await loadArchivedPDFs(majstor.id)
-        }
-      } else {
-        const error = await response.text()
-        throw new Error(error)
-      }
-    } catch (error) {
-      console.error('❌ PDF regeneration failed:', error)
-      alert(
-        `❌ PDF-Regenerierung fehlgeschlagen!\n\n` +
-        `Fehler: ${error.message}`
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
+  
 
   const loadInvoiceDetails = async (pdfId) => {
     try {
@@ -1211,48 +1155,21 @@ export default function PDFArchivePage() {
       ) : (
         <div className="grid gap-3">
           {archivedPDFs.map((pdf) => {
-            const pdfOutdated = isPdfOutdated(pdf)
+     
             
             return (
               <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
                 
-                {pdfOutdated && (
-                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 mb-3">
-                    <div className="flex items-start gap-2">
-                      <span className="text-orange-400 text-sm">⚠️</span>
-                      <div className="flex-1">
-                        <p className="text-orange-300 text-xs font-medium">
-                          PDF veraltet - Nach Bearbeitung nicht regeneriert
-                        </p>
-                        {pdf.type === 'invoice' && (
-                          <p className="text-orange-200 text-xs mt-1">
-                            ZUGFeRD XML enthält möglicherweise alte Daten
-                          </p>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRegeneratePDF(pdf)
-                          }}
-                          className="bg-orange-600 text-white px-2 py-1 rounded text-xs hover:bg-orange-700 transition-colors mt-2"
-                        >
-                          🔄 Jetzt regenerieren
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+           
                 
                 <div className="flex items-center gap-4">
                   
-                  <input
-                    type="checkbox"
-                    checked={selectedPDFs.has(pdf.id)}
-                    onChange={() => togglePDFSelection(pdf.id)}
-                    className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded focus:ring-green-500"
-                    disabled={pdfOutdated}
-                    title={pdfOutdated ? 'PDF muss zuerst regeneriert werden' : ''}
-                  />
+                <input
+  type="checkbox"
+  checked={selectedPDFs.has(pdf.id)}
+  onChange={() => togglePDFSelection(pdf.id)}
+  className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded focus:ring-green-500"
+/>
 
                   <div className="flex items-center gap-2 flex-1">
                     <h4 className="text-white font-semibold">
@@ -1262,11 +1179,7 @@ export default function PDFArchivePage() {
                       {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
                     </span>
                     
-                    {pdfOutdated && (
-                      <span className="px-2 py-1 rounded text-xs bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                        ⚠️ Veraltet
-                      </span>
-                    )}
+                
                   </div>
 
                   <div className="hidden sm:block text-slate-400 flex-1">
@@ -1278,22 +1191,14 @@ export default function PDFArchivePage() {
                   </div>
 
                   <button 
-                    onClick={() => showDetails(pdf.id)}
-                    className={`text-white px-3 py-2 rounded text-sm transition-colors ${
-                      pdfOutdated 
-                        ? 'bg-orange-600 hover:bg-orange-700' 
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
-                  >
-                    {pdfOutdated ? '⚠️' : '👁️'} Ansehen
-                  </button>
+  onClick={() => showDetails(pdf.id)}
+  className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
+>
+  👁️ Ansehen
+</button>
                 </div>
                 
-                {pdfOutdated && selectedPDFs.has(pdf.id) && (
-                  <div className="mt-3 text-xs text-orange-400">
-                    ⚠️ Dieses PDF wurde aus der Auswahl entfernt (veraltet)
-                  </div>
-                )}
+              
                 
               </div>
             )
