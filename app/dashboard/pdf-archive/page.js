@@ -1,4 +1,4 @@
-// app/dashboard/pdf-archive/page.js - MIT DETAIL VIEW
+// app/dashboard/pdf-archive/page.js - KOMPLETAN SA PDF REGENERATION FIXOM
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -11,7 +11,7 @@ export default function PDFArchivePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // 🆕 DETAIL VIEW STATE
+  // Detail view state
   const [selectedPDF, setSelectedPDF] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -29,14 +29,13 @@ export default function PDFArchivePage() {
 
   // Filters
   const [filters, setFilters] = useState({
-    type: 'invoice', // invoice (default) or quote - no 'all' to prevent mixed document types
-    dateRange: 'thisMonth', // thisMonth default - prevents massive email attachments
+    type: 'invoice',
+    dateRange: 'thisMonth',
     customer: '',
-    customMonth: new Date().getMonth() + 1, // 1-12
+    customMonth: new Date().getMonth() + 1,
     customYear: new Date().getFullYear()
   })
 
-  // 🚨 MAX PDFs per email to prevent attachment size issues
   const MAX_PDFS_PER_EMAIL = 50
 
   // Load data on mount
@@ -48,14 +47,12 @@ export default function PDFArchivePage() {
     try {
       setLoading(true)
       
-      // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
         setError('Authentication required')
         return
       }
 
-      // Get majstor profile
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
         .select('*')
@@ -69,7 +66,6 @@ export default function PDFArchivePage() {
 
       setMajstor(majstorData)
       
-      // Load bookkeeper email from majstor settings
       if (majstorData.bookkeeper_email) {
         setBookkeeperSettings(prev => ({
           ...prev,
@@ -97,20 +93,18 @@ export default function PDFArchivePage() {
         .select(`
           id, type, invoice_number, quote_number, customer_name, 
           total_amount, pdf_generated_at, pdf_storage_path, pdf_file_size,
-          created_at, status, customer_email, issue_date
+          created_at, status, customer_email, issue_date, updated_at
         `)
         .eq('majstor_id', majstorId)
         .not('pdf_storage_path', 'is', null)
-        .neq('status', 'dummy') // Exclude dummy entries
+        .neq('status', 'dummy')
 
-      // Apply filters - type filter always applies (no 'all' option)
       query = query.eq('type', filters.type)
 
       if (filters.customer) {
         query = query.eq('customer_name', filters.customer)
       }
 
-      // Date filter - always applies (no "show all" option to prevent massive emails)
       if (filters.dateRange === 'thisMonth') {
         const startOfMonth = new Date()
         startOfMonth.setDate(1)
@@ -124,7 +118,6 @@ export default function PDFArchivePage() {
           .gte('pdf_generated_at', startOfLastMonth.toISOString())
           .lte('pdf_generated_at', endOfLastMonth.toISOString())
       } else if (filters.dateRange === 'custom') {
-        // Custom month and year
         const startOfCustomMonth = new Date(filters.customYear, filters.customMonth - 1, 1)
         const endOfCustomMonth = new Date(filters.customYear, filters.customMonth, 0, 23, 59, 59)
         query = query
@@ -145,14 +138,73 @@ export default function PDFArchivePage() {
     }
   }
 
-  // 🆕 LOAD FULL INVOICE DETAILS FOR DETAIL VIEW
+  // 🔥 NEW: Check if PDF is outdated
+  const isPdfOutdated = (invoice) => {
+    if (!invoice.pdf_generated_at) return true
+    return new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
+  }
+
+  // 🔥 NEW: Manual PDF regeneration
+  const handleRegeneratePDF = async (invoice) => {
+    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+    const documentNumber = invoice.invoice_number || invoice.quote_number
+    
+    const confirmed = confirm(
+      `PDF regenerieren für ${documentType} ${documentNumber}?\n\n` +
+      (invoice.type === 'invoice' 
+        ? '🇪🇺 Das ZUGFeRD XML wird ebenfalls aktualisiert.\n\n'
+        : '') +
+      'Dies kann einige Sekunden dauern.'
+    )
+    
+    if (!confirmed) return
+    
+    try {
+      setLoading(true)
+      console.log('🔄 Manually regenerating PDF from archive for:', documentNumber)
+      
+      const response = await fetch(
+        `/api/invoices/${invoice.id}/pdf?forceRegenerate=true`,
+        {
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache' }
+        }
+      )
+      
+      if (response.ok) {
+        alert(
+          `✅ PDF erfolgreich regeneriert!\n\n` +
+          `${documentType} ${documentNumber}\n` +
+          (invoice.type === 'invoice' ? `🇪🇺 ZUGFeRD XML aktualisiert\n` : '') +
+          `\nDas Archiv wurde aktualisiert.`
+        )
+        
+        // Reload archive data
+        if (majstor?.id) {
+          await loadArchivedPDFs(majstor.id)
+        }
+      } else {
+        const error = await response.text()
+        throw new Error(error)
+      }
+    } catch (error) {
+      console.error('❌ PDF regeneration failed:', error)
+      alert(
+        `❌ PDF-Regenerierung fehlgeschlagen!\n\n` +
+        `Fehler: ${error.message}`
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const loadInvoiceDetails = async (pdfId) => {
     try {
       setDetailLoading(true)
       
       const { data: invoice, error } = await supabase
         .from('invoices')
-        .select('*') // Get full invoice data
+        .select('*')
         .eq('id', pdfId)
         .single()
 
@@ -169,17 +221,14 @@ export default function PDFArchivePage() {
     }
   }
 
-  // 🆕 REPLACE openPDF with showDetails
   const showDetails = (pdfId) => {
     loadInvoiceDetails(pdfId)
   }
 
-  // 🆕 BACK TO LIST
   const backToList = () => {
     setSelectedPDF(null)
   }
 
-  // Helper function to get unique customers with PDF counts
   const getCustomersWithCounts = () => {
     const customerCounts = {}
     
@@ -192,8 +241,9 @@ export default function PDFArchivePage() {
     
     return Object.entries(customerCounts)
       .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count) // Sort by PDF count descending
+      .sort((a, b) => b.count - a.count)
   }
+
   const validateEmails = (emailString) => {
     if (!emailString.trim()) return { valid: false, emails: [] }
     
@@ -212,7 +262,6 @@ export default function PDFArchivePage() {
     }
   }
 
-  // Bulk selection functions
   const togglePDFSelection = (pdfId) => {
     setSelectedPDFs(prev => {
       const newSet = new Set(prev)
@@ -237,7 +286,6 @@ export default function PDFArchivePage() {
     setSelectedPDFs(new Set())
   }
 
-  // PDF operations
   const downloadPDF = async (pdfId) => {
     try {
       const response = await fetch(`/api/invoices/${pdfId}/pdf`)
@@ -259,7 +307,6 @@ export default function PDFArchivePage() {
     window.open(`/api/invoices/${pdfId}/pdf`, '_blank')
   }
 
-  // Bulk email functionality
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
     
@@ -267,7 +314,27 @@ export default function PDFArchivePage() {
       const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
       const selectedIds = Array.from(selectedPDFs)
       
-      // 🚨 CHECK IF TOO MANY PDFs - SPLIT IF NEEDED
+      // 🔥 NEW: Check for outdated PDFs before sending
+      const outdatedPDFs = selectedItems.filter(pdf => isPdfOutdated(pdf))
+      
+      if (outdatedPDFs.length > 0) {
+        const outdatedNumbers = outdatedPDFs.map(pdf => 
+          pdf.invoice_number || pdf.quote_number
+        ).join(', ')
+        
+        alert(
+          `⚠️ ACHTUNG: ${outdatedPDFs.length} PDF(s) sind veraltet!\n\n` +
+          `Veraltete Dokumente:\n${outdatedNumbers}\n\n` +
+          `Diese PDFs wurden nach der Erstellung bearbeitet und müssen ` +
+          `zuerst regeneriert werden, um sicherzustellen, dass aktuelle ` +
+          `Daten (inkl. ZUGFeRD XML) gesendet werden.\n\n` +
+          `Bitte regenerieren Sie die PDFs einzeln und versuchen Sie es erneut.`
+        )
+        
+        setBulkEmailLoading(false)
+        return
+      }
+      
       if (selectedIds.length > MAX_PDFS_PER_EMAIL) {
         const emailCount = Math.ceil(selectedIds.length / MAX_PDFS_PER_EMAIL)
         const confirmed = confirm(
@@ -283,7 +350,6 @@ export default function PDFArchivePage() {
           return
         }
         
-        // SPLIT INTO CHUNKS
         console.log(`📦 Splitting ${selectedIds.length} PDFs into ${emailCount} emails`)
         
         const emailValidation = validateEmails(emailData.email)
@@ -296,7 +362,6 @@ export default function PDFArchivePage() {
         let successfulEmails = 0
         let failedEmails = 0
         
-        // Send emails in chunks
         for (let i = 0; i < selectedIds.length; i += MAX_PDFS_PER_EMAIL) {
           const chunk = selectedIds.slice(i, i + MAX_PDFS_PER_EMAIL)
           const chunkNumber = Math.floor(i / MAX_PDFS_PER_EMAIL) + 1
@@ -323,7 +388,6 @@ export default function PDFArchivePage() {
               console.error(`Failed to send email chunk ${chunkNumber}:`, await response.text())
             }
             
-            // Small delay between emails to avoid rate limiting
             if (i + MAX_PDFS_PER_EMAIL < selectedIds.length) {
               await new Promise(resolve => setTimeout(resolve, 1000))
             }
@@ -334,7 +398,6 @@ export default function PDFArchivePage() {
           }
         }
         
-        // Final result
         if (successfulEmails === emailCount) {
           alert(`✅ Erfolgreich! Alle ${emailCount} E-Mails gesendet.\n\n📧 ${selectedItems.length} PDFs an ${emailValidation.emails.length} Empfänger`)
         } else {
@@ -346,7 +409,6 @@ export default function PDFArchivePage() {
         return
       }
       
-      // 👍 NORMAL CASE - Single email
       const emailValidation = validateEmails(emailData.email)
       if (!emailValidation.valid) {
         alert(`❌ Ungültige E-Mail-Adressen: ${emailValidation.invalidEmails.join(', ')}`)
@@ -385,24 +447,21 @@ export default function PDFArchivePage() {
     }
   }
 
-  // Filter change handler with smart reset
   const handleFilterChange = (newFilters) => {
     setFilters(prev => {
-      // 🔥 FIX: Reset customer filter when type changes
       if (newFilters.type && newFilters.type !== prev.type) {
         return { 
           ...prev, 
           ...newFilters,
-          customer: '' // Reset customer when type changes
+          customer: ''
         }
       }
       
-      // 🔥 FIX: Reset customer filter when date range changes significantly  
       if (newFilters.dateRange && newFilters.dateRange !== prev.dateRange) {
         return { 
           ...prev, 
           ...newFilters,
-          customer: '' // Reset customer when date changes
+          customer: ''
         }
       }
       
@@ -410,14 +469,12 @@ export default function PDFArchivePage() {
     })
   }
 
-  // Apply filters when they change
   useEffect(() => {
     if (majstor?.id) {
       loadArchivedPDFs(majstor.id)
     }
   }, [filters])
 
-  // Helper functions
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -455,173 +512,183 @@ export default function PDFArchivePage() {
     return colors[status] || colors.draft
   }
 
-  // 🆕 DETAIL VIEW COMPONENT
-// Replace the DetailView component in pdf-archive/page.js
+  const DetailView = ({ invoice }) => {
+    if (!invoice) return null
 
-const DetailView = ({ invoice }) => {
-  if (!invoice) return null
+    const items = JSON.parse(invoice.items || '[]')
+    const isQuote = invoice.type === 'quote'
 
-  const items = JSON.parse(invoice.items || '[]')
-  const isQuote = invoice.type === 'quote'
-
-  return (
-    <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={backToList}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
-        >
-          ← Zurück zur Liste
-        </button>
-        
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => openPDFInNewTab(invoice.id)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={backToList}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
           >
-            👁️ PDF öffnen
+            ← Zurück zur Liste
           </button>
-          <button 
-            onClick={() => downloadPDF(invoice.id)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            📥 Download
-          </button>
-        </div>
-      </div>
-
-      {/* Document Details Card */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <h4 className="text-white font-semibold text-lg">
-                {invoice.invoice_number || invoice.quote_number}
-              </h4>
-              <span className={`px-3 py-1 rounded-full text-sm border ${getDocumentTypeColor(invoice.type)}`}>
-                {isQuote ? 'Angebot' : 'Rechnung'}
-              </span>
-            </div>
-            <p className="text-slate-400">{invoice.customer_name}</p>
-            <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
-            {invoice.customer_phone && (
-              <p className="text-slate-500 text-sm">Tel: {invoice.customer_phone}</p>
-            )}
-            {invoice.customer_address && (
-              <p className="text-slate-500 text-sm">{invoice.customer_address}</p>
-            )}
-          </div>
-          <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
-            {invoice.status === 'draft' && 'Entwurf'}
-            {invoice.status === 'sent' && 'Gesendet'}
-            {invoice.status === 'paid' && 'Bezahlt'}
-            {invoice.status === 'overdue' && 'Überfällig'}
-            {invoice.status === 'cancelled' && 'Storniert'}
-            {invoice.status === 'converted' && 'Umgewandelt'}
-          </span>
-        </div>
-
-        {/* Document Info Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-slate-400">Betrag:</span>
-            <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
-          </div>
-          <div>
-            <span className="text-slate-400">{isQuote ? 'Angebotsdatum:' : 'Rechnungsdatum:'}</span>
-            <p className="text-white">{formatDate(invoice.issue_date)}</p>
-          </div>
-          <div>
-            <span className="text-slate-400">
-              {isQuote ? 'Gültig bis:' : 'Fälligkeitsdatum:'}
-            </span>
-            <p className="text-white">
-              {formatDate(isQuote ? invoice.valid_until : invoice.due_date)}
-            </p>
-          </div>
-          <div>
-            <span className="text-slate-400">Positionen:</span>
-            <p className="text-white">{items.length}</p>
+          
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => openPDFInNewTab(invoice.id)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              👁️ PDF öffnen
+            </button>
+            <button 
+              onClick={() => downloadPDF(invoice.id)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              📥 Download
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Items Table */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-        <h5 className="text-white font-semibold mb-4">📋 Positionen</h5>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-600">
-                <th className="text-left py-3 text-slate-400">Pos.</th>
-                <th className="text-left py-3 text-slate-400">Beschreibung</th>
-                <th className="text-right py-3 text-slate-400">Menge</th>
-                <th className="text-right py-3 text-slate-400">Einzelpreis</th>
-                <th className="text-right py-3 text-slate-400">Gesamtpreis</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={index} className="border-b border-slate-700 last:border-b-0">
-                  <td className="py-3 text-slate-300">{index + 1}</td>
-                  <td className="py-3 text-white">{item.description}</td>
-                  <td className="py-3 text-right text-slate-300">{item.quantity}</td>
-                  <td className="py-3 text-right text-slate-300">{formatCurrency(item.price)}</td>
-                  <td className="py-3 text-right text-white font-semibold">{formatCurrency(item.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Totals */}
-        <div className="mt-6 border-t border-slate-600 pt-4">
-          <div className="max-w-md ml-auto space-y-2">
-            <div className="flex justify-between">
-              <span className="text-slate-400">
-                {invoice.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Nettobetrag:'}
-              </span>
-              <span className="text-white">{formatCurrency(invoice.subtotal)}</span>
-            </div>
-            
-            {!invoice.is_kleinunternehmer && (
-              <div className="flex justify-between">
-                <span className="text-slate-400">zzgl. MwSt ({invoice.tax_rate}%):</span>
-                <span className="text-white">{formatCurrency(invoice.tax_amount)}</span>
-              </div>
-            )}
-            
-            {invoice.is_kleinunternehmer && (
-              <div className="text-xs text-slate-500 italic">
-                * Gemäß §19 UStG wird keine Umsatzsteuer berechnet
-              </div>
-            )}
-            
-            {!invoice.is_kleinunternehmer && (
-              <div className="border-t border-slate-600 pt-2">
-                <div className="flex justify-between font-semibold">
-                  <span className="text-white">Bruttobetrag:</span>
-                  <span className="text-white text-lg">{formatCurrency(invoice.total_amount)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Notes */}
-      {invoice.notes && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-          <h5 className="text-white font-semibold mb-2">📝 Notizen</h5>
-          <p className="text-slate-300">{invoice.notes}</p>
-        </div>
-      )}
-    </div>
-  )
-}
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <h4 className="text-white font-semibold text-lg">
+                  {invoice.invoice_number || invoice.quote_number}
+                </h4>
+                <span className={`px-3 py-1 rounded-full text-sm border ${getDocumentTypeColor(invoice.type)}`}>
+                  {isQuote ? 'Angebot' : 'Rechnung'}
+                </span>
+              </div>
+              <p className="text-slate-400">{invoice.customer_name}</p>
+              <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
+              {invoice.customer_phone && (
+                <p className="text-slate-500 text-sm">Tel: {invoice.customer_phone}</p>
+              )}
+              {invoice.customer_address && (
+                <p className="text-slate-500 text-sm">{invoice.customer_address}</p>
+              )}
+            </div>
+            <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
+              {invoice.status === 'draft' && 'Entwurf'}
+              {invoice.status === 'sent' && 'Gesendet'}
+              {invoice.status === 'paid' && 'Bezahlt'}
+              {invoice.status === 'overdue' && 'Überfällig'}
+              {invoice.status === 'cancelled' && 'Storniert'}
+              {invoice.status === 'converted' && 'Umgewandelt'}
+            </span>
+          </div>
 
-  // Bookkeeper Settings Modal (lokalni state)
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+            <div>
+              <span className="text-slate-400">Betrag:</span>
+              <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">{isQuote ? 'Angebotsdatum:' : 'Rechnungsdatum:'}</span>
+              <p className="text-white">{formatDate(invoice.issue_date)}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">
+                {isQuote ? 'Gültig bis:' : 'Fälligkeitsdatum:'}
+              </span>
+              <p className="text-white">
+                {formatDate(isQuote ? invoice.valid_until : invoice.due_date)}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400">Positionen:</span>
+              <p className="text-white">{items.length}</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/50 rounded-lg p-3 mb-4">
+            <h5 className="text-white font-medium mb-2">📁 PDF Information</h5>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="text-slate-400">Erstellt:</span>
+                <p className="text-slate-300">{formatDate(invoice.pdf_generated_at)}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Dateigröße:</span>
+                <p className="text-slate-300">{formatFileSize(invoice.pdf_file_size)}</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Speicherpfad:</span>
+                <p className="text-slate-300 truncate" title={invoice.pdf_storage_path}>
+                  {invoice.pdf_storage_path}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+          <h5 className="text-white font-semibold mb-4">📋 Positionen</h5>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-600">
+                  <th className="text-left py-3 text-slate-400">Pos.</th>
+                  <th className="text-left py-3 text-slate-400">Beschreibung</th>
+                  <th className="text-right py-3 text-slate-400">Menge</th>
+                  <th className="text-right py-3 text-slate-400">Einzelpreis</th>
+                  <th className="text-right py-3 text-slate-400">Gesamtpreis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => (
+                  <tr key={index} className="border-b border-slate-700 last:border-b-0">
+                    <td className="py-3 text-slate-300">{index + 1}</td>
+                    <td className="py-3 text-white">{item.description}</td>
+                    <td className="py-3 text-right text-slate-300">{item.quantity}</td>
+                    <td className="py-3 text-right text-slate-300">{formatCurrency(item.price)}</td>
+                    <td className="py-3 text-right text-white font-semibold">{formatCurrency(item.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 border-t border-slate-600 pt-4">
+            <div className="max-w-md ml-auto space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">
+                  {invoice.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Nettobetrag:'}
+                </span>
+                <span className="text-white">{formatCurrency(invoice.subtotal)}</span>
+              </div>
+              
+              {!invoice.is_kleinunternehmer && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">zzgl. MwSt ({invoice.tax_rate}%):</span>
+                  <span className="text-white">{formatCurrency(invoice.tax_amount)}</span>
+                </div>
+              )}
+              
+              {invoice.is_kleinunternehmer && (
+                <div className="text-xs text-slate-500 italic">
+                  * Gemäß §19 UStG wird keine Umsatzsteuer berechnet
+                </div>
+              )}
+              
+              {!invoice.is_kleinunternehmer && (
+                <div className="border-t border-slate-600 pt-2">
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-white">Bruttobetrag:</span>
+                    <span className="text-white text-lg">{formatCurrency(invoice.total_amount)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {invoice.notes && (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+            <h5 className="text-white font-semibold mb-2">📝 Notizen</h5>
+            <p className="text-slate-300">{invoice.notes}</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const BookkeeperSettingsModal = () => {
     const [localSettings, setLocalSettings] = useState({
       name: bookkeeperSettings.name,
@@ -671,7 +738,7 @@ const DetailView = ({ invoice }) => {
         <div className="bg-slate-800 rounded-xl max-w-md w-full p-6">
           
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-semibold text-white">🔧 Buchhalter Einstellungen</h3>
+            <h3 className="text-xl font-semibold text-white">📧 Buchhalter Einstellungen</h3>
             <button 
               onClick={() => setBookkeeperSettings(prev => ({ ...prev, showSettings: false }))}
               className="text-slate-400 hover:text-white text-2xl"
@@ -735,7 +802,6 @@ const DetailView = ({ invoice }) => {
     )
   }
 
-  // Bulk Email Modal Component
   const BulkEmailModal = () => {
     const [emailData, setEmailData] = useState({
       email: bookkeeperSettings.email,
@@ -775,7 +841,6 @@ const DetailView = ({ invoice }) => {
               Ausgewählte Dokumente ({selectedItems.length}):
             </h4>
             
-            {/* 🚨 WARNING for too many PDFs */}
             {selectedItems.length > MAX_PDFS_PER_EMAIL && (
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mb-4">
                 <div className="flex items-start gap-3">
@@ -930,7 +995,6 @@ const DetailView = ({ invoice }) => {
     )
   }
 
-  // Bulk Action Bar Component
   const BulkActionBar = () => {
     if (selectedPDFs.size === 0) return null
     
@@ -988,7 +1052,6 @@ const DetailView = ({ invoice }) => {
     )
   }
 
-  // 🆕 SHOW DETAIL VIEW if selectedPDF is set
   if (selectedPDF) {
     if (detailLoading) {
       return (
@@ -1004,10 +1067,8 @@ const DetailView = ({ invoice }) => {
     return <DetailView invoice={selectedPDF} />
   }
 
-  // MAIN LIST VIEW
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">📂 PDF Archiv</h1>
@@ -1023,24 +1084,22 @@ const DetailView = ({ invoice }) => {
         </Link>
       </div>
 
-     {/* Stats - DINAMIČKA KARTICA */}
-<div className="grid grid-cols-1 gap-4">
-  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 max-w-sm">
-    <div className="text-2xl mb-2">
-      {filters.type === 'invoice' ? '🧾' : '📋'}
-    </div>
-    <div className="text-white font-semibold">{archivedPDFs.length}</div>
-    <div className="text-slate-400 text-sm">
-      {filters.type === 'invoice' ? 'Rechnungen' : 'Angebote'} 
-      {filters.dateRange === 'thisMonth' && ' (dieser Monat)'}
-      {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
-      {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
-      {filters.customer && ` - ${filters.customer}`}
-    </div>
-  </div>
-</div>
+      <div className="grid grid-cols-1 gap-4">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 max-w-sm">
+          <div className="text-2xl mb-2">
+            {filters.type === 'invoice' ? '🧾' : '📋'}
+          </div>
+          <div className="text-white font-semibold">{archivedPDFs.length}</div>
+          <div className="text-slate-400 text-sm">
+            {filters.type === 'invoice' ? 'Rechnungen' : 'Angebote'} 
+            {filters.dateRange === 'thisMonth' && ' (dieser Monat)'}
+            {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
+            {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
+            {filters.customer && ` - ${filters.customer}`}
+          </div>
+        </div>
+      </div>
 
-      {/* Filters */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
         <div className="flex flex-wrap gap-4 items-center">
           <div>
@@ -1068,7 +1127,6 @@ const DetailView = ({ invoice }) => {
             </select>
           </div>
 
-          {/* Custom Month selector */}
           {filters.dateRange === 'custom' && (
             <>
               <div>
@@ -1126,7 +1184,6 @@ const DetailView = ({ invoice }) => {
             </select>
           </div>
 
-          {/* Bulk Select All */}
           {archivedPDFs.length > 0 && (
             <div className="ml-auto">
               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
@@ -1143,7 +1200,6 @@ const DetailView = ({ invoice }) => {
         </div>
       </div>
 
-      {/* PDF List */}
       {archivedPDFs.length === 0 ? (
         <div className="text-center py-12 text-slate-400">
           <div className="text-4xl mb-4">📄</div>
@@ -1152,52 +1208,97 @@ const DetailView = ({ invoice }) => {
         </div>
       ) : (
         <div className="grid gap-3">
-          {archivedPDFs.map((pdf) => (
-            <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-              <div className="flex items-center gap-4">
+          {archivedPDFs.map((pdf) => {
+            const pdfOutdated = isPdfOutdated(pdf)
+            
+            return (
+              <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
                 
-                {/* Selection Checkbox */}
-                <input
-                  type="checkbox"
-                  checked={selectedPDFs.has(pdf.id)}
-                  onChange={() => togglePDFSelection(pdf.id)}
-                  className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded focus:ring-green-500"
-                />
+                {pdfOutdated && (
+                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 mb-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-orange-400 text-sm">⚠️</span>
+                      <div className="flex-1">
+                        <p className="text-orange-300 text-xs font-medium">
+                          PDF veraltet - Nach Bearbeitung nicht regeneriert
+                        </p>
+                        {pdf.type === 'invoice' && (
+                          <p className="text-orange-200 text-xs mt-1">
+                            ZUGFeRD XML enthält möglicherweise alte Daten
+                          </p>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRegeneratePDF(pdf)
+                          }}
+                          className="bg-orange-600 text-white px-2 py-1 rounded text-xs hover:bg-orange-700 transition-colors mt-2"
+                        >
+                          🔄 Jetzt regenerieren
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-4">
+                  
+                  <input
+                    type="checkbox"
+                    checked={selectedPDFs.has(pdf.id)}
+                    onChange={() => togglePDFSelection(pdf.id)}
+                    className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded focus:ring-green-500"
+                    disabled={pdfOutdated}
+                    title={pdfOutdated ? 'PDF muss zuerst regeneriert werden' : ''}
+                  />
 
-                {/* Document Number & Type */}
-                <div className="flex items-center gap-2">
-                  <h4 className="text-white font-semibold">
-                    {pdf.invoice_number || pdf.quote_number}
-                  </h4>
-                  <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(pdf.type)}`}>
-                    {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
-                  </span>
+                  <div className="flex items-center gap-2 flex-1">
+                    <h4 className="text-white font-semibold">
+                      {pdf.invoice_number || pdf.quote_number}
+                    </h4>
+                    <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(pdf.type)}`}>
+                      {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
+                    </span>
+                    
+                    {pdfOutdated && (
+                      <span className="px-2 py-1 rounded text-xs bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                        ⚠️ Veraltet
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="hidden sm:block text-slate-400 flex-1">
+                    {pdf.customer_name}
+                  </div>
+
+                  <div className="text-white font-semibold">
+                    {formatCurrency(pdf.total_amount)}
+                  </div>
+
+                  <button 
+                    onClick={() => showDetails(pdf.id)}
+                    className={`text-white px-3 py-2 rounded text-sm transition-colors ${
+                      pdfOutdated 
+                        ? 'bg-orange-600 hover:bg-orange-700' 
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    {pdfOutdated ? '⚠️' : '👁️'} Ansehen
+                  </button>
                 </div>
-
-                {/* Customer - only if space allows */}
-                <div className="hidden sm:block text-slate-400 flex-1">
-                  {pdf.customer_name}
-                </div>
-
-                {/* Amount */}
-                <div className="text-white font-semibold">
-                  {formatCurrency(pdf.total_amount)}
-                </div>
-
-                {/* Actions - 🆕 CHANGED: showDetails instead of openPDF */}
-                <button 
-                  onClick={() => showDetails(pdf.id)}
-                  className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
-                >
-                  👁️ Ansehen
-                </button>
+                
+                {pdfOutdated && selectedPDFs.has(pdf.id) && (
+                  <div className="mt-3 text-xs text-orange-400">
+                    ⚠️ Dieses PDF wurde aus der Auswahl entfernt (veraltet)
+                  </div>
+                )}
+                
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {/* Modals */}
       <BulkActionBar />
       <BulkEmailModal />
       <BookkeeperSettingsModal />
