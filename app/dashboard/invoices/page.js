@@ -289,15 +289,19 @@ function DashboardPageContent() {
       )
     }
   }
-  const handlePDFView = async (document) => {
-    try {
-      const pdfUrl = `/api/invoices/${document.id}/pdf`
-      window.open(pdfUrl, '_blank')
-    } catch (error) {
-      console.error('PDF viewing error:', error)
-      alert('Fehler beim Laden der PDF: ' + error.message)
-    }
+ const handlePDFView = async (document) => {
+  try {
+    // ✅ UVEK regeneriši - garantuje svež PDF
+    const pdfUrl = `/api/invoices/${document.id}/pdf?forceRegenerate=true&t=${Date.now()}`
+    
+    console.log('👁️ Opening PDF:', pdfUrl)
+    window.open(pdfUrl, '_blank')
+  } catch (error) {
+    console.error('PDF viewing error:', error)
+    alert('Fehler beim Laden der PDF: ' + error.message)
   }
+
+}
 
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
     const map = {}

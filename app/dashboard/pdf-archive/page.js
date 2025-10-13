@@ -286,26 +286,28 @@ export default function PDFArchivePage() {
     setSelectedPDFs(new Set())
   }
 
-  const downloadPDF = async (pdfId) => {
-    try {
-      const response = await fetch(`/api/invoices/${pdfId}/pdf`)
-      if (!response.ok) throw new Error('PDF download failed')
-      
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `invoice-${pdfId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      alert('Download fehlgeschlagen: ' + err.message)
-    }
+ const downloadPDF = async (pdfId) => {
+  try {
+    // ✅ UVEK svež PDF
+    const response = await fetch(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`)
+    if (!response.ok) throw new Error('PDF download failed')
+    
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `invoice-${pdfId}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    alert('Download fehlgeschlagen: ' + err.message)
   }
+}
 
-  const openPDFInNewTab = (pdfId) => {
-    window.open(`/api/invoices/${pdfId}/pdf`, '_blank')
-  }
+ const openPDFInNewTab = (pdfId) => {
+  // ✅ UVEK regeneriši - garantuje svež PDF
+  window.open(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`, '_blank')
+}
 
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
