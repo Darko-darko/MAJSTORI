@@ -32,17 +32,18 @@ function CustomersPageContent() {
   const [invoiceType, setInvoiceType] = useState(null) // null, 'quote', ili 'invoice'
   
   // Create/Edit form state
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    street: '',
-    postal_code: '',
-    city: '',
-    notes: '',
-    is_favorite: false
-  })
+ const [formData, setFormData] = useState({
+  name: '',
+  email: '',
+  phone: '',
+  company_name: '',
+  street: '',
+  postal_code: '',
+  city: '',
+  notes: '',
+  tax_number: '', // ⭐ NEW
+  is_favorite: false
+})
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState('')
   
@@ -139,43 +140,45 @@ const loadCustomers = async () => {
   }
 }
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      company_name: '',
-      street: '',
-      postal_code: '',
-      city: '',
-      notes: '',
-      is_favorite: false
-    })
-    setFormError('')
-    setEditingCustomer(null)
-  }
+const resetForm = () => {
+  setFormData({
+    name: '',
+    email: '',
+    phone: '',
+    company_name: '',
+    street: '',
+    postal_code: '',
+    city: '',
+    notes: '',
+    tax_number: '', // ⭐ NEW
+    is_favorite: false
+  })
+  setFormError('')
+  setEditingCustomer(null)
+}
 
   const handleCreateClick = () => {
     resetForm()
     setShowCreateModal(true)
   }
 
-  const handleEditClick = (customer) => {
-    setFormData({
-      name: customer.name || '',
-      email: customer.email || '',
-      phone: customer.phone || '',
-      company_name: customer.company_name || '',
-      street: customer.street || '',
-      postal_code: customer.postal_code || '',
-      city: customer.city || '',
-      notes: customer.notes || '',
-      is_favorite: customer.is_favorite || false
-    })
-    setEditingCustomer(customer)
-    setFormError('')
-    setShowCreateModal(true)
-  }
+const handleEditClick = (customer) => {
+  setFormData({
+    name: customer.name || '',
+    email: customer.email || '',
+    phone: customer.phone || '',
+    company_name: customer.company_name || '',
+    street: customer.street || '',
+    postal_code: customer.postal_code || '',
+    city: customer.city || '',
+    notes: customer.notes || '',
+    tax_number: customer.tax_number || '', // ⭐ NEW
+    is_favorite: customer.is_favorite || false
+  })
+  setEditingCustomer(customer)
+  setFormError('')
+  setShowCreateModal(true)
+}
 
   // 🔥 NOVO: Handler za New Invoice click
   const handleNewInvoiceClick = (customer) => {
@@ -361,14 +364,15 @@ const handleInvoiceSuccess = (createdInvoice) => {
   }
 
   // 🔥 NOVO: Helper function for prefilledCustomer format
-  const formatCustomerForInvoice = (customer) => {
-    return {
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone || '',
-      address: [customer.street, customer.postal_code, customer.city].filter(Boolean).join(', ')
-    }
+ const formatCustomerForInvoice = (customer) => {
+  return {
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone || '',
+    address: [customer.street, customer.postal_code, customer.city].filter(Boolean).join(', '),
+    tax_number: customer.tax_number || '' // ⭐ NEW
   }
+}
 
   if (loading) {
     return (
@@ -567,6 +571,17 @@ const handleInvoiceSuccess = (createdInvoice) => {
                         {customer.company_name}
                       </span>
                     )}
+                    {customer.company_name && (
+  <span className="text-blue-300 text-sm bg-blue-500/10 px-2 py-1 rounded">
+    {customer.company_name}
+  </span>
+)}
+{/* ⭐ NEW - Display Tax Number */}
+{customer.tax_number && (
+  <span className="text-slate-400 text-xs bg-slate-700/50 px-2 py-1 rounded">
+    🏢 St.Nr: {customer.tax_number}
+  </span>
+)}
                   </div>
                   
                   <div className="space-y-1 text-sm">
@@ -724,6 +739,22 @@ const handleInvoiceSuccess = (createdInvoice) => {
                     placeholder="Mustermann GmbH"
                   />
                 </div>
+                {/* ⭐ NEW - Tax Number Field */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Steuernummer (optional)
+  </label>
+  <input
+    type="text"
+    value={formData.tax_number}
+    onChange={(e) => setFormData(prev => ({ ...prev, tax_number: e.target.value }))}
+    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+    placeholder="DE123456789 oder 12/345/67890"
+  />
+  <p className="text-xs text-slate-500 mt-1">
+    Für B2B-Kunden mit deutscher Steuernummer
+  </p>
+</div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Straße</label>
@@ -843,18 +874,19 @@ const handleInvoiceSuccess = (createdInvoice) => {
                 />
               </div>
 
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <h4 className="text-blue-300 font-medium mb-2">Erwartete Spalten:</h4>
-                <div className="text-sm text-slate-300 space-y-1">
-                  <p>• <strong>name</strong> oder <strong>Name</strong> (erforderlich)</p>
-                  <p>• <strong>email</strong> oder <strong>E-Mail</strong> (erforderlich)</p>
-                  <p>• <strong>phone</strong> oder <strong>Telefon</strong></p>
-                  <p>• <strong>company_name</strong> oder <strong>Firma</strong></p>
-                  <p>• <strong>street</strong> oder <strong>Straße</strong></p>
-                  <p>• <strong>city</strong> oder <strong>Stadt</strong></p>
-                  <p>• <strong>postal_code</strong> oder <strong>PLZ</strong></p>
-                </div>
-              </div>
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+  <h4 className="text-blue-300 font-medium mb-2">Erwartete Spalten:</h4>
+  <div className="text-sm text-slate-300 space-y-1">
+    <p>• <strong>name</strong> oder <strong>Name</strong> (erforderlich)</p>
+    <p>• <strong>email</strong> oder <strong>E-Mail</strong> (erforderlich)</p>
+    <p>• <strong>phone</strong> oder <strong>Telefon</strong></p>
+    <p>• <strong>company_name</strong> oder <strong>Firma</strong></p>
+    <p>• <strong>tax_number</strong> oder <strong>Steuernummer</strong></p> {/* ⭐ NEW */}
+    <p>• <strong>street</strong> oder <strong>Straße</strong></p>
+    <p>• <strong>city</strong> oder <strong>Stadt</strong></p>
+    <p>• <strong>postal_code</strong> oder <strong>PLZ</strong></p>
+  </div>
+</div>
 
               {importResults && (
                 <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">

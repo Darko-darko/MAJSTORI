@@ -23,22 +23,23 @@ export default function InvoiceCreator({
   const [numbersInitialized, setNumbersInitialized] = useState(false)
   const [showNumbersSetupModal, setShowNumbersSetupModal] = useState(false)
 
-  const [formData, setFormData] = useState({
-    customer_name: '',
-    customer_email: '',
-    customer_address: '',
-    customer_phone: '',
-    items: [{ description: '', quantity: 1, price: 0, total: 0 }],
-    subtotal: 0,
-    tax_rate: 19,
-    tax_amount: 0,
-    total_amount: 0,
-    notes: '',
-    payment_terms_days: 14,
-    valid_until: '',
-    issue_date: new Date().toISOString().split('T')[0],
-    is_kleinunternehmer: false
-  })
+const [formData, setFormData] = useState({
+  customer_name: '',
+  customer_email: '',
+  customer_address: '',
+  customer_phone: '',
+  customer_tax_number: '', // ⭐ NEW
+  items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+  subtotal: 0,
+  tax_rate: 19,
+  tax_amount: 0,
+  total_amount: 0,
+  notes: '',
+  payment_terms_days: 14,
+  valid_until: '',
+  issue_date: new Date().toISOString().split('T')[0],
+  is_kleinunternehmer: false
+})
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -329,6 +330,7 @@ export default function InvoiceCreator({
         customer_email: editData.customer_email || '',
         customer_address: editData.customer_address || '',
         customer_phone: editData.customer_phone || '',
+        customer_tax_number: editData.customer_tax_number || '', // ⭐ NEW
         items: parsedItems,
         subtotal: editData.subtotal || 0,
         tax_rate: editData.tax_rate || defaultSettings.tax_rate,
@@ -343,45 +345,47 @@ export default function InvoiceCreator({
       
       setCustomerSearchTerm(editData.customer_name || '')
     } else {
-      let initialCustomerData = {
-        customer_name: '',
-        customer_email: '',
-        customer_address: '',
-        customer_phone: ''
-      }
+  let initialCustomerData = {
+    customer_name: '',
+    customer_email: '',
+    customer_address: '',
+    customer_phone: '',
+    customer_tax_number: '' // ⭐ NEW
+  }
 
-      if (prefilledCustomer) {
-        initialCustomerData = {
-          customer_name: prefilledCustomer.name || '',
-          customer_email: prefilledCustomer.email || '',
-          customer_address: prefilledCustomer.address || '',
-          customer_phone: prefilledCustomer.phone || ''
-        }
-        setCustomerSearchTerm(prefilledCustomer.name || '')
-      }
-
-      const initialFormData = {
-        ...initialCustomerData,
-        items: [{ description: '', quantity: 1, price: 0, total: 0 }],
-        subtotal: 0,
-        tax_rate: defaultSettings.tax_rate,
-        tax_amount: 0,
-        total_amount: 0,
-        notes: '',
-        payment_terms_days: defaultSettings.payment_terms_days,
-        valid_until: '',
-        issue_date: new Date().toISOString().split('T')[0],
-        is_kleinunternehmer: defaultSettings.is_kleinunternehmer
-      }
-
-      if (type === 'quote') {
-        const validUntil = new Date()
-        validUntil.setDate(validUntil.getDate() + 30)
-        initialFormData.valid_until = validUntil.toISOString().split('T')[0]
-      }
-
-      setFormData(initialFormData)
+  if (prefilledCustomer) {
+    initialCustomerData = {
+      customer_name: prefilledCustomer.name || '',
+      customer_email: prefilledCustomer.email || '',
+      customer_address: prefilledCustomer.address || '',
+      customer_phone: prefilledCustomer.phone || '',
+      customer_tax_number: prefilledCustomer.tax_number || '' // ⭐ NEW
     }
+    setCustomerSearchTerm(prefilledCustomer.name || '')
+  }
+
+  const initialFormData = {
+    ...initialCustomerData,
+    items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+    subtotal: 0,
+    tax_rate: defaultSettings.tax_rate,
+    tax_amount: 0,
+    total_amount: 0,
+    notes: '',
+    payment_terms_days: defaultSettings.payment_terms_days,
+    valid_until: '',
+    issue_date: new Date().toISOString().split('T')[0],
+    is_kleinunternehmer: defaultSettings.is_kleinunternehmer
+  }
+
+  if (type === 'quote') {
+    const validUntil = new Date()
+    validUntil.setDate(validUntil.getDate() + 30)
+    initialFormData.valid_until = validUntil.toISOString().split('T')[0]
+  }
+
+  setFormData(initialFormData)
+}
   }
 
   // EXISTING: Customer search with debouncing
@@ -399,47 +403,48 @@ export default function InvoiceCreator({
   }, [customerSearchTerm, isEditMode, prefilledCustomer])
 
   // EXISTING: Search customers function
-  const searchCustomers = async (searchTerm) => {
-    if (!majstor?.id || searchTerm.length < 2) return
+ const searchCustomers = async (searchTerm) => {
+  if (!majstor?.id || searchTerm.length < 2) return
 
-    setSearchLoading(true)
-    try {
-      const { data: customers, error } = await supabase
-        .from('customers')
-        .select('name, email, phone, street, city, postal_code, total_revenue, total_invoices')
-        .eq('majstor_id', majstor.id)
-        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING') // DODAJ OVU LINIJU
-        .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-        .order('total_revenue', { ascending: false })
-        .limit(8)
+  setSearchLoading(true)
+  try {
+    const { data: customers, error } = await supabase
+      .from('customers')
+      .select('name, email, phone, street, city, postal_code, total_revenue, total_invoices, tax_number') // ⭐ ADDED tax_number
+      .eq('majstor_id', majstor.id)
+      .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING')
+      .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+      .order('total_revenue', { ascending: false })
+      .limit(8)
 
-      if (!error && customers) {
-        setCustomerSuggestions(customers)
-        setShowCustomerDropdown(customers.length > 0)
-      }
-    } catch (err) {
-      console.error('Customer search error:', err)
-    } finally {
-      setSearchLoading(false)
+    if (!error && customers) {
+      setCustomerSuggestions(customers)
+      setShowCustomerDropdown(customers.length > 0)
     }
+  } catch (err) {
+    console.error('Customer search error:', err)
+  } finally {
+    setSearchLoading(false)
   }
+}
 
   // EXISTING: Select customer from dropdown
-  const handleCustomerSelect = (customer) => {
-    const addressParts = [customer.street, customer.postal_code, customer.city].filter(Boolean)
-    const fullAddress = addressParts.join(', ')
-    
-    setFormData(prev => ({
-      ...prev,
-      customer_name: customer.name,
-      customer_email: customer.email,
-      customer_phone: customer.phone || '',
-      customer_address: fullAddress
-    }))
-    
-    setCustomerSearchTerm(customer.name)
-    setShowCustomerDropdown(false)
-  }
+ const handleCustomerSelect = (customer) => {
+  const addressParts = [customer.street, customer.postal_code, customer.city].filter(Boolean)
+  const fullAddress = addressParts.join(', ')
+  
+  setFormData(prev => ({
+    ...prev,
+    customer_name: customer.name,
+    customer_email: customer.email,
+    customer_phone: customer.phone || '',
+    customer_address: fullAddress,
+    customer_tax_number: customer.tax_number || '' // ⭐ NEW
+  }))
+  
+  setCustomerSearchTerm(customer.name)
+  setShowCustomerDropdown(false)
+}
 
   // EXISTING: Service selection for items
   const handleServiceSelect = (itemIndex, service) => {
@@ -459,21 +464,22 @@ export default function InvoiceCreator({
   }
 
   // EXISTING: Handle customer name change
-  const handleCustomerNameChange = (e) => {
-    const value = e.target.value
-    setCustomerSearchTerm(value)
-    setFormData(prev => ({ ...prev, customer_name: value }))
-    
-    if (value.length === 0) {
-      setFormData(prev => ({
-        ...prev,
-        customer_name: '',
-        customer_email: '',
-        customer_phone: '',
-        customer_address: ''
-      }))
-    }
+ const handleCustomerNameChange = (e) => {
+  const value = e.target.value
+  setCustomerSearchTerm(value)
+  setFormData(prev => ({ ...prev, customer_name: value }))
+  
+  if (value.length === 0) {
+    setFormData(prev => ({
+      ...prev,
+      customer_name: '',
+      customer_email: '',
+      customer_phone: '',
+      customer_address: '',
+      customer_tax_number: '' // ⭐ NEW
+    }))
   }
+}
 
   // EXISTING: Handle input change
   const handleInputChange = (e) => {
@@ -587,27 +593,28 @@ const handleSubmit = async (e) => {
     const dueDate = new Date(formData.issue_date)
     dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
-    const invoiceData = {
-      majstor_id: majstor.id,
-      type: type,
-      customer_name: formData.customer_name,
-      customer_email: formData.customer_email,
-      customer_phone: formData.customer_phone,
-      customer_address: formData.customer_address,
-      items: JSON.stringify(formData.items),
-      subtotal: formData.subtotal,
-      tax_rate: formData.tax_rate,
-      tax_amount: formData.tax_amount,
-      total_amount: formData.total_amount,
-      status: editData?.status || 'draft',
-      issue_date: formData.issue_date,
-      due_date: dueDate.toISOString().split('T')[0],
-      notes: formData.notes,
-      payment_terms_days: formData.payment_terms_days,
-      valid_until: type === 'quote' ? formData.valid_until : null,
-      is_kleinunternehmer: formData.is_kleinunternehmer,
-      converted_from_quote_id: editData?.converted_from_quote_id || null
-    }
+  const invoiceData = {
+  majstor_id: majstor.id,
+  type: type,
+  customer_name: formData.customer_name,
+  customer_email: formData.customer_email,
+  customer_phone: formData.customer_phone,
+  customer_address: formData.customer_address,
+  customer_tax_number: formData.customer_tax_number || null, // ⭐ NEW
+  items: JSON.stringify(formData.items),
+  subtotal: formData.subtotal,
+  tax_rate: formData.tax_rate,
+  tax_amount: formData.tax_amount,
+  total_amount: formData.total_amount,
+  status: editData?.status || 'draft',
+  issue_date: formData.issue_date,
+  due_date: dueDate.toISOString().split('T')[0],
+  notes: formData.notes,
+  payment_terms_days: formData.payment_terms_days,
+  valid_until: type === 'quote' ? formData.valid_until : null,
+  is_kleinunternehmer: formData.is_kleinunternehmer,
+  converted_from_quote_id: editData?.converted_from_quote_id || null
+}
 
     let result
     if (isEditMode && editData?.id) {
@@ -896,7 +903,23 @@ const handleSubmit = async (e) => {
                     placeholder="+49 123 456789"
                   />
                 </div>
-                
+                {/* ⭐ NEW: Tax Number Field */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Steuernummer (optional)
+  </label>
+  <input
+    type="text"
+    name="customer_tax_number"
+    value={formData.customer_tax_number}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+    placeholder="DE123456789 oder 12/345/67890"
+  />
+  <p className="text-xs text-slate-500 mt-1">
+    Für B2B-Rechnungen (optional)
+  </p>
+</div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Adresse</label>
                   <input
