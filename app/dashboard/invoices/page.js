@@ -431,6 +431,7 @@ function DashboardPageContent() {
         customer_email: quote.customer_email,
         customer_phone: quote.customer_phone || null,
         customer_address: quote.customer_address || null,
+        customer_tax_number: quote.customer_tax_number || null, // ✅ FIX: Copy PIB from quote
         items: quote.items,
         subtotal: subtotal,
         tax_rate: taxRate,
