@@ -545,115 +545,168 @@ export default function InvoiceCreator({
   }
 
   // EXISTING: Handle submit with UPDATED validation
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    // 🔢 NEW: Block submission if business data incomplete OR numbers not initialized
-    if (!businessDataComplete) {
-      setShowBusinessDataModal(true)
-      return
+ // InvoiceCreator.js - SAMO handleSubmit funkcija sa FIXOM
+// Zameni postojeću handleSubmit funkciju (linija ~490-580)
+
+const handleSubmit = async (e) => {
+  e.preventDefault()
+  
+  // 🔢 NEW: Block submission if business data incomplete OR numbers not initialized
+  if (!businessDataComplete) {
+    setShowBusinessDataModal(true)
+    return
+  }
+
+  if (!numbersInitialized) {
+    setShowNumbersSetupModal(true)
+    return
+  }
+
+  setError('')
+  setLoading(true)
+
+  try {
+    if (!formData.customer_name || !formData.customer_email) {
+      throw new Error('Kunde Name und E-Mail sind erforderlich')
     }
 
-    if (!numbersInitialized) {
-      setShowNumbersSetupModal(true)
-      return
+    if (formData.items.some(item => !item.description || item.price <= 0)) {
+      throw new Error('Alle Positionen müssen eine Beschreibung und einen Preis haben')
     }
 
-    setError('')
-    setLoading(true)
+    // Auto-save new services
+    const serviceNames = formData.items
+      .map(item => item.description?.trim())
+      .filter(desc => desc && desc.length > 0)
 
-    try {
-      if (!formData.customer_name || !formData.customer_email) {
-        throw new Error('Kunde Name und E-Mail sind erforderlich')
-      }
+    const uniqueServices = [...new Set(serviceNames)]
+    await Promise.all(
+      uniqueServices.map(serviceName => autoSaveServiceFromInvoice(serviceName))
+    )
 
-      if (formData.items.some(item => !item.description || item.price <= 0)) {
-        throw new Error('Alle Positionen müssen eine Beschreibung und einen Preis haben')
-      }
+    const dueDate = new Date(formData.issue_date)
+    dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
-      // Auto-save new services
-      const serviceNames = formData.items
-        .map(item => item.description?.trim())
-        .filter(desc => desc && desc.length > 0)
+    const invoiceData = {
+      majstor_id: majstor.id,
+      type: type,
+      customer_name: formData.customer_name,
+      customer_email: formData.customer_email,
+      customer_phone: formData.customer_phone,
+      customer_address: formData.customer_address,
+      items: JSON.stringify(formData.items),
+      subtotal: formData.subtotal,
+      tax_rate: formData.tax_rate,
+      tax_amount: formData.tax_amount,
+      total_amount: formData.total_amount,
+      status: editData?.status || 'draft',
+      issue_date: formData.issue_date,
+      due_date: dueDate.toISOString().split('T')[0],
+      notes: formData.notes,
+      payment_terms_days: formData.payment_terms_days,
+      valid_until: type === 'quote' ? formData.valid_until : null,
+      is_kleinunternehmer: formData.is_kleinunternehmer,
+      converted_from_quote_id: editData?.converted_from_quote_id || null
+    }
 
-      const uniqueServices = [...new Set(serviceNames)]
-      await Promise.all(
-        uniqueServices.map(serviceName => autoSaveServiceFromInvoice(serviceName))
-      )
-
-      const dueDate = new Date(formData.issue_date)
-      dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
-
-      const invoiceData = {
-        majstor_id: majstor.id,
-        type: type,
-        customer_name: formData.customer_name,
-        customer_email: formData.customer_email,
-        customer_phone: formData.customer_phone,
-        customer_address: formData.customer_address,
-        items: JSON.stringify(formData.items),
-        subtotal: formData.subtotal,
-        tax_rate: formData.tax_rate,
-        tax_amount: formData.tax_amount,
-        total_amount: formData.total_amount,
-        status: editData?.status || 'draft',
-        issue_date: formData.issue_date,
-        due_date: dueDate.toISOString().split('T')[0],
-        notes: formData.notes,
-        payment_terms_days: formData.payment_terms_days,
-        valid_until: type === 'quote' ? formData.valid_until : null,
-        is_kleinunternehmer: formData.is_kleinunternehmer,
-        converted_from_quote_id: editData?.converted_from_quote_id || null
-      }
-
-      let result
-      if (isEditMode && editData?.id) {
-        result = await supabase
-          .from('invoices')
-          .update({ ...invoiceData, updated_at: new Date().toISOString() })
-          .eq('id', editData.id)
-          .select()
-          .single()
-      } else {
-        result = await supabase
-          .from('invoices')
-          .insert(invoiceData)
-          .select()
-          .single()
-      }
+    let result
+    if (isEditMode && editData?.id) {
+      // 📝 UPDATE EXISTING INVOICE/QUOTE
+      result = await supabase
+        .from('invoices')
+        .update({ ...invoiceData, updated_at: new Date().toISOString() })
+        .eq('id', editData.id)
+        .select()
+        .single()
 
       if (result.error) throw result.error
 
-      // 🔥 AUTO-PDF GENERATION
-if (!isEditMode) { // Samo za nove račune, ne za edit
-  try {
-    console.log('🤖 Auto-generating PDF for invoice:', result.data.id)
-    
-    // Generiši PDF automatski
-    const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
-    
-    if (pdfResponse.ok) {
-      console.log('✅ PDF automatically generated and stored')
+      // 🔥 NEW: AUTO-REGENERATE PDF AFTER EDIT
+      console.log('🔄 Invoice updated, regenerating PDF to ensure sync...')
+      
+      try {
+        const regenResponse = await fetch(
+          `/api/invoices/${editData.id}/pdf?forceRegenerate=true`,
+          {
+            method: 'GET',
+            headers: { 'Cache-Control': 'no-cache' }
+          }
+        )
+        
+        if (regenResponse.ok) {
+          console.log('✅ PDF successfully regenerated after edit')
+          
+          // 🇪🇺 Special message for invoices (ZUGFeRD included)
+          if (type === 'invoice') {
+            console.log('🇪🇺 ZUGFeRD XML synchronized with updated invoice data')
+          }
+        } else {
+          console.error('❌ PDF regeneration failed:', regenResponse.statusText)
+          
+          // ⚠️ WARN USER: Critical for invoices with ZUGFeRD
+          if (type === 'invoice') {
+            alert(
+              '⚠️ WICHTIG: PDF/ZUGFeRD Regenerierung fehlgeschlagen!\n\n' +
+              'Die Rechnung wurde in der Datenbank aktualisiert, aber:\n' +
+              '• Das PDF ist möglicherweise veraltet\n' +
+              '• Das ZUGFeRD XML enthält alte Daten\n\n' +
+              '❗ Bitte NICHT per E-Mail versenden!\n' +
+              '❗ Kontaktieren Sie den Support oder regenerieren Sie das PDF manuell.'
+            )
+          } else {
+            // Less critical for quotes (no ZUGFeRD)
+            console.warn('⚠️ Quote PDF regeneration failed - non-critical')
+          }
+        }
+      } catch (regenError) {
+        console.error('❌ PDF regeneration error:', regenError)
+        
+        if (type === 'invoice') {
+          alert(
+            '⚠️ FEHLER: PDF konnte nicht regeneriert werden!\n\n' +
+            'Die Rechnung wurde gespeichert, aber das PDF ist veraltet.\n\n' +
+            'Details: ' + regenError.message
+          )
+        }
+      }
+
     } else {
-      console.warn('⚠️ Auto PDF generation failed:', pdfResponse.statusText)
+      // 🆕 CREATE NEW INVOICE/QUOTE
+      result = await supabase
+        .from('invoices')
+        .insert(invoiceData)
+        .select()
+        .single()
+
+      if (result.error) throw result.error
+
+      // 🔥 AUTO-PDF GENERATION for NEW invoices/quotes
+      try {
+        console.log('🤖 Auto-generating PDF for new document:', result.data.id)
+        
+        const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
+        
+        if (pdfResponse.ok) {
+          console.log('✅ PDF automatically generated and stored')
+        } else {
+          console.warn('⚠️ Auto PDF generation failed:', pdfResponse.statusText)
+        }
+      } catch (pdfError) {
+        console.warn('⚠️ Auto PDF generation error:', pdfError)
+        // Ne prekidaj user flow zbog PDF greške
+      }
     }
-  } catch (pdfError) {
-    console.warn('⚠️ Auto PDF generation error:', pdfError)
-    // Ne prekidaj user flow zbog PDF greške
+
+    onSuccess(result.data)
+    onClose()
+
+  } catch (err) {
+    console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
+    setError(err.message)
+  } finally {
+    setLoading(false)
   }
 }
-
-      onSuccess(result.data)
-      onClose()
-
-    } catch (err) {
-      console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // EXISTING: Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('de-DE', {

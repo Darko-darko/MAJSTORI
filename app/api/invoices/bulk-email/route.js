@@ -1,15 +1,14 @@
-// app/api/invoices/bulk-email/route.js - FIXED VERSION
+// app/api/invoices/bulk-email/route.js - SA BATCH VALIDACIJOM
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 
-// Supabase with SERVICE ROLE for PDF access
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Resend setup
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request) {
@@ -39,19 +38,49 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // 🔥 FIX: Get invoices with pdf_storage_path
+    // Get invoices with pdf_storage_path
     const { data: invoices, error: invoicesError } = await supabase
       .from('invoices')
       .select('*')
       .in('id', invoiceIds)
       .eq('majstor_id', majstorId)
-      .not('pdf_storage_path', 'is', null) // Only invoices with existing PDFs
+      .not('pdf_storage_path', 'is', null)
 
     if (invoicesError || !invoices || invoices.length === 0) {
       return NextResponse.json({ 
         error: 'No invoices with PDFs found' 
       }, { status: 404 })
     }
+
+    console.log('📄 Found', invoices.length, 'invoices with existing PDFs')
+
+    // 🔥 NEW: Check for outdated PDFs in batch
+    const outdatedInvoices = invoices.filter(inv => 
+      inv.type === 'invoice' && 
+      inv.pdf_generated_at && 
+      new Date(inv.updated_at) > new Date(inv.pdf_generated_at)
+    )
+
+    if (outdatedInvoices.length > 0) {
+      console.warn('⚠️ CRITICAL: Found', outdatedInvoices.length, 'outdated invoice PDFs')
+      
+      const outdatedNumbers = outdatedInvoices.map(inv => inv.invoice_number).join(', ')
+      
+      return NextResponse.json({ 
+        error: `⚠️ ${outdatedInvoices.length} Rechnung(en) haben veraltete PDFs/ZUGFeRD XML:\n\n` +
+               `${outdatedNumbers}\n\n` +
+               `Diese Rechnungen wurden nach der PDF-Generierung aktualisiert.\n\n` +
+               `Bitte:\n` +
+               `1. Öffnen Sie jede Rechnung einzeln (regeneriert PDF automatisch)\n` +
+               `2. Oder verwenden Sie einzelnen E-Mail-Versand (regeneriert automatisch)\n` +
+               `3. Dann versuchen Sie den Bulk-Versand erneut\n\n` +
+               `❗ Bulk-Versand ist für Ihre Sicherheit blockiert, um zu verhindern ` +
+               `dass veraltete ZUGFeRD XML-Daten an Ihre Buchhalter gesendet werden.`,
+        outdatedInvoices: outdatedNumbers
+      }, { status: 400 })
+    }
+
+    console.log('✅ All invoice PDFs are up-to-date, safe for bulk email')
 
     // Get majstor data
     const { data: majstor, error: majstorError } = await supabase
@@ -66,50 +95,22 @@ export async function POST(request) {
       }, { status: 404 })
     }
 
-    console.log('📄 Found', invoices.length, 'invoices with existing PDFs')
-
-    // 🔥 FIX: Collect PDFs from Storage instead of generating new ones
+    // Collect PDFs from Storage
     const pdfAttachments = []
     
     for (const invoice of invoices) {
       try {
         console.log('📥 Loading PDF from storage:', invoice.pdf_storage_path)
         
-        // 🔥 Download from Supabase Storage instead of generating
         const { data: pdfData, error: downloadError } = await supabase.storage
           .from('invoice-pdfs')
           .download(invoice.pdf_storage_path)
 
         if (downloadError || !pdfData) {
-          console.warn(`PDF download failed for invoice ${invoice.id}:`, downloadError?.message)
-          
-          // 🔄 FALLBACK: Try generating if storage download fails
-          console.log('🔄 Fallback: Attempting PDF generation for', invoice.id)
-          try {
-            const pdfResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/invoices/${invoice.id}/pdf`)
-            
-            if (pdfResponse.ok) {
-              const pdfBuffer = await pdfResponse.arrayBuffer()
-              const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
-              const documentNumber = invoice.invoice_number || invoice.quote_number
-              const filename = `${documentType}_${documentNumber}.pdf`
-
-              pdfAttachments.push({
-                filename: filename,
-                content: Buffer.from(pdfBuffer),
-                contentType: 'application/pdf'
-              })
-
-              console.log('✅ PDF generated as fallback:', filename)
-            }
-          } catch (fallbackError) {
-            console.error('Fallback PDF generation also failed:', fallbackError)
-          }
-          
+          console.warn(`⚠️ PDF download failed for invoice ${invoice.id}:`, downloadError?.message)
           continue
         }
 
-        // ✅ SUCCESS: Use existing PDF from storage
         const pdfBuffer = Buffer.from(await pdfData.arrayBuffer())
         const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
         const documentNumber = invoice.invoice_number || invoice.quote_number
@@ -124,21 +125,21 @@ export async function POST(request) {
         console.log('✅ PDF loaded from storage:', filename, 'Size:', Math.round(pdfBuffer.length / 1024), 'KB')
 
       } catch (pdfError) {
-        console.error('PDF preparation failed for invoice', invoice.id, pdfError)
+        console.error('❌ PDF preparation failed for invoice', invoice.id, pdfError)
       }
     }
 
     if (pdfAttachments.length === 0) {
       return NextResponse.json({ 
-        error: 'No PDFs could be loaded from storage or generated' 
+        error: 'No PDFs could be loaded from storage' 
       }, { status: 500 })
     }
 
-    // Calculate total file size (for logging)
+    // Calculate total file size
     const totalSize = pdfAttachments.reduce((sum, attachment) => sum + attachment.content.length, 0)
     console.log('📎 Total attachments size:', Math.round(totalSize / 1024 / 1024 * 100) / 100, 'MB')
 
-    // 🚨 Safety check: Prevent emails that are too large
+    // Safety check: Prevent emails that are too large
     const MAX_EMAIL_SIZE_MB = 20
     if (totalSize > MAX_EMAIL_SIZE_MB * 1024 * 1024) {
       return NextResponse.json({ 
@@ -165,7 +166,7 @@ export async function POST(request) {
         const { data: emailResult, error: emailError } = await resend.emails.send(emailData)
 
         if (emailError) {
-          console.error('Email send failed to', recipient, emailError)
+          console.error('❌ Email send failed to', recipient, emailError)
           emailResults.push({ 
             recipient, 
             success: false, 
@@ -180,13 +181,13 @@ export async function POST(request) {
           })
         }
 
-        // 🔄 Small delay between emails to avoid rate limiting
+        // Small delay between emails to avoid rate limiting
         if (recipients.indexOf(recipient) < recipients.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500))
         }
 
       } catch (recipientError) {
-        console.error('Email sending exception for', recipient, recipientError)
+        console.error('❌ Email sending exception for', recipient, recipientError)
         emailResults.push({ 
           recipient, 
           success: false, 
@@ -223,7 +224,6 @@ export async function POST(request) {
   }
 }
 
-// Generate professional email HTML
 function generateEmailHTML(invoices, majstorData, customMessage) {
   const invoiceCount = invoices.filter(inv => inv.type === 'invoice').length
   const quoteCount = invoices.filter(inv => inv.type === 'quote').length

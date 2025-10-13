@@ -1,10 +1,9 @@
-// app/api/invoices/[id]/pdf/route.js - AŽURIRAJ postojeći fajl
+// app/api/invoices/[id]/pdf/route.js - KOMPLETAN FIX
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { InvoicePDFService } from '@/lib/pdf/InvoicePDFService'
 
-// Create a Supabase client with SERVICE ROLE (bypasses RLS)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -14,9 +13,15 @@ export async function GET(request, { params }) {
   try {
     const { id } = params
     const { searchParams } = new URL(request.url)
+    
+    // 🔥 NEW: Force regenerate parameter (bypasses cache)
+    const forceRegenerate = searchParams.get('forceRegenerate') === 'true'
     const fromArchive = searchParams.get('archive') === 'true'
     
-    console.log('🔍 PDF API called for ID:', id, 'fromArchive:', fromArchive)
+    console.log('📄 PDF API called for ID:', id, {
+      forceRegenerate,
+      fromArchive
+    })
     
     // Get invoice/quote data
     const { data: invoice, error: invoiceError } = await supabase
@@ -42,22 +47,39 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
-    // 🆕 NOVO - provjeri da li PDF već postoji u arhivi
-    if (fromArchive && invoice.pdf_storage_path) {
-      console.log('📂 Serving PDF from archive:', invoice.pdf_storage_path)
+    // 🔥 NEW: Skip archive if force regenerate OR if PDF is outdated
+    const pdfOutdated = invoice.pdf_generated_at && 
+                        new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
+    
+    if (pdfOutdated && !forceRegenerate) {
+      console.warn('⚠️ PDF is outdated but forceRegenerate not set')
+      console.warn('Updated:', invoice.updated_at, 'PDF:', invoice.pdf_generated_at)
+    }
+
+    // Serve from archive ONLY if:
+    // 1. NOT force regenerate
+    // 2. PDF exists in storage
+    // 3. PDF is NOT outdated
+    if (!forceRegenerate && !pdfOutdated && invoice.pdf_storage_path) {
+      console.log('📂 Serving PDF from archive (up-to-date):', invoice.pdf_storage_path)
       return await servePDFFromArchive(invoice)
     }
 
-    // Generate fresh PDF
-    console.log('🏭 Generating fresh PDF...')
+    // 🔥 Generate fresh PDF (with fresh ZUGFeRD XML for invoices)
+    if (forceRegenerate) {
+      console.log('🔄 Force regenerating PDF...')
+    } else if (pdfOutdated) {
+      console.log('📅 PDF outdated, regenerating...')
+    } else {
+      console.log('🏭 Generating fresh PDF...')
+    }
+    
     const pdfService = new InvoicePDFService()
     const pdfBuffer = await pdfService.generateInvoice(invoice, majstor)
 
-    // 🆕 NOVO - sačuvaj PDF u Storage i ažuriraj metadata
-    if (!invoice.pdf_storage_path) {
-      console.log('💾 Archiving PDF for future use...')
-      await archivePDF(pdfBuffer, invoice, majstor.id)
-    }
+    // 🔥 Archive PDF (replaces old one with upsert: true)
+    console.log('💾 Archiving regenerated PDF...')
+    await archivePDF(pdfBuffer, invoice, majstor.id)
 
     // Prepare filename
     const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
@@ -65,7 +87,7 @@ export async function GET(request, { params }) {
     const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
     const filename = `${documentType}_${documentNumber}_${customerName}.pdf`
 
-    console.log('✅ Serving PDF with filename:', filename)
+    console.log('✅ Serving regenerated PDF:', filename)
 
     // Return PDF response
     return new NextResponse(pdfBuffer, {
@@ -74,7 +96,9 @@ export async function GET(request, { params }) {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${filename}"`,
         'Content-Length': pdfBuffer.length.toString(),
-        'Cache-Control': 'private, no-cache'
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate', // 🔥 Force no cache
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     })
 
@@ -87,7 +111,7 @@ export async function GET(request, { params }) {
   }
 }
 
-// 🆕 NOVO - funkcija za čuvanje PDF-a u Storage
+// 🔥 Archive PDF with UPSERT (replaces old PDF)
 async function archivePDF(pdfBuffer, invoiceData, majstorId) {
   try {
     const documentType = invoiceData.type === 'quote' ? 'angebote' : 'rechnungen'
@@ -95,17 +119,17 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
     const year = new Date(invoiceData.created_at).getFullYear()
     const month = new Date(invoiceData.created_at).getMonth() + 1
     
-    // Storage path: majstorId/2025/01/rechnungen/RE-2025-001.pdf
     const storagePath = `${majstorId}/${year}/${month.toString().padStart(2, '0')}/${documentType}/${documentNumber}.pdf`
     
     console.log('📤 Uploading PDF to Storage:', storagePath)
     
-    // Upload to Storage
+    // 🔥 UPSERT: Overwrite if exists
     const { error: uploadError } = await supabase.storage
       .from('invoice-pdfs')
       .upload(storagePath, pdfBuffer, {
         contentType: 'application/pdf',
-        upsert: true // Overwrite ako već postoji
+        upsert: true, // 🔥 Replaces old PDF
+        cacheControl: '0' // 🔥 No cache
       })
     
     if (uploadError) {
@@ -113,13 +137,13 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
       throw uploadError
     }
     
-    console.log('✅ PDF uploaded successfully')
+    console.log('✅ PDF uploaded/replaced successfully')
     
-    // Update invoice metadata
+    // 🔥 Update invoice metadata with NEW timestamp
     const { error: updateError } = await supabase
       .from('invoices')
       .update({
-        pdf_generated_at: new Date().toISOString(),
+        pdf_generated_at: new Date().toISOString(), // 🔥 Fresh timestamp
         pdf_storage_path: storagePath,
         pdf_file_size: pdfBuffer.length,
         updated_at: new Date().toISOString()
@@ -131,20 +155,19 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
       throw updateError
     }
     
-    console.log('✅ Invoice metadata updated')
+    console.log('✅ Invoice metadata updated with fresh PDF timestamp')
     
   } catch (error) {
     console.error('❌ PDF archiving failed:', error)
-    // Ne prekidaj proces ako archiving ne uspe
+    throw error // 🔥 Propagate error to warn user
   }
 }
 
-// 🆕 NOVO - funkcija za serviranje iz arhive
+// Serve PDF from archive
 async function servePDFFromArchive(invoice) {
   try {
     console.log('📥 Downloading PDF from Storage:', invoice.pdf_storage_path)
     
-    // Download iz storage
     const { data, error: downloadError } = await supabase.storage
       .from('invoice-pdfs')
       .download(invoice.pdf_storage_path)
@@ -154,10 +177,8 @@ async function servePDFFromArchive(invoice) {
       throw downloadError
     }
 
-    // Convert to buffer
     const pdfBuffer = Buffer.from(await data.arrayBuffer())
     
-    // Generate filename
     const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
     const documentNumber = invoice.invoice_number || invoice.quote_number
     const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
@@ -169,7 +190,7 @@ async function servePDFFromArchive(invoice) {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${filename}"`,
         'Content-Length': pdfBuffer.length.toString(),
-        'Cache-Control': 'private, max-age=3600' // Cache archived PDFs for 1 hour
+        'Cache-Control': 'private, max-age=3600'
       }
     })
 

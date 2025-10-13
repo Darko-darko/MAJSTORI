@@ -1,15 +1,14 @@
-// app/api/invoices/[id]/email/route.js
+// app/api/invoices/[id]/email/route.js - SA VALIDACIJOM
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 
-// Supabase with SERVICE ROLE for PDF access
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Resend setup
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request, { params }) {
@@ -38,6 +37,50 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
+    // 🔥 NEW: CRITICAL CHECK - Prevent sending outdated PDF/ZUGFeRD
+    if (invoice.type === 'invoice') {
+      const pdfOutdated = invoice.pdf_generated_at && 
+                          new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
+      
+      if (pdfOutdated) {
+        console.warn('⚠️ CRITICAL: Invoice PDF is outdated!')
+        console.warn('Invoice updated:', invoice.updated_at)
+        console.warn('PDF generated:', invoice.pdf_generated_at)
+        
+        // 🔥 AUTO-REGENERATE before sending
+        console.log('🔄 Auto-regenerating PDF before email...')
+        
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                       (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
+        
+        const regenResponse = await fetch(
+          `${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`,
+          {
+            method: 'GET',
+            headers: { 'Cache-Control': 'no-cache' }
+          }
+        )
+        
+        if (!regenResponse.ok) {
+          console.error('❌ PDF regeneration failed before email')
+          return NextResponse.json({ 
+            error: '⚠️ Rechnung wurde aktualisiert, aber PDF/ZUGFeRD ist veraltet.\n\n' +
+                   'Die Rechnung kann nicht per E-Mail gesendet werden, da das PDF ' +
+                   'nicht mit den aktuellen Daten übereinstimmt.\n\n' +
+                   'Bitte öffnen Sie die Rechnung zuerst (um PDF zu regenerieren) ' +
+                   'und versuchen Sie es dann erneut.'
+          }, { status: 400 })
+        }
+        
+        console.log('✅ PDF regenerated successfully before email')
+        
+        // Wait a bit for storage to be fully updated
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      } else {
+        console.log('✅ PDF is up-to-date, safe to send')
+      }
+    }
+
     // Get majstor data
     const { data: majstor, error: majstorError } = await supabase
       .from('majstors')
@@ -58,6 +101,7 @@ export async function POST(request, { params }) {
       .download(storagePath)
 
     if (downloadError || !pdfData) {
+      console.error('❌ PDF not found in storage:', downloadError)
       return NextResponse.json({ 
         error: 'PDF nicht gefunden. Bitte generieren Sie zuerst das PDF.' 
       }, { status: 404 })
@@ -82,18 +126,16 @@ export async function POST(request, { params }) {
       ]
     }
 
-    // Add CC if provided
     if (ccEmail && ccEmail.trim()) {
       emailData.cc = [ccEmail.trim()]
     }
 
     console.log('📤 Sending email via Resend...')
     
-    // Send email via Resend
     const { data: emailResult, error: emailError } = await resend.emails.send(emailData)
 
     if (emailError) {
-      console.error('Resend error:', emailError)
+      console.error('❌ Resend error:', emailError)
       return NextResponse.json({ 
         error: 'E-Mail konnte nicht gesendet werden: ' + emailError.message 
       }, { status: 500 })
@@ -102,16 +144,15 @@ export async function POST(request, { params }) {
     console.log('✅ Email sent successfully:', emailResult.id)
 
     // Save email tracking info
-await supabase
-  .from('invoices')
-  .update({ 
-    email_sent_at: new Date().toISOString(),
-    email_sent_to: recipientEmail,
-    updated_at: new Date().toISOString()
-  })
-  .eq('id', id)
+    await supabase
+      .from('invoices')
+      .update({ 
+        email_sent_at: new Date().toISOString(),
+        email_sent_to: recipientEmail,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
 
-    // TODO: Log email activity in database (optional)
     await logEmailActivity(invoice.id, recipientEmail, emailResult.id)
 
     return NextResponse.json({ 
@@ -129,7 +170,6 @@ await supabase
   }
 }
 
-// Generate storage path (same as PDF route)
 function generateStoragePath(invoice, majstor) {
   const year = new Date(invoice.created_at).getFullYear()
   const month = new Date(invoice.created_at).getMonth() + 1
@@ -139,7 +179,6 @@ function generateStoragePath(invoice, majstor) {
   return `${majstor.id}/${year}/${month.toString().padStart(2, '0')}/${documentType}/${documentNumber}.pdf`
 }
 
-// Generate filename (same as PDF route)
 function generateFilename(invoice) {
   const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
@@ -148,7 +187,6 @@ function generateFilename(invoice) {
   return `${documentType}_${documentNumber}_${customerName}.pdf`
 }
 
-// Generate professional email HTML
 function generateEmailHTML(invoice, majstor, customMessage) {
   const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number
@@ -215,12 +253,10 @@ function generateEmailHTML(invoice, majstor, customMessage) {
   `
 }
 
-// Log email activity (optional - for tracking)
 async function logEmailActivity(invoiceId, recipientEmail, emailId) {
   try {
-    // You can create an 'email_logs' table later for tracking
     console.log('📝 Email logged:', { invoiceId, recipientEmail, emailId })
   } catch (error) {
-    console.warn('Email logging failed:', error)
+    console.warn('⚠️ Email logging failed:', error)
   }
 }

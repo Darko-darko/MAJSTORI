@@ -230,6 +230,65 @@ function DashboardPageContent() {
     }
   }
 
+  // 📍 DODAJ POSLE loadInvoicesData funkcije (oko linije 230-250)
+
+  // 🔥 NEW: Check if PDF is outdated
+  const isPdfOutdated = (invoice) => {
+    if (!invoice.pdf_generated_at) return true // No PDF yet
+    return new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
+  }
+
+  // 🔥 NEW: Manual PDF regeneration
+  const handleRegeneratePDF = async (invoice) => {
+    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+    const documentNumber = invoice.invoice_number || invoice.quote_number
+    
+    const confirmed = confirm(
+      `PDF regenerieren für ${documentType} ${documentNumber}?\n\n` +
+      (invoice.type === 'invoice' 
+        ? '🇪🇺 Das ZUGFeRD XML wird ebenfalls aktualisiert.\n\n'
+        : '') +
+      'Dies kann einige Sekunden dauern.'
+    )
+    
+    if (!confirmed) return
+    
+    try {
+      console.log('🔄 Manually regenerating PDF for:', documentNumber)
+      
+      const response = await fetch(
+        `/api/invoices/${invoice.id}/pdf?forceRegenerate=true`,
+        {
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache' }
+        }
+      )
+      
+      if (response.ok) {
+        alert(
+          `✅ PDF erfolgreich regeneriert!\n\n` +
+          `${documentType} ${documentNumber}\n` +
+          (invoice.type === 'invoice' ? `🇪🇺 ZUGFeRD XML aktualisiert\n` : '') +
+          `\nSie können das Dokument jetzt sicher per E-Mail versenden.`
+        )
+        
+        // Reload invoices to update UI
+        if (majstor?.id) {
+          await loadInvoicesData(majstor.id)
+        }
+      } else {
+        const error = await response.text()
+        throw new Error(error)
+      }
+    } catch (error) {
+      console.error('❌ PDF regeneration failed:', error)
+      alert(
+        `❌ PDF-Regenerierung fehlgeschlagen!\n\n` +
+        `Fehler: ${error.message}\n\n` +
+        `Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.`
+      )
+    }
+  }
   const handlePDFView = async (document) => {
     try {
       const pdfUrl = `/api/invoices/${document.id}/pdf`
@@ -1231,17 +1290,29 @@ const HardResetModal = () => {
             {displayInvoices.map((invoice) => {
               const overdueStatus = isInvoiceOverdue(invoice)
               const daysOverdue = getDaysOverdue(invoice)
+              const pdfOutdated = isPdfOutdated(invoice) // 🔥 NEW
               
               return (
                 <div key={invoice.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
-                        
-                        {overdueStatus && (
-                          <div 
-                            className="flex items-center gap-1 text-red-400 text-sm cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
+                    <div className="flex items-center gap-2 flex-wrap">
+  <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
+  
+  {/* 🔥 NEW: PDF Outdated Warning */}
+  {pdfOutdated && (
+    <div 
+      className="flex items-center gap-1 text-orange-400 text-xs cursor-help bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20"
+      title="PDF wurde seit der letzten Änderung nicht regeneriert. Bitte regenerieren Sie das PDF vor dem E-Mail-Versand."
+    >
+      <span className="text-orange-400">⚠️</span>
+      <span className="font-medium">PDF veraltet</span>
+    </div>
+  )}
+  
+  {overdueStatus && (
+    <div 
+      className="flex items-center gap-1 text-red-400 text-xs cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
                             title={`Überfällig seit ${daysOverdue} Tag(en) - Due: ${invoice.due_date} Status: ${invoice.status}`}
                           >
                             <span className="text-red-400">⏰</span>
@@ -1280,6 +1351,31 @@ const HardResetModal = () => {
                       <span className="text-slate-400">Betrag:</span>
                       <p className="text-white font-semibold">{formatCurrency(invoice.total_amount)}</p>
                     </div>
+                    </div>
+
+{/* 🔥 NEW: PDF Outdated Warning Banner */}
+{pdfOutdated && (
+  <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 mb-4">
+    <div className="flex items-start gap-3">
+      <span className="text-orange-400 text-lg">⚠️</span>
+      <div className="flex-1">
+        <h5 className="text-orange-300 font-medium mb-1">PDF ist veraltet</h5>
+        <p className="text-orange-200 text-sm mb-2">
+          Diese Rechnung wurde nach der PDF-Generierung bearbeitet. 
+          {invoice.type === 'invoice' && ' Das ZUGFeRD XML enthält möglicherweise veraltete Daten.'}
+        </p>
+        <button
+          onClick={() => handleRegeneratePDF(invoice)}
+          className="bg-orange-600 text-white px-3 py-1.5 rounded text-xs hover:bg-orange-700 transition-colors"
+        >
+          🔄 PDF jetzt regenerieren
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+<div className="flex gap-3 flex-wrap">
                     <div>
                       <span className="text-slate-400">Rechnungsdatum:</span>
                       <p className="text-white">{formatDate(invoice.issue_date)}</p>
@@ -1309,21 +1405,30 @@ const HardResetModal = () => {
                       Bearbeiten
                     </button>
                     
-                    {invoice.email_sent_at ? (
-                      <button 
-                        onClick={() => handleEmailClick(invoice)}
-                        className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
-                      >
-                        🔄 Erneut senden
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => handleEmailClick(invoice)}
-                        className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-                      >
-                        Per E-Mail senden
-                      </button>
-                    )}
+                   {/* 🔥 MODIFIED: Email button with warning if outdated */}
+{invoice.email_sent_at ? (
+  <button 
+    onClick={() => handleEmailClick(invoice)}
+    className={`text-white px-3 py-2 rounded text-sm transition-colors ${
+      pdfOutdated 
+        ? 'bg-orange-600 hover:bg-orange-700' 
+        : 'bg-green-600 hover:bg-green-700'
+    }`}
+  >
+    {pdfOutdated ? '⚠️' : '🔄'} Erneut senden
+  </button>
+) : (
+  <button 
+    onClick={() => handleEmailClick(invoice)}
+    className={`text-white px-3 py-2 rounded text-sm transition-colors ${
+      pdfOutdated 
+        ? 'bg-orange-600 hover:bg-orange-700' 
+        : 'bg-slate-700 hover:bg-slate-600'
+    }`}
+  >
+    {pdfOutdated ? '⚠️' : ''} Per E-Mail senden
+  </button>
+)}
                     
                     {(invoice.status === 'draft' || invoice.status === 'sent') && (
                       <button
