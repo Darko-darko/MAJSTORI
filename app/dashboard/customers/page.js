@@ -1,4 +1,4 @@
-// app/dashboard/customers/page.js - SA INVOICE TYPE SELECTION MODAL
+// app/dashboard/customers/page.js - SA SIMPLIFIED NAME FIELD
 
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
@@ -26,24 +26,24 @@ function CustomersPageContent() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
   
-  // 🔥 NOVO: Invoice modal states
+  // Invoice modal states
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [selectedCustomerForInvoice, setSelectedCustomerForInvoice] = useState(null)
-  const [invoiceType, setInvoiceType] = useState(null) // null, 'quote', ili 'invoice'
+  const [invoiceType, setInvoiceType] = useState(null)
   
   // Create/Edit form state
- const [formData, setFormData] = useState({
-  name: '',
-  email: '',
-  phone: '',
-  company_name: '',
-  street: '',
-  postal_code: '',
-  city: '',
-  notes: '',
-  tax_number: '', // ⭐ NEW
-  is_favorite: false
-})
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company_name: '', // Ostaje u formi ali se ne koristi u UI
+    street: '',
+    postal_code: '',
+    city: '',
+    notes: '',
+    tax_number: '',
+    is_favorite: false
+  })
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState('')
   
@@ -88,7 +88,6 @@ function CustomersPageContent() {
 
       setMajstor(majstorData)
       
-      // Load stats
       const { data: statsData } = await customersAPI.getStats(majstorData.id)
       if (statsData) setStats(statsData)
 
@@ -100,118 +99,103 @@ function CustomersPageContent() {
     }
   }
 
-// Replace the loadCustomers function in customers/page.js
-
-const loadCustomers = async () => {
-  if (!majstor?.id) return
-  
-  try {
-    // Start building the query
-    let query = supabase
-      .from('customers')
-      .select('*')
-      .eq('majstor_id', majstor.id)
-      .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING')
-
-    // 🔍 SEARCH FILTER - search across name, email, phone, company_name
-    if (searchTerm.trim()) {
-      query = query.or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
-    }
-
-    // ⭐ FAVORITES FILTER
-    if (filterFavorites) {
-      query = query.eq('is_favorite', true)
-    }
-
-    // 📊 SORTING
-    query = query.order(sortBy, { ascending: sortOrder === 'asc' })
-
-    const { data: freshData, error } = await query
-
-    console.log('Loaded customers:', freshData?.length || 0)
+  const loadCustomers = async () => {
+    if (!majstor?.id) return
     
-    if (error) {
-      console.error('Direct Supabase error:', error)
-    } else {
-      setCustomers(freshData || [])
-    }
-  } catch (err) {
-    console.error('Error:', err)
-  }
-}
+    try {
+      let query = supabase
+        .from('customers')
+        .select('*')
+        .eq('majstor_id', majstor.id)
+        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING')
 
-const resetForm = () => {
-  setFormData({
-    name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    street: '',
-    postal_code: '',
-    city: '',
-    notes: '',
-    tax_number: '', // ⭐ NEW
-    is_favorite: false
-  })
-  setFormError('')
-  setEditingCustomer(null)
-}
+      if (searchTerm.trim()) {
+        query = query.or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
+      }
+
+      if (filterFavorites) {
+        query = query.eq('is_favorite', true)
+      }
+
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+
+      const { data: freshData, error } = await query
+
+      console.log('Loaded customers:', freshData?.length || 0)
+      
+      if (error) {
+        console.error('Direct Supabase error:', error)
+      } else {
+        setCustomers(freshData || [])
+      }
+    } catch (err) {
+      console.error('Error:', err)
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      company_name: '',
+      street: '',
+      postal_code: '',
+      city: '',
+      notes: '',
+      tax_number: '',
+      is_favorite: false
+    })
+    setFormError('')
+    setEditingCustomer(null)
+  }
 
   const handleCreateClick = () => {
     resetForm()
     setShowCreateModal(true)
   }
 
-const handleEditClick = (customer) => {
-  setFormData({
-    name: customer.name || '',
-    email: customer.email || '',
-    phone: customer.phone || '',
-    company_name: customer.company_name || '',
-    street: customer.street || '',
-    postal_code: customer.postal_code || '',
-    city: customer.city || '',
-    notes: customer.notes || '',
-    tax_number: customer.tax_number || '', // ⭐ NEW
-    is_favorite: customer.is_favorite || false
-  })
-  setEditingCustomer(customer)
-  setFormError('')
-  setShowCreateModal(true)
-}
+  const handleEditClick = (customer) => {
+    setFormData({
+      name: customer.name || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      company_name: customer.company_name || '',
+      street: customer.street || '',
+      postal_code: customer.postal_code || '',
+      city: customer.city || '',
+      notes: customer.notes || '',
+      tax_number: customer.tax_number || '',
+      is_favorite: customer.is_favorite || false
+    })
+    setEditingCustomer(customer)
+    setFormError('')
+    setShowCreateModal(true)
+  }
 
-  // 🔥 NOVO: Handler za New Invoice click
   const handleNewInvoiceClick = (customer) => {
     console.log('🚀 New Invoice clicked for:', customer.name)
     setSelectedCustomerForInvoice(customer)
-    setInvoiceType(null) // Reset type selection
+    setInvoiceType(null)
     setShowInvoiceModal(true)
   }
 
-  // 🔥 NOVO: Handler za type selection
   const handleInvoiceTypeSelect = (type) => {
     console.log('📄 Invoice type selected:', type)
     setInvoiceType(type)
   }
 
-  // 🔥 NOVO: Handler za zatvaranje invoice modala
   const handleInvoiceModalClose = () => {
     setShowInvoiceModal(false)
     setSelectedCustomerForInvoice(null)
     setInvoiceType(null)
   }
 
-  // 🔥 NOVO: Handler za success invoice creation
-  // 🔥 NOVO: Handler za success invoice creation
-const handleInvoiceSuccess = (createdInvoice) => {
-  console.log('✅ Invoice created:', createdInvoice)
-  handleInvoiceModalClose()
-  
-  // 🚀 Redirect to invoices page after successful creation
-  router.push('/dashboard/invoices')
-}
-    // Možete dodati toast notification ovde
-  
+  const handleInvoiceSuccess = (createdInvoice) => {
+    console.log('✅ Invoice created:', createdInvoice)
+    handleInvoiceModalClose()
+    router.push('/dashboard/invoices')
+  }
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
@@ -300,7 +284,6 @@ const handleInvoiceSuccess = (createdInvoice) => {
     }
   }
 
-  // Excel Import functionality
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -363,16 +346,15 @@ const handleInvoiceSuccess = (createdInvoice) => {
     return new Date(dateString).toLocaleDateString('de-DE')
   }
 
-  // 🔥 NOVO: Helper function for prefilledCustomer format
- const formatCustomerForInvoice = (customer) => {
-  return {
-    name: customer.name,
-    email: customer.email,
-    phone: customer.phone || '',
-    address: [customer.street, customer.postal_code, customer.city].filter(Boolean).join(', '),
-    tax_number: customer.tax_number || '' // ⭐ NEW
+  const formatCustomerForInvoice = (customer) => {
+    return {
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone || '',
+      address: [customer.street, customer.postal_code, customer.city].filter(Boolean).join(', '),
+      tax_number: customer.tax_number || ''
+    }
   }
-}
 
   if (loading) {
     return (
@@ -566,22 +548,11 @@ const handleInvoiceSuccess = (createdInvoice) => {
                     {customer.is_favorite && (
                       <span className="text-yellow-400 text-lg" title="Favorit">⭐</span>
                     )}
-                    {customer.company_name && (
-                      <span className="text-blue-300 text-sm bg-blue-500/10 px-2 py-1 rounded">
-                        {customer.company_name}
+                    {customer.tax_number && (
+                      <span className="text-slate-400 text-xs bg-slate-700/50 px-2 py-1 rounded">
+                        🏢 St.Nr: {customer.tax_number}
                       </span>
                     )}
-                    {customer.company_name && (
-  <span className="text-blue-300 text-sm bg-blue-500/10 px-2 py-1 rounded">
-    {customer.company_name}
-  </span>
-)}
-{/* ⭐ NEW - Display Tax Number */}
-{customer.tax_number && (
-  <span className="text-slate-400 text-xs bg-slate-700/50 px-2 py-1 rounded">
-    🏢 St.Nr: {customer.tax_number}
-  </span>
-)}
                   </div>
                   
                   <div className="space-y-1 text-sm">
@@ -657,7 +628,6 @@ const handleInvoiceSuccess = (createdInvoice) => {
                   {customer.is_favorite ? '⭐ Favorit entfernen' : '⭐ Als Favorit'}
                 </button>
 
-                {/* 🔥 NOVO: Neue Rechnung Button */}
                 <button
                   onClick={() => handleNewInvoiceClick(customer)}
                   className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
@@ -696,15 +666,20 @@ const handleInvoiceSuccess = (createdInvoice) => {
             <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Name *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Name oder Firma *
+                  </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     required
                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="Max Mustermann"
+                    placeholder="Max Mustermann oder Mustermann GmbH"
                   />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Privatperson oder Firmenname
+                  </p>
                 </div>
 
                 <div>
@@ -730,31 +705,20 @@ const handleInvoiceSuccess = (createdInvoice) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Firma</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Steuernummer (optional)
+                  </label>
                   <input
                     type="text"
-                    value={formData.company_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
+                    value={formData.tax_number}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tax_number: e.target.value }))}
                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="Mustermann GmbH"
+                    placeholder="DE123456789 oder 12/345/67890"
                   />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Für B2B-Kunden mit deutscher Steuernummer
+                  </p>
                 </div>
-                {/* ⭐ NEW - Tax Number Field */}
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Steuernummer (optional)
-  </label>
-  <input
-    type="text"
-    value={formData.tax_number}
-    onChange={(e) => setFormData(prev => ({ ...prev, tax_number: e.target.value }))}
-    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-    placeholder="DE123456789 oder 12/345/67890"
-  />
-  <p className="text-xs text-slate-500 mt-1">
-    Für B2B-Kunden mit deutscher Steuernummer
-  </p>
-</div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Straße</label>
@@ -874,19 +838,19 @@ const handleInvoiceSuccess = (createdInvoice) => {
                 />
               </div>
 
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-  <h4 className="text-blue-300 font-medium mb-2">Erwartete Spalten:</h4>
-  <div className="text-sm text-slate-300 space-y-1">
-    <p>• <strong>name</strong> oder <strong>Name</strong> (erforderlich)</p>
-    <p>• <strong>email</strong> oder <strong>E-Mail</strong> (erforderlich)</p>
-    <p>• <strong>phone</strong> oder <strong>Telefon</strong></p>
-    <p>• <strong>company_name</strong> oder <strong>Firma</strong></p>
-    <p>• <strong>tax_number</strong> oder <strong>Steuernummer</strong></p> {/* ⭐ NEW */}
-    <p>• <strong>street</strong> oder <strong>Straße</strong></p>
-    <p>• <strong>city</strong> oder <strong>Stadt</strong></p>
-    <p>• <strong>postal_code</strong> oder <strong>PLZ</strong></p>
-  </div>
-</div>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <h4 className="text-blue-300 font-medium mb-2">Erwartete Spalten:</h4>
+                <div className="text-sm text-slate-300 space-y-1">
+                  <p>• <strong>name</strong> oder <strong>Name</strong> (erforderlich)</p>
+                  <p>• <strong>email</strong> oder <strong>E-Mail</strong> (erforderlich)</p>
+                  <p>• <strong>phone</strong> oder <strong>Telefon</strong></p>
+                  <p>• <strong>company_name</strong> oder <strong>Firma</strong></p>
+                  <p>• <strong>tax_number</strong> oder <strong>Steuernummer</strong></p>
+                  <p>• <strong>street</strong> oder <strong>Straße</strong></p>
+                  <p>• <strong>city</strong> oder <strong>Stadt</strong></p>
+                  <p>• <strong>postal_code</strong> oder <strong>PLZ</strong></p>
+                </div>
+              </div>
 
               {importResults && (
                 <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
@@ -920,7 +884,7 @@ const handleInvoiceSuccess = (createdInvoice) => {
         </div>
       )}
 
-      {/* 🔥 NOVO: Invoice Type Selection Modal */}
+      {/* Invoice Type Selection Modal */}
       {showInvoiceModal && selectedCustomerForInvoice && !invoiceType && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
@@ -951,7 +915,7 @@ const handleInvoiceSuccess = (createdInvoice) => {
         </div>
       )}
 
-      {/* 🔥 NOVO: Invoice Creator Modal */}
+      {/* Invoice Creator Modal */}
       {showInvoiceModal && selectedCustomerForInvoice && invoiceType && (
         <InvoiceCreator
           isOpen={true}
@@ -965,6 +929,7 @@ const handleInvoiceSuccess = (createdInvoice) => {
     </div>
   )
 }
+
 export default function CustomersPage() {
   return (
     <Suspense fallback={<div className="text-white">Laden...</div>}>
