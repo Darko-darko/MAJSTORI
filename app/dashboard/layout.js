@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - SA EVENT LISTENER
+// app/dashboard/layout.js - SA PROGRES MODALOM NA TOP LEVEL
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -18,11 +18,16 @@ function DashboardLayoutContent({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   
+  // 🔥 PROGRES MODAL STATE - NA LAYOUT NIVOU!
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeProgress, setUpgradeProgress] = useState(0)
+  const [upgradeMessage, setUpgradeMessage] = useState('')
+  
   // Subscription hook for menu badges
-  const { subscription, plan, isFreemium, isPaid, refresh } = useSubscription(majstor?.id)
+  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
   
   // Upgrade Modal Hook
-  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
+  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal: showFeatureModal, hideUpgradeModal } = useUpgradeModal()
   
   // Badge states
   const [badges, setBadges] = useState({
@@ -34,7 +39,7 @@ function DashboardLayoutContent({ children }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // 🔥 DODAJ: Event listener za subscription changes
+  // 🔥 EVENT LISTENER za subscription changes
   useEffect(() => {
     const handleSubscriptionChanged = (event) => {
       console.log('🔔 LAYOUT: subscription-changed event received!')
@@ -43,8 +48,6 @@ function DashboardLayoutContent({ children }) {
       if (refresh && typeof refresh === 'function') {
         console.log('🔄 LAYOUT: Triggering subscription refresh...')
         refresh()
-      } else {
-        console.warn('⚠️ LAYOUT: refresh function not available')
       }
     }
 
@@ -54,6 +57,102 @@ function DashboardLayoutContent({ children }) {
       window.removeEventListener('subscription-changed', handleSubscriptionChanged)
     }
   }, [refresh])
+
+  // 🔥 GLAVNA LOGIKA: Detektuj paddle_success ODMAH i prikaži modal PRE svega!
+  useEffect(() => {
+    const paddleSuccess = searchParams.get('paddle_success')
+    const planType = searchParams.get('plan')
+    
+    if (paddleSuccess === 'true' && !showUpgradeModal) {
+      console.log('🎯 LAYOUT: Paddle payment detected - showing progress modal IMMEDIATELY!')
+      startUpgradeProcess(planType)
+    }
+  }, [searchParams, showUpgradeModal])
+
+  const startUpgradeProcess = (planType) => {
+    setShowUpgradeModal(true)
+    setUpgradeProgress(0)
+    setUpgradeMessage('Zahlung erfolgreich! Aktiviere PRO...')
+    
+    window.dispatchEvent(new CustomEvent('subscription-changed', {
+      detail: { action: 'upgraded', timestamp: Date.now(), plan: planType }
+    }))
+    
+    // 🔥 PHASE 1: Brzi progress do 85% (12 sekundi)
+    const initialStages = [
+      { delay: 0, progress: 0, message: 'Zahlung erfolgreich! Aktiviere PRO...' },
+      { delay: 1500, progress: 15, message: 'Verbindung zu Paddle...' },
+      { delay: 3000, progress: 30, message: 'Warte auf Bestätigung...' },
+      { delay: 4500, progress: 45, message: 'Subscription wird erstellt...' },
+      { delay: 6000, progress: 60, message: 'Synchronisiere mit Paddle...' },
+      { delay: 8000, progress: 70, message: 'Webhook wird empfangen...' },
+      { delay: 10000, progress: 80, message: 'Datenbank wird aktualisiert...' },
+      { delay: 12000, progress: 85, message: 'Überprüfe Status...' }
+    ]
+    
+    initialStages.forEach((stage) => {
+      setTimeout(() => {
+        setUpgradeProgress(stage.progress)
+        setUpgradeMessage(stage.message)
+        if (refresh && typeof refresh === 'function') {
+          refresh()
+        }
+      }, stage.delay)
+    })
+    
+    // 🔥 PHASE 2: Aktivno proveravaj status (od 12s do max 30s)
+    let checkCount = 0
+    const maxChecks = 36 // 18 sekundi provera (36 * 500ms)
+    const startTime = Date.now()
+    const maxWaitTime = 30000 // Max 30 sekundi od starta
+    
+    const checkInterval = setInterval(async () => {
+      checkCount++
+      const elapsed = Date.now() - startTime
+      
+      // Povećaj progress polako dok čekamo (85% -> 95%)
+      const checkProgress = 85 + Math.min((checkCount / maxChecks) * 10, 10)
+      setUpgradeProgress(Math.round(checkProgress))
+      
+      if (checkCount % 4 === 0) {
+        setUpgradeMessage('Warte auf Webhook...')
+      } else if (checkCount % 4 === 2) {
+        setUpgradeMessage('Synchronisierung läuft...')
+      }
+      
+      // Refresh subscription
+      if (refresh && typeof refresh === 'function') {
+        refresh()
+      }
+      
+      // Proveri da li je subscription postao PRO ili Trial
+      const isPro = subscription?.status === 'active' || subscription?.status === 'trial'
+      
+      // Zatvori modal ako je PRO ILI ako je prošlo 30s
+      if (isPro || elapsed >= maxWaitTime || checkCount >= maxChecks) {
+        clearInterval(checkInterval)
+        
+        console.log(isPro 
+          ? '✅ Subscription confirmed as PRO! Closing modal...' 
+          : `⏱️ Timeout reached (${elapsed}ms). Closing modal...`)
+        
+        // Završi animaciju
+        setUpgradeProgress(100)
+        setUpgradeMessage('✅ PRO Mitgliedschaft aktiviert!')
+        
+        setTimeout(() => {
+          // Ukloni parametre
+          const url = new URL(window.location.href)
+          url.searchParams.delete('paddle_success')
+          url.searchParams.delete('plan')
+          window.history.replaceState({}, '', url.toString())
+          
+          // Reload
+          window.location.reload()
+        }, 1500)
+      }
+    }, 500) // Provera svakih 500ms
+  }
 
   useEffect(() => {
     checkUser()
@@ -220,6 +319,14 @@ function DashboardLayoutContent({ children }) {
   }
 
   const getSubscriptionBadge = () => {
+    // 🔥 Prikaži loading state dok se subscription učitava
+    if (subscriptionLoading || (majstor?.id && !subscription && !plan)) {
+      return {
+        text: '...',
+        color: 'bg-gradient-to-r from-slate-500 to-slate-600'
+      }
+    }
+    
     if (!subscription) {
       return {
         text: 'Upgrade',
@@ -445,7 +552,7 @@ function DashboardLayoutContent({ children }) {
                     'pdf_archive': 'PDF Archiv',
                     'settings': 'Erweiterte Einstellungen'
                   }
-                  showUpgradeModal(
+                  showFeatureModal(
                     item.feature, 
                     featureNames[item.feature] || item.name,
                     'Freemium'
@@ -499,6 +606,88 @@ function DashboardLayoutContent({ children }) {
     )
   }
 
+  // 🔥 UPGRADE PROCESSING MODAL - NA TOP LAYOUT NIVOU!
+  const UpgradeProcessingModal = () => {
+    if (!showUpgradeModal) return null
+
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/98 backdrop-blur-sm">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 max-w-md w-full mx-4 border border-slate-700 shadow-2xl">
+          
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full mb-4 animate-pulse shadow-lg shadow-blue-500/50">
+              <span className="text-5xl">💎</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              PRO Upgrade läuft...
+            </h2>
+            <p className="text-slate-400 text-sm">
+              Ihre Zahlung war erfolgreich! Wir aktivieren jetzt Ihre PRO Mitgliedschaft.
+            </p>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+              <p className="text-center text-blue-300 font-medium animate-pulse">
+                {upgradeMessage}
+              </p>
+            </div>
+            
+            <div className="bg-slate-700/50 rounded-full h-4 overflow-hidden shadow-inner">
+              <div 
+                className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-full transition-all duration-700 ease-out shadow-lg"
+                style={{ width: `${upgradeProgress}%` }}
+              />
+            </div>
+            
+            <p className="text-center text-slate-400 text-sm mt-2 font-mono">
+              {Math.round(upgradeProgress)}% abgeschlossen
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">✅</span>
+                <div className="text-xs text-green-200">
+                  <p className="font-semibold">Zahlung erfolgreich</p>
+                  <p className="text-green-300/70">Ihre Zahlung wurde bestätigt</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🔄</span>
+                <div className="text-xs text-blue-200">
+                  <p className="font-semibold">Synchronisierung läuft</p>
+                  <p className="text-blue-300/70">Paddle Webhook wird verarbeitet...</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">⏳</span>
+                <div className="text-xs text-purple-200">
+                  <p className="font-semibold">Bitte warten</p>
+                  <p className="text-purple-300/70">Dieser Vorgang dauert ca. 15-20 Sekunden</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-xs text-slate-500">
+              Bitte schließen Sie dieses Fenster nicht...
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -538,313 +727,319 @@ function DashboardLayoutContent({ children }) {
   const navigation = getNavigation()
 
   return (
-    <div className="min-h-screen bg-slate-900 flex">
-      
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <>
+      {/* 🔥 PROGRES MODAL - RENDERUJE SE PRVI, PRE SVEGA! */}
+      <UpgradeProcessingModal />
 
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:flex lg:flex-shrink-0">
-        <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
-          
-          <div className="flex items-center h-16 px-4 border-b border-slate-700">
-            <Link href="/" className="text-xl font-bold text-white">
-              Pro-meister<span className="text-blue-400">.de</span>
-            </Link>
-          </div>
-
-          <div className="px-4 py-4 border-b border-slate-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {majstor?.full_name || user?.email || 'Loading...'}
-                </p>
-                <p className="text-xs text-slate-400 truncate">
-                  {majstor?.business_name || 'Handwerker'}
-                </p>
-              </div>
-            </div>
-
-            {subscription && (
-              <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                <p className="text-xs font-medium leading-tight whitespace-pre-line">
-                  {(() => {
-                    const now = new Date()
-                    const periodEnd = new Date(subscription.current_period_end)
-                    const createdAt = new Date(subscription.created_at)
-                    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-                    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-                    
-                    if (periodEnd <= now) {
-                      return <span className="text-slate-300">📋 Freemium</span>
-                    }
-                    
-                    if (subscription.cancelled_at) {
-                      return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
-                    }
-                    
-                    let isInTrial = false
-                    let trialDaysLeft = 0
-                    
-                    if (subscription.trial_ends_at) {
-                      const trialEnd = new Date(subscription.trial_ends_at)
-                      if (trialEnd > now) {
-                        isInTrial = true
-                        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-                      }
-                    } else if (subscription.trial_starts_at) {
-                      const trialStart = new Date(subscription.trial_starts_at)
-                      const estimatedTrialEnd = new Date(trialStart)
-                      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-                      
-                      if (estimatedTrialEnd > now) {
-                        isInTrial = true
-                        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-                      }
-                    } else if (subscription.status === 'active') {
-                      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-                      if (hoursSinceCreation < 48 && daysLeft <= 1) {
-                        isInTrial = true
-                        trialDaysLeft = daysLeft
-                      }
-                    }
-                    
-                    if (isInTrial && trialDaysLeft > 0) {
-                      return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
-                    }
-                    
-                    if (subscription.status === 'active') {
-                      return <span className="text-green-300">💎 PRO Mitglied</span>
-                    }
-                    
-                    return <span className="text-slate-300">📋 Freemium</span>
-                  })()}
-                </p>
-              </div>
-            )}
-
-            {!subscription && (
-              <div className="mt-3 px-2 py-1 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
-                <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
-              </div>
-            )}
-          </div>
-
-          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <NavigationItem key={item.name} item={item} />
-            ))}
-          </nav>
-
-          <div className="p-2 border-t border-slate-700">
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
-            >
-              <span className="mr-3">🚪</span>
-              Abmelden
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 transform transition-transform duration-300 ease-in-out ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
-            <Link href="/" className="text-xl font-bold text-white">
-              Pro-meister<span className="text-blue-400">.de</span>
-            </Link>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="text-slate-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="px-4 py-4 border-b border-slate-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {majstor?.full_name || user?.email || 'Loading...'}
-                </p>
-                <p className="text-xs text-slate-400 truncate">
-                  {majstor?.business_name || 'Handwerker'}
-                </p>
-              </div>
-            </div>
-
-            {subscription && (
-              <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                <p className="text-xs font-medium leading-tight whitespace-pre-line">
-                  {(() => {
-                    const now = new Date()
-                    const periodEnd = new Date(subscription.current_period_end)
-                    const createdAt = new Date(subscription.created_at)
-                    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-                    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-                    
-                    if (periodEnd <= now) {
-                      return <span className="text-slate-300">📋 Freemium</span>
-                    }
-                    
-                    if (subscription.cancelled_at) {
-                      return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
-                    }
-                    
-                    let isInTrial = false
-                    let trialDaysLeft = 0
-                    
-                    if (subscription.trial_ends_at) {
-                      const trialEnd = new Date(subscription.trial_ends_at)
-                      if (trialEnd > now) {
-                        isInTrial = true
-                        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-                      }
-                    } else if (subscription.trial_starts_at) {
-                      const trialStart = new Date(subscription.trial_starts_at)
-                      const estimatedTrialEnd = new Date(trialStart)
-                      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-                      
-                      if (estimatedTrialEnd > now) {
-                        isInTrial = true
-                        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-                      }
-                    } else if (subscription.status === 'active') {
-                      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-                      if (hoursSinceCreation < 48 && daysLeft <= 1) {
-                        isInTrial = true
-                        trialDaysLeft = daysLeft
-                      }
-                    }
-                    
-                    if (isInTrial && trialDaysLeft > 0) {
-                      return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
-                    }
-                    
-                    if (subscription.status === 'active') {
-                      return <span className="text-green-300">💎 PRO Mitglied</span>
-                    }
-                    
-                    return <span className="text-slate-300">📋 Freemium</span>
-                  })()}
-                </p>
-              </div>
-            )}
-
-            {!subscription && plan && (
-              <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
-                <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
-              </div>
-            )}
-          </div>
-
-          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <NavigationItem key={item.name} item={item} isMobile={true} />
-            ))}
-          </nav>
-
-          <div className="p-2 border-t border-slate-700">
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
-            >
-              <span className="mr-3">🚪</span>
-              Abmelden
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="min-h-screen bg-slate-900 flex">
         
-        <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-slate-400 hover:text-white p-1"
-              >
-                <span className="text-xl">☰</span>
-              </button>
-              
-              <div>
-                <h1 className="text-xl font-semibold text-white">
-                  Handwerker Dashboard
-                </h1>
-                <p className="text-sm text-slate-400 hidden sm:block">
-                  Verwalten Sie Ihre Kunden und Aufträge
-                </p>
-              </div>
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:flex lg:flex-shrink-0">
+          <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
+            
+            <div className="flex items-center h-16 px-4 border-b border-slate-700">
+              <Link href="/" className="text-xl font-bold text-white">
+                Pro-meister<span className="text-blue-400">.de</span>
+              </Link>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <button 
-                className="relative p-2 text-slate-400 hover:text-white transition-colors"
-                onClick={loadBadgeCounts}
-                title="Refresh notifications"
-              >
-                <span className="text-xl">🔔</span>
-                {(badges.inquiries + badges.invoices + badges.warranties) > 0 && (
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                )}
-              </button>
-              
-              <button 
-                className="relative p-2 text-slate-400 hover:text-white transition-colors"
-                onClick={openSupport}
-                title="Support kontaktieren"
-              >
-                <span className="text-xl">📨</span>
-              </button>
-
-              <Link 
-                href="/dashboard/settings"
-                className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
-              >
+            <div className="px-4 py-4 border-b border-slate-700">
+              <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
                   {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
                 </div>
-              </Link>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {majstor?.full_name || user?.email || 'Loading...'}
+                  </p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {majstor?.business_name || 'Handwerker'}
+                  </p>
+                </div>
+              </div>
+
+              {subscription && (
+                <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+                  <p className="text-xs font-medium leading-tight whitespace-pre-line">
+                    {(() => {
+                      const now = new Date()
+                      const periodEnd = new Date(subscription.current_period_end)
+                      const createdAt = new Date(subscription.created_at)
+                      const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+                      const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+                      
+                      if (periodEnd <= now) {
+                        return <span className="text-slate-300">📋 Freemium</span>
+                      }
+                      
+                      if (subscription.cancelled_at) {
+                        return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
+                      }
+                      
+                      let isInTrial = false
+                      let trialDaysLeft = 0
+                      
+                      if (subscription.trial_ends_at) {
+                        const trialEnd = new Date(subscription.trial_ends_at)
+                        if (trialEnd > now) {
+                          isInTrial = true
+                          trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+                        }
+                      } else if (subscription.trial_starts_at) {
+                        const trialStart = new Date(subscription.trial_starts_at)
+                        const estimatedTrialEnd = new Date(trialStart)
+                        estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+                        
+                        if (estimatedTrialEnd > now) {
+                          isInTrial = true
+                          trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+                        }
+                      } else if (subscription.status === 'active') {
+                        const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+                        if (hoursSinceCreation < 48 && daysLeft <= 1) {
+                          isInTrial = true
+                          trialDaysLeft = daysLeft
+                        }
+                      }
+                      
+                      if (isInTrial && trialDaysLeft > 0) {
+                        return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                      }
+                      
+                      if (subscription.status === 'active') {
+                        return <span className="text-green-300">💎 PRO Mitglied</span>
+                      }
+                      
+                      return <span className="text-slate-300">📋 Freemium</span>
+                    })()}
+                  </p>
+                </div>
+              )}
+
+              {!subscription && (
+                <div className="mt-3 px-2 py-1 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
+                  <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
+                </div>
+              )}
+            </div>
+
+            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+              {navigation.map((item) => (
+                <NavigationItem key={item.name} item={item} />
+              ))}
+            </nav>
+
+            <div className="p-2 border-t border-slate-700">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
+              >
+                <span className="mr-3">🚪</span>
+                Abmelden
+              </button>
             </div>
           </div>
-        </header>
+        </div>
 
-        <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
-          {children}
-        </main>
+        {/* Mobile Sidebar - identičan, skip... */}
+        <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          {/* Mobile sidebar content - isti kao desktop */}
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
+              <Link href="/" className="text-xl font-bold text-white">
+                Pro-meister<span className="text-blue-400">.de</span>
+              </Link>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-4 py-4 border-b border-slate-700">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                  {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {majstor?.full_name || user?.email || 'Loading...'}
+                  </p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {majstor?.business_name || 'Handwerker'}
+                  </p>
+                </div>
+              </div>
+
+              {subscription && (
+                <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
+                  <p className="text-xs font-medium leading-tight whitespace-pre-line">
+                    {(() => {
+                      const now = new Date()
+                      const periodEnd = new Date(subscription.current_period_end)
+                      const createdAt = new Date(subscription.created_at)
+                      const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+                      const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+                      
+                      if (periodEnd <= now) {
+                        return <span className="text-slate-300">📋 Freemium</span>
+                      }
+                      
+                      if (subscription.cancelled_at) {
+                        return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
+                      }
+                      
+                      let isInTrial = false
+                      let trialDaysLeft = 0
+                      
+                      if (subscription.trial_ends_at) {
+                        const trialEnd = new Date(subscription.trial_ends_at)
+                        if (trialEnd > now) {
+                          isInTrial = true
+                          trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+                        }
+                      } else if (subscription.trial_starts_at) {
+                        const trialStart = new Date(subscription.trial_starts_at)
+                        const estimatedTrialEnd = new Date(trialStart)
+                        estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+                        
+                        if (estimatedTrialEnd > now) {
+                          isInTrial = true
+                          trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+                        }
+                      } else if (subscription.status === 'active') {
+                        const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+                        if (hoursSinceCreation < 48 && daysLeft <= 1) {
+                          isInTrial = true
+                          trialDaysLeft = daysLeft
+                        }
+                      }
+                      
+                      if (isInTrial && trialDaysLeft > 0) {
+                        return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                      }
+                      
+                      if (subscription.status === 'active') {
+                        return <span className="text-green-300">💎 PRO Mitglied</span>
+                      }
+                      
+                      return <span className="text-slate-300">📋 Freemium</span>
+                    })()}
+                  </p>
+                </div>
+              )}
+
+              {!subscription && (
+                <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
+                  <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
+                </div>
+              )}
+            </div>
+
+            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+              {navigation.map((item) => (
+                <NavigationItem key={item.name} item={item} isMobile={true} />
+              ))}
+            </nav>
+
+            <div className="p-2 border-t border-slate-700">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
+              >
+                <span className="mr-3">🚪</span>
+                Abmelden
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          
+          <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden text-slate-400 hover:text-white p-1"
+                >
+                  <span className="text-xl">☰</span>
+                </button>
+                
+                <div>
+                  <h1 className="text-xl font-semibold text-white">
+                    Handwerker Dashboard
+                  </h1>
+                  <p className="text-sm text-slate-400 hidden sm:block">
+                    Verwalten Sie Ihre Kunden und Aufträge
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <button 
+                  className="relative p-2 text-slate-400 hover:text-white transition-colors"
+                  onClick={loadBadgeCounts}
+                  title="Refresh notifications"
+                >
+                  <span className="text-xl">🔔</span>
+                  {(badges.inquiries + badges.invoices + badges.warranties) > 0 && (
+                    <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                  )}
+                </button>
+                
+                <button 
+                  className="relative p-2 text-slate-400 hover:text-white transition-colors"
+                  onClick={openSupport}
+                  title="Support kontaktieren"
+                >
+                  <span className="text-xl">📨</span>
+                </button>
+
+                <Link 
+                  href="/dashboard/settings"
+                  className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
+            {children}
+          </main>
+        </div>
+
+        <UpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={hideUpgradeModal}
+          feature={modalProps.feature}
+          featureName={modalProps.featureName}
+          currentPlan={modalProps.currentPlan}
+        />
+        
+        <SupportModal 
+          isOpen={supportOpen}
+          onClose={closeSupport}
+          userEmail={user?.email}
+          userName={majstor?.full_name}
+        />
       </div>
-
-      <UpgradeModal
-        isOpen={upgradeModalOpen}
-        onClose={hideUpgradeModal}
-        feature={modalProps.feature}
-        featureName={modalProps.featureName}
-        currentPlan={modalProps.currentPlan}
-      />
-      
-      <SupportModal 
-        isOpen={supportOpen}
-        onClose={closeSupport}
-        userEmail={user?.email}
-        userName={majstor?.full_name}
-      />
-    </div>
+    </>
   )
 }
 

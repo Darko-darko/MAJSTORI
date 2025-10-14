@@ -1,4 +1,4 @@
-// app/dashboard/page.js - SA EVENT LISTENER
+// app/dashboard/page.js - SIMPLIFIED (modal je u layout-u!)
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -14,13 +14,8 @@ function DashboardPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  const [upgradingInProgress, setUpgradingInProgress] = useState(false)
-  const [upgradeProgress, setUpgradeProgress] = useState(0)
-  const [upgradeMessage, setUpgradeMessage] = useState('')
+  const { isOpen: upgradeFeatureModalOpen, modalProps, showUpgradeModal: showFeatureUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
-  
-  // 🔥 Hook za proveru subscription statusa
   const { isFreemium, refresh: refreshSubscription } = useSubscription(majstor?.id)
   
   const [stats, setStats] = useState({
@@ -34,17 +29,14 @@ function DashboardPageContent() {
   
   const searchParams = useSearchParams()
 
-  // 🔥 DODAJ: Event listener za subscription changes
+  // 🔥 EVENT LISTENER za subscription changes
   useEffect(() => {
     const handleSubscriptionChanged = (event) => {
-      console.log('🔔 DASHBOARD: subscription-changed event received!')
-      console.log('Event detail:', event.detail)
+      console.log('🔔 DASHBOARD PAGE: subscription-changed event received!')
       
       if (refreshSubscription && typeof refreshSubscription === 'function') {
-        console.log('🔄 DASHBOARD: Triggering subscription refresh...')
+        console.log('🔄 DASHBOARD PAGE: Triggering subscription refresh...')
         refreshSubscription()
-      } else {
-        console.warn('⚠️ DASHBOARD: refreshSubscription function not available')
       }
     }
 
@@ -63,69 +55,6 @@ function DashboardPageContent() {
     
     loadMajstorAndStats()
   }, [searchParams])
-
-  useEffect(() => {
-    const paddleSuccess = searchParams.get('paddle_success')
-    const planType = searchParams.get('plan')
-    
-    if (paddleSuccess === 'true' && majstor?.id) {
-      console.log('🎯 Paddle payment detected - starting auto-refresh!')
-      startUpgradeRefresh(planType)
-    }
-  }, [searchParams, majstor?.id])
-
-  const startUpgradeRefresh = (planType) => {
-    setUpgradingInProgress(true)
-    setUpgradeProgress(0)
-    setUpgradeMessage('Aktiviere PRO Mitgliedschaft...')
-    
-    window.dispatchEvent(new CustomEvent('subscription-changed', {
-      detail: { action: 'upgraded', timestamp: Date.now(), plan: planType }
-    }))
-    
-    const refreshIntervals = [
-      { delay: 0, message: 'Verbindung zu Paddle...' },
-      { delay: 2000, message: 'Warte auf Bestätigung...' },
-      { delay: 5000, message: 'Subscription wird aktualisiert...' },
-      { delay: 8000, message: 'Fast fertig...' },
-      { delay: 12000, message: 'Abschließen...' },
-      { delay: 15000, message: 'Fertig!' }
-    ]
-    
-    let refreshCount = 0
-    const totalRefreshes = refreshIntervals.length
-    
-    refreshIntervals.forEach((step, index) => {
-      setTimeout(() => {
-        refreshCount++
-        const progress = (refreshCount / totalRefreshes) * 100
-        
-        setUpgradeProgress(progress)
-        setUpgradeMessage(step.message)
-        
-        if (refreshSubscription && typeof refreshSubscription === 'function') {
-          refreshSubscription()
-        }
-        
-        if (index === refreshIntervals.length - 1) {
-          setTimeout(() => {
-            setUpgradingInProgress(false)
-            setUpgradeProgress(100)
-            setUpgradeMessage('PRO Mitgliedschaft aktiviert!')
-            
-            const url = new URL(window.location.href)
-            url.searchParams.delete('paddle_success')
-            url.searchParams.delete('plan')
-            window.history.replaceState({}, '', url.toString())
-            
-            setTimeout(() => {
-              window.location.reload()
-            }, 1500)
-          }, 1000)
-        }
-      }, step.delay)
-    })
-  }
 
   const loadMajstorAndStats = async () => {
     try {
@@ -222,7 +151,7 @@ function DashboardPageContent() {
   }, [majstor?.id])
 
   const handleProtectedFeatureClick = (feature, featureName) => {
-    showUpgradeModal(feature, featureName, 'Freemium')
+    showFeatureUpgradeModal(feature, featureName, 'Freemium')
   }
 
   const WelcomeMessage = () => {
@@ -237,60 +166,6 @@ function DashboardPageContent() {
             <p className="text-slate-300">
               Verwalten Sie Ihre Kunden, Rechnungen und Geschäftsprozesse zentral an einem Ort.
             </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const UpgradeProcessingModal = () => {
-    if (!upgradingInProgress) return null
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
-        <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-slate-700 shadow-2xl">
-          
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4 animate-pulse">
-              <span className="text-4xl">💎</span>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              PRO Upgrade läuft...
-            </h2>
-            <p className="text-slate-400 text-sm">
-              Bitte einen Moment Geduld, während wir Ihre Mitgliedschaft aktivieren
-            </p>
-          </div>
-
-          <div className="mb-4">
-            <p className="text-center text-blue-300 font-medium mb-3 animate-pulse">
-              {upgradeMessage}
-            </p>
-            
-            <div className="bg-slate-700 rounded-full h-3 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-500 ease-out"
-                style={{ width: `${upgradeProgress}%` }}
-              />
-            </div>
-            
-            <p className="text-center text-slate-400 text-sm mt-2">
-              {Math.round(upgradeProgress)}%
-            </p>
-          </div>
-
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mt-6">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">ℹ️</span>
-              <div className="text-xs text-blue-200">
-                <p className="mb-1">✅ Zahlung erfolgreich</p>
-                <p>🔄 Synchronisierung mit Paddle läuft...</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center mt-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
           </div>
         </div>
       </div>
@@ -461,252 +336,248 @@ function DashboardPageContent() {
   }
 
   return (
-    <>
-      <UpgradeProcessingModal />
-    
-      <div className="space-y-8">
-        <WelcomeMessage />
+    <div className="space-y-8">
+      <WelcomeMessage />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <ProtectedStatCard
-            href="/dashboard/inquiries"
-            icon="📩"
-            iconBg="bg-blue-600"
-            title="Kundenanfragen"
-            value={stats.totalInquiries}
-            subtitle={`${stats.newInquiries} neue`}
-            badgeCount={stats.newInquiries}
-          />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <ProtectedStatCard
+          href="/dashboard/inquiries"
+          icon="📩"
+          iconBg="bg-blue-600"
+          title="Kundenanfragen"
+          value={stats.totalInquiries}
+          subtitle={`${stats.newInquiries} neue`}
+          badgeCount={stats.newInquiries}
+        />
 
-          <ProtectedStatCard
-            href="/dashboard/invoices"
-            icon="📄"
-            iconBg="bg-purple-600"
-            title="Rechnungen"
-            value={stats.totalInvoices}
-            subtitle="Erstellt"
-            badgeCount={0}
-          />
+        <ProtectedStatCard
+          href="/dashboard/invoices"
+          icon="📄"
+          iconBg="bg-purple-600"
+          title="Rechnungen"
+          value={stats.totalInvoices}
+          subtitle="Erstellt"
+          badgeCount={0}
+        />
 
-          <ProtectedStatCard
-            href="/dashboard/customers"
-            icon="👥"
-            iconBg="bg-green-600"
-            title="Kunden"
-            value={stats.totalCustomers}
-            subtitle="Registriert"
-            badgeCount={0}
-          />
-        </div>
-
-        <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Schnellzugriff</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            <ProtectedNavItem
-              isAlwaysFree={true}
-              href="/dashboard/business-card/create"
-              icon="📱"
-              title="QR Visitenkarte erstellen"
-              description="Erstellen Sie Ihre digitale Visitenkarte mit QR-Code für Kunden"
-              buttonText="Jetzt erstellen"
-            />
-
-            <ProtectedNavItem
-              feature="invoicing"
-              href="/dashboard/invoices"
-              icon="📄"
-              title={stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
-              description={stats.totalInvoices === 0 
-                ? 'Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden'
-                : 'Erstellen Sie eine neue Rechnung oder ein Angebot'
-              }
-              buttonText="Rechnung erstellen"
-            />
-          </div>
-        </div>
-
-        <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Dashboard Navigation</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            
-            <SubscriptionGuard
-              feature="customer_management"
-              majstorId={majstor?.id}
-              fallback={
-                <button
-                  onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')}
-                  className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-                >
-                  <div className="text-2xl mb-2 opacity-60">👥</div>
-                  <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                    Meine Kunden
-                  </div>
-                  <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                    🔒 Pro
-                  </span>
-                </button>
-              }
-              showUpgradePrompt={false}
-            >
-              <Link
-                href="/dashboard/customers"
-                className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-              >
-                <div className="text-2xl mb-2">👥</div>
-                <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                  Meine Kunden
-                </div>
-              </Link>
-            </SubscriptionGuard>
-
-            <Link
-              href="/dashboard/inquiries"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group"
-            >
-              <div className="text-2xl mb-2">📩</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Kundenanfragen
-              </div>
-              {stats.newInquiries > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
-                </span>
-              )}
-            </Link>
-
-            <SubscriptionGuard
-              feature="invoicing"
-              majstorId={majstor?.id}
-              fallback={
-                <button
-                  onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')}
-                  className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-                >
-                  <div className="text-2xl mb-2 opacity-60">📄</div>
-                  <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                    Rechnungen
-                  </div>
-                  <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                    🔒 Pro
-                  </span>
-                </button>
-              }
-              showUpgradePrompt={false}
-            >
-              <Link
-                href="/dashboard/invoices"
-                className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-              >
-                <div className="text-2xl mb-2">📄</div>
-                <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                  Rechnungen
-                </div>
-              </Link>
-            </SubscriptionGuard>
-
-            <SubscriptionGuard
-              feature="services_management"
-              majstorId={majstor?.id}
-              fallback={
-                <button
-                  onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')}
-                  className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-                >
-                  <div className="text-2xl mb-2 opacity-60">🔧</div>
-                  <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                    Meine Services
-                  </div>
-                  <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                    🔒 Pro
-                  </span>
-                </button>
-              }
-              showUpgradePrompt={false}
-            >
-              <Link
-                href="/dashboard/services"
-                className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-              >
-                <div className="text-2xl mb-2">🔧</div>
-                <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                  Meine Services
-                </div>
-              </Link>
-            </SubscriptionGuard>
-
-            <SubscriptionGuard
-              feature="pdf_archive"
-              majstorId={majstor?.id}
-              fallback={
-                <button
-                  onClick={() => handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')}
-                  className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-                >
-                  <div className="text-2xl mb-2 opacity-60">🗂️</div>
-                  <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                    PDF Archiv
-                  </div>
-                  <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                    🔒 Pro
-                  </span>
-                </button>
-              }
-              showUpgradePrompt={false}
-            >
-              <Link
-                href="/dashboard/pdf-archive"
-                className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-              >
-                <div className="text-2xl mb-2">🗂️</div>
-                <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                  PDF Archiv
-                </div>
-              </Link>
-            </SubscriptionGuard>
-
-            <SubscriptionGuard
-              feature="settings"
-              majstorId={majstor?.id}
-              fallback={
-                <button
-                  onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')}
-                  className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-                >
-                  <div className="text-2xl mb-2 opacity-60">⚙️</div>
-                  <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                    Einstellungen
-                  </div>
-                  <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                    🔒 Pro
-                  </span>
-                </button>
-              }
-              showUpgradePrompt={false}
-            >
-              <Link
-                href="/dashboard/settings"
-                className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-              >
-                <div className="text-2xl mb-2">⚙️</div>
-                <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                  Einstellungen
-                </div>
-              </Link>
-            </SubscriptionGuard>
-          </div>
-        </div>
-
-        <UpgradeModal
-          isOpen={upgradeModalOpen}
-          onClose={hideUpgradeModal}
-          feature={modalProps.feature}
-          featureName={modalProps.featureName}
-          currentPlan={modalProps.currentPlan}
+        <ProtectedStatCard
+          href="/dashboard/customers"
+          icon="👥"
+          iconBg="bg-green-600"
+          title="Kunden"
+          value={stats.totalCustomers}
+          subtitle="Registriert"
+          badgeCount={0}
         />
       </div>
-    </>
+
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-6">Schnellzugriff</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <ProtectedNavItem
+            isAlwaysFree={true}
+            href="/dashboard/business-card/create"
+            icon="📱"
+            title="QR Visitenkarte erstellen"
+            description="Erstellen Sie Ihre digitale Visitenkarte mit QR-Code für Kunden"
+            buttonText="Jetzt erstellen"
+          />
+
+          <ProtectedNavItem
+            feature="invoicing"
+            href="/dashboard/invoices"
+            icon="📄"
+            title={stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
+            description={stats.totalInvoices === 0 
+              ? 'Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden'
+              : 'Erstellen Sie eine neue Rechnung oder ein Angebot'
+            }
+            buttonText="Rechnung erstellen"
+          />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-6">Dashboard Navigation</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          
+          <SubscriptionGuard
+            feature="customer_management"
+            majstorId={majstor?.id}
+            fallback={
+              <button
+                onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')}
+                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
+              >
+                <div className="text-2xl mb-2 opacity-60">👥</div>
+                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
+                  Meine Kunden
+                </div>
+                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
+                  🔒 Pro
+                </span>
+              </button>
+            }
+            showUpgradePrompt={false}
+          >
+            <Link
+              href="/dashboard/customers"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+            >
+              <div className="text-2xl mb-2">👥</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+                Meine Kunden
+              </div>
+            </Link>
+          </SubscriptionGuard>
+
+          <Link
+            href="/dashboard/inquiries"
+            className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group"
+          >
+            <div className="text-2xl mb-2">📩</div>
+            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+              Kundenanfragen
+            </div>
+            {stats.newInquiries > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
+              </span>
+            )}
+          </Link>
+
+          <SubscriptionGuard
+            feature="invoicing"
+            majstorId={majstor?.id}
+            fallback={
+              <button
+                onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')}
+                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
+              >
+                <div className="text-2xl mb-2 opacity-60">📄</div>
+                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
+                  Rechnungen
+                </div>
+                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
+                  🔒 Pro
+                </span>
+              </button>
+            }
+            showUpgradePrompt={false}
+          >
+            <Link
+              href="/dashboard/invoices"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+            >
+              <div className="text-2xl mb-2">📄</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+                Rechnungen
+              </div>
+            </Link>
+          </SubscriptionGuard>
+
+          <SubscriptionGuard
+            feature="services_management"
+            majstorId={majstor?.id}
+            fallback={
+              <button
+                onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')}
+                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
+              >
+                <div className="text-2xl mb-2 opacity-60">🔧</div>
+                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
+                  Meine Services
+                </div>
+                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
+                  🔒 Pro
+                </span>
+              </button>
+            }
+            showUpgradePrompt={false}
+          >
+            <Link
+              href="/dashboard/services"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+            >
+              <div className="text-2xl mb-2">🔧</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+                Meine Services
+              </div>
+            </Link>
+          </SubscriptionGuard>
+
+          <SubscriptionGuard
+            feature="pdf_archive"
+            majstorId={majstor?.id}
+            fallback={
+              <button
+                onClick={() => handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')}
+                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
+              >
+                <div className="text-2xl mb-2 opacity-60">🗂️</div>
+                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
+                  PDF Archiv
+                </div>
+                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
+                  🔒 Pro
+                </span>
+              </button>
+            }
+            showUpgradePrompt={false}
+          >
+            <Link
+              href="/dashboard/pdf-archive"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+            >
+              <div className="text-2xl mb-2">🗂️</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+                PDF Archiv
+              </div>
+            </Link>
+          </SubscriptionGuard>
+
+          <SubscriptionGuard
+            feature="settings"
+            majstorId={majstor?.id}
+            fallback={
+              <button
+                onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')}
+                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
+              >
+                <div className="text-2xl mb-2 opacity-60">⚙️</div>
+                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
+                  Einstellungen
+                </div>
+                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
+                  🔒 Pro
+                </span>
+              </button>
+            }
+            showUpgradePrompt={false}
+          >
+            <Link
+              href="/dashboard/settings"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+            >
+              <div className="text-2xl mb-2">⚙️</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+                Einstellungen
+              </div>
+            </Link>
+          </SubscriptionGuard>
+        </div>
+      </div>
+
+      <UpgradeModal
+        isOpen={upgradeFeatureModalOpen}
+        onClose={hideUpgradeModal}
+        feature={modalProps.feature}
+        featureName={modalProps.featureName}
+        currentPlan={modalProps.currentPlan}
+      />
+    </div>
   )
 }
 
