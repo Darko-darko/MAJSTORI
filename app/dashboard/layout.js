@@ -319,6 +319,13 @@ function DashboardLayoutContent({ children }) {
   }
 
   const getSubscriptionBadge = () => {
+
+     if (subscriptionLoading || (majstor?.id && !subscription && !plan)) {
+    return {
+      text: '...',
+      color: 'bg-gradient-to-r from-slate-500 to-slate-600'
+    }
+  }
     // 🔥 Prikaži loading state dok se subscription učitava
     if (subscriptionLoading || (majstor?.id && !subscription && !plan)) {
       return {

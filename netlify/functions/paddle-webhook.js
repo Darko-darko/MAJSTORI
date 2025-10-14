@@ -1,4 +1,4 @@
-// netlify/functions/paddle-webhook.js - FIXED FOR NETLIFY
+// netlify/functions/paddle-webhook.js - FIXED TRIAL DETECTION
 
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
@@ -19,7 +19,6 @@ const PADDLE_IPS = [
   '100.20.172.113'
 ]
 
-// 🔥 FIXED: Paddle signature verification for Netlify
 function verifyPaddleSignature(rawBody, signatureHeader) {
   if (!PADDLE_WEBHOOK_SECRET) {
     console.warn('WARNING: PADDLE_WEBHOOK_SECRET not configured')
@@ -27,7 +26,6 @@ function verifyPaddleSignature(rawBody, signatureHeader) {
   }
 
   try {
-    // Parse signature header
     const signatureParts = {}
     signatureHeader.split(';').forEach(part => {
       const [key, value] = part.split('=')
@@ -44,17 +42,13 @@ function verifyPaddleSignature(rawBody, signatureHeader) {
       return false
     }
 
-    // 🔥 KLJUČNA PROMJENA: Paddle Billing format
-    // signedContent = "timestamp:body"
     const signedContent = `${timestamp}:${rawBody}`
     
-    // Calculate expected signature
     const computedHash = crypto
       .createHmac('sha256', PADDLE_WEBHOOK_SECRET)
       .update(signedContent, 'utf8')
       .digest('hex')
 
-    // Compare signatures (constant-time)
     const isValid = computedHash === receivedSignature
 
     if (isValid) {
@@ -91,8 +85,6 @@ export async function handler(event, context) {
     console.log('\n========== PADDLE WEBHOOK ==========')
     console.log('Timestamp:', new Date().toISOString())
 
-    // 🔥 KRITIČNO: U Netlify Functions, event.body je STRING
-    // Ne transformiši ga! Koristi ga direktno za signature verification
     const rawBody = event.body
     
     if (!rawBody) {
@@ -104,29 +96,6 @@ export async function handler(event, context) {
     }
 
     console.log('Body length:', rawBody.length)
-    
-    // 🔍 DEBUG: Ispitaj body format
-    console.log('\n🔍 BODY DEBUG:')
-    console.log('Body type:', typeof rawBody)
-    console.log('Is base64 encoded:', event.isBase64Encoded)
-    console.log('First 200 chars:', rawBody.substring(0, 200))
-    console.log('Last 50 chars:', rawBody.substring(rawBody.length - 50))
-    console.log('Contains escaped quotes:', rawBody.includes('\\"'))
-    console.log('Contains newlines:', rawBody.includes('\n'))
-    
-    // Pokušaj different body formats
-    const bodyOptions = {
-      original: rawBody,
-      unescaped: rawBody.replace(/\\"/g, '"'),
-      trimmed: rawBody.trim(),
-      noSpaces: rawBody.replace(/\s+/g, ' ')
-    }
-    
-    console.log('Body variations:')
-    Object.keys(bodyOptions).forEach(key => {
-      console.log(`- ${key} length:`, bodyOptions[key].length)
-    })
-    console.log('🔍 END DEBUG\n')
 
     const signatureHeader = event.headers['paddle-signature']
     const sourceIP = event.headers['x-forwarded-for']?.split(',')[0] || 
@@ -134,32 +103,13 @@ export async function handler(event, context) {
 
     console.log('Source IP:', sourceIP)
 
-    // Verify signature
     let signatureValid = false
     if (signatureHeader && PADDLE_WEBHOOK_SECRET) {
       signatureValid = verifyPaddleSignature(rawBody, signatureHeader)
-      
-      // 🔥 DEBUG: Probaj sve varijante body-ja
-      if (!signatureValid) {
-        console.log('\n🧪 TESTING BODY VARIATIONS:')
-        const variations = [
-          { name: 'unescaped', body: rawBody.replace(/\\"/g, '"') },
-          { name: 'trimmed', body: rawBody.trim() },
-          { name: 'no-extra-spaces', body: rawBody.replace(/\s+/g, ' ') },
-          { name: 'unix-line-endings', body: rawBody.replace(/\r\n/g, '\n') }
-        ]
-        
-        variations.forEach(variant => {
-          const testValid = verifyPaddleSignature(variant.body, signatureHeader)
-          console.log(`- ${variant.name}: ${testValid ? '✅ VALID' : '❌ invalid'}`)
-        })
-        console.log('🧪 END TESTING\n')
-      }
     } else {
       console.error('❌ No signature header or secret')
     }
 
-    // Verify IP as fallback
     const ipValid = verifyPaddleIP(sourceIP)
     
     if (ipValid) {
@@ -168,7 +118,6 @@ export async function handler(event, context) {
       console.warn('⚠️ IP not in whitelist:', sourceIP)
     }
 
-    // Accept webhook if EITHER signature OR IP is valid
     if (!signatureValid && !ipValid) {
       console.error('❌ WEBHOOK REJECTED: Invalid signature AND unknown IP')
       return {
@@ -185,7 +134,6 @@ export async function handler(event, context) {
       console.warn('⚠️ Proceeding with IP verification only (signature failed)')
     }
 
-    // 🔥 NOW parse JSON (after signature verification)
     let body
     try {
       body = JSON.parse(rawBody)
@@ -203,7 +151,6 @@ export async function handler(event, context) {
     console.log('Event:', eventType)
     console.log('Event ID:', body.event_id)
 
-    // Process webhook
     let result
     switch (eventType) {
       case 'subscription.created':
@@ -267,7 +214,6 @@ export async function handler(event, context) {
   }
 }
 
-// Event handlers (ostavljam tvoje postojeće funkcije)
 async function handleSubscriptionCreated(data) {
   console.log('✅ subscription.created')
 
@@ -292,11 +238,24 @@ async function handleSubscriptionCreated(data) {
     if (status === 'trialing') {
       finalStatus = 'trial'
       trialEndsAt = currentPeriodEnd
-      console.log('🎯 Trial subscription detected!')
+      console.log('🎯 Trial subscription detected (trialing status)!')
       console.log('Trial ends at:', trialEndsAt)
-    } else if (status === 'active') {
-      finalStatus = 'active'
-      console.log('💳 Active (paid) subscription')
+    } 
+    else if (status === 'active') {
+      const now = new Date()
+      const periodEnd = new Date(currentPeriodEnd)
+      const hoursUntilEnd = (periodEnd - now) / (1000 * 60 * 60)
+      
+      if (hoursUntilEnd <= 26 && hoursUntilEnd > 0) {
+        finalStatus = 'trial'
+        trialEndsAt = currentPeriodEnd
+        console.log('🎯 Trial subscription detected (active status, ~24h period)!')
+        console.log('Hours until end:', hoursUntilEnd.toFixed(2))
+        console.log('Trial ends at:', trialEndsAt)
+      } else {
+        finalStatus = 'active'
+        console.log('💳 Active (paid) subscription')
+      }
     }
 
     const priceId = data.items?.[0]?.price?.id
@@ -328,7 +287,7 @@ async function handleSubscriptionCreated(data) {
         paddle_customer_id: customerId,
         current_period_start: currentPeriodStart,
         current_period_end: currentPeriodEnd,
-        trial_starts_at: status === 'trialing' ? currentPeriodStart : null,
+        trial_starts_at: finalStatus === 'trial' ? currentPeriodStart : null,
         trial_ends_at: trialEndsAt,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -377,10 +336,22 @@ async function handleSubscriptionUpdated(data) {
     finalStatus = 'trial'
     trialEndsAt = currentPeriodEnd
     console.log('🎯 Still in trial period')
-  } else if (status === 'active') {
-    finalStatus = 'active'
-    console.log('💳 Trial ended → Active subscription')
-  } else if (status === 'cancelled') {
+  } 
+  else if (status === 'active') {
+    const now = new Date()
+    const periodEnd = new Date(currentPeriodEnd)
+    const hoursUntilEnd = (periodEnd - now) / (1000 * 60 * 60)
+    
+    if (hoursUntilEnd <= 26 && hoursUntilEnd > 0) {
+      finalStatus = 'trial'
+      trialEndsAt = currentPeriodEnd
+      console.log('🎯 Trial period detected in update')
+    } else {
+      finalStatus = 'active'
+      console.log('💳 Trial ended → Active subscription')
+    }
+  } 
+  else if (status === 'cancelled') {
     finalStatus = 'cancelled'
     console.log('🚫 Subscription cancelled')
   }
@@ -391,6 +362,7 @@ async function handleSubscriptionUpdated(data) {
       status: finalStatus,
       current_period_start: currentPeriodStart,
       current_period_end: currentPeriodEnd,
+      trial_starts_at: finalStatus === 'trial' ? currentPeriodStart : null,
       trial_ends_at: trialEndsAt,
       updated_at: new Date().toISOString()
     })
