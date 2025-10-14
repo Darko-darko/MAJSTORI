@@ -104,6 +104,29 @@ export async function handler(event, context) {
     }
 
     console.log('Body length:', rawBody.length)
+    
+    // 🔍 DEBUG: Ispitaj body format
+    console.log('\n🔍 BODY DEBUG:')
+    console.log('Body type:', typeof rawBody)
+    console.log('Is base64 encoded:', event.isBase64Encoded)
+    console.log('First 200 chars:', rawBody.substring(0, 200))
+    console.log('Last 50 chars:', rawBody.substring(rawBody.length - 50))
+    console.log('Contains escaped quotes:', rawBody.includes('\\"'))
+    console.log('Contains newlines:', rawBody.includes('\n'))
+    
+    // Pokušaj different body formats
+    const bodyOptions = {
+      original: rawBody,
+      unescaped: rawBody.replace(/\\"/g, '"'),
+      trimmed: rawBody.trim(),
+      noSpaces: rawBody.replace(/\s+/g, ' ')
+    }
+    
+    console.log('Body variations:')
+    Object.keys(bodyOptions).forEach(key => {
+      console.log(`- ${key} length:`, bodyOptions[key].length)
+    })
+    console.log('🔍 END DEBUG\n')
 
     const signatureHeader = event.headers['paddle-signature']
     const sourceIP = event.headers['x-forwarded-for']?.split(',')[0] || 
@@ -115,6 +138,23 @@ export async function handler(event, context) {
     let signatureValid = false
     if (signatureHeader && PADDLE_WEBHOOK_SECRET) {
       signatureValid = verifyPaddleSignature(rawBody, signatureHeader)
+      
+      // 🔥 DEBUG: Probaj sve varijante body-ja
+      if (!signatureValid) {
+        console.log('\n🧪 TESTING BODY VARIATIONS:')
+        const variations = [
+          { name: 'unescaped', body: rawBody.replace(/\\"/g, '"') },
+          { name: 'trimmed', body: rawBody.trim() },
+          { name: 'no-extra-spaces', body: rawBody.replace(/\s+/g, ' ') },
+          { name: 'unix-line-endings', body: rawBody.replace(/\r\n/g, '\n') }
+        ]
+        
+        variations.forEach(variant => {
+          const testValid = verifyPaddleSignature(variant.body, signatureHeader)
+          console.log(`- ${variant.name}: ${testValid ? '✅ VALID' : '❌ invalid'}`)
+        })
+        console.log('🧪 END TESTING\n')
+      }
     } else {
       console.error('❌ No signature header or secret')
     }
