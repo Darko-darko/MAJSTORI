@@ -61,6 +61,25 @@ function verifyPaddleIP(sourceIP) {
 }
 
 export async function handler(event, context) {
+
+  // 🔍 DEBUG
+  console.log('SECRET:', {
+    exists: !!PADDLE_WEBHOOK_SECRET,
+    length: PADDLE_WEBHOOK_SECRET?.length,
+    first20: PADDLE_WEBHOOK_SECRET?.substring(0, 20)
+  })
+  
+  console.log('SIGNATURE:', {
+    exists: !!event.headers['paddle-signature'],
+    value: event.headers['paddle-signature']
+  })
+  
+  console.log('BODY:', {
+    length: event.body?.length,
+    isBase64: event.isBase64Encoded,
+    first100: event.body?.substring(0, 100)
+  })
+  // END DEBUG
   const startTime = Date.now()
   
   if (event.httpMethod !== 'POST') {
