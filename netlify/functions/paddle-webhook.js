@@ -1,4 +1,4 @@
-// netlify/functions/paddle-webhook.js - FIXED TRIAL DETECTION
+// netlify/functions/paddle-webhook.js - FINAL FIX (Transaction events)
 
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
@@ -439,12 +439,34 @@ async function handleSubscriptionCancelled(data) {
   return { success: true }
 }
 
+// 🔥 POPRAVLJEN - NE prebrisuje trial status!
 async function handleTransactionCompleted(data) {
   console.log('💳 transaction.completed')
 
   const subscriptionId = data.subscription_id
 
   if (subscriptionId) {
+    // 🔥 Prvo pročitaj trenutni subscription
+    const { data: currentSub } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('status, current_period_end')
+      .eq('paddle_subscription_id', subscriptionId)
+      .single()
+
+    // 🔥 Proveri da li je još u trial periodu
+    if (currentSub && currentSub.status === 'trial') {
+      const now = new Date()
+      const periodEnd = new Date(currentSub.current_period_end)
+      
+      // Ako je još u trial periodu, NE DIRAJ status!
+      if (periodEnd > now) {
+        console.log('🎯 Still in trial period - keeping trial status')
+        return { success: true, action: 'preserved_trial' }
+      }
+    }
+
+    // Samo ako NIJE trial, postavi active
+    console.log('💳 Trial ended or not applicable - setting active')
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
@@ -455,15 +477,37 @@ async function handleTransactionCompleted(data) {
       .eq('paddle_subscription_id', subscriptionId)
   }
 
-  return { success: true }
+  return { success: true, action: 'set_active' }
 }
 
+// 🔥 POPRAVLJEN - Ista logika kao transaction.completed
 async function handleTransactionPaid(data) {
   console.log('💳 transaction.paid')
 
   const subscriptionId = data.subscription_id
 
   if (subscriptionId) {
+    // 🔥 Prvo pročitaj trenutni subscription
+    const { data: currentSub } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('status, current_period_end')
+      .eq('paddle_subscription_id', subscriptionId)
+      .single()
+
+    // 🔥 Proveri da li je još u trial periodu
+    if (currentSub && currentSub.status === 'trial') {
+      const now = new Date()
+      const periodEnd = new Date(currentSub.current_period_end)
+      
+      // Ako je još u trial periodu, NE DIRAJ status!
+      if (periodEnd > now) {
+        console.log('🎯 Still in trial period - keeping trial status')
+        return { success: true, action: 'preserved_trial' }
+      }
+    }
+
+    // Samo ako NIJE trial, postavi active
+    console.log('💳 Trial ended or not applicable - setting active')
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
@@ -474,7 +518,7 @@ async function handleTransactionPaid(data) {
       .eq('paddle_subscription_id', subscriptionId)
   }
 
-  return { success: true }
+  return { success: true, action: 'set_active' }
 }
 
 async function getPlanIdFromPriceId(priceId) {
