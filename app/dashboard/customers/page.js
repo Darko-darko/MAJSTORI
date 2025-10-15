@@ -191,11 +191,29 @@ function CustomersPageContent() {
     setInvoiceType(null)
   }
 
-  const handleInvoiceSuccess = (createdInvoice) => {
+ const handleInvoiceSuccess = (createdInvoice) => {
+  try {
     console.log('✅ Invoice created:', createdInvoice)
+    console.log('📦 Full invoice object:', JSON.stringify(createdInvoice, null, 2))
+    console.log('📄 Invoice type:', createdInvoice?.type)
+    console.log('🆔 Invoice ID:', createdInvoice?.id)
+    
     handleInvoiceModalClose()
-    router.push('/dashboard/invoices')
+    
+    // Odredi tab na osnovu tipa (invoice ili quote/angebot)
+    const invoiceTab = createdInvoice?.type === 'invoice' ? 'invoices' : 'quotes'
+    
+    console.log('🎯 Determined tab:', invoiceTab)
+    
+    // 🚀 Redirect sa otvorenom fakturom/angebotom i back reference
+   const redirectUrl = `/dashboard/invoices?tab=${invoiceTab}&from=customers`
+    console.log('🔀 Redirecting to:', redirectUrl)
+    router.push(redirectUrl)
+    
+  } catch (error) {
+    console.error('❌ Error in handleInvoiceSuccess:', error)
   }
+}
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()

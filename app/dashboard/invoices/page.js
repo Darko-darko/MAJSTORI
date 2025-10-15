@@ -57,6 +57,7 @@ function DashboardPageContent() {
   
   const router = useRouter()
   const searchParams = useSearchParams()
+  const fromCustomers = searchParams.get('from') === 'customers'  // 🔥 DODAJ OVO
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
@@ -76,6 +77,52 @@ function DashboardPageContent() {
       })
     }
   }, [searchParams])
+  // 🔥 NOVO: Auto-open invoice/quote from URL when coming from customers page
+/*useEffect(() => {
+  const viewId = searchParams.get('view')
+  const fromPage = searchParams.get('from')
+  
+  console.log('🔍 URL params check:', { viewId, fromPage, invoicesCount: invoices.length })
+  
+  // Samo ako ima viewId i invoices su učitani
+  if (viewId && invoices.length > 0) {
+    // Pronađi invoice/quote koji treba otvoriti
+    const invoiceToView = invoices.find(inv => inv.id === viewId)
+    
+    if (invoiceToView) {
+      console.log('📄 Auto-opening document from URL:', {
+        id: viewId,
+        type: invoiceToView.type,
+        number: invoiceToView.invoice_number || invoiceToView.quote_number,
+        from: fromPage
+      })
+      
+      // Postavi ispravan tab (invoices ili quotes)
+      const correctTab = invoiceToView.type === 'invoice' ? 'invoices' : 'quotes'
+      if (activeTab !== correctTab) {
+        console.log('📑 Switching tab to:', correctTab)
+        setActiveTab(correctTab)
+      }
+      
+      // Otvori dokument u view/edit mode
+      setEditingItem(invoiceToView)
+      setIsEditMode(true)
+      setCreateType(invoiceToView.type)
+      setShowCreateModal(true)
+      
+      console.log('✅ Document opened successfully')
+      
+      // 🧹 Clean up URL - ukloni 'view' parametar (ali ostavi 'from' za back button)
+      setTimeout(() => {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('view')
+        window.history.replaceState({}, '', url.toString())
+      }, 100)
+    } else {
+      console.warn('⚠️ Invoice/Quote not found in list:', viewId)
+    }
+  }
+}, [searchParams, invoices, activeTab])*/
 
   useEffect(() => {
     if (pendingInvoiceCreation && majstor && isBusinessDataComplete(majstor)) {
@@ -1819,15 +1866,28 @@ const HardResetModal = () => {
     )
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Rechnungen & Angebote</h1>
-          <p className="text-slate-400">
-            Erstellen und verwalten Sie Angebote und Rechnungen für Ihre Kunden
-          </p>
-        </div>
+ return (
+  <div className="space-y-6">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Rechnungen & Angebote</h1>
+        <p className="text-slate-400">
+          Erstellen und verwalten Sie Angebote und Rechnungen für Ihre Kunden
+        </p>
+      </div>
+      
+      <div className="flex flex-col gap-2 items-start sm:items-end">
+        {/* 🔥 Zurück zu Kunden - prikazuje se SAMO ako dolaziš iz customers */}
+        {fromCustomers && (
+          <Link
+            href="/dashboard/customers"
+            className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
+          >
+            ← Zurück zu Kunden
+          </Link>
+        )}
+        
+        {/* Zurück zum Dashboard - uvek se prikazuje */}
         <Link
           href="/dashboard"
           className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
@@ -1835,12 +1895,13 @@ const HardResetModal = () => {
           ← Zurück zum Dashboard
         </Link>
       </div>
+    </div>
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-          <p className="text-red-400">{error}</p>
-        </div>
-      )}
+    {error && (
+      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+        <p className="text-red-400">{error}</p>
+      </div>
+    )}
 
       {/* 🔥 UPDATED Stats Cards with overdue filter */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
