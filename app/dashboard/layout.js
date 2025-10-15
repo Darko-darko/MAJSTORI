@@ -1,4 +1,4 @@
-// app/dashboard/layout.js - SA PROGRES MODALOM NA TOP LEVEL
+// app/dashboard/layout.js - SA PROGRES MODALOM NA TOP LEVEL - FIXED BADGE LOGIC
 
 'use client'
 import { useState, useEffect, Suspense } from 'react'
@@ -39,10 +39,113 @@ function DashboardLayoutContent({ children }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // 🔥 SWIPE GESTURE za otvaranje sidebar-a na mobilnom
+  const [touchStart, setTouchStart] = useState(null)
+  const [touchEnd, setTouchEnd] = useState(null)
+  const [isSwiping, setIsSwiping] = useState(false)
+
+  // Min. distance za validni swipe (u px)
+  const minSwipeDistance = 50
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null)
+    const startX = e.targetTouches[0].clientX
+    setTouchStart(startX)
+    
+    // Počni swipe samo ako je dodir na levoj strani ekrana
+    if (startX < 50) {
+      setIsSwiping(true)
+    }
+  }
+
+  const onTouchMove = (e) => {
+    if (!isSwiping && !sidebarOpen) return
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) {
+      setIsSwiping(false)
+      return
+    }
+    
+    const distance = touchEnd - touchStart
+    const isLeftSwipe = distance < -minSwipeDistance
+    const isRightSwipe = distance > minSwipeDistance
+    
+    // Swipe sa leve strane ekrana ka desnoj → otvori sidebar
+    if (isRightSwipe && touchStart < 50) {
+      console.log('👉 Swipe right detected - opening sidebar')
+      setSidebarOpen(true)
+      
+      // 🔥 Haptic feedback (ako je dostupno)
+      if (navigator.vibrate) {
+        navigator.vibrate(10) // 10ms vibration
+      }
+    }
+    // Ako je swipe počeo sa leve strane ali nije dovoljno jak, ne otvori
+    else if (touchStart < 50 && distance > 0 && distance < minSwipeDistance) {
+      console.log('⚠️ Weak swipe - not opening')
+      setSidebarOpen(false)
+    }
+    
+    // Swipe sa desne ka levoj (na otvorenom sidebar-u) → zatvori
+    if (isLeftSwipe && sidebarOpen) {
+      console.log('👈 Swipe left detected - closing sidebar')
+      setSidebarOpen(false)
+      
+      // 🔥 Haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(10)
+      }
+    }
+    // Ako je sidebar otvoren i swipe je ka levoj ali slab, ostavi otvoren
+    else if (sidebarOpen && distance < 0 && distance > -minSwipeDistance) {
+      console.log('⚠️ Weak swipe - keeping open')
+      setSidebarOpen(true)
+    }
+    
+    setIsSwiping(false)
+    setTouchStart(null)
+    setTouchEnd(null)
+  }
+
+  // Izračunaj trenutni pomak sidebar-a tokom swipe-a
+  const getSwipeOffset = () => {
+    if (!isSwiping || !touchStart || !touchEnd) return 0
+    
+    const distance = touchEnd - touchStart
+    const sidebarWidth = 256 // 16rem = 256px
+    
+    // Ako swipe-uješ sa leve strane
+    if (touchStart < 50) {
+      // Pomak od -256px (zatvoreno) do 0px (otvoreno)
+      const offset = Math.min(0, -sidebarWidth + distance)
+      return Math.max(-sidebarWidth, offset)
+    }
+    
+    return 0
+  }
+
+  useEffect(() => {
+    // Dodaj touch listeners samo na mobilnom
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      document.addEventListener('touchstart', onTouchStart, { passive: true })
+      document.addEventListener('touchmove', onTouchMove, { passive: true })
+      document.addEventListener('touchend', onTouchEnd)
+
+      return () => {
+        document.removeEventListener('touchstart', onTouchStart)
+        document.removeEventListener('touchmove', onTouchMove)
+        document.removeEventListener('touchend', onTouchEnd)
+      }
+    }
+  }, [touchStart, touchEnd, sidebarOpen, isSwiping])
+
   // 🔥 EVENT LISTENER za subscription changes
   useEffect(() => {
     const handleSubscriptionChanged = (event) => {
-      console.log('🔔 LAYOUT: subscription-changed event received!')
+      console.log('📢 LAYOUT: subscription-changed event received!')
       console.log('Event detail:', event.detail)
       
       if (refresh && typeof refresh === 'function') {
@@ -318,29 +421,47 @@ function DashboardLayoutContent({ children }) {
     return count.toString()
   }
 
+  // 🔥 FIXED: Badge logic sa boljom race condition zaštitom
   const getSubscriptionBadge = () => {
-
-     if (subscriptionLoading || (majstor?.id && !subscription && !plan)) {
-    return {
-      text: '...',
-      color: 'bg-gradient-to-r from-slate-500 to-slate-600'
-    }
-  }
-    // 🔥 Prikaži loading state dok se subscription učitava
-    if (subscriptionLoading || (majstor?.id && !subscription && !plan)) {
+    // 1️⃣ Ako hook još uvek učitava → prikaži loading
+    if (subscriptionLoading) {
       return {
         text: '...',
         color: 'bg-gradient-to-r from-slate-500 to-slate-600'
       }
     }
     
-    if (!subscription) {
+    // 2️⃣ Ako hook nije učitan ali majstor postoji → prikaži loading
+    // ⚠️ VAŽNO: Proveri da li BILO subscription ILI plan postoji
+    //    Ako nijedno ne postoji, hook se još učitava!
+    if (majstor?.id && !subscription && !plan) {
+      console.log('🔄 Badge: Hook not initialized yet, showing loading...')
       return {
-        text: 'Upgrade',
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        text: '...',
+        color: 'bg-gradient-to-r from-slate-500 to-slate-600'
       }
     }
     
+    // 3️⃣ Ako nema subscription ALI ima plan → proveri plan
+    if (!subscription) {
+      // Ako je plan freemium → "Upgrade"
+      if (plan?.name === 'freemium') {
+        return {
+          text: 'Upgrade',
+          color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        }
+      }
+      
+      // Ako nema ni subscription ni plan (fallback) → "Upgrade"
+      if (!plan) {
+        return {
+          text: 'Upgrade',
+          color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        }
+      }
+    }
+    
+    // 4️⃣ Normalna logika za subscription koji postoji
     const now = new Date()
     const periodEnd = new Date(subscription.current_period_end)
     const createdAt = new Date(subscription.created_at)
@@ -381,7 +502,7 @@ function DashboardLayoutContent({ children }) {
         isInTrial = true
         trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
       }
-    } else if (subscription.status === 'active') {
+    } else if (subscription.status === 'active' || subscription.status === 'trial') {
       const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
       if (hoursSinceCreation < 48 && daysLeft <= 1) {
         isInTrial = true
@@ -404,6 +525,7 @@ function DashboardLayoutContent({ children }) {
       }
     }
     
+    // Fallback
     return {
       text: 'Upgrade',
       color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
@@ -425,7 +547,7 @@ function DashboardLayoutContent({ children }) {
       { 
         name: 'Kundenanfragen', 
         href: '/dashboard/inquiries', 
-        icon: '📩', 
+        icon: '📧', 
         badge: formatBadgeCount(badges.inquiries),
         badgeColor: 'bg-red-500',
         protected: false
@@ -740,6 +862,13 @@ function DashboardLayoutContent({ children }) {
 
       <div className="min-h-screen bg-slate-900 flex">
         
+        {/* 🔥 Swipe Indicator - vizuelni hint za korisnika */}
+        {!sidebarOpen && (
+          <div className="lg:hidden fixed left-0 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
+            <div className="w-1 h-16 bg-gradient-to-r from-blue-500/30 to-transparent rounded-r-full animate-pulse"></div>
+          </div>
+        )}
+        
         {sidebarOpen && (
           <div 
             className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
@@ -855,11 +984,15 @@ function DashboardLayoutContent({ children }) {
           </div>
         </div>
 
-        {/* Mobile Sidebar - identičan, skip... */}
-        <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 transform transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-          {/* Mobile sidebar content - isti kao desktop */}
+        {/* Mobile Sidebar */}
+        <div 
+          className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 ${
+            isSwiping ? '' : 'transform transition-transform duration-300 ease-in-out'
+          } ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+          style={isSwiping ? { transform: `translateX(${getSwipeOffset()}px)` } : {}}
+        >
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
               <Link href="/" className="text-xl font-bold text-white">
