@@ -68,7 +68,7 @@
 - adresa na upitu
 - emeil potvrda
 - zmghnfz  plaćena verzja supa basea
-- videti securiry key
+- videti securiry key✅✅✅
 - pdf arhif id majstora obrisati✅
 - brisanje test page
 - logo
@@ -82,9 +82,13 @@
 - na stranici za invoice približiti tabove✅
 - na invoice kad klikn stats da filtrira samo one kojim je valuta istekla✅
 - blokirati dugme rehnungen einstelungen iz kundenfrage za freemium
-- kunden ne radi filter
+- kunden ne radi filter✅
 - fakturu ulepšati✅
 - fakture ako je pravno lice?✅
 - ćošak iz rehnunga kontejner
-- ispitati kada se sve refrešuje leyout
-- možda ukinuti onih šest refreša za paddle
+- ispitati kada se sve refrešuje leyout✅
+- možda ukinuti onih šest refreša za paddle✅
+- kunden fragen rechnungen flow
+- ai hibrid help
+- superadmin
+- zabranjen pristup iz kundenfragen i einštelung

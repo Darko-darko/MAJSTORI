@@ -430,7 +430,17 @@ function DashboardLayoutContent({ children }) {
         color: 'bg-gradient-to-r from-slate-500 to-slate-600'
       }
     }
-    
+    // Grace period: Trial završio ali još nije active
+  if (subscription?.status === 'trial' && subscription?.trial_ends_at) {
+    const now = new Date()
+    const trialEnd = new Date(subscription.trial_ends_at)
+    if (now > trialEnd) {
+      return { 
+        text: 'Upgrading...', 
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500 animate-pulse' 
+      }
+    }
+  }
     // 2️⃣ Ako hook nije učitan ali majstor postoji → prikaži loading
     // ⚠️ VAŽNO: Proveri da li BILO subscription ILI plan postoji
     //    Ako nijedno ne postoji, hook se još učitava!
@@ -904,16 +914,22 @@ function DashboardLayoutContent({ children }) {
               {subscription && (
                 <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
                   <p className="text-xs font-medium leading-tight whitespace-pre-line">
-                    {(() => {
-                      const now = new Date()
-                      const periodEnd = new Date(subscription.current_period_end)
-                      const createdAt = new Date(subscription.created_at)
-                      const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-                      const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-                      
-                      if (periodEnd <= now) {
-                        return <span className="text-slate-300">📋 Freemium</span>
-                      }
+                   {(() => {
+  const now = new Date()
+  const periodEnd = new Date(subscription.current_period_end)
+  const createdAt = new Date(subscription.created_at)
+  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+  const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+  
+  // 🔥 Grace period check
+  if (subscription.status === 'trial' && subscription.trial_ends_at) {
+    const trialEnd = new Date(subscription.trial_ends_at)
+    if (now > trialEnd) return <span className="text-yellow-300 animate-pulse">⏳ Aktivierung...</span>
+  }
+  
+  if (periodEnd <= now) {
+    return <span className="text-slate-300">📋 Freemium</span>
+  }
                       
                       if (subscription.cancelled_at) {
                         return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
@@ -1025,15 +1041,21 @@ function DashboardLayoutContent({ children }) {
                 <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
                   <p className="text-xs font-medium leading-tight whitespace-pre-line">
                     {(() => {
-                      const now = new Date()
-                      const periodEnd = new Date(subscription.current_period_end)
-                      const createdAt = new Date(subscription.created_at)
-                      const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-                      const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-                      
-                      if (periodEnd <= now) {
-                        return <span className="text-slate-300">📋 Freemium</span>
-                      }
+  const now = new Date()
+  const periodEnd = new Date(subscription.current_period_end)
+  const createdAt = new Date(subscription.created_at)
+  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+  const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+  
+  // 🔥 Grace period check
+  if (subscription.status === 'trial' && subscription.trial_ends_at) {
+    const trialEnd = new Date(subscription.trial_ends_at)
+    if (now > trialEnd) return <span className="text-yellow-300 animate-pulse">⏳ Aktivierung...</span>
+  }
+  
+  if (periodEnd <= now) {
+    return <span className="text-slate-300">📋 Freemium</span>
+  }
                       
                       if (subscription.cancelled_at) {
                         return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
