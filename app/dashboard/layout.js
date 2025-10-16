@@ -9,6 +9,9 @@ import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/Upg
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
 import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
+import { ToastNotification } from '@/app/components/ToastNotification'
+// Na vrhu fajla, dodaj:
+import { SubscriptionToast } from '@/app/components/subscription/SubscriptionToast'
 
 function DashboardLayoutContent({ children }) {
   const [user, setUser] = useState(null)
@@ -830,6 +833,9 @@ function DashboardLayoutContent({ children }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <ToastNotification />
+        <SubscriptionToast />
+
         <div className="text-center">
           <div className="text-white text-xl mb-4">Laden...</div>
           <div className="text-slate-400 text-sm">Überprüfung der Benutzerauthentifizierung...</div>
@@ -841,6 +847,8 @@ function DashboardLayoutContent({ children }) {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <ToastNotification />
+        <SubscriptionToast />
         <div className="max-w-md w-full bg-red-500/10 border border-red-500/20 rounded-lg p-6">
           <h2 className="text-red-400 text-xl font-semibold mb-4">Dashboard Fehler</h2>
           <p className="text-red-300 mb-6">{error}</p>
@@ -871,6 +879,8 @@ function DashboardLayoutContent({ children }) {
       <UpgradeProcessingModal />
 
       <div className="min-h-screen bg-slate-900 flex">
+        <ToastNotification />
+        <SubscriptionToast />
         
         {/* 🔥 Swipe Indicator - vizuelni hint za korisnika */}
         {!sidebarOpen && (
