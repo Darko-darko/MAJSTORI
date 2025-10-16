@@ -232,63 +232,67 @@ export async function handler(event, context) {
 // ============================================
 // EVENT HANDLERS - FIXED TRIAL FLOW
 // ============================================
-
 async function handleSubscriptionCreated(data) {
   console.log('✅ subscription.created')
 
   try {
+    // 🔥 DEBUG: Prikazi SVE što Paddle šalje
+    console.log('🔥 RAW PADDLE DATA:', JSON.stringify(data, null, 2))
+
     const subscriptionId = data.id
     const customerId = data.customer_id
-    const status = data.status
+    const status = data.status  // 'trialing' ili 'active'
     const customData = data.custom_data || {}
     const majstorId = customData.majstor_id
 
+    console.log('📋 Paddle status:', status)
+    console.log('📋 Majstor ID:', majstorId)
+
     if (!majstorId) {
-      console.error('Missing majstor_id')
+      console.error('❌ Missing majstor_id')
       return { error: 'Missing majstor_id' }
     }
 
     const currentPeriodStart = data.current_billing_period?.starts_at
     const currentPeriodEnd = data.current_billing_period?.ends_at
 
-    let finalStatus = 'active'
+    // ✅ FIX: JEDNOSTAVNA LOGIKA - bez scheduled_change provera!
+    let finalStatus
     let trialEndsAt = null
     
     if (status === 'trialing') {
+      // 🔥 AKO JE 'trialing' → UVEK STAVI 'trial'
       finalStatus = 'trial'
       trialEndsAt = currentPeriodEnd
-      console.log('🎯 Trial subscription detected!')
-      console.log('Trial ends at:', trialEndsAt)
+      console.log('🎯 TRIAL subscription detected!')
+      console.log('🎯 Trial ends at:', trialEndsAt)
     } else if (status === 'active') {
+      // ✅ Samo ako je odmah active (immediate payment)
       finalStatus = 'active'
-      console.log('💳 Active (paid) subscription')
+      console.log('💳 ACTIVE subscription (no trial)')
+    } else {
+      // ❌ Blokiraj nevalidne statuse
+      console.error('❌ Unexpected status from Paddle:', status)
+      return { error: `Invalid status: ${status}` }
     }
 
     const priceId = data.items?.[0]?.price?.id
     const planId = await getPlanIdFromPriceId(priceId)
 
     if (!planId) {
-      console.error('Could not determine plan_id for price:', priceId)
+      console.error('❌ Could not determine plan_id for price:', priceId)
       return { error: 'Unknown price_id' }
     }
 
-    const { data: existingSub } = await supabaseAdmin
-      .from('user_subscriptions')
-      .select('id')
-      .eq('paddle_subscription_id', subscriptionId)
-      .maybeSingle()
+    console.log('📦 Plan ID:', planId)
 
-    if (existingSub) {
-      console.log('Subscription already exists, updating instead')
-      return await handleSubscriptionUpdated(data)
-    }
-
-    const { data: subscription, error: insertError } = await supabaseAdmin
+    // ✅ UPSERT - sprečava duplikate ako webhook stigne 2x
+    const { data: subscription, error: upsertError } = await supabaseAdmin
       .from('user_subscriptions')
-      .insert({
+      .upsert({
         majstor_id: majstorId,
         plan_id: planId,
-        status: finalStatus,
+        status: finalStatus,  // 🔥 'trial' ili 'active'
         paddle_subscription_id: subscriptionId,
         paddle_customer_id: customerId,
         current_period_start: currentPeriodStart,
@@ -296,34 +300,43 @@ async function handleSubscriptionCreated(data) {
         trial_starts_at: status === 'trialing' ? currentPeriodStart : null,
         trial_ends_at: trialEndsAt,
         cancel_at_period_end: false,
-        created_at: new Date().toISOString(),
+        cancelled_at: null,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'paddle_subscription_id'  // 🔥 Ažuriraj ako postoji
       })
       .select()
       .single()
 
-    if (insertError) {
-      console.error('Insert error:', insertError)
-      return { error: insertError.message }
+    if (upsertError) {
+      console.error('❌ Upsert error:', upsertError)
+      return { error: upsertError.message }
     }
 
-    console.log('Created subscription:', subscription.id)
+    console.log('✅ Subscription saved with ID:', subscription.id)
+    console.log('✅ Status in database:', finalStatus)
 
+    // Update majstor record
     await supabaseAdmin
       .from('majstors')
       .update({
-        subscription_status: finalStatus,
+        subscription_status: finalStatus,  // 🔥 'trial' ili 'active'
         subscription_ends_at: currentPeriodEnd,
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
 
-    console.log('Updated majstor record')
+    console.log('✅ Majstor record updated')
 
-    return { success: true, subscriptionId: subscription.id, status: finalStatus }
+    return { 
+      success: true, 
+      subscriptionId: subscription.id, 
+      status: finalStatus,
+      trialEnds: trialEndsAt 
+    }
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('❌ Error in handleSubscriptionCreated:', error)
     return { error: error.message }
   }
 }
