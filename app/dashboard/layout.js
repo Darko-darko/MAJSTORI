@@ -18,6 +18,9 @@ function DashboardLayoutContent({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const [badgeKey, setBadgeKey] = useState(0)
+
   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   
   // 🔥 PROGRES MODAL STATE - NA LAYOUT NIVOU!
@@ -29,37 +32,38 @@ function DashboardLayoutContent({ children }) {
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
 
   
- // 🔥 REALTIME LISTENER - auto-reload nakon promene
+ // 🔥 LISTEN TO CUSTOM EVENTS + FORCE BADGE RE-RENDER
 useEffect(() => {
   if (!majstor?.id) return
 
-  console.log('🔔 Setting up badge listener with auto-reload...')
+  console.log('🔔 [LAYOUT] Setting up custom event listener for badge...')
 
-  const channel = supabase
-    .channel(`layout-subscription-${majstor.id}`)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'user_subscriptions',
-      filter: `majstor_id=eq.${majstor.id}`
-    }, (payload) => {
-      console.log('🔔 Subscription changed - reloading in 1s...', payload)
-      
-      // Clear cache
-      clearSubscriptionCache(majstor.id)
-      
-      // Reload nakon 1s
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
-    })
-    .subscribe()
+  const handleSubscriptionChange = (event) => {
+    console.log('🔔 [LAYOUT] Subscription changed event received!', event.detail)
+    refresh(true)
+    setBadgeKey(prev => prev + 1)
+    console.log('🔄 [LAYOUT] Badge will re-render with new data')
+  }
+
+  window.addEventListener('subscription-changed', handleSubscriptionChange)
+  window.addEventListener('subscription-cancelled', handleSubscriptionChange)
+  window.addEventListener('subscription-reactivated', handleSubscriptionChange)
 
   return () => {
-    console.log('🧹 Cleaning up layout listener')
-    supabase.removeChannel(channel)
+    console.log('🧹 [LAYOUT] Cleaning up custom event listeners')
+    window.removeEventListener('subscription-changed', handleSubscriptionChange)
+    window.removeEventListener('subscription-cancelled', handleSubscriptionChange)
+    window.removeEventListener('subscription-reactivated', handleSubscriptionChange)
   }
-}, [majstor?.id])
+}, [majstor?.id, refresh])
+
+// 🔥 BACKUP: Watch subscription/plan changes directly
+useEffect(() => {
+  if (subscription || plan) {
+    console.log('🔄 [LAYOUT] Subscription/Plan changed, forcing badge update...')
+    setBadgeKey(prev => prev + 1)
+  }
+}, [subscription?.status, subscription?.cancel_at_period_end, plan?.name])
 
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal: showFeatureModal, hideUpgradeModal } = useUpgradeModal()
@@ -1030,11 +1034,11 @@ useEffect(() => {
               )}
             </div>
 
-            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-              {navigation.map((item) => (
-                <NavigationItem key={item.name} item={item} />
-              ))}
-            </nav>
+            <nav key={badgeKey} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+  {navigation.map((item) => (
+    <NavigationItem key={item.name} item={item} />
+  ))}
+</nav>
 
             <div className="p-2 border-t border-slate-700">
               <button
@@ -1156,11 +1160,11 @@ useEffect(() => {
               )}
             </div>
 
-            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-              {navigation.map((item) => (
-                <NavigationItem key={item.name} item={item} isMobile={true} />
-              ))}
-            </nav>
+            <nav key={badgeKey} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+  {navigation.map((item) => (
+    <NavigationItem key={item.name} item={item} isMobile={true} />
+  ))}
+</nav>
 
             <div className="p-2 border-t border-slate-700">
               <button
