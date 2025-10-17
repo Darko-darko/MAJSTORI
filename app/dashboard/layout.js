@@ -27,40 +27,36 @@ function DashboardLayoutContent({ children }) {
   
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
-  const [badgeData, setBadgeData] = useState(null)
+
   
-  // Realtime listener koji DIREKTNO update-uje badge:
+ // 🔥 REALTIME LISTENER - auto-reload nakon promene
 useEffect(() => {
   if (!majstor?.id) return
 
-  console.log('🔔 Setting up DIRECT badge listener...')
+  console.log('🔔 Setting up badge listener with auto-reload...')
 
   const channel = supabase
-    .channel(`badge-direct-${majstor.id}`)
+    .channel(`layout-subscription-${majstor.id}`)
     .on('postgres_changes', {
-      event: '*', // Svi eventi!
+      event: 'UPDATE',
       schema: 'public',
       table: 'user_subscriptions',
       filter: `majstor_id=eq.${majstor.id}`
     }, (payload) => {
-      console.log('🔔 BADGE REALTIME EVENT!', payload)
+      console.log('🔔 Subscription changed - reloading in 1s...', payload)
       
-      // UPDATE event - postoji subscription
-      if (payload.eventType === 'UPDATE' && payload.new) {
-        console.log('✅ Setting badge data:', payload.new)
-        setBadgeData(payload.new)
-      }
+      // Clear cache
+      clearSubscriptionCache(majstor.id)
       
-      // DELETE event - nema subscription (freemium)
-      if (payload.eventType === 'DELETE') {
-        console.log('❌ Clearing badge data - freemium')
-        setBadgeData(null)
-      }
+      // Reload nakon 1s
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     })
     .subscribe()
 
   return () => {
-    console.log('🧹 Cleaning up badge listener')
+    console.log('🧹 Cleaning up layout listener')
     supabase.removeChannel(channel)
   }
 }, [majstor?.id])
@@ -460,63 +456,133 @@ useEffect(() => {
     return count.toString()
   }
 
+  // 🔥 FIXED: Badge logic sa boljom race condition zaštitom
   const getSubscriptionBadge = () => {
-  // 🔥 PRIORITET: Ako ima badgeData (iz Realtime), koristi to!
-  const data = badgeData || subscription
-
-  // Loading
-  if (subscriptionLoading || (!data && !plan && majstor)) {
+    // 1️⃣ Ako hook još uvek učitava → prikaži loading
+    if (subscriptionLoading) {
+      return {
+        text: '...',
+        color: 'bg-gradient-to-r from-slate-500 to-slate-600'
+      }
+    }
+    if (subscription?.cancel_at_period_end === true) {
     return {
-      text: '...',
-      color: 'bg-gradient-to-r from-slate-500 to-slate-600'
+      text: 'Gekündigt',
+      color: 'bg-gradient-to-r from-orange-500 to-red-500'
     }
   }
-
-  // Freemium
-  if (!data) {
+    // Grace period: Trial završio ali još nije active
+  if (subscription?.status === 'trial' && subscription?.trial_ends_at) {
+    const now = new Date()
+    const trialEnd = new Date(subscription.trial_ends_at)
+    if (now > trialEnd) {
+      return { 
+        text: 'Upgrading...', 
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500 animate-pulse' 
+      }
+    }
+  }
+    // 2️⃣ Ako hook nije učitan ali majstor postoji → prikaži loading
+    // ⚠️ VAŽNO: Proveri da li BILO subscription ILI plan postoji
+    //    Ako nijedno ne postoji, hook se još učitava!
+    if (majstor?.id && !subscription && !plan) {
+      console.log('🔄 Badge: Hook not initialized yet, showing loading...')
+      return {
+        text: '...',
+        color: 'bg-gradient-to-r from-slate-500 to-slate-600'
+      }
+    }
+    
+    // 3️⃣ Ako nema subscription ALI ima plan → proveri plan
+    if (!subscription) {
+      // Ako je plan freemium → "Upgrade"
+      if (plan?.name === 'freemium') {
+        return {
+          text: 'Upgrade',
+          color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        }
+      }
+      
+      // Ako nema ni subscription ni plan (fallback) → "Upgrade"
+      if (!plan) {
+        return {
+          text: 'Upgrade',
+          color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+        }
+      }
+    }
+    
+    // 4️⃣ Normalna logika za subscription koji postoji
+    const now = new Date()
+    const periodEnd = new Date(subscription.current_period_end)
+    const createdAt = new Date(subscription.created_at)
+    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+    
+    if (periodEnd <= now) {
+      return {
+        text: 'Upgrade',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      }
+    }
+    
+    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
+    
+    if (subscription.cancelled_at) {
+      return {
+        text: `PRO(${formatDays(daysLeft)})`,
+        color: 'bg-gradient-to-r from-orange-500 to-red-500',
+        multiline: true
+      }
+    }
+    
+    let isInTrial = false
+    let trialDaysLeft = 0
+    
+    if (subscription.trial_ends_at) {
+      const trialEnd = new Date(subscription.trial_ends_at)
+      if (trialEnd > now) {
+        isInTrial = true
+        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+      }
+    } else if (subscription.trial_starts_at) {
+      const trialStart = new Date(subscription.trial_starts_at)
+      const estimatedTrialEnd = new Date(trialStart)
+      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+      
+      if (estimatedTrialEnd > now) {
+        isInTrial = true
+        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+      }
+    } else if (subscription.status === 'active' || subscription.status === 'trial') {
+      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
+      if (hoursSinceCreation < 48 && daysLeft <= 1) {
+        isInTrial = true
+        trialDaysLeft = daysLeft
+      }
+    }
+    
+    if (isInTrial && trialDaysLeft > 0) {
+      return {
+        text: `PRO(${formatDays(trialDaysLeft)})`,
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+        multiline: true
+      }
+    }
+    
+    if (subscription.status === 'active') {
+      return {
+        text: 'PRO',
+        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
+      }
+    }
+    
+    // Fallback
     return {
       text: 'Upgrade',
       color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
     }
   }
 
-  // 🔥 CANCELLED (scheduled for cancellation)
-  if (data.cancel_at_period_end === true) {
-    return {
-      text: 'Gekündigt',
-      color: 'bg-gradient-to-r from-orange-500 to-red-500'
-    }
-  }
-
-  // Active PRO
-  if (data.status === 'active') {
-    return {
-      text: 'PRO',
-      color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-    }
-  }
-
-  // Trial
-  if (data.status === 'trial' && data.trial_ends_at) {
-    const now = new Date()
-    const trialEnd = new Date(data.trial_ends_at)
-    const days = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-    
-    if (days > 0) {
-      return {
-        text: `PRO(${days} Tag${days !== 1 ? 'e' : ''})`,
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500',
-        multiline: true
-      }
-    }
-  }
-
-  // Fallback
-  return {
-    text: 'Upgrade',
-    color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-  }
-}
   const getNavigation = () => {
     const baseNavigation = [
       { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
