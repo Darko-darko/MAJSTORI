@@ -39,14 +39,14 @@ export default function SubscriptionPage() {
     loadMajstor()
   }, [])
 
-  // 🔥 REALTIME LISTENER za subscription promene
+  // 🔥 REALTIME LISTENER za subscription promene - UVEK AKTIVAN!
   useEffect(() => {
-    if (!majstor?.id || !processingAction) return
+    if (!majstor?.id) return
 
-    console.log(`🔔 Setting up Realtime listener for ${processingAction}...`)
+    console.log(`🔔 Setting up permanent Realtime listener...`)
 
     const channel = supabase
-      .channel(`subscription-processing-${majstor.id}`)
+      .channel(`subscription-page-${majstor.id}`)
       .on(
         'postgres_changes',
         {
@@ -56,7 +56,7 @@ export default function SubscriptionPage() {
           filter: `majstor_id=eq.${majstor.id}`
         },
         (payload) => {
-          console.log('🔔 REALTIME: Subscription updated!', payload)
+          console.log('🔔 REALTIME: Subscription updated on page!', payload)
           
           const newStatus = payload.new?.status
           const cancelAtPeriodEnd = payload.new?.cancel_at_period_end
@@ -79,9 +79,21 @@ export default function SubscriptionPage() {
               refresh(true)
             }, 1500)
           }
-
+          // 🔥 CANCEL CONFIRMATION (za trial -> freemium)
+          else if (processingAction === 'cancel' && newStatus === 'freemium') {
+            console.log('✅ TRIAL CANCEL CONFIRMED - Reverted to freemium!')
+            setProcessingStep(100)
+            setProcessingMessage('Auf Freemium zurückgesetzt!')
+            
+            setTimeout(() => {
+              setProcessingAction(null)
+              setCancelling(false)
+              setProcessingStep(0)
+              refresh(true)
+            }, 1500)
+          }
           // 🔥 REACTIVATE CONFIRMATION
-          if (processingAction === 'reactivate' && cancelAtPeriodEnd === false) {
+          else if (processingAction === 'reactivate' && cancelAtPeriodEnd === false) {
             console.log('✅ REACTIVATE CONFIRMED via Realtime!')
             setProcessingStep(100)
             setProcessingMessage('Reaktivierung bestätigt!')
@@ -92,6 +104,11 @@ export default function SubscriptionPage() {
               setProcessingStep(0)
               refresh(true)
             }, 1500)
+          }
+          // 🔥 AUTOMATIC REFRESH kada nema processingAction (webhook stigao kasnije)
+          else if (!processingAction) {
+            console.log('🔄 Automatic refresh triggered by Realtime (no processing action)')
+            refresh(true)
           }
         }
       )
@@ -104,7 +121,7 @@ export default function SubscriptionPage() {
       console.log('🔌 Unsubscribing from Realtime')
       supabase.removeChannel(channel)
     }
-  }, [majstor?.id, processingAction])
+  }, [majstor?.id, processingAction, refresh])
 
   const loadMajstor = async () => {
     try {

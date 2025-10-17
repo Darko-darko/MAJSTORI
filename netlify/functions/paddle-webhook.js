@@ -342,23 +342,36 @@ async function handleSubscriptionUpdated(data) {
   let trialEndsAt = null
   let cancelAtPeriodEnd = false
   
-  // 🔥 Odredimo status na osnovu Paddle podataka
-  if (status === 'trialing') {
+  // 🔥 FIXED: Detektuj cancel iz trial-a!
+  if (status === 'trialing' && scheduledChange?.action === 'cancel') {
+    // ✅ Trial je cancelled → odmah na freemium!
+    finalStatus = 'freemium'
+    cancelAtPeriodEnd = false
+    trialEndsAt = null
+    console.log('🚫 Trial cancelled → Reverting to freemium immediately')
+  }
+  else if (status === 'trialing') {
+    // ✅ Trial je aktivan (nije cancelled)
     finalStatus = 'trial'
     trialEndsAt = currentPeriodEnd
     console.log('🎯 Still in trial period')
-  } else if (status === 'active') {
+  } 
+  else if (status === 'active') {
+    // ✅ Active subscription
     finalStatus = 'active'
-    console.log('💳 Active subscription')
-  } else if (status === 'cancelled') {
+    
+    // Proveri da li je scheduled cancel
+    if (scheduledChange?.action === 'cancel') {
+      cancelAtPeriodEnd = true
+      console.log('📅 Active subscription - cancellation scheduled for:', scheduledChange.effective_at)
+    } else {
+      console.log('💳 Active subscription - no scheduled changes')
+    }
+  } 
+  else if (status === 'cancelled') {
+    // ✅ Subscription je finalno cancelled (period istekao)
     finalStatus = 'cancelled'
     console.log('🚫 Subscription cancelled')
-  }
-
-  // 🔥 Proveri scheduled_change za cancel
-  if (scheduledChange?.action === 'cancel') {
-    cancelAtPeriodEnd = true
-    console.log('📅 Cancellation scheduled for:', scheduledChange.effective_at)
   }
 
   // 🔥 Update sa Paddle podacima - ovo će triggerovati Realtime!
@@ -394,7 +407,7 @@ async function handleSubscriptionUpdated(data) {
       .from('majstors')
       .update({
         subscription_status: finalStatus,
-        subscription_ends_at: currentPeriodEnd,
+        subscription_ends_at: finalStatus === 'freemium' ? null : currentPeriodEnd,
         updated_at: new Date().toISOString()
       })
       .eq('id', subscription.majstor_id)
