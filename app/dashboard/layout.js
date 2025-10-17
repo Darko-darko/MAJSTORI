@@ -28,34 +28,27 @@ function DashboardLayoutContent({ children }) {
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
   
-  // 🔥 REALTIME LISTENER - update badge automatski
+  // 🔥 Event listener za subscription promene (umesto Realtime)
 useEffect(() => {
   if (!majstor?.id) return
 
-  console.log('🔔 Setting up Realtime listener for badge updates...')
+  console.log('🔔 Setting up subscription-changed event listener...')
 
-  const channel = supabase
-    .channel(`layout-subscription-${majstor.id}`)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'user_subscriptions',
-      filter: `majstor_id=eq.${majstor.id}`
-    }, (payload) => {
-      console.log('🔔 Subscription changed in layout - refreshing badge!')
-      console.log('Payload:', payload)
-      
-      // 🔥 CLEAR CACHE (koristi importovanu funkciju)
-      clearSubscriptionCache(majstor.id)
-      
-      // Force refresh subscription data
-      refresh(true)
-    })
-    .subscribe()
+  const handleSubscriptionChange = (event) => {
+    console.log('🔔 Subscription changed in layout!', event.detail)
+    
+    // Clear cache
+    clearSubscriptionCache(majstor.id)
+    
+    // Force refresh
+    refresh(true)
+  }
+
+  window.addEventListener('subscription-changed', handleSubscriptionChange)
 
   return () => {
-    console.log('🧹 Cleaning up layout Realtime listener')
-    channel.unsubscribe()
+    console.log('🧹 Cleaning up subscription-changed listener')
+    window.removeEventListener('subscription-changed', handleSubscriptionChange)
   }
 }, [majstor?.id, refresh])
 
