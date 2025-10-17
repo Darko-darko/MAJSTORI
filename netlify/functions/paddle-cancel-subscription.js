@@ -1,4 +1,5 @@
-// netlify/functions/paddle-cancel-subscription.js - CommonJS verzija
+// netlify/functions/paddle-cancel-subscription.js - REALTIME VERSION
+
 const { createClient } = require('@supabase/supabase-js')
 
 const supabaseAdmin = createClient(
@@ -79,7 +80,6 @@ exports.handler = async (event, context) => {
     }
 
     console.log('🔗 Calling Paddle API...')
-    console.log('URL:', `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/cancel`)
     
     const paddleResponse = await fetch(
       `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}/cancel`,
@@ -98,7 +98,6 @@ exports.handler = async (event, context) => {
     console.log('📡 Paddle response status:', paddleResponse.status)
     
     const responseText = await paddleResponse.text()
-    console.log('📄 Paddle response preview:', responseText.substring(0, 200))
 
     if (!paddleResponse.ok) {
       let errorData
@@ -130,53 +129,58 @@ exports.handler = async (event, context) => {
     }
 
     const paddleData = JSON.parse(responseText)
-    console.log('✅ Paddle subscription cancelled!')
-    console.log('📋 Scheduled cancellation at end of billing period')
+    console.log('✅ Paddle subscription cancellation scheduled!')
+    
+    // 🔥 PADDLE RESPONSE STRUCTURE
+    const scheduledChange = paddleData.data?.scheduled_change
+    const effectiveAt = scheduledChange?.effective_at
+    
+    console.log('📅 Scheduled change:', scheduledChange)
+    console.log('⏰ Effective at:', effectiveAt)
 
-    console.log('💾 Updating Supabase database...')
+    // 🔥 REALTIME STRATEGY: Ne menjamo status odmah!
+    // Samo sačuvamo scheduled_change i webhook će triggerovati Realtime update
+    console.log('💾 Saving scheduled_change to database (NO status change yet)...')
     
     const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
-        status: 'cancelled',
+        paddle_scheduled_change: scheduledChange,
+        cancel_at_period_end: true,
         cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('paddle_subscription_id', subscriptionId)
 
     if (updateError) {
-      console.error('⚠️ Supabase user_subscriptions update error:', updateError)
-    } else {
-      console.log('✅ user_subscriptions status updated to "cancelled"')
+      console.error('⚠️ Supabase update error:', updateError)
+      return {
+        statusCode: 500,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          error: 'Database update failed',
+          details: updateError.message
+        })
+      }
     }
 
-    const { error: majstorUpdateError } = await supabaseAdmin
-      .from('majstors')
-      .update({
-        subscription_status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', majstorId)
+    console.log('✅ Scheduled change saved to database')
+    console.log('⏳ Waiting for Paddle webhook to confirm...')
 
-    if (majstorUpdateError) {
-      console.error('⚠️ Majstor update error:', majstorUpdateError)
-    } else {
-      console.log('✅ majstors table updated to "cancelled"')
-    }
-
-    console.log('✅ Subscription cancellation complete!')
-
+    // Return success - frontend će čekati Realtime event
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        message: 'Subscription cancelled successfully',
+        message: 'Cancellation scheduled - waiting for confirmation',
         data: {
-          subscriptionId: paddleData.data?.id || subscriptionId,
-          status: 'cancelled',
-          effectiveFrom: 'next_billing_period',
-          scheduledChange: paddleData.data?.scheduled_change || null
+          subscriptionId: subscriptionId,
+          scheduledChange: scheduledChange,
+          effectiveAt: effectiveAt,
+          // 🔥 Frontend će koristiti ovo da prikaže progress
+          realtimeExpected: true,
+          estimatedConfirmationTime: '5-15 seconds'
         }
       })
     }

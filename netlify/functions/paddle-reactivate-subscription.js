@@ -1,4 +1,4 @@
-// netlify/functions/paddle-reactivate-subscription.js - CommonJS verzija
+// netlify/functions/paddle-reactivate-subscription.js - REALTIME VERSION
 
 const { createClient } = require('@supabase/supabase-js')
 
@@ -19,7 +19,6 @@ const corsHeaders = {
 }
 
 exports.handler = async (event, context) => {
-  // OPTIONS request
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -28,7 +27,6 @@ exports.handler = async (event, context) => {
     }
   }
 
-  // Only allow POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -40,7 +38,6 @@ exports.handler = async (event, context) => {
   try {
     console.log('🔄 Reactivate subscription request received')
     
-    // Parse body
     let body
     try {
       body = JSON.parse(event.body)
@@ -82,7 +79,7 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // PRVO: Proveri trenutni status u Paddle-u
+    // 🔥 STEP 1: Fetch current subscription status from Paddle
     console.log('📡 Fetching current subscription status from Paddle...')
     const getResponse = await fetch(
       `${PADDLE_API_BASE_URL}/subscriptions/${subscriptionId}`,
@@ -111,15 +108,15 @@ exports.handler = async (event, context) => {
     const currentStatus = subscriptionData.data.status
     const hasScheduledChange = subscriptionData.data.scheduled_change !== null
 
-    console.log('Current Paddle status:', currentStatus)
-    console.log('Has scheduled change:', hasScheduledChange)
+    console.log('📊 Current Paddle status:', currentStatus)
+    console.log('📅 Has scheduled change:', hasScheduledChange)
 
+    // 🔥 STEP 2: Determine correct endpoint
     let paddleResponse
     let method
 
-    // LOGIKA: Odaberi pravi endpoint
     if (currentStatus === 'trialing' && hasScheduledChange) {
-      // TRIALING sa zakazanim cancel → PATCH (ukloni scheduled change)
+      // TRIALING with scheduled cancel → PATCH (remove scheduled change)
       console.log('🔧 Using PATCH to cancel scheduled change (trialing subscription)')
       method = 'PATCH'
       
@@ -137,7 +134,7 @@ exports.handler = async (event, context) => {
         }
       )
     } else if (currentStatus === 'cancelled') {
-      // CANCELLED (active koji je cancelled) → RESUME
+      // CANCELLED (active that was cancelled) → RESUME
       console.log('▶️ Using RESUME endpoint (cancelled active subscription)')
       method = 'RESUME'
       
@@ -155,7 +152,7 @@ exports.handler = async (event, context) => {
         }
       )
     } else if (currentStatus === 'active' && hasScheduledChange) {
-      // ACTIVE sa zakazanim cancel → PATCH
+      // ACTIVE with scheduled cancel → PATCH
       console.log('🔧 Using PATCH to cancel scheduled change (active subscription)')
       method = 'PATCH'
       
@@ -173,7 +170,6 @@ exports.handler = async (event, context) => {
         }
       )
     } else {
-      // Subscription nije cancelled niti nema scheduled change
       console.log('⚠️ Subscription is already active without scheduled cancellation')
       return {
         statusCode: 400,
@@ -189,7 +185,6 @@ exports.handler = async (event, context) => {
     console.log('📡 Paddle response status:', paddleResponse.status)
     
     const responseText = await paddleResponse.text()
-    console.log('📄 Paddle response preview:', responseText.substring(0, 300))
 
     if (!paddleResponse.ok) {
       let errorData
@@ -222,17 +217,17 @@ exports.handler = async (event, context) => {
     }
 
     const paddleData = JSON.parse(responseText)
-    console.log('✅ Subscription reactivated successfully!')
+    console.log('✅ Paddle reactivation request successful!')
 
-    // Update Supabase
-    console.log('💾 Updating Supabase...')
-    
-    const newStatus = currentStatus === 'trialing' ? 'trial' : 'active'
+    // 🔥 REALTIME STRATEGY: Ne menjamo status odmah!
+    // Samo uklonimo scheduled_change i webhook će triggerovati Realtime update
+    console.log('💾 Clearing scheduled_change from database (NO status change yet)...')
     
     const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
-        status: newStatus,
+        paddle_scheduled_change: null,
+        cancel_at_period_end: false,
         cancelled_at: null,
         updated_at: new Date().toISOString()
       })
@@ -240,38 +235,32 @@ exports.handler = async (event, context) => {
 
     if (updateError) {
       console.error('⚠️ Supabase update error:', updateError)
-    } else {
-      console.log('✅ user_subscriptions updated')
+      return {
+        statusCode: 500,
+        headers: corsHeaders,
+        body: JSON.stringify({ 
+          error: 'Database update failed',
+          details: updateError.message
+        })
+      }
     }
 
-    // Update majstors
-    const { error: majstorError } = await supabaseAdmin
-      .from('majstors')
-      .update({
-        subscription_status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', majstorId)
-
-    if (majstorError) {
-      console.error('⚠️ Majstor update error:', majstorError)
-    } else {
-      console.log('✅ majstors table updated')
-    }
-
-    console.log('✅ Reactivation complete!')
+    console.log('✅ Scheduled change cleared from database')
+    console.log('⏳ Waiting for Paddle webhook to confirm status change...')
 
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
         success: true,
-        message: 'Subscription reactivated successfully',
+        message: 'Reactivation initiated - waiting for confirmation',
         method: method,
-        newStatus: newStatus,
         data: {
-          subscriptionId: paddleData.data?.id || subscriptionId,
-          status: newStatus
+          subscriptionId: subscriptionId,
+          previousStatus: currentStatus,
+          // 🔥 Frontend će koristiti ovo da prikaže progress
+          realtimeExpected: true,
+          estimatedConfirmationTime: '5-15 seconds'
         }
       })
     }

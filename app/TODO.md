@@ -92,3 +92,4 @@
 - ai hibrid help
 - superadmin
 - zabranjen pristup iz kundenfragen i einštelung
+- tekst meilla prilikom slanja računa

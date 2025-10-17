@@ -10,8 +10,7 @@ import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
 import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
 
-// Na vrhu fajla, dodaj:
-import { SubscriptionToast } from '@/app/components/subscription/SubscriptionToast'
+
 
 function DashboardLayoutContent({ children }) {
   const [user, setUser] = useState(null)
@@ -834,7 +833,7 @@ function DashboardLayoutContent({ children }) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
        
-        <SubscriptionToast />
+        
 
         <div className="text-center">
           <div className="text-white text-xl mb-4">Laden...</div>
@@ -848,7 +847,7 @@ function DashboardLayoutContent({ children }) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
        
-        <SubscriptionToast />
+       
         <div className="max-w-md w-full bg-red-500/10 border border-red-500/20 rounded-lg p-6">
           <h2 className="text-red-400 text-xl font-semibold mb-4">Dashboard Fehler</h2>
           <p className="text-red-300 mb-6">{error}</p>
@@ -880,7 +879,7 @@ function DashboardLayoutContent({ children }) {
 
       <div className="min-h-screen bg-slate-900 flex">
        
-        <SubscriptionToast />
+      
         
         {/* 🔥 Swipe Indicator - vizuelni hint za korisnika */}
         {!sidebarOpen && (

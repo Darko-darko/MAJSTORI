@@ -1,4 +1,4 @@
-// netlify/functions/paddle-webhook.js - FIXED TRIAL FLOW
+// netlify/functions/paddle-webhook.js - SAFE UPDATE (samo subscription.updated poboljšan)
 
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
@@ -19,7 +19,6 @@ const PADDLE_IPS = [
   '100.20.172.113'
 ]
 
-// 🔥 FIXED: Paddle signature verification for Netlify
 function verifyPaddleSignature(rawBody, signatureHeader) {
   if (!PADDLE_WEBHOOK_SECRET) {
     console.warn('WARNING: PADDLE_WEBHOOK_SECRET not configured')
@@ -27,7 +26,6 @@ function verifyPaddleSignature(rawBody, signatureHeader) {
   }
 
   try {
-    // Parse signature header
     const signatureParts = {}
     signatureHeader.split(';').forEach(part => {
       const [key, value] = part.split('=')
@@ -44,16 +42,13 @@ function verifyPaddleSignature(rawBody, signatureHeader) {
       return false
     }
 
-    // 🔥 Paddle Billing format: "timestamp:body"
     const signedContent = `${timestamp}:${rawBody}`
     
-    // Calculate expected signature
     const computedHash = crypto
       .createHmac('sha256', PADDLE_WEBHOOK_SECRET)
       .update(signedContent, 'utf8')
       .digest('hex')
 
-    // Compare signatures (constant-time)
     const isValid = computedHash === receivedSignature
 
     if (isValid) {
@@ -90,7 +85,6 @@ export async function handler(event, context) {
     console.log('\n========== PADDLE WEBHOOK ==========')
     console.log('Timestamp:', new Date().toISOString())
 
-    // 🔥 KRITIČNO: U Netlify Functions, event.body je STRING
     const rawBody = event.body
     
     if (!rawBody) {
@@ -109,7 +103,6 @@ export async function handler(event, context) {
 
     console.log('Source IP:', sourceIP)
 
-    // Verify signature
     let signatureValid = false
     if (signatureHeader && PADDLE_WEBHOOK_SECRET) {
       signatureValid = verifyPaddleSignature(rawBody, signatureHeader)
@@ -117,7 +110,6 @@ export async function handler(event, context) {
       console.error('❌ No signature header or secret')
     }
 
-    // Verify IP as fallback
     const ipValid = verifyPaddleIP(sourceIP)
     
     if (ipValid) {
@@ -126,7 +118,6 @@ export async function handler(event, context) {
       console.warn('⚠️ IP not in whitelist:', sourceIP)
     }
 
-    // Accept webhook if EITHER signature OR IP is valid
     if (!signatureValid && !ipValid) {
       console.error('❌ WEBHOOK REJECTED: Invalid signature AND unknown IP')
       return {
@@ -143,7 +134,6 @@ export async function handler(event, context) {
       console.warn('⚠️ Proceeding with IP verification only (signature failed)')
     }
 
-    // 🔥 NOW parse JSON (after signature verification)
     let body
     try {
       body = JSON.parse(rawBody)
@@ -161,7 +151,6 @@ export async function handler(event, context) {
     console.log('Event:', eventType)
     console.log('Event ID:', body.event_id)
 
-    // Process webhook
     let result
     switch (eventType) {
       case 'subscription.created':
@@ -230,18 +219,17 @@ export async function handler(event, context) {
 }
 
 // ============================================
-// EVENT HANDLERS - FIXED TRIAL FLOW
+// ✅ NE DIRAM - RADI PERFEKTNO!
 // ============================================
 async function handleSubscriptionCreated(data) {
   console.log('✅ subscription.created')
 
   try {
-    // 🔥 DEBUG: Prikazi SVE što Paddle šalje
     console.log('🔥 RAW PADDLE DATA:', JSON.stringify(data, null, 2))
 
     const subscriptionId = data.id
     const customerId = data.customer_id
-    const status = data.status  // 'trialing' ili 'active'
+    const status = data.status
     const customData = data.custom_data || {}
     const majstorId = customData.majstor_id
 
@@ -256,22 +244,18 @@ async function handleSubscriptionCreated(data) {
     const currentPeriodStart = data.current_billing_period?.starts_at
     const currentPeriodEnd = data.current_billing_period?.ends_at
 
-    // ✅ FIX: JEDNOSTAVNA LOGIKA - bez scheduled_change provera!
     let finalStatus
     let trialEndsAt = null
     
     if (status === 'trialing') {
-      // 🔥 AKO JE 'trialing' → UVEK STAVI 'trial'
       finalStatus = 'trial'
       trialEndsAt = currentPeriodEnd
       console.log('🎯 TRIAL subscription detected!')
       console.log('🎯 Trial ends at:', trialEndsAt)
     } else if (status === 'active') {
-      // ✅ Samo ako je odmah active (immediate payment)
       finalStatus = 'active'
       console.log('💳 ACTIVE subscription (no trial)')
     } else {
-      // ❌ Blokiraj nevalidne statuse
       console.error('❌ Unexpected status from Paddle:', status)
       return { error: `Invalid status: ${status}` }
     }
@@ -286,13 +270,12 @@ async function handleSubscriptionCreated(data) {
 
     console.log('📦 Plan ID:', planId)
 
-    // ✅ UPSERT - sprečava duplikate ako webhook stigne 2x
     const { data: subscription, error: upsertError } = await supabaseAdmin
       .from('user_subscriptions')
       .upsert({
         majstor_id: majstorId,
         plan_id: planId,
-        status: finalStatus,  // 🔥 'trial' ili 'active'
+        status: finalStatus,
         paddle_subscription_id: subscriptionId,
         paddle_customer_id: customerId,
         current_period_start: currentPeriodStart,
@@ -303,7 +286,7 @@ async function handleSubscriptionCreated(data) {
         cancelled_at: null,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'paddle_subscription_id'  // 🔥 Ažuriraj ako postoji
+        onConflict: 'paddle_subscription_id'
       })
       .select()
       .single()
@@ -316,11 +299,10 @@ async function handleSubscriptionCreated(data) {
     console.log('✅ Subscription saved with ID:', subscription.id)
     console.log('✅ Status in database:', finalStatus)
 
-    // Update majstor record
     await supabaseAdmin
       .from('majstors')
       .update({
-        subscription_status: finalStatus,  // 🔥 'trial' ili 'active'
+        subscription_status: finalStatus,
         subscription_ends_at: currentPeriodEnd,
         updated_at: new Date().toISOString()
       })
@@ -341,6 +323,9 @@ async function handleSubscriptionCreated(data) {
   }
 }
 
+// ============================================
+// 🔥 POBOLJŠAN - Za cancel/reactivate Realtime
+// ============================================
 async function handleSubscriptionUpdated(data) {
   console.log('🔄 subscription.updated')
 
@@ -348,33 +333,56 @@ async function handleSubscriptionUpdated(data) {
   const status = data.status
   const currentPeriodStart = data.current_billing_period?.starts_at
   const currentPeriodEnd = data.current_billing_period?.ends_at
+  const scheduledChange = data.scheduled_change
 
-  let finalStatus = 'active'
+  console.log('📊 Paddle status:', status)
+  console.log('📅 Scheduled change:', scheduledChange)
+
+  let finalStatus
   let trialEndsAt = null
+  let cancelAtPeriodEnd = false
   
+  // 🔥 Odredimo status na osnovu Paddle podataka
   if (status === 'trialing') {
     finalStatus = 'trial'
     trialEndsAt = currentPeriodEnd
     console.log('🎯 Still in trial period')
   } else if (status === 'active') {
     finalStatus = 'active'
-    console.log('💳 Trial ended → Active subscription')
+    console.log('💳 Active subscription')
   } else if (status === 'cancelled') {
     finalStatus = 'cancelled'
     console.log('🚫 Subscription cancelled')
   }
 
-  await supabaseAdmin
+  // 🔥 Proveri scheduled_change za cancel
+  if (scheduledChange?.action === 'cancel') {
+    cancelAtPeriodEnd = true
+    console.log('📅 Cancellation scheduled for:', scheduledChange.effective_at)
+  }
+
+  // 🔥 Update sa Paddle podacima - ovo će triggerovati Realtime!
+  const { error: updateError } = await supabaseAdmin
     .from('user_subscriptions')
     .update({
       status: finalStatus,
       current_period_start: currentPeriodStart,
       current_period_end: currentPeriodEnd,
       trial_ends_at: trialEndsAt,
+      paddle_scheduled_change: scheduledChange,
+      cancel_at_period_end: cancelAtPeriodEnd,
       updated_at: new Date().toISOString()
     })
     .eq('paddle_subscription_id', subscriptionId)
 
+  if (updateError) {
+    console.error('❌ Update error:', updateError)
+    return { error: updateError.message }
+  }
+
+  console.log('✅ Subscription updated - Realtime triggered!')
+
+  // Update majstor record
   const { data: subscription } = await supabaseAdmin
     .from('user_subscriptions')
     .select('majstor_id')
@@ -390,18 +398,27 @@ async function handleSubscriptionUpdated(data) {
         updated_at: new Date().toISOString()
       })
       .eq('id', subscription.majstor_id)
+    
+    console.log('✅ Majstor record updated')
   }
 
-  return { success: true, status: finalStatus }
+  return { 
+    success: true, 
+    status: finalStatus,
+    cancelAtPeriodEnd: cancelAtPeriodEnd,
+    scheduledChange: scheduledChange 
+  }
 }
 
+// ============================================
+// ✅ NE DIRAM - RADI PERFEKTNO!
+// ============================================
 async function handleSubscriptionActivated(data) {
   console.log('⚡ subscription.activated')
   console.log('🎉 TRIAL → PRO conversion successful!')
 
   const subscriptionId = data.id
 
-  // Update subscription to active (trial completed successfully)
   await supabaseAdmin
     .from('user_subscriptions')
     .update({
@@ -411,7 +428,6 @@ async function handleSubscriptionActivated(data) {
     })
     .eq('paddle_subscription_id', subscriptionId)
 
-  // Update majstor record
   const { data: subscription } = await supabaseAdmin
     .from('user_subscriptions')
     .select('majstor_id')
@@ -433,6 +449,9 @@ async function handleSubscriptionActivated(data) {
   return { success: true, message: 'Trial converted to PRO' }
 }
 
+// ============================================
+// ✅ NE DIRAM - RADI PERFEKTNO!
+// ============================================
 async function handleSubscriptionCancelled(data) {
   console.log('❌ subscription.cancelled')
 
@@ -440,7 +459,6 @@ async function handleSubscriptionCancelled(data) {
   const cancelledAt = data.cancelled_at
   const scheduledChange = data.scheduled_change
 
-  // 🔍 Fetch current subscription details
   const { data: subscription } = await supabaseAdmin
     .from('user_subscriptions')
     .select('majstor_id, status, trial_ends_at, current_period_end')
@@ -455,38 +473,31 @@ async function handleSubscriptionCancelled(data) {
   const majstorId = subscription.majstor_id
   const currentStatus = subscription.status
 
-  // 🎯 LOGIC: Determine new status based on current state
   let newStatus
   let shouldRevertToFreemium = false
   let cancelAtPeriodEnd = false
 
   if (currentStatus === 'trial') {
-    // 🔄 User cancelled DURING trial → Revert to freemium immediately
     newStatus = 'freemium'
     shouldRevertToFreemium = true
     console.log('🔄 Trial cancelled → Reverting to freemium')
     console.log('User will lose PRO access immediately')
   } else if (currentStatus === 'active') {
-    // 🚫 User cancelled ACTIVE subscription
     if (scheduledChange?.action === 'cancel') {
-      // 📅 Scheduled cancellation - remains active until end of period
       newStatus = 'active'
       cancelAtPeriodEnd = true
       console.log('📅 Cancellation scheduled for:', subscription.current_period_end)
       console.log('User keeps PRO access until:', subscription.current_period_end)
     } else {
-      // ⚠️ Immediate cancellation (rare, usually only admin/fraud)
       newStatus = 'freemium'
       shouldRevertToFreemium = true
       console.log('⚠️ Immediate cancellation → Freemium')
     }
   } else {
-    // Fallback for unexpected states
     newStatus = 'freemium'
     console.log('⚠️ Unexpected cancellation from status:', currentStatus)
   }
 
-  // Update subscription
   await supabaseAdmin
     .from('user_subscriptions')
     .update({
@@ -497,7 +508,6 @@ async function handleSubscriptionCancelled(data) {
     })
     .eq('paddle_subscription_id', subscriptionId)
 
-  // Update majstor record
   if (majstorId) {
     await supabaseAdmin
       .from('majstors')
@@ -524,13 +534,15 @@ async function handleSubscriptionCancelled(data) {
   }
 }
 
+// ============================================
+// ✅ NE DIRAM - RADI PERFEKTNO!
+// ============================================
 async function handleSubscriptionPastDue(data) {
   console.log('⏰ subscription.past_due')
   console.log('⚠️ Payment failed - subscription past due')
 
   const subscriptionId = data.id
 
-  // Mark as past_due - Paddle will retry payment
   await supabaseAdmin
     .from('user_subscriptions')
     .update({
@@ -587,7 +599,6 @@ async function handleTransactionPaid(data) {
   const subscriptionId = data.subscription_id
 
   if (subscriptionId) {
-    // Payment succeeded - ensure subscription is active
     await supabaseAdmin
       .from('user_subscriptions')
       .update({

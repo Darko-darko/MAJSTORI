@@ -1,4 +1,5 @@
-// app/welcome/choose-plan/page.js - FIXED VERSION
+// app/welcome/choose-plan/page.js - SIMPLIFIED (samo layout.js progress modal)
+
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,8 +14,6 @@ import { clearSubscriptionCache } from '@/lib/hooks/useSubscription'
 
 export default function ChoosePlanPage() {
   const [loading, setLoading] = useState(false)
-  const [checkoutInProgress, setCheckoutInProgress] = useState(false)
-  const [processingMessage, setProcessingMessage] = useState('')
   const [error, setError] = useState('')
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
@@ -101,44 +100,7 @@ export default function ChoosePlanPage() {
     }
   }
 
-  // 🔥 NOVA FUNKCIJA - Čeka da WEBHOOK kreira subscription
-  const waitForWebhookToCreateSubscription = async (maxAttempts = 15) => {
-    console.log('⏰ Čekam webhook da kreira subscription...')
-    
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000)) // 1s pauza
-      
-      setProcessingMessage(`Verarbeite Zahlung... (${i + 1}/${maxAttempts}s)`)
-
-      // Proveri da li webhook kreirao subscription
-      const { data: subscription, error } = await supabase
-        .from('user_subscriptions')
-        .select('*, subscription_plans(*)')
-        .eq('majstor_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (!error && subscription) {
-        console.log('✅ Webhook kreirao subscription:', {
-          id: subscription.id,
-          status: subscription.status,
-          plan: subscription.subscription_plans?.name,
-          paddle_id: subscription.paddle_subscription_id,
-          trial_starts: subscription.trial_starts_at,
-          trial_ends: subscription.trial_ends_at
-        })
-        return true
-      }
-      
-      console.log(`⏰ Attempt ${i + 1}/${maxAttempts} - No subscription yet...`)
-    }
-
-    console.warn('⚠️ Webhook timeout posle 15s')
-    return false
-  }
-
-  // 💎 PRO Subscription Handler - FIXED
+  // 💎 PRO Subscription Handler - SIMPLIFIED
   const handleProSelect = async () => {
     if (!paddleReady) {
       setError('Paddle wird noch geladen...')
@@ -146,8 +108,6 @@ export default function ChoosePlanPage() {
     }
 
     setLoading(true)
-    setCheckoutInProgress(true)
-    setProcessingMessage('Öffne Checkout...')
     setError('')
 
     try {
@@ -165,6 +125,7 @@ export default function ChoosePlanPage() {
       console.log('👤 User:', user.email)
       console.log('🆔 Majstor ID:', user.id)
 
+      // 🔥 SIMPLIFIED: Samo otvori checkout i redirect sa paddle_success=true
       openPaddleCheckout({
         priceId: priceId,
         email: user.email,
@@ -173,64 +134,29 @@ export default function ChoosePlanPage() {
         
         onSuccess: async (checkoutData) => {
           console.log('✅ Paddle Checkout successful!')
-          console.log('🔍 Checkout Data:', checkoutData)
+          console.log('📋 Checkout Data:', checkoutData)
           
-          setProcessingMessage('Zahlung erfolgreich! Aktiviere Account...')
+          // 🔥 Clear cache PRE redirect-a
+          console.log('🗑️ Clearing cache before redirect...')
+          clearSubscriptionCache(user.id)
 
-          try {
-            // 🔥 KRITIČNO: Clear cache PRE čekanja webhook-a
-            console.log('🗑️ Clearing cache before webhook wait...')
-            clearSubscriptionCache(user.id)
-            
-            // 🔥 ČEKAJ DA WEBHOOK KREIRA SUBSCRIPTION (max 15s)
-            console.log('⏰ Waiting for webhook to create subscription...')
-            const webhookSuccess = await waitForWebhookToCreateSubscription(15)
-            
-            if (webhookSuccess) {
-              console.log('✅ Webhook successfully created subscription!')
-            } else {
-              console.warn('⚠️ Webhook timeout, but checkout succeeded')
-              console.warn('⚠️ Subscription will be created when webhook arrives')
-            }
-
-            // 🔥 Clear cache PONOVO posle webhook-a
-            console.log('🗑️ Clearing cache after webhook processing...')
-            clearSubscriptionCache(user.id)
-
-            setProcessingMessage('Fertig! Weiterleitung zum Dashboard...')
-
-            // Redirect with cache-busting
-            setTimeout(() => {
-              const timestamp = Date.now()
-              console.log('🔄 Redirecting to dashboard...')
-              window.location.replace(`/dashboard?paddle_success=true&plan=${selectedProInterval}&t=${timestamp}`)
-            }, 1500)
-
-          } catch (err) {
-            console.error('❌ Error processing subscription:', err)
-            setError('Zahlung erfolgreich, aber Fehler bei Aktivierung. Bitte Dashboard prüfen.')
-            setCheckoutInProgress(false)
-            setProcessingMessage('')
-          }
+          // 🔥 REDIRECT SA paddle_success=true - layout.js će pokazati progress modal!
+          const timestamp = Date.now()
+          console.log('🔄 Redirecting to dashboard with paddle_success flag...')
+          window.location.replace(`/dashboard?paddle_success=true&plan=${selectedProInterval}&t=${timestamp}`)
         },
         
         onError: (error) => {
           console.error('❌ Paddle Checkout error:', error)
           setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
           setLoading(false)
-          setCheckoutInProgress(false)
-          setProcessingMessage('')
         }
       })
-
-      setProcessingMessage('Warte auf Zahlung...')
 
     } catch (err) {
       console.error('❌ Error opening Paddle Checkout:', err)
       setError('Fehler beim Öffnen des Checkouts: ' + err.message)
       setLoading(false)
-      setCheckoutInProgress(false)
-      setProcessingMessage('')
     }
   }
 
@@ -260,31 +186,6 @@ export default function ChoosePlanPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  // Processing overlay
-  if (checkoutInProgress) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-white mb-2">
-            {processingMessage || 'Verarbeitung läuft...'}
-          </h2>
-          <p className="text-slate-400 mb-4">
-            Bitte schließen Sie dieses Fenster nicht.
-          </p>
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-            <p className="text-blue-300 text-sm">
-              ⏰ Warte auf Paddle Webhook...
-            </p>
-            <p className="text-blue-400 text-xs mt-2">
-              Dies kann bis zu 30 Sekunden dauern
-            </p>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   // Loading state
@@ -492,7 +393,7 @@ export default function ChoosePlanPage() {
             {/* Coming Soon Badge */}
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
               <div className="bg-orange-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
-                🔜 BALD VERFÜGBAR
+                📜 BALD VERFÜGBAR
               </div>
             </div>
 

@@ -1,4 +1,4 @@
-// app/dashboard/subscription/page.js - SA TAČNIM TIMING-OM
+// app/dashboard/subscription/page.js - REALTIME VERSION
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -14,9 +14,10 @@ export default function SubscriptionPage() {
   const [reactivating, setReactivating] = useState(false)
   const [error, setError] = useState('')
   
-  const [refreshing, setRefreshing] = useState(false)
-  const [refreshProgress, setRefreshProgress] = useState(0)
-  const [refreshMessage, setRefreshMessage] = useState('')
+  // 🔥 REALTIME PROGRESS STATE
+  const [processingAction, setProcessingAction] = useState(null) // 'cancel' | 'reactivate' | null
+  const [processingMessage, setProcessingMessage] = useState('')
+  const [processingStep, setProcessingStep] = useState(0)
   
   const router = useRouter()
   
@@ -37,6 +38,73 @@ export default function SubscriptionPage() {
   useEffect(() => {
     loadMajstor()
   }, [])
+
+  // 🔥 REALTIME LISTENER za subscription promene
+  useEffect(() => {
+    if (!majstor?.id || !processingAction) return
+
+    console.log(`🔔 Setting up Realtime listener for ${processingAction}...`)
+
+    const channel = supabase
+      .channel(`subscription-processing-${majstor.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_subscriptions',
+          filter: `majstor_id=eq.${majstor.id}`
+        },
+        (payload) => {
+          console.log('🔔 REALTIME: Subscription updated!', payload)
+          
+          const newStatus = payload.new?.status
+          const cancelAtPeriodEnd = payload.new?.cancel_at_period_end
+          const scheduledChange = payload.new?.paddle_scheduled_change
+
+          console.log('Status:', newStatus)
+          console.log('Cancel at period end:', cancelAtPeriodEnd)
+          console.log('Scheduled change:', scheduledChange)
+
+          // 🔥 CANCEL CONFIRMATION
+          if (processingAction === 'cancel' && cancelAtPeriodEnd === true) {
+            console.log('✅ CANCEL CONFIRMED via Realtime!')
+            setProcessingStep(100)
+            setProcessingMessage('Kündigung bestätigt!')
+            
+            setTimeout(() => {
+              setProcessingAction(null)
+              setCancelling(false)
+              setProcessingStep(0)
+              refresh(true)
+            }, 1500)
+          }
+
+          // 🔥 REACTIVATE CONFIRMATION
+          if (processingAction === 'reactivate' && cancelAtPeriodEnd === false) {
+            console.log('✅ REACTIVATE CONFIRMED via Realtime!')
+            setProcessingStep(100)
+            setProcessingMessage('Reaktivierung bestätigt!')
+            
+            setTimeout(() => {
+              setProcessingAction(null)
+              setReactivating(false)
+              setProcessingStep(0)
+              refresh(true)
+            }, 1500)
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime status:', status)
+      })
+
+    // Cleanup
+    return () => {
+      console.log('🔌 Unsubscribing from Realtime')
+      supabase.removeChannel(channel)
+    }
+  }, [majstor?.id, processingAction])
 
   const loadMajstor = async () => {
     try {
@@ -74,7 +142,7 @@ export default function SubscriptionPage() {
     showUpgradeModal('subscription', 'PRO Mitgliedschaft', currentPlanLabel)
   }
 
-  // 🔥 CANCEL SUBSCRIPTION - SA 13s TIMING-om za event dispatch
+  // 🔥 CANCEL SUBSCRIPTION - REALTIME VERSION
   const handleCancelSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine aktive Subscription gefunden')
@@ -90,9 +158,9 @@ export default function SubscriptionPage() {
 
     setCancelling(true)
     setError('')
-    setRefreshing(true)
-    setRefreshProgress(0)
-    setRefreshMessage('Sende Kündigungsanfrage...')
+    setProcessingAction('cancel')
+    setProcessingStep(0)
+    setProcessingMessage('Sende Kündigungsanfrage...')
 
     try {
       console.log('🚫 Starting cancellation process...')
@@ -115,65 +183,62 @@ export default function SubscriptionPage() {
         throw new Error(data.error || data.message || 'Fehler beim Kündigen')
       }
 
-      console.log('✅ Paddle subscription cancelled!')
-      
-      // 🔥 TIMING STRATEGIJA: 15 sekundi progress, dispatche event nakon 13s
-      const stages = [
-        { delay: 0, progress: 0, message: 'Kündigung wird verarbeitet...' },
-        { delay: 2000, progress: 15, message: 'Warte auf Paddle Webhook...' },
-        { delay: 4000, progress: 30, message: 'Synchronisiere mit Paddle...' },
-        { delay: 6000, progress: 45, message: 'Webhook wird empfangen...' },
-        { delay: 8000, progress: 60, message: 'Datenbank wird aktualisiert...' },
-        { delay: 10000, progress: 75, message: 'Fast fertig...' },
-        { delay: 13000, progress: 90, message: 'Status wird aktualisiert...' }, // 🔥 OVDE SE DISPATCHE EVENT!
-        { delay: 15000, progress: 100, message: 'Kündigung erfolgreich!' }
+      console.log('✅ Paddle API call successful!')
+      console.log('⏳ Waiting for webhook confirmation...')
+
+      // 🔥 PROGRESS STEPS während čekanja webhook-a
+      const steps = [
+        { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
+        { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
+        { step: 60, delay: 4000, message: 'Webhook wird empfangen...' },
+        { step: 80, delay: 6000, message: 'Datenbank wird aktualisiert...' },
+        { step: 90, delay: 8000, message: 'Fast fertig...' }
       ]
 
-      stages.forEach((stage, index) => {
+      steps.forEach(({ step, delay, message }) => {
         setTimeout(() => {
-          setRefreshProgress(stage.progress)
-          setRefreshMessage(stage.message)
-          
-          // 🔥 DISPATCHE EVENT NAKON 13 SEKUNDI (index 6)
-          if (index === 6) {
-            console.log('🔔 DISPATCHING subscription-changed event after 13s!')
-            window.dispatchEvent(new CustomEvent('subscription-changed', {
-              detail: { 
-                action: 'cancelled', 
-                timestamp: Date.now(),
-                subscriptionId: subscription.paddle_subscription_id
-              }
-            }))
+          if (processingStep < 100) { // Ne overwrite-uj ako je već 100%
+            setProcessingStep(step)
+            setProcessingMessage(message)
           }
-          
-          // Završetak
-          if (index === stages.length - 1) {
-            setTimeout(() => {
-              setRefreshing(false)
-              setCancelling(false)
-              setRefreshProgress(0)
-              
-              //alert(
-               // 'Abonnement erfolgreich gekündigt!\n\n' +
-                //'✅ Sie haben Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
-                //'📅 Danach wechseln Sie automatisch zu Freemium.'
-             // )
-            }, 500)
-          }
-        }, stage.delay)
+        }, delay)
       })
+
+      // 🔥 TIMEOUT ako webhook ne stigne za 15s
+      setTimeout(() => {
+        if (processingAction === 'cancel' && processingStep < 100) {
+          console.warn('⏰ Timeout - webhook delayed')
+          setProcessingMessage('Bestätigung dauert länger als erwartet...')
+          
+          // Nastavi čekati još 15s
+          setTimeout(() => {
+            if (processingAction === 'cancel' && processingStep < 100) {
+              console.warn('⏰ Final timeout after 30s')
+              setProcessingAction(null)
+              setCancelling(false)
+              setProcessingStep(0)
+              refresh(true)
+              alert(
+                'Die Kündigung wurde gesendet, aber die Bestätigung dauert.\n\n' +
+                'Bitte prüfen Sie in 1-2 Minuten den Status.'
+              )
+            }
+          }, 15000)
+        }
+      }, 15000)
 
     } catch (err) {
       console.error('💥 Cancel error:', err)
       const errorMessage = err.message || 'Fehler beim Kündigen des Abonnements.'
       setError(errorMessage)
-      setRefreshing(false)
+      setProcessingAction(null)
       setCancelling(false)
+      setProcessingStep(0)
       alert(`❌ Fehler: ${errorMessage}\n\nBitte versuchen Sie es später erneut.`)
     }
   }
 
-  // 🔥 REACTIVATE SUBSCRIPTION - SA 13s TIMING-om za event dispatch
+  // 🔥 REACTIVATE SUBSCRIPTION - REALTIME VERSION
   const handleReactivateSubscription = async () => {
     if (!subscription?.paddle_subscription_id) {
       alert('Keine Subscription gefunden')
@@ -189,9 +254,9 @@ export default function SubscriptionPage() {
 
     setReactivating(true)
     setError('')
-    setRefreshing(true)
-    setRefreshProgress(0)
-    setRefreshMessage('Sende Reaktivierungsanfrage...')
+    setProcessingAction('reactivate')
+    setProcessingStep(0)
+    setProcessingMessage('Sende Reaktivierungsanfrage...')
 
     try {
       console.log('🔄 Starting reactivation process...')
@@ -214,59 +279,56 @@ export default function SubscriptionPage() {
         throw new Error(data.error || 'Fehler bei der Reaktivierung')
       }
 
-      console.log('✅ Subscription reactivated successfully!')
-      
-      // 🔥 TIMING STRATEGIJA: 15 sekundi progress, dispatche event nakon 13s
-      const stages = [
-        { delay: 0, progress: 0, message: 'Reaktivierung wird verarbeitet...' },
-        { delay: 2000, progress: 15, message: 'Warte auf Paddle Webhook...' },
-        { delay: 4000, progress: 30, message: 'Synchronisiere mit Paddle...' },
-        { delay: 6000, progress: 45, message: 'Webhook wird empfangen...' },
-        { delay: 8000, progress: 60, message: 'Datenbank wird aktualisiert...' },
-        { delay: 10000, progress: 75, message: 'Fast fertig...' },
-        { delay: 13000, progress: 90, message: 'Status wird aktualisiert...' }, // 🔥 OVDE SE DISPATCHE EVENT!
-        { delay: 15000, progress: 100, message: 'Reaktivierung erfolgreich!' }
+      console.log('✅ Paddle API call successful!')
+      console.log('⏳ Waiting for webhook confirmation...')
+
+      // 🔥 PROGRESS STEPS
+      const steps = [
+        { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
+        { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
+        { step: 60, delay: 4000, message: 'Webhook wird empfangen...' },
+        { step: 80, delay: 6000, message: 'Datenbank wird aktualisiert...' },
+        { step: 90, delay: 8000, message: 'Fast fertig...' }
       ]
 
-      stages.forEach((stage, index) => {
+      steps.forEach(({ step, delay, message }) => {
         setTimeout(() => {
-          setRefreshProgress(stage.progress)
-          setRefreshMessage(stage.message)
-          
-          // 🔥 DISPATCHE EVENT NAKON 13 SEKUNDI (index 6)
-          if (index === 6) {
-            console.log('🔔 DISPATCHING subscription-changed event after 13s!')
-            window.dispatchEvent(new CustomEvent('subscription-changed', {
-              detail: { 
-                action: 'reactivated', 
-                timestamp: Date.now(),
-                subscriptionId: subscription.paddle_subscription_id
-              }
-            }))
+          if (processingStep < 100) {
+            setProcessingStep(step)
+            setProcessingMessage(message)
           }
-          
-          // Završetak
-          if (index === stages.length - 1) {
-            setTimeout(() => {
-              setRefreshing(false)
-              setReactivating(false)
-              setRefreshProgress(0)
-              
-             // alert(
-               // 'Abonnement erfolgreich reaktiviert!\n\n' +
-                //'✅ Ihr PRO-Zugriff wird fortgesetzt.'
-              //)
-            }, 500)
-          }
-        }, stage.delay)
+        }, delay)
       })
+
+      // 🔥 TIMEOUT
+      setTimeout(() => {
+        if (processingAction === 'reactivate' && processingStep < 100) {
+          console.warn('⏰ Timeout - webhook delayed')
+          setProcessingMessage('Bestätigung dauert länger als erwartet...')
+          
+          setTimeout(() => {
+            if (processingAction === 'reactivate' && processingStep < 100) {
+              console.warn('⏰ Final timeout after 30s')
+              setProcessingAction(null)
+              setReactivating(false)
+              setProcessingStep(0)
+              refresh(true)
+              alert(
+                'Die Reaktivierung wurde gesendet, aber die Bestätigung dauert.\n\n' +
+                'Bitte prüfen Sie in 1-2 Minuten den Status.'
+              )
+            }
+          }, 15000)
+        }
+      }, 15000)
 
     } catch (err) {
       console.error('💥 Reactivate error:', err)
       const errorMessage = err.message || 'Fehler bei der Reaktivierung.'
       setError(errorMessage)
-      setRefreshing(false)
+      setProcessingAction(null)
       setReactivating(false)
+      setProcessingStep(0)
       alert(`❌ Fehler: ${errorMessage}`)
     }
   }
@@ -274,32 +336,10 @@ export default function SubscriptionPage() {
   // 🔥 MANUAL REFRESH
   const handleManualRefresh = () => {
     console.log('🔄 Manual refresh triggered by user')
-    setRefreshing(true)
-    setRefreshProgress(0)
-    setRefreshMessage('Lade Subscription Status...')
-    
-    const refreshIntervals = [0, 1000, 2000, 3000]
-    let refreshCount = 0
-    
-    refreshIntervals.forEach((delay, index) => {
-      setTimeout(() => {
-        refreshCount++
-        setRefreshProgress((refreshCount / refreshIntervals.length) * 100)
-        
-        if (refresh && typeof refresh === 'function') {
-          refresh()
-          console.log(`🔄 Manual refresh #${refreshCount}`)
-        }
-        
-        if (index === refreshIntervals.length - 1) {
-          setTimeout(() => {
-            setRefreshing(false)
-            setRefreshProgress(100)
-            window.location.reload()
-          }, 500)
-        }
-      }, delay)
-    })
+    refresh(true)
+    setTimeout(() => {
+      window.location.reload()
+    }, 1000)
   }
 
   if (loading) {
@@ -359,7 +399,7 @@ export default function SubscriptionPage() {
       }
     }
     
-    if (subscription.status === 'cancelled' && daysRemaining > 0) {
+    if (subscription.cancel_at_period_end && daysRemaining > 0) {
       return {
         status: 'cancelled',
         statusLabel: 'Gekündigte Mitgliedschaft',
@@ -395,30 +435,28 @@ export default function SubscriptionPage() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
-          
-          
         </div>
         <p className="text-slate-400">
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
         </p>
         
-        {/* 🔥 REFRESH PROGRESS INDICATOR */}
-        {refreshing && (
+        {/* 🔥 REALTIME PROGRESS INDICATOR */}
+        {processingAction && (
           <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 animate-pulse">
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
               <div className="flex-1">
                 <p className="text-blue-300 font-medium text-sm">
-                  {refreshMessage}
+                  {processingMessage}
                 </p>
                 <div className="mt-2 bg-blue-900/30 rounded-full h-2 overflow-hidden">
                   <div 
                     className="bg-blue-500 h-full transition-all duration-500"
-                    style={{ width: `${refreshProgress}%` }}
+                    style={{ width: `${processingStep}%` }}
                   ></div>
                 </div>
                 <p className="text-blue-400 text-xs mt-1">
-                  {Math.round(refreshProgress)}%
+                  {processingStep}% - Warte auf Paddle Webhook...
                 </p>
               </div>
             </div>
@@ -439,8 +477,12 @@ export default function SubscriptionPage() {
           <div className="font-mono">
             <div>DB Status: <span className="text-white">{subscription.status}</span></div>
             <div>Period End: <span className="text-white">{new Date(subscription.current_period_end).toLocaleString('de-DE')}</span></div>
+            <div>Cancel at Period End: <span className={subscription.cancel_at_period_end ? 'text-orange-400' : 'text-green-400'}>{subscription.cancel_at_period_end ? 'YES' : 'NO'}</span></div>
             {subscription.cancelled_at && (
               <div>Cancelled At: <span className="text-orange-400">{new Date(subscription.cancelled_at).toLocaleString('de-DE')}</span></div>
+            )}
+            {subscription.paddle_scheduled_change && (
+              <div>Scheduled Change: <span className="text-yellow-400">{JSON.stringify(subscription.paddle_scheduled_change)}</span></div>
             )}
           </div>
         </div>
@@ -463,7 +505,7 @@ export default function SubscriptionPage() {
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  disabled={refreshing}
+                  disabled={!!processingAction}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
                 >
                   🚀 Auf PRO upgraden
@@ -473,7 +515,7 @@ export default function SubscriptionPage() {
               {statusInfo.showCancel && (
                 <button
                   onClick={handleCancelSubscription}
-                  disabled={cancelling || refreshing}
+                  disabled={cancelling || !!processingAction}
                   className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {cancelling ? 'Wird gekündigt...' : 'Abonnement kündigen'}
@@ -483,7 +525,7 @@ export default function SubscriptionPage() {
               {statusInfo.showReactivate && (
                 <button
                   onClick={handleReactivateSubscription}
-                  disabled={reactivating || refreshing}
+                  disabled={reactivating || !!processingAction}
                   className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {reactivating ? 'Wird reaktiviert...' : '✅ Subscription reaktivieren'}
@@ -641,7 +683,7 @@ export default function SubscriptionPage() {
                   <span>Jährlich kündbar</span>
                 </li>
                 <li className="flex items-center gap-2 text-green-300 text-sm font-semibold">
-                  <span className="text-green-400">★</span>
+                  <span className="text-green-400">☆</span>
                   <span>38,81€ sparen pro Jahr!</span>
                 </li>
               </ul>
@@ -684,11 +726,11 @@ export default function SubscriptionPage() {
               <span className="text-slate-400">Status:</span>
               <span className={`font-semibold ${
                 subscription.status === 'trial' ? 'text-blue-400' :
-                subscription.status === 'cancelled' ? 'text-orange-400' : 
+                subscription.cancel_at_period_end ? 'text-orange-400' : 
                 'text-green-400'
               }`}>
                 {subscription.status === 'trial' ? 'Trial (kostenlos)' :
-                 subscription.status === 'cancelled' ? 'Gekündigt (läuft noch)' : 
+                 subscription.cancel_at_period_end ? 'Gekündigt (läuft noch)' : 
                  'Aktiv'}
               </span>
             </div>
@@ -709,7 +751,7 @@ export default function SubscriptionPage() {
               <div className="flex justify-between py-3 border-b border-slate-700">
                 <span className="text-slate-400">
                   {subscription.status === 'trial' ? 'Trial endet am:' :
-                   subscription.status === 'cancelled' ? 'Endet am:' : 
+                   subscription.cancel_at_period_end ? 'Endet am:' : 
                    'Nächste Abrechnung:'}
                 </span>
                 <span className="text-white font-semibold">
