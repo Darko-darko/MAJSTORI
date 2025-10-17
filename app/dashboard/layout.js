@@ -45,11 +45,8 @@ useEffect(() => {
       console.log('🔔 Subscription changed in layout - refreshing badge!')
       console.log('Payload:', payload)
       
-      // 🔥 FORCE CLEAR CACHE!
-      if (typeof window !== 'undefined') {
-        const { clearSubscriptionCache } = require('@/lib/hooks/useSubscription')
-        clearSubscriptionCache(majstor.id)
-      }
+      // 🔥 CLEAR CACHE (koristi importovanu funkciju)
+      clearSubscriptionCache(majstor.id)
       
       // Force refresh subscription data
       refresh(true)
@@ -61,7 +58,6 @@ useEffect(() => {
     channel.unsubscribe()
   }
 }, [majstor?.id, refresh])
-
 
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal: showFeatureModal, hideUpgradeModal } = useUpgradeModal()
