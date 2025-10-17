@@ -115,18 +115,26 @@ export default function SubscriptionPage() {
           if (processingAction === 'cancel') {
             console.log('✅ TRIAL CANCEL CONFIRMED - Subscription deleted!')
             setProcessingStep(100)
-            setProcessingMessage('Trial beendet!')
+            setProcessingMessage('Trial beendet! Auf Freemium zurückgesetzt...')
             
             setTimeout(() => {
               setProcessingAction(null)
               setCancelling(false)
               setProcessingStep(0)
-              refresh(true)
+              
+              // 🔥 Force page reload za clean state
+              console.log('🔄 Reloading page after trial cancellation...')
+              window.location.reload()
             }, 1500)
           } else {
             // Automatic refresh ako nema processingAction
             console.log('🔄 Automatic refresh after DELETE')
             refresh(true)
+            
+            // 🔥 Force reload nakon 1s
+            setTimeout(() => {
+              window.location.reload()
+            }, 1000)
           }
         }
       )
