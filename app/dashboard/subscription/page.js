@@ -414,6 +414,22 @@ export default function SubscriptionPage() {
     const periodEnd = new Date(subscription.current_period_end)
     const daysRemaining = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
     
+    // 🔥 FIX: Proveri cancel_at_period_end flag UMESTO statusa!
+    if (subscription.cancel_at_period_end === true && daysRemaining > 0) {
+      return {
+        status: 'cancelled',
+        statusLabel: 'Gekündigte Mitgliedschaft',
+        statusColor: 'text-orange-400',
+        bgColor: 'bg-orange-500/10',
+        borderColor: 'border-orange-500/30',
+        icon: '⏰',
+        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+        showUpgrade: false,
+        showCancel: false,
+        showReactivate: true  // ✅ REACTIVATE button!
+      }
+    }
+    
     if (subscription.status === 'trial' && daysRemaining > 0) {
       return {
         status: 'trial',
@@ -439,21 +455,6 @@ export default function SubscriptionPage() {
         description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
         showUpgrade: false,
         showCancel: true
-      }
-    }
-    
-    if (subscription.cancel_at_period_end && daysRemaining > 0) {
-      return {
-        status: 'cancelled',
-        statusLabel: 'Gekündigte Mitgliedschaft',
-        statusColor: 'text-orange-400',
-        bgColor: 'bg-orange-500/10',
-        borderColor: 'border-orange-500/30',
-        icon: '⏰',
-        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
-        showUpgrade: false,
-        showCancel: false,
-        showReactivate: true
       }
     }
     
