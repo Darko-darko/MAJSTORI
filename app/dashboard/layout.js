@@ -37,14 +37,22 @@ useEffect(() => {
   const channel = supabase
     .channel(`layout-subscription-${majstor.id}`)
     .on('postgres_changes', {
-      event: '*',
+      event: 'UPDATE',
       schema: 'public',
       table: 'user_subscriptions',
       filter: `majstor_id=eq.${majstor.id}`
     }, (payload) => {
       console.log('🔔 Subscription changed in layout - refreshing badge!')
       console.log('Payload:', payload)
-      refresh(true) // Force refresh subscription data
+      
+      // 🔥 FORCE CLEAR CACHE!
+      if (typeof window !== 'undefined') {
+        const { clearSubscriptionCache } = require('@/lib/hooks/useSubscription')
+        clearSubscriptionCache(majstor.id)
+      }
+      
+      // Force refresh subscription data
+      refresh(true)
     })
     .subscribe()
 
@@ -53,6 +61,8 @@ useEffect(() => {
     channel.unsubscribe()
   }
 }, [majstor?.id, refresh])
+
+
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal: showFeatureModal, hideUpgradeModal } = useUpgradeModal()
   
