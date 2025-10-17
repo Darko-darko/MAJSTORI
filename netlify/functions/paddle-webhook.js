@@ -338,19 +338,63 @@ async function handleSubscriptionUpdated(data) {
   console.log('📊 Paddle status:', status)
   console.log('📅 Scheduled change:', scheduledChange)
 
+  // 🔥 FIXED: Trial cancelled → DELETE iz tabele!
+  if (status === 'trialing' && scheduledChange?.action === 'cancel') {
+    console.log('🚫 Trial cancelled → Deleting subscription from database')
+    
+    // Prvo uzmi majstor_id
+    const { data: subscription } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('majstor_id')
+      .eq('paddle_subscription_id', subscriptionId)
+      .single()
+
+    if (!subscription?.majstor_id) {
+      console.error('❌ Subscription not found for deletion')
+      return { error: 'Subscription not found' }
+    }
+
+    const majstorId = subscription.majstor_id
+
+    // ✅ OBRIŠI subscription red
+    const { error: deleteError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .delete()
+      .eq('paddle_subscription_id', subscriptionId)
+
+    if (deleteError) {
+      console.error('❌ Delete error:', deleteError)
+      return { error: deleteError.message }
+    }
+
+    console.log('✅ Subscription deleted from database')
+
+    // ✅ Update majstor na freemium
+    await supabaseAdmin
+      .from('majstors')
+      .update({
+        subscription_status: 'freemium',
+        subscription_ends_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', majstorId)
+
+    console.log('✅ Majstor updated to freemium')
+    console.log('🔔 Realtime DELETE event will trigger frontend refresh')
+
+    return { 
+      success: true, 
+      action: 'deleted',
+      message: 'Trial cancelled - subscription deleted' 
+    }
+  }
+
+  // ✅ Normalan flow za ostale statuse
   let finalStatus
   let trialEndsAt = null
   let cancelAtPeriodEnd = false
   
-  // 🔥 FIXED: Detektuj cancel iz trial-a!
-  if (status === 'trialing' && scheduledChange?.action === 'cancel') {
-    // ✅ Trial je cancelled → odmah na freemium!
-    finalStatus = 'freemium'
-    cancelAtPeriodEnd = false
-    trialEndsAt = null
-    console.log('🚫 Trial cancelled → Reverting to freemium immediately')
-  }
-  else if (status === 'trialing') {
+  if (status === 'trialing') {
     // ✅ Trial je aktivan (nije cancelled)
     finalStatus = 'trial'
     trialEndsAt = currentPeriodEnd
@@ -407,7 +451,7 @@ async function handleSubscriptionUpdated(data) {
       .from('majstors')
       .update({
         subscription_status: finalStatus,
-        subscription_ends_at: finalStatus === 'freemium' ? null : currentPeriodEnd,
+        subscription_ends_at: currentPeriodEnd,
         updated_at: new Date().toISOString()
       })
       .eq('id', subscription.majstor_id)

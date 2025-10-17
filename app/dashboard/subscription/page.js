@@ -79,19 +79,6 @@ export default function SubscriptionPage() {
               refresh(true)
             }, 1500)
           }
-          // 🔥 CANCEL CONFIRMATION (za trial -> freemium)
-          else if (processingAction === 'cancel' && newStatus === 'freemium') {
-            console.log('✅ TRIAL CANCEL CONFIRMED - Reverted to freemium!')
-            setProcessingStep(100)
-            setProcessingMessage('Auf Freemium zurückgesetzt!')
-            
-            setTimeout(() => {
-              setProcessingAction(null)
-              setCancelling(false)
-              setProcessingStep(0)
-              refresh(true)
-            }, 1500)
-          }
           // 🔥 REACTIVATE CONFIRMATION
           else if (processingAction === 'reactivate' && cancelAtPeriodEnd === false) {
             console.log('✅ REACTIVATE CONFIRMED via Realtime!')
@@ -108,6 +95,37 @@ export default function SubscriptionPage() {
           // 🔥 AUTOMATIC REFRESH kada nema processingAction (webhook stigao kasnije)
           else if (!processingAction) {
             console.log('🔄 Automatic refresh triggered by Realtime (no processing action)')
+            refresh(true)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'user_subscriptions',
+          filter: `majstor_id=eq.${majstor.id}`
+        },
+        (payload) => {
+          console.log('🔔 REALTIME: Subscription DELETED!', payload)
+          console.log('🚫 Trial cancelled - subscription removed')
+          
+          // 🔥 TRIAL CANCEL CONFIRMATION
+          if (processingAction === 'cancel') {
+            console.log('✅ TRIAL CANCEL CONFIRMED - Subscription deleted!')
+            setProcessingStep(100)
+            setProcessingMessage('Trial beendet!')
+            
+            setTimeout(() => {
+              setProcessingAction(null)
+              setCancelling(false)
+              setProcessingStep(0)
+              refresh(true)
+            }, 1500)
+          } else {
+            // Automatic refresh ako nema processingAction
+            console.log('🔄 Automatic refresh after DELETE')
             refresh(true)
           }
         }
