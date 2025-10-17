@@ -28,6 +28,31 @@ function DashboardLayoutContent({ children }) {
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
   
+  // 🔥 REALTIME LISTENER - update badge automatski
+useEffect(() => {
+  if (!majstor?.id) return
+
+  console.log('🔔 Setting up Realtime listener for badge updates...')
+
+  const channel = supabase
+    .channel(`layout-subscription-${majstor.id}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'user_subscriptions',
+      filter: `majstor_id=eq.${majstor.id}`
+    }, (payload) => {
+      console.log('🔔 Subscription changed in layout - refreshing badge!')
+      console.log('Payload:', payload)
+      refresh(true) // Force refresh subscription data
+    })
+    .subscribe()
+
+  return () => {
+    console.log('🧹 Cleaning up layout Realtime listener')
+    channel.unsubscribe()
+  }
+}, [majstor?.id, refresh])
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal: showFeatureModal, hideUpgradeModal } = useUpgradeModal()
   
@@ -432,6 +457,12 @@ function DashboardLayoutContent({ children }) {
         color: 'bg-gradient-to-r from-slate-500 to-slate-600'
       }
     }
+    if (subscription?.cancel_at_period_end === true) {
+    return {
+      text: 'Gekündigt',
+      color: 'bg-gradient-to-r from-orange-500 to-red-500'
+    }
+  }
     // Grace period: Trial završio ali još nije active
   if (subscription?.status === 'trial' && subscription?.trial_ends_at) {
     const now = new Date()
@@ -638,9 +669,9 @@ function DashboardLayoutContent({ children }) {
         subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
       } else if (isPaid) {
         subscriptionStyles = 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 text-green-300 hover:from-green-500/20 hover:to-emerald-500/20 hover:border-green-400/50 hover:text-green-200 shadow-sm'
-      } else if (subscription?.status === 'cancelled') {
-        subscriptionStyles = 'bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 text-orange-300 hover:from-orange-500/20 hover:to-red-500/20 hover:border-orange-400/50 hover:text-orange-200 shadow-sm'
-      } else {
+      } else if (subscription?.cancel_at_period_end === true) {
+  subscriptionStyles = 'bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 text-orange-300 hover:from-orange-500/20 hover:to-red-500/20 hover:border-orange-400/50 hover:text-orange-200 shadow-sm'
+} else {
         subscriptionStyles = 'bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/30 text-slate-300 hover:bg-slate-700'
       }
     }

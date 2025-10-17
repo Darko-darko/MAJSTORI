@@ -1,202 +1,169 @@
-// app/dashboard/subscription/page.js - REALTIME VERSION
+// app/dashboard/subscription/page.js - PRODUCTION SAFE VERSION
+// ✅ Realtime listener za automatsko zatvaranje progress-a
+// ✅ Koristi cancel_at_period_end umesto status === 'cancelled'
 
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/hooks/useSubscription'
-import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
-import { useRouter } from 'next/navigation'
+import { openPaddleCheckout } from '@/lib/paddle'
 
 export default function SubscriptionPage() {
+  const router = useRouter()
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [reactivating, setReactivating] = useState(false)
-  const [error, setError] = useState('')
-  
-  // 🔥 REALTIME PROGRESS STATE
+
+  // Processing state - za progress indicator
   const [processingAction, setProcessingAction] = useState(null) // 'cancel' | 'reactivate' | null
+  const [processingStep, setProcessingStep] = useState(0) // 0-100
   const [processingMessage, setProcessingMessage] = useState('')
-  const [processingStep, setProcessingStep] = useState(0)
-  
-  const router = useRouter()
-  
+
   const { 
     subscription, 
     plan, 
-    isInTrial, 
-    isFreemium, 
-    isPaid, 
-    trialDaysRemaining,
-    isCancelled,
-    isActive,
-    refresh
+    loading: subscriptionLoading,
+    refresh,
+    isInTrial
   } = useSubscription(majstor?.id)
-  
-  const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal, hideUpgradeModal } = useUpgradeModal()
 
+  // Load majstor profile
   useEffect(() => {
-    loadMajstor()
-  }, [])
+    const loadProfile = async () => {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+          router.push('/login')
+          return
+        }
 
-  // 🔥 REALTIME LISTENER za subscription promene - UVEK AKTIVAN!
+        const { data: majstorData, error: majstorError } = await supabase
+          .from('majstors')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+
+        if (majstorError) {
+          console.error('Error loading majstor:', majstorError)
+          return
+        }
+
+        setMajstor(majstorData)
+      } catch (err) {
+        console.error('Error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadProfile()
+  }, [router])
+
+  // 🔥 REALTIME LISTENER - automatski zatvori progress kad webhook stigne!
   useEffect(() => {
     if (!majstor?.id) return
 
-    console.log(`🔔 Setting up permanent Realtime listener...`)
+    console.log('🔔 Setting up Realtime listener for subscription page...')
 
     const channel = supabase
-      .channel(`subscription-page-${majstor.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'user_subscriptions',
-          filter: `majstor_id=eq.${majstor.id}`
-        },
-        (payload) => {
-          console.log('🔔 REALTIME: Subscription updated on page!', payload)
-          
-          const newStatus = payload.new?.status
-          const cancelAtPeriodEnd = payload.new?.cancel_at_period_end
-          const scheduledChange = payload.new?.paddle_scheduled_change
+      .channel(`page-subscription-${majstor.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'user_subscriptions',
+        filter: `majstor_id=eq.${majstor.id}`
+      }, (payload) => {
+        console.log('🔔 REALTIME: Subscription updated!', payload)
+        
+        const oldCancelFlag = payload.old?.cancel_at_period_end
+        const newCancelFlag = payload.new?.cancel_at_period_end
+        const newStatus = payload.new?.status
 
-          console.log('Status:', newStatus)
-          console.log('Cancel at period end:', cancelAtPeriodEnd)
-          console.log('Scheduled change:', scheduledChange)
+        console.log(`📊 Cancel flag: ${oldCancelFlag} → ${newCancelFlag}`)
+        console.log(`📊 Status: ${payload.old?.status} → ${newStatus}`)
 
-          // 🔥 CANCEL CONFIRMATION
-          if (processingAction === 'cancel' && cancelAtPeriodEnd === true) {
-            console.log('✅ CANCEL CONFIRMED via Realtime!')
-            setProcessingStep(100)
-            setProcessingMessage('Kündigung bestätigt!')
-            
-            setTimeout(() => {
-              setProcessingAction(null)
-              setCancelling(false)
-              setProcessingStep(0)
-              refresh(true)
-            }, 1500)
-          }
-          // 🔥 REACTIVATE CONFIRMATION
-          else if (processingAction === 'reactivate' && cancelAtPeriodEnd === false) {
-            console.log('✅ REACTIVATE CONFIRMED via Realtime!')
-            setProcessingStep(100)
-            setProcessingMessage('Reaktivierung bestätigt!')
-            
-            setTimeout(() => {
-              setProcessingAction(null)
-              setReactivating(false)
-              setProcessingStep(0)
-              refresh(true)
-            }, 1500)
-          }
-          // 🔥 AUTOMATIC REFRESH kada nema processingAction (webhook stigao kasnije)
-          else if (!processingAction) {
-            console.log('🔄 Automatic refresh triggered by Realtime (no processing action)')
-            refresh(true)
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'user_subscriptions',
-          filter: `majstor_id=eq.${majstor.id}`
-        },
-        (payload) => {
-          console.log('🔔 REALTIME: Subscription DELETED!', payload)
-          console.log('🚫 Trial cancelled - subscription removed')
+        // 🔥 CANCEL CONFIRMATION
+        if (processingAction === 'cancel' && oldCancelFlag === false && newCancelFlag === true) {
+          console.log('✅ CANCEL CONFIRMED via Realtime!')
+          setProcessingStep(100)
+          setProcessingMessage('Kündigung bestätigt!')
           
-          // 🔥 TRIAL CANCEL CONFIRMATION
-          if (processingAction === 'cancel') {
-            console.log('✅ TRIAL CANCEL CONFIRMED - Subscription deleted!')
-            setProcessingStep(100)
-            setProcessingMessage('Trial beendet! Auf Freemium zurückgesetzt...')
-            
-            setTimeout(() => {
-              setProcessingAction(null)
-              setCancelling(false)
-              setProcessingStep(0)
-              
-              // 🔥 Force page reload za clean state
-              console.log('🔄 Reloading page after trial cancellation...')
-              window.location.reload()
-            }, 1500)
-          } else {
-            // Automatic refresh ako nema processingAction
-            console.log('🔄 Automatic refresh after DELETE')
+          setTimeout(() => {
+            setProcessingAction(null)
+            setCancelling(false)
+            setProcessingStep(0)
             refresh(true)
-            
-            // 🔥 Force reload nakon 1s
-            setTimeout(() => {
-              window.location.reload()
-            }, 1000)
-          }
+          }, 1500)
         }
-      )
-      .subscribe((status) => {
-        console.log('📡 Realtime status:', status)
+        // 🔥 REACTIVATE CONFIRMATION
+        else if (processingAction === 'reactivate' && oldCancelFlag === true && newCancelFlag === false) {
+          console.log('✅ REACTIVATE CONFIRMED via Realtime!')
+          setProcessingStep(100)
+          setProcessingMessage('Reaktivierung bestätigt!')
+          
+          setTimeout(() => {
+            setProcessingAction(null)
+            setReactivating(false)
+            setProcessingStep(0)
+            refresh(true)
+          }, 1500)
+        }
+        // 🔥 TRIAL/PRO → CANCELLED (final cancellation)
+        else if (newStatus === 'cancelled') {
+          console.log('✅ SUBSCRIPTION CANCELLED via Realtime!')
+          setProcessingStep(100)
+          setProcessingMessage('Auf Freemium zurückgesetzt!')
+          
+          setTimeout(() => {
+            setProcessingAction(null)
+            setCancelling(false)
+            setProcessingStep(0)
+            refresh(true)
+          }, 1500)
+        }
+        // 🔥 AUTOMATIC REFRESH (webhook stigao kasnije)
+        else if (!processingAction) {
+          console.log('🔄 Automatic refresh triggered by Realtime')
+          refresh(true)
+        }
       })
+      .subscribe()
 
-    // Cleanup
     return () => {
       console.log('🔌 Unsubscribing from Realtime')
       supabase.removeChannel(channel)
     }
   }, [majstor?.id, processingAction, refresh])
 
-  const loadMajstor = async () => {
-    try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user) {
-        router.push('/login')
-        return
-      }
-
-      const { data: majstorData, error: majstorError } = await supabase
-        .from('majstors')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (majstorError) {
-        console.error('Error loading majstor:', majstorError)
-        return
-      }
-
-      setMajstor(majstorData)
-    } catch (err) {
-      console.error('Error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleUpgradeClick = () => {
-    console.log('🔥 Upgrade button clicked!')
-    const currentPlanLabel = isInTrial 
-      ? 'Trial' 
-      : plan?.display_name || 'Freemium'
-    
-    showUpgradeModal('subscription', 'PRO Mitgliedschaft', currentPlanLabel)
+    const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY
+
+    openPaddleCheckout(
+      priceId,
+      majstor.id,
+      majstor.email,
+      () => {
+        console.log('✅ Payment successful!')
+        setTimeout(() => refresh(true), 2000)
+      },
+      (err) => {
+        console.error('❌ Payment error:', err)
+        setError('Zahlung fehlgeschlagen')
+      }
+    )
   }
 
-  // 🔥 CANCEL SUBSCRIPTION - REALTIME VERSION
   const handleCancelSubscription = async () => {
-    if (!subscription?.paddle_subscription_id) {
-      alert('Keine aktive Subscription gefunden')
-      return
-    }
-
     const confirmed = window.confirm(
       'Möchten Sie Ihr Abonnement wirklich kündigen?\n\n' +
-      '⏰ Die Kündigung wird zum Ende der Abrechnungsperiode wirksam.\n\n' +
-      'Sie haben bis dahin vollen Zugriff auf alle PRO-Funktionen.'
+      '✅ Sie behalten den Zugriff bis zum Ende des Abrechnungszeitraums.\n' +
+      '📅 Danach wechseln Sie automatisch zu Freemium.\n\n' +
+      'Sie können jederzeit wieder upgraden!'
     )
+
     if (!confirmed) return
 
     setCancelling(true)
@@ -227,9 +194,9 @@ export default function SubscriptionPage() {
       }
 
       console.log('✅ Paddle API call successful!')
-      console.log('⏳ Waiting for webhook confirmation...')
+      console.log('⏳ Waiting for webhook confirmation via Realtime...')
 
-      // 🔥 PROGRESS STEPS während čekanja webhook-a
+      // 🔥 PROGRESS STEPS dok čekamo webhook
       const steps = [
         { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
         { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
@@ -240,7 +207,7 @@ export default function SubscriptionPage() {
 
       steps.forEach(({ step, delay, message }) => {
         setTimeout(() => {
-          if (processingStep < 100) { // Ne overwrite-uj ako je već 100%
+          if (processingStep < 100) {
             setProcessingStep(step)
             setProcessingMessage(message)
           }
@@ -253,7 +220,6 @@ export default function SubscriptionPage() {
           console.warn('⏰ Timeout - webhook delayed')
           setProcessingMessage('Bestätigung dauert länger als erwartet...')
           
-          // Nastavi čekati još 15s
           setTimeout(() => {
             if (processingAction === 'cancel' && processingStep < 100) {
               console.warn('⏰ Final timeout after 30s')
@@ -273,26 +239,28 @@ export default function SubscriptionPage() {
     } catch (err) {
       console.error('💥 Cancel error:', err)
       const errorMessage = err.message || 'Fehler beim Kündigen des Abonnements.'
+      
       setError(errorMessage)
-      setProcessingAction(null)
       setCancelling(false)
+      setProcessingAction(null)
       setProcessingStep(0)
-      alert(`❌ Fehler: ${errorMessage}\n\nBitte versuchen Sie es später erneut.`)
+
+      alert(
+        'Fehler beim Kündigen:\n\n' +
+        errorMessage +
+        '\n\nBitte versuchen Sie es später erneut oder kontaktieren Sie den Support.'
+      )
     }
   }
 
-  // 🔥 REACTIVATE SUBSCRIPTION - REALTIME VERSION
   const handleReactivateSubscription = async () => {
-    if (!subscription?.paddle_subscription_id) {
-      alert('Keine Subscription gefunden')
-      return
-    }
-
     const confirmed = window.confirm(
       'Möchten Sie Ihr Abonnement reaktivieren?\n\n' +
-      '✅ Ihr PRO-Zugriff wird fortgesetzt.\n' +
-      '💳 Die Abrechnung erfolgt normal am Ende des Zeitraums.'
+      '✅ Ihre Kündigung wird zurückgenommen\n' +
+      '📅 Das Abonnement wird automatisch verlängert\n' +
+      '💳 Die nächste Zahlung erfolgt wie geplant'
     )
+
     if (!confirmed) return
 
     setReactivating(true)
@@ -302,8 +270,8 @@ export default function SubscriptionPage() {
     setProcessingMessage('Sende Reaktivierungsanfrage...')
 
     try {
-      console.log('🔄 Starting reactivation process...')
-      
+      console.log('▶️ Starting reactivation process...')
+
       const response = await fetch('/.netlify/functions/paddle-reactivate-subscription', {
         method: 'POST',
         headers: { 
@@ -319,13 +287,13 @@ export default function SubscriptionPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Fehler bei der Reaktivierung')
+        throw new Error(data.error || data.message || 'Fehler beim Reaktivieren')
       }
 
       console.log('✅ Paddle API call successful!')
-      console.log('⏳ Waiting for webhook confirmation...')
+      console.log('⏳ Waiting for webhook confirmation via Realtime...')
 
-      // 🔥 PROGRESS STEPS
+      // Progress steps
       const steps = [
         { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
         { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
@@ -343,7 +311,7 @@ export default function SubscriptionPage() {
         }, delay)
       })
 
-      // 🔥 TIMEOUT
+      // Timeout
       setTimeout(() => {
         if (processingAction === 'reactivate' && processingStep < 100) {
           console.warn('⏰ Timeout - webhook delayed')
@@ -367,37 +335,72 @@ export default function SubscriptionPage() {
 
     } catch (err) {
       console.error('💥 Reactivate error:', err)
-      const errorMessage = err.message || 'Fehler bei der Reaktivierung.'
+      const errorMessage = err.message || 'Fehler beim Reaktivieren des Abonnements.'
+      
       setError(errorMessage)
-      setProcessingAction(null)
       setReactivating(false)
+      setProcessingAction(null)
       setProcessingStep(0)
-      alert(`❌ Fehler: ${errorMessage}`)
+
+      alert(
+        'Fehler beim Reaktivieren:\n\n' +
+        errorMessage +
+        '\n\nBitte versuchen Sie es später erneut oder kontaktieren Sie den Support.'
+      )
     }
   }
 
-  // 🔥 MANUAL REFRESH
-  const handleManualRefresh = () => {
-    console.log('🔄 Manual refresh triggered by user')
-    refresh(true)
-    setTimeout(() => {
-      window.location.reload()
-    }, 1000)
-  }
-
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <div className="text-white text-xl">Laden...</div>
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-slate-300">Lade Abonnement-Daten...</p>
         </div>
       </div>
     )
   }
 
+  // Calculate days remaining
+  const getDaysRemaining = () => {
+    if (!subscription) return 0
+    
+    const now = new Date()
+    const periodEnd = isInTrial 
+      ? new Date(subscription.trial_ends_at)
+      : new Date(subscription.current_period_end)
+    
+    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+    return daysLeft > 0 ? daysLeft : 0
+  }
+
+  const daysRemaining = getDaysRemaining()
+
   const getStatusInfo = () => {
-    if (!subscription) {
+    // Freemium
+    if (!subscription || plan?.name === 'freemium' || subscription.status === 'cancelled') {
+      // 🔥 Proveri da li je expired cancelled
+      if (subscription?.status === 'cancelled') {
+        const now = new Date()
+        const periodEnd = new Date(subscription.current_period_end)
+        
+        // Ako period još nije istekao
+        if (periodEnd > now) {
+          return {
+            status: 'cancelled',
+            statusLabel: 'Gekündigte Mitgliedschaft',
+            statusColor: 'text-orange-400',
+            bgColor: 'bg-orange-500/10',
+            borderColor: 'border-orange-500/30',
+            icon: '⏰',
+            description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+            showUpgrade: false,
+            showCancel: false,
+            showReactivate: false
+          }
+        }
+      }
+
       return {
         status: 'freemium',
         statusLabel: 'Freemium',
@@ -410,14 +413,10 @@ export default function SubscriptionPage() {
       }
     }
 
-    const now = new Date()
-    const periodEnd = new Date(subscription.current_period_end)
-    const daysRemaining = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-    
-    // 🔥 FIX: Proveri cancel_at_period_end flag UMESTO statusa!
+    // 🔥 CANCELLED (scheduled for cancellation) - koristi cancel_at_period_end!
     if (subscription.cancel_at_period_end === true && daysRemaining > 0) {
       return {
-        status: 'cancelled',
+        status: 'cancelled_pending',
         statusLabel: 'Gekündigte Mitgliedschaft',
         statusColor: 'text-orange-400',
         bgColor: 'bg-orange-500/10',
@@ -426,24 +425,26 @@ export default function SubscriptionPage() {
         description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
         showUpgrade: false,
         showCancel: false,
-        showReactivate: true  // ✅ REACTIVATE button!
+        showReactivate: true
       }
     }
-    
+
+    // Trial
     if (subscription.status === 'trial' && daysRemaining > 0) {
       return {
         status: 'trial',
         statusLabel: 'PRO Trial',
-        statusColor: 'text-blue-400',
-        bgColor: 'bg-blue-500/10',
-        borderColor: 'border-blue-500/30',
+        statusColor: 'text-green-400',
+        bgColor: 'bg-green-500/10',
+        borderColor: 'border-green-500/30',
         icon: '🎯',
-        description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
+        description: `Sie testen PRO kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
         showUpgrade: false,
         showCancel: true
       }
     }
     
+    // Active PRO
     if (subscription.status === 'active' && daysRemaining > 0) {
       return {
         status: 'pro',
@@ -458,6 +459,7 @@ export default function SubscriptionPage() {
       }
     }
     
+    // Fallback
     return {
       status: 'freemium',
       statusLabel: 'Freemium',
@@ -477,16 +479,14 @@ export default function SubscriptionPage() {
       
       {/* Page Header */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-bold text-white">Meine Mitgliedschaft</h1>
-        </div>
+        <h1 className="text-3xl font-bold text-white mb-2">Meine Mitgliedschaft</h1>
         <p className="text-slate-400">
           Verwalten Sie Ihr Abonnement und sehen Sie Ihren aktuellen Plan
         </p>
         
-        {/* 🔥 REALTIME PROGRESS INDICATOR */}
+        {/* Processing Indicator */}
         {processingAction && (
-          <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 animate-pulse">
+          <div className="mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
               <div className="flex-1">
@@ -500,7 +500,7 @@ export default function SubscriptionPage() {
                   ></div>
                 </div>
                 <p className="text-blue-400 text-xs mt-1">
-                  {processingStep}% - Warte auf Paddle Webhook...
+                  {Math.round(processingStep)}%
                 </p>
               </div>
             </div>
@@ -512,23 +512,6 @@ export default function SubscriptionPage() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
           <p className="text-red-300">{error}</p>
-        </div>
-      )}
-
-      {/* 🔥 DEBUG INFO */}
-      {subscription && (
-        <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 text-xs text-slate-400">
-          <div className="font-mono">
-            <div>DB Status: <span className="text-white">{subscription.status}</span></div>
-            <div>Period End: <span className="text-white">{new Date(subscription.current_period_end).toLocaleString('de-DE')}</span></div>
-            <div>Cancel at Period End: <span className={subscription.cancel_at_period_end ? 'text-orange-400' : 'text-green-400'}>{subscription.cancel_at_period_end ? 'YES' : 'NO'}</span></div>
-            {subscription.cancelled_at && (
-              <div>Cancelled At: <span className="text-orange-400">{new Date(subscription.cancelled_at).toLocaleString('de-DE')}</span></div>
-            )}
-            {subscription.paddle_scheduled_change && (
-              <div>Scheduled Change: <span className="text-yellow-400">{JSON.stringify(subscription.paddle_scheduled_change)}</span></div>
-            )}
-          </div>
         </div>
       )}
 
@@ -549,7 +532,7 @@ export default function SubscriptionPage() {
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  disabled={!!processingAction}
+                  disabled={processingAction}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
                 >
                   🚀 Auf PRO upgraden
@@ -559,20 +542,20 @@ export default function SubscriptionPage() {
               {statusInfo.showCancel && (
                 <button
                   onClick={handleCancelSubscription}
-                  disabled={cancelling || !!processingAction}
+                  disabled={cancelling || processingAction}
                   className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cancelling ? 'Wird gekündigt...' : 'Abonnement kündigen'}
+                  {cancelling ? 'Kündige...' : 'Abonnement kündigen'}
                 </button>
               )}
 
               {statusInfo.showReactivate && (
                 <button
                   onClick={handleReactivateSubscription}
-                  disabled={reactivating || !!processingAction}
-                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  disabled={reactivating || processingAction}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg disabled:opacity-50"
                 >
-                  {reactivating ? 'Wird reaktiviert...' : '✅ Subscription reaktivieren'}
+                  {reactivating ? 'Reaktiviere...' : '✨ Abonnement reaktivieren'}
                 </button>
               )}
             </div>
@@ -580,249 +563,88 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {/* PRO Features Overview */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
-        <h3 className="text-2xl font-bold text-white mb-6 text-center">
-          ✨ PRO Funktionen
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[
-            {
-              icon: '👥',
-              title: 'Unbegrenzte Kundenverwaltung',
-              description: 'Verwalten Sie alle Ihre Kunden an einem Ort'
-            },
-            {
-              icon: '📩',
-              title: 'Kundenanfragen Management',
-              description: 'Bearbeiten Sie Anfragen direkt im Dashboard'
-            },
-            {
-              icon: '📄',
-              title: 'Rechnungen & Angebote',
-              description: 'Professionelle PDF-Rechnungen erstellen'
-            },
-            {
-              icon: '🔧',
-              title: 'Services Verwaltung',
-              description: 'Verwalten Sie Ihre Dienstleistungen'
-            },
-            {
-              icon: '🗂️',
-              title: 'PDF Archiv',
-              description: 'Zugriff auf alle Ihre PDFs'
-            },
-            {
-              icon: '⚙️',
-              title: 'Erweiterte Einstellungen',
-              description: 'Vollständige Anpassungsmöglichkeiten'
-            },
-            {
-              icon: '📊',
-              title: 'Analytics & Berichte',
-              description: 'Detaillierte Geschäftseinblicke'
-            },
-            {
-              icon: '🚀',
-              title: 'Prioritäts-Support',
-              description: 'Schnelle Hilfe bei Fragen'
-            }
-          ].map((feature, i) => (
-            <div 
-              key={i}
-              className={`bg-slate-900/50 rounded-xl p-6 ${
-                statusInfo.status !== 'freemium' ? 'border-2 border-green-500/20' : 'border border-slate-700'
-              }`}
+      {/* Features Comparison */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Freemium */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-white mb-2">Freemium</h3>
+            <p className="text-4xl font-bold text-slate-400">Kostenlos</p>
+          </div>
+          <ul className="space-y-3">
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-slate-300">QR Visitenkarte erstellen</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-slate-300">Kundenanfragen empfangen</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-red-500 mt-1">✗</span>
+              <span className="text-slate-500">Kundenverwaltung</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-red-500 mt-1">✗</span>
+              <span className="text-slate-500">Rechnungserstellung</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-red-500 mt-1">✗</span>
+              <span className="text-slate-500">Services Management</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-red-500 mt-1">✗</span>
+              <span className="text-slate-500">PDF Archiv</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* PRO */}
+        <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-2 border-blue-500/50 rounded-2xl p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
+            EMPFOHLEN
+          </div>
+          <div className="text-center mb-6 mt-4">
+            <h3 className="text-2xl font-bold text-white mb-2">PRO</h3>
+            <p className="text-4xl font-bold text-blue-400">€19,99<span className="text-lg text-slate-400">/Monat</span></p>
+            <p className="text-sm text-slate-400 mt-1">7 Tage kostenlos testen</p>
+          </div>
+          <ul className="space-y-3">
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-white font-medium">Alle Freemium-Funktionen</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-white font-medium">Unbegrenzte Kunden</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-white font-medium">Professionelle Rechnungen</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-white font-medium">Services Management</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-white font-medium">Automatisches PDF Archiv</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-green-500 mt-1">✓</span>
+              <span className="text-white font-medium">Priority Support</span>
+            </li>
+          </ul>
+          {statusInfo.showUpgrade && (
+            <button
+              onClick={handleUpgradeClick}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
             >
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">{feature.icon}</div>
-                <div>
-                  <h4 className="text-white font-semibold mb-1">{feature.title}</h4>
-                  <p className="text-slate-400 text-sm">{feature.description}</p>
-                  {statusInfo.status !== 'freemium' && (
-                    <div className="mt-2">
-                      <span className="text-green-400 text-xs font-semibold">✓ Aktiv</span>
-                    </div>
-                  )}
-                  {statusInfo.status === 'freemium' && (
-                    <div className="mt-2">
-                      <span className="text-slate-500 text-xs">🔒 PRO erforderlich</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+              Jetzt upgraden
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Pricing Comparison (only for non-PRO users) */}
-      {statusInfo.showUpgrade && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
-          <h3 className="text-2xl font-bold text-white mb-6 text-center">
-            💰 Preise
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-900 border-2 border-blue-500/30 rounded-xl p-6">
-              <div className="text-center mb-6">
-                <div className="text-4xl mb-2">📅</div>
-                <h4 className="text-xl font-bold text-white mb-2">Monatlich</h4>
-                <div className="text-4xl font-bold text-white mb-1">
-                  19,90€
-                  <span className="text-lg text-slate-400 font-normal ml-2">+ MwSt.</span>
-                </div>
-                <div className="text-slate-400 text-sm">pro Monat</div>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-2 text-slate-300 text-sm">
-                  <span className="text-green-400">✓</span>
-                  <span>Alle PRO-Funktionen</span>
-                </li>
-                <li className="flex items-center gap-2 text-slate-300 text-sm">
-                  <span className="text-green-400">✓</span>
-                  <span>1 Tag kostenlos testen</span>
-                </li>
-                <li className="flex items-center gap-2 text-slate-300 text-sm">
-                  <span className="text-green-400">✓</span>
-                  <span>Jederzeit kündbar</span>
-                </li>
-              </ul>
-              <button
-                onClick={handleUpgradeClick}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Monatlich wählen
-              </button>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 border-2 border-purple-500/50 rounded-xl p-6 relative">
-              <div className="absolute -top-3 -right-3 bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-full">
-                16% SPAREN
-              </div>
-              <div className="text-center mb-6">
-                <div className="text-4xl mb-2">🎯</div>
-                <h4 className="text-xl font-bold text-white mb-2">Jährlich</h4>
-                <div className="text-4xl font-bold text-white mb-1">
-                  199,99€
-                  <span className="text-lg text-slate-400 font-normal ml-2">+ MwSt.</span>
-                </div>
-                <div className="text-slate-400 text-sm mb-1">pro Jahr</div>
-                <div className="text-green-400 text-sm font-semibold">
-                  ≈ 16,66€/Monat
-                </div>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-2 text-slate-300 text-sm">
-                  <span className="text-green-400">✓</span>
-                  <span>Alle PRO-Funktionen</span>
-                </li>
-                <li className="flex items-center gap-2 text-slate-300 text-sm">
-                  <span className="text-green-400">✓</span>
-                  <span>1 Tag kostenlos testen</span>
-                </li>
-                <li className="flex items-center gap-2 text-slate-300 text-sm">
-                  <span className="text-green-400">✓</span>
-                  <span>Jährlich kündbar</span>
-                </li>
-                <li className="flex items-center gap-2 text-green-300 text-sm font-semibold">
-                  <span className="text-green-400">☆</span>
-                  <span>38,81€ sparen pro Jahr!</span>
-                </li>
-              </ul>
-              <button
-                onClick={handleUpgradeClick}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
-              >
-                Jährlich wählen (BESTE WAHL!)
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">ℹ️</span>
-              <div className="text-sm text-blue-200">
-                <p className="mb-2">
-                  <strong>Kostenloser Test:</strong> 1 Tag vollen PRO-Zugriff ohne Risiko. Erste Zahlung erfolgt nach dem Testzeitraum.
-                </p>
-                <p className="mb-2">
-                  <strong>Jederzeit kündbar:</strong> Sie können Ihr Abonnement jederzeit kündigen. 
-                  Sie behalten Zugriff bis zum Ende der Abrechnungsperiode.
-                </p>
-                <p>
-                  <strong>Sichere Zahlung:</strong> Alle Zahlungen werden sicher über Paddle abgewickelt.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Subscription Details */}
-      {subscription && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
-          <h3 className="text-xl font-bold text-white mb-6">Abonnement Details</h3>
-          
-          <div className="space-y-4">
-            <div className="flex justify-between py-3 border-b border-slate-700">
-              <span className="text-slate-400">Status:</span>
-              <span className={`font-semibold ${
-                subscription.status === 'trial' ? 'text-blue-400' :
-                subscription.cancel_at_period_end ? 'text-orange-400' : 
-                'text-green-400'
-              }`}>
-                {subscription.status === 'trial' ? 'Trial (kostenlos)' :
-                 subscription.cancel_at_period_end ? 'Gekündigt (läuft noch)' : 
-                 'Aktiv'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between py-3 border-b border-slate-700">
-              <span className="text-slate-400">Plan:</span>
-              <span className="text-white font-semibold">{plan?.display_name}</span>
-            </div>
-            
-            <div className="flex justify-between py-3 border-b border-slate-700">
-              <span className="text-slate-400">Preis:</span>
-              <span className="text-white font-semibold">
-                {plan?.price_monthly?.toFixed(2)}€ + MwSt. / Monat
-              </span>
-            </div>
-            
-            {subscription.current_period_end && (
-              <div className="flex justify-between py-3 border-b border-slate-700">
-                <span className="text-slate-400">
-                  {subscription.status === 'trial' ? 'Trial endet am:' :
-                   subscription.cancel_at_period_end ? 'Endet am:' : 
-                   'Nächste Abrechnung:'}
-                </span>
-                <span className="text-white font-semibold">
-                  {new Date(subscription.current_period_end).toLocaleDateString('de-DE')}
-                </span>
-              </div>
-            )}
-            
-            {subscription.paddle_subscription_id && (
-              <div className="flex justify-between py-3">
-                <span className="text-slate-400">Abonnement-ID:</span>
-                <span className="text-slate-500 text-sm font-mono">
-                  {subscription.paddle_subscription_id}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <UpgradeModal
-        isOpen={upgradeModalOpen}
-        onClose={hideUpgradeModal}
-        feature={modalProps.feature}
-        featureName={modalProps.featureName}
-        currentPlan={modalProps.currentPlan}
-      />
     </div>
   )
 }
