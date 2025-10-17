@@ -591,6 +591,30 @@ async function handleTransactionCompleted(data) {
   const subscriptionId = data.subscription_id
 
   if (subscriptionId) {
+    // 🔥 FIX: Ne diraj trial subscription! Samo update-uj ako JE active
+    const { data: currentSub } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('status, trial_ends_at')
+      .eq('paddle_subscription_id', subscriptionId)
+      .single()
+
+    if (!currentSub) {
+      console.warn('⚠️ Subscription not found for transaction.completed')
+      return { success: false, error: 'Subscription not found' }
+    }
+
+    // 🔥 Proveri da li je trial još aktivan
+    const now = new Date()
+    const isTrialActive = currentSub.status === 'trial' && 
+                          currentSub.trial_ends_at && 
+                          new Date(currentSub.trial_ends_at) > now
+
+    if (isTrialActive) {
+      console.log('⏸️ Trial is still active - NOT changing status to active')
+      return { success: true, message: 'Trial active - status unchanged' }
+    }
+
+    // ✅ Samo ako NIJE trial, onda update-uj na active
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
@@ -612,6 +636,30 @@ async function handleTransactionPaid(data) {
   const subscriptionId = data.subscription_id
 
   if (subscriptionId) {
+    // 🔥 FIX: Ne diraj trial subscription!
+    const { data: currentSub } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('status, trial_ends_at')
+      .eq('paddle_subscription_id', subscriptionId)
+      .single()
+
+    if (!currentSub) {
+      console.warn('⚠️ Subscription not found for transaction.paid')
+      return { success: false, error: 'Subscription not found' }
+    }
+
+    // 🔥 Proveri da li je trial još aktivan
+    const now = new Date()
+    const isTrialActive = currentSub.status === 'trial' && 
+                          currentSub.trial_ends_at && 
+                          new Date(currentSub.trial_ends_at) > now
+
+    if (isTrialActive) {
+      console.log('⏸️ Trial is still active - NOT changing status to active')
+      return { success: true, message: 'Trial active - status unchanged' }
+    }
+
+    // ✅ Samo ako NIJE trial, update-uj na active
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
