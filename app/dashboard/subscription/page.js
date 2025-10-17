@@ -63,80 +63,81 @@ export default function SubscriptionPage() {
   }, [router])
 
   // 🔥 REALTIME LISTENER - automatski zatvori progress kad webhook stigne!
-  useEffect(() => {
-    if (!majstor?.id) return
+ // 🔥 REALTIME LISTENER - automatski zatvori progress kad webhook stigne!
+useEffect(() => {
+  if (!majstor?.id) return
 
-    console.log('🔔 Setting up Realtime listener for subscription page...')
+  console.log('🔔 Setting up Realtime listener for subscription page...')
 
-    const channel = supabase
-      .channel(`page-subscription-${majstor.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'user_subscriptions',
-        filter: `majstor_id=eq.${majstor.id}`
-      }, (payload) => {
-        console.log('🔔 REALTIME: Subscription updated!', payload)
+  const channel = supabase
+    .channel(`page-subscription-${majstor.id}`)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'user_subscriptions',
+      filter: `majstor_id=eq.${majstor.id}`
+    }, (payload) => {
+      console.log('🔔 REALTIME: Subscription updated!', payload)
+      
+      const oldCancelFlag = payload.old?.cancel_at_period_end
+      const newCancelFlag = payload.new?.cancel_at_period_end
+      const newStatus = payload.new?.status
+
+      console.log(`📊 Cancel flag: ${oldCancelFlag} → ${newCancelFlag}`)
+      console.log(`📊 Status: ${payload.old?.status} → ${newStatus}`)
+
+      // 🔥 CANCEL CONFIRMATION - proveri SAMO newCancelFlag!
+      if (newCancelFlag === true && processingAction === 'cancel') {
+        console.log('✅ CANCEL CONFIRMED via Realtime!')
+        setProcessingStep(100)
+        setProcessingMessage('Kündigung bestätigt!')
         
-        const oldCancelFlag = payload.old?.cancel_at_period_end
-        const newCancelFlag = payload.new?.cancel_at_period_end
-        const newStatus = payload.new?.status
-
-        console.log(`📊 Cancel flag: ${oldCancelFlag} → ${newCancelFlag}`)
-        console.log(`📊 Status: ${payload.old?.status} → ${newStatus}`)
-
-        // 🔥 CANCEL CONFIRMATION
-        if (processingAction === 'cancel' && oldCancelFlag === false && newCancelFlag === true) {
-          console.log('✅ CANCEL CONFIRMED via Realtime!')
-          setProcessingStep(100)
-          setProcessingMessage('Kündigung bestätigt!')
-          
-          setTimeout(() => {
-            setProcessingAction(null)
-            setCancelling(false)
-            setProcessingStep(0)
-            refresh(true)
-          }, 1500)
-        }
-        // 🔥 REACTIVATE CONFIRMATION
-        else if (processingAction === 'reactivate' && oldCancelFlag === true && newCancelFlag === false) {
-          console.log('✅ REACTIVATE CONFIRMED via Realtime!')
-          setProcessingStep(100)
-          setProcessingMessage('Reaktivierung bestätigt!')
-          
-          setTimeout(() => {
-            setProcessingAction(null)
-            setReactivating(false)
-            setProcessingStep(0)
-            refresh(true)
-          }, 1500)
-        }
-        // 🔥 TRIAL/PRO → CANCELLED (final cancellation)
-        else if (newStatus === 'cancelled') {
-          console.log('✅ SUBSCRIPTION CANCELLED via Realtime!')
-          setProcessingStep(100)
-          setProcessingMessage('Auf Freemium zurückgesetzt!')
-          
-          setTimeout(() => {
-            setProcessingAction(null)
-            setCancelling(false)
-            setProcessingStep(0)
-            refresh(true)
-          }, 1500)
-        }
-        // 🔥 AUTOMATIC REFRESH (webhook stigao kasnije)
-        else if (!processingAction) {
-          console.log('🔄 Automatic refresh triggered by Realtime')
+        setTimeout(() => {
+          setProcessingAction(null)
+          setCancelling(false)
+          setProcessingStep(0)
           refresh(true)
-        }
-      })
-      .subscribe()
+        }, 1500)
+      }
+      // 🔥 REACTIVATE CONFIRMATION - proveri SAMO da je false!
+      else if (newCancelFlag === false && processingAction === 'reactivate') {
+        console.log('✅ REACTIVATE CONFIRMED via Realtime!')
+        setProcessingStep(100)
+        setProcessingMessage('Reaktivierung bestätigt!')
+        
+        setTimeout(() => {
+          setProcessingAction(null)
+          setReactivating(false)
+          setProcessingStep(0)
+          refresh(true)
+        }, 1500)
+      }
+      // 🔥 SUBSCRIPTION CANCELLED (final)
+      else if (newStatus === 'cancelled') {
+        console.log('✅ SUBSCRIPTION CANCELLED via Realtime!')
+        setProcessingStep(100)
+        setProcessingMessage('Auf Freemium zurückgesetzt!')
+        
+        setTimeout(() => {
+          setProcessingAction(null)
+          setCancelling(false)
+          setProcessingStep(0)
+          refresh(true)
+        }, 1500)
+      }
+      // 🔥 AUTOMATIC REFRESH (webhook stigao bez processingAction)
+      else if (!processingAction) {
+        console.log('🔄 Automatic refresh triggered by Realtime')
+        refresh(true)
+      }
+    })
+    .subscribe()
 
-    return () => {
-      console.log('🔌 Unsubscribing from Realtime')
-      supabase.removeChannel(channel)
-    }
-  }, [majstor?.id, processingAction, refresh])
+  return () => {
+    console.log('🔌 Unsubscribing from Realtime')
+    supabase.removeChannel(channel)
+  }
+}, [majstor?.id, processingAction, refresh])
 
   const handleUpgradeClick = () => {
     const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY
