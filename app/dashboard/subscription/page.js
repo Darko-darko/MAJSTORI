@@ -1,13 +1,12 @@
-// app/dashboard/subscription/page.js - PRODUCTION SAFE VERSION
-// ✅ Realtime listener za automatsko zatvaranje progress-a
-// ✅ Koristi cancel_at_period_end umesto status === 'cancelled'
+// app/dashboard/subscription/page.js - FIXED VERSION
+// 🔥 Dugme "Auf PRO upgraden" sada direktno otvara Paddle kao i dugmad sa katancem!
 
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/hooks/useSubscription'
-import { openPaddleCheckout } from '@/lib/paddle'
+import { initializePaddle, openPaddleCheckout, PADDLE_CONFIG } from '@/lib/paddle'
 
 export default function SubscriptionPage() {
   const router = useRouter()
@@ -16,10 +15,11 @@ export default function SubscriptionPage() {
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [reactivating, setReactivating] = useState(false)
+  const [paddleReady, setPaddleReady] = useState(false)
 
   // Processing state - za progress indicator
-  const [processingAction, setProcessingAction] = useState(null) // 'cancel' | 'reactivate' | null
-  const [processingStep, setProcessingStep] = useState(0) // 0-100
+  const [processingAction, setProcessingAction] = useState(null)
+  const [processingStep, setProcessingStep] = useState(0)
   const [processingMessage, setProcessingMessage] = useState('')
 
   const { 
@@ -62,99 +62,136 @@ export default function SubscriptionPage() {
     loadProfile()
   }, [router])
 
-  // 🔥 REALTIME LISTENER - automatski zatvori progress kad webhook stigne!
- // 🔥 REALTIME LISTENER - automatski zatvori progress kad webhook stigne!
-useEffect(() => {
-  if (!majstor?.id) return
-
-  console.log('🔔 Setting up Realtime listener for subscription page...')
-
-  const channel = supabase
-    .channel(`page-subscription-${majstor.id}`)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'user_subscriptions',
-      filter: `majstor_id=eq.${majstor.id}`
-    }, (payload) => {
-      console.log('🔔 REALTIME: Subscription updated!', payload)
-      
-      const oldCancelFlag = payload.old?.cancel_at_period_end
-      const newCancelFlag = payload.new?.cancel_at_period_end
-      const newStatus = payload.new?.status
-
-      console.log(`📊 Cancel flag: ${oldCancelFlag} → ${newCancelFlag}`)
-      console.log(`📊 Status: ${payload.old?.status} → ${newStatus}`)
-
-      // 🔥 CANCEL CONFIRMATION - proveri SAMO newCancelFlag!
-      if (newCancelFlag === true && processingAction === 'cancel') {
-        console.log('✅ CANCEL CONFIRMED via Realtime!')
-        setProcessingStep(100)
-        setProcessingMessage('Kündigung bestätigt!')
-        
-        setTimeout(() => {
-          setProcessingAction(null)
-          setCancelling(false)
-          setProcessingStep(0)
-          refresh(true)
-        }, 1500)
-      }
-      // 🔥 REACTIVATE CONFIRMATION - proveri SAMO da je false!
-      else if (newCancelFlag === false && processingAction === 'reactivate') {
-        console.log('✅ REACTIVATE CONFIRMED via Realtime!')
-        setProcessingStep(100)
-        setProcessingMessage('Reaktivierung bestätigt!')
-        
-        setTimeout(() => {
-          setProcessingAction(null)
-          setReactivating(false)
-          setProcessingStep(0)
-          refresh(true)
-        }, 1500)
-      }
-      // 🔥 SUBSCRIPTION CANCELLED (final)
-      else if (newStatus === 'cancelled') {
-        console.log('✅ SUBSCRIPTION CANCELLED via Realtime!')
-        setProcessingStep(100)
-        setProcessingMessage('Auf Freemium zurückgesetzt!')
-        
-        setTimeout(() => {
-          setProcessingAction(null)
-          setCancelling(false)
-          setProcessingStep(0)
-          refresh(true)
-        }, 1500)
-      }
-      // 🔥 AUTOMATIC REFRESH (webhook stigao bez processingAction)
-      else if (!processingAction) {
-        console.log('🔄 Automatic refresh triggered by Realtime')
-        refresh(true)
-      }
-    })
-    .subscribe()
-
-  return () => {
-    console.log('🔌 Unsubscribing from Realtime')
-    supabase.removeChannel(channel)
-  }
-}, [majstor?.id, processingAction, refresh])
-
-  const handleUpgradeClick = () => {
-    const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_MONTHLY
-
-    openPaddleCheckout(
-      priceId,
-      majstor.id,
-      majstor.email,
+  // 🔥 Initialize Paddle
+  useEffect(() => {
+    console.log('🔥 Initializing Paddle in subscription page...')
+    initializePaddle(
       () => {
-        console.log('✅ Payment successful!')
-        setTimeout(() => refresh(true), 2000)
+        console.log('✅ Paddle ready!')
+        setPaddleReady(true)
       },
       (err) => {
-        console.error('❌ Payment error:', err)
-        setError('Zahlung fehlgeschlagen')
+        console.error('❌ Paddle init failed:', err)
+        setError('Paddle konnte nicht geladen werden.')
       }
     )
+  }, [])
+
+  // Realtime listener
+  useEffect(() => {
+    if (!majstor?.id) return
+
+    console.log('🔔 Setting up Realtime listener for subscription page...')
+
+    const channel = supabase
+      .channel(`page-subscription-${majstor.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'user_subscriptions',
+        filter: `majstor_id=eq.${majstor.id}`
+      }, (payload) => {
+        console.log('🔔 REALTIME: Subscription updated!', payload)
+        
+        const oldCancelFlag = payload.old?.cancel_at_period_end
+        const newCancelFlag = payload.new?.cancel_at_period_end
+        const newStatus = payload.new?.status
+
+        console.log(`📊 Cancel flag: ${oldCancelFlag} → ${newCancelFlag}`)
+        console.log(`📊 Status: ${payload.old?.status} → ${newStatus}`)
+
+        if (newCancelFlag === true && processingAction === 'cancel') {
+          console.log('✅ CANCEL CONFIRMED via Realtime!')
+          setProcessingStep(100)
+          setProcessingMessage('Kündigung bestätigt!')
+          
+          setTimeout(() => {
+            setProcessingAction(null)
+            setCancelling(false)
+            setProcessingStep(0)
+            refresh(true)
+          }, 1500)
+        }
+        else if (newCancelFlag === false && processingAction === 'reactivate') {
+          console.log('✅ REACTIVATE CONFIRMED via Realtime!')
+          setProcessingStep(100)
+          setProcessingMessage('Reaktivierung bestätigt!')
+          
+          setTimeout(() => {
+            setProcessingAction(null)
+            setReactivating(false)
+            setProcessingStep(0)
+            refresh(true)
+          }, 1500)
+        }
+        else if (newStatus === 'cancelled') {
+          console.log('✅ SUBSCRIPTION CANCELLED via Realtime!')
+          setProcessingStep(100)
+          setProcessingMessage('Auf Freemium zurückgesetzt!')
+          
+          setTimeout(() => {
+            setProcessingAction(null)
+            setCancelling(false)
+            setProcessingStep(0)
+            refresh(true)
+          }, 1500)
+        }
+        else if (!processingAction) {
+          console.log('🔄 Automatic refresh triggered by Realtime')
+          refresh(true)
+        }
+      })
+      .subscribe()
+
+    return () => {
+      console.log('🔌 Unsubscribing from Realtime')
+      supabase.removeChannel(channel)
+    }
+  }, [majstor?.id, processingAction, refresh])
+
+  // 🔥 FIXED: Direktno otvara Paddle kao dugmad sa katancem!
+  const handleUpgradeClick = async () => {
+    if (!paddleReady) {
+      setError('Paddle wird noch geladen...')
+      return
+    }
+
+    if (!majstor) {
+      setError('Benutzerdaten fehlen')
+      return
+    }
+
+    console.log('🚀 Opening Paddle Checkout directly!')
+
+    const priceId = PADDLE_CONFIG.priceIds.monthly
+
+    if (!priceId) {
+      setError('Price ID nicht konfiguriert')
+      return
+    }
+
+    try {
+      await openPaddleCheckout({
+        priceId: priceId,
+        email: majstor.email,
+        majstorId: majstor.id,
+        billingInterval: 'monthly',
+        onSuccess: (data) => {
+          console.log('✅ Payment successful!', data)
+          setTimeout(() => {
+            refresh(true)
+            window.location.href = '/dashboard?paddle_success=true&plan=monthly'
+          }, 2000)
+        },
+        onError: (err) => {
+          console.error('❌ Payment error:', err)
+          setError('Zahlung fehlgeschlagen: ' + err.message)
+        }
+      })
+    } catch (err) {
+      console.error('❌ Upgrade error:', err)
+      setError('Fehler beim Öffnen des Checkouts')
+    }
   }
 
   const handleCancelSubscription = async () => {
@@ -197,7 +234,6 @@ useEffect(() => {
       console.log('✅ Paddle API call successful!')
       console.log('⏳ Waiting for webhook confirmation via Realtime...')
 
-      // 🔥 PROGRESS STEPS dok čekamo webhook
       const steps = [
         { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
         { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
@@ -215,7 +251,6 @@ useEffect(() => {
         }, delay)
       })
 
-      // 🔥 TIMEOUT ako webhook ne stigne za 15s
       setTimeout(() => {
         if (processingAction === 'cancel' && processingStep < 100) {
           console.warn('⏰ Timeout - webhook delayed')
@@ -294,7 +329,6 @@ useEffect(() => {
       console.log('✅ Paddle API call successful!')
       console.log('⏳ Waiting for webhook confirmation via Realtime...')
 
-      // Progress steps
       const steps = [
         { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
         { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
@@ -312,7 +346,6 @@ useEffect(() => {
         }, delay)
       })
 
-      // Timeout
       setTimeout(() => {
         if (processingAction === 'reactivate' && processingStep < 100) {
           console.warn('⏰ Timeout - webhook delayed')
@@ -378,14 +411,11 @@ useEffect(() => {
   const daysRemaining = getDaysRemaining()
 
   const getStatusInfo = () => {
-    // Freemium
     if (!subscription || plan?.name === 'freemium' || subscription.status === 'cancelled') {
-      // 🔥 Proveri da li je expired cancelled
       if (subscription?.status === 'cancelled') {
         const now = new Date()
         const periodEnd = new Date(subscription.current_period_end)
         
-        // Ako period još nije istekao
         if (periodEnd > now) {
           return {
             status: 'cancelled',
@@ -414,7 +444,6 @@ useEffect(() => {
       }
     }
 
-    // 🔥 CANCELLED (scheduled for cancellation) - koristi cancel_at_period_end!
     if (subscription.cancel_at_period_end === true && daysRemaining > 0) {
       return {
         status: 'cancelled_pending',
@@ -430,7 +459,6 @@ useEffect(() => {
       }
     }
 
-    // Trial
     if (subscription.status === 'trial' && daysRemaining > 0) {
       return {
         status: 'trial',
@@ -445,7 +473,6 @@ useEffect(() => {
       }
     }
     
-    // Active PRO
     if (subscription.status === 'active' && daysRemaining > 0) {
       return {
         status: 'pro',
@@ -460,7 +487,6 @@ useEffect(() => {
       }
     }
     
-    // Fallback
     return {
       status: 'freemium',
       statusLabel: 'Freemium',
@@ -507,6 +533,18 @@ useEffect(() => {
             </div>
           </div>
         )}
+
+        {/* Paddle Loading Indicator */}
+        {!paddleReady && (
+          <div className="mt-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-yellow-500 border-t-transparent"></div>
+              <p className="text-yellow-300 text-sm">
+                Paddle wird geladen...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
@@ -533,10 +571,10 @@ useEffect(() => {
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  disabled={processingAction}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50"
+                  disabled={processingAction || !paddleReady}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  🚀 Auf PRO upgraden
+                  {!paddleReady ? 'Paddle lädt...' : '🚀 Auf PRO upgraden'}
                 </button>
               )}
               
@@ -608,7 +646,7 @@ useEffect(() => {
           <div className="text-center mb-6 mt-4">
             <h3 className="text-2xl font-bold text-white mb-2">PRO</h3>
             <p className="text-4xl font-bold text-blue-400">€19,99<span className="text-lg text-slate-400">/Monat</span></p>
-            <p className="text-sm text-slate-400 mt-1">7 Tage kostenlos testen</p>
+            <p className="text-sm text-slate-400 mt-1">1 Tag kostenlos testen</p>
           </div>
           <ul className="space-y-3">
             <li className="flex items-start gap-3">
@@ -639,9 +677,10 @@ useEffect(() => {
           {statusInfo.showUpgrade && (
             <button
               onClick={handleUpgradeClick}
-              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+              disabled={!paddleReady}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Jetzt upgraden
+              {!paddleReady ? 'Paddle lädt...' : 'Jetzt upgraden'}
             </button>
           )}
         </div>

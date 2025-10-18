@@ -1,4 +1,4 @@
-// app/components/subscription/UpgradeModal.js - SIMPLIFIED
+// app/components/subscription/UpgradeModal.js - FIXED sa checkout.closed
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -34,6 +34,24 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
     }
   }, [isOpen])
 
+  // 🔥 NOVI: Listen za Paddle events globalno
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handlePaddleCheckoutClosed = (event) => {
+      if (event.detail?.name === 'checkout.closed') {
+        console.log('🚪 Paddle Checkout closed by user')
+        setLoading(false)
+      }
+    }
+
+    window.addEventListener('paddle-checkout-closed', handlePaddleCheckoutClosed)
+
+    return () => {
+      window.removeEventListener('paddle-checkout-closed', handlePaddleCheckoutClosed)
+    }
+  }, [isOpen])
+
   const handleUpgrade = async () => {
     console.log('🚀 handleUpgrade called!', { billingInterval })
     
@@ -65,7 +83,8 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
       console.log('🚀 Opening Paddle checkout:', {
         priceId,
         billingInterval,
-        email: majstorData.email
+        email: majstorData.email,
+        majstorId: majstorData.id
       })
 
       await openPaddleCheckout({
@@ -76,13 +95,18 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
         onSuccess: (data) => {
           console.log('✅ Paddle checkout success:', data)
           
-          // 🔥 POJEDNOSTAVLJEN FLOW - samo redirect, layout će prikazati progress
+          // Redirect nakon uspešne uplate
           console.log('🔄 Redirecting to dashboard...')
           window.location.href = `/dashboard?paddle_success=true&plan=${billingInterval}`
         },
         onError: (err) => {
           console.error('❌ Paddle checkout error:', err)
           setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+          setLoading(false)
+        },
+        // 🔥 NOVO: onClose callback
+        onClose: () => {
+          console.log('🚪 Paddle Checkout closed by user')
           setLoading(false)
         }
       })
@@ -253,6 +277,16 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
             </div>
           )}
 
+          {/* Debug Info */}
+          {!paddleReady && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-3 text-yellow-300">
+                <span className="text-2xl">⏳</span>
+                <span className="text-sm">Paddle wird geladen...</span>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="space-y-3">
             <button
@@ -264,6 +298,11 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
                 <span className="flex items-center justify-center gap-3">
                   <span className="animate-spin">⏳</span>
                   Lädt...
+                </span>
+              ) : !paddleReady ? (
+                <span className="flex items-center justify-center gap-3">
+                  <span className="animate-pulse">⏳</span>
+                  Paddle lädt...
                 </span>
               ) : (
                 <>
