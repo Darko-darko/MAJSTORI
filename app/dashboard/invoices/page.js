@@ -10,6 +10,10 @@ import LogoUpload from '@/app/components/LogoUpload'
 
 
 function DashboardPageContent() {
+
+  
+  
+
   const [activeTab, setActiveTab] = useState('quotes')
   const [quotes, setQuotes] = useState([])
   const [invoices, setInvoices] = useState([])
@@ -58,6 +62,7 @@ function DashboardPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromCustomers = searchParams.get('from') === 'customers'  // 🔥 DODAJ OVO
+  const fromInquiries = searchParams.get('from') === 'inquiries' // 🔥 DODAJ OVO
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
@@ -1877,6 +1882,15 @@ const HardResetModal = () => {
       </div>
       
       <div className="flex flex-col gap-2 items-start sm:items-end">
+        {/* 🔥 Zurück zu Kundenanfragen - prikazuje se SAMO ako dolaziš iz inquiries */}
+        {fromInquiries && (
+          <Link
+            href="/dashboard/inquiries"
+            className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
+          >
+            ← Zurück zu Kundenanfragen
+          </Link>
+        )}
         {/* 🔥 Zurück zu Kunden - prikazuje se SAMO ako dolaziš iz customers */}
         {fromCustomers && (
           <Link

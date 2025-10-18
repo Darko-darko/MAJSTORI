@@ -2,6 +2,7 @@
 
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation' // 🔥 DODAJ OVO
 import { supabase } from '@/lib/supabase'
 import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
 
@@ -13,8 +14,10 @@ export default function InvoiceCreator({
   onSuccess,
   editData = null,
   isEditMode = false,
-  prefilledCustomer = null
+  prefilledCustomer = null,
+  returnTo // 🔥 DODAJ OVO
 }) {
+    const router = useRouter() // 🔥 DODAJ OVO KAO PRVU LINIJU
   // Business data completion check
   const [businessDataComplete, setBusinessDataComplete] = useState(false)
   const [showBusinessDataModal, setShowBusinessDataModal] = useState(false)
@@ -707,8 +710,26 @@ const handleSubmit = async (e) => {
       }
     }
 
-    onSuccess(result.data)
-    onClose()
+   onSuccess(result.data)
+    
+    // 🔥 NOVI REDIRECT LOGIC
+    if (returnTo === 'inquiries') {
+      const targetTab = type === 'quote' ? 'quotes' : 'invoices'
+      router.push(`/dashboard/invoices?tab=${targetTab}&from=inquiries`)
+    } else {
+      onClose()
+    }
+    console.log('🔍 returnTo value:', returnTo)
+console.log('🔍 type value:', type)
+
+if (returnTo === 'inquiries') {
+  const targetTab = type === 'quote' ? 'quotes' : 'invoices'
+  console.log('✅ Redirecting to:', `/dashboard/invoices?tab=${targetTab}&from=inquiries`)
+  router.push(`/dashboard/invoices?tab=${targetTab}&from=inquiries`)
+} else {
+  console.log('❌ No returnTo, closing modal')
+  onClose()
+}
 
   } catch (err) {
     console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)

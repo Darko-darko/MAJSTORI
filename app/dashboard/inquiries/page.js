@@ -282,7 +282,7 @@ const loadInquiries = async () => {
     
     // Zatvori modal i idi na invoices page
     handleInvoiceModalClose()
-    router.push('/dashboard/invoices')
+    
   }
 
   const formatInquiryForInvoice = (inquiry) => {
@@ -898,6 +898,7 @@ const stats = {
           majstor={majstor}
           prefilledCustomer={formatInquiryForInvoice(selectedInquiryForInvoice)}
           onSuccess={handleInvoiceSuccess}
+          returnTo="inquiries" // 🔥 DODAJ OVO
         />
       )}
     </div>
