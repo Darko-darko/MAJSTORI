@@ -1,4 +1,4 @@
-// app/components/subscription/UpgradeModal.js - FIXED sa checkout.closed
+// app/components/subscription/UpgradeModal.js - QUICK FIX
 
 'use client'
 import { useState, useEffect } from 'react'
@@ -31,24 +31,6 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
     if (!isOpen) {
       setLoading(false)
       setError('')
-    }
-  }, [isOpen])
-
-  // 🔥 NOVI: Listen za Paddle events globalno
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handlePaddleCheckoutClosed = (event) => {
-      if (event.detail?.name === 'checkout.closed') {
-        console.log('🚪 Paddle Checkout closed by user')
-        setLoading(false)
-      }
-    }
-
-    window.addEventListener('paddle-checkout-closed', handlePaddleCheckoutClosed)
-
-    return () => {
-      window.removeEventListener('paddle-checkout-closed', handlePaddleCheckoutClosed)
     }
   }, [isOpen])
 
@@ -94,19 +76,11 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
         billingInterval: billingInterval,
         onSuccess: (data) => {
           console.log('✅ Paddle checkout success:', data)
-          
-          // Redirect nakon uspešne uplate
-          console.log('🔄 Redirecting to dashboard...')
           window.location.href = `/dashboard?paddle_success=true&plan=${billingInterval}`
         },
         onError: (err) => {
           console.error('❌ Paddle checkout error:', err)
           setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
-          setLoading(false)
-        },
-        // 🔥 NOVO: onClose callback
-        onClose: () => {
-          console.log('🚪 Paddle Checkout closed by user')
           setLoading(false)
         }
       })
@@ -116,6 +90,14 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
       setError(err.message || 'Ein Fehler ist aufgetreten')
       setLoading(false)
     }
+  }
+
+  // 🔥 NOVA FUNKCIJA - Zatvori modal i resetuj sve
+  const handleClose = () => {
+    console.log('🚪 Modal closing - resetting state')
+    setLoading(false)
+    setError('')
+    onClose()
   }
 
   if (!isOpen) {
@@ -148,11 +130,10 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
       <div className="relative w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 my-8 max-h-[90vh] overflow-y-auto">
         
-        {/* Close Button */}
+        {/* 🔥 CLOSE BUTTON - UVEK OMOGUĆENO! */}
         <button
-          onClick={onClose}
-          disabled={loading}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl z-10 disabled:opacity-50"
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl z-10 hover:bg-slate-700 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
         >
           ×
         </button>
@@ -287,6 +268,8 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
             </div>
           )}
 
+
+
           {/* Action Buttons */}
           <div className="space-y-3">
             <button
@@ -312,9 +295,8 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
             </button>
 
             <button
-              onClick={onClose}
-              disabled={loading}
-              className="w-full bg-slate-700 text-slate-300 px-8 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50"
+              onClick={handleClose}
+              className="w-full bg-slate-700 text-slate-300 px-8 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors"
             >
               Vielleicht später
             </button>
