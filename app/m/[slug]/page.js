@@ -589,15 +589,15 @@ export default function PublicBusinessCardPage({ params }) {
             📱 Kontakt speichern
           </button>
 
-          {/* 🔥 INQUIRY BUTTON - Only show for PRO/Trial users */}
-          {!subscriptionLoading && canReceiveInquiries && (
-            <button 
-              onClick={handleInquiryClick}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
-            >
-              📧 Anfrage senden
-            </button>
-          )}
+         {/* 🔥 INQUIRY BUTTON - Available for ALL users (Freemium + PRO) */}
+{!subscriptionLoading && (
+  <button 
+    onClick={handleInquiryClick}
+    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
+  >
+    📧 Anfrage senden
+  </button>
+)}
 
           {/* 🔥 NO BUTTON FOR FREEMIUM - completely invisible to customers */}
         </div>
@@ -685,7 +685,7 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
 
           {/* 🔥 INQUIRY FORM - Only show for subscribed majstors */}
-          {canReceiveInquiries && showInquiryFormModal && (
+          {showInquiryFormModal && (
             <div 
               ref={inquiryFormRef}
               className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 shadow-2xl"

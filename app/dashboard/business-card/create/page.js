@@ -630,57 +630,35 @@ export default function CreateBusinessCardPage() {
           </div>
         )}
 
-        {/* Action Buttons with Subscription Logic */}
-        <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
-          {/* Save Contact Button - Always visible */}
-          <button 
-            onClick={handleSaveContact}
-            className="w-full bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            📱 Kontakt speichern
-          </button>
+    {/* Action Buttons - Available for ALL users */}
+<div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
+  {/* Save Contact Button - Always visible */}
+  <button 
+    onClick={handleSaveContact}
+    className="w-full bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+  >
+    📱 Kontakt speichern
+  </button>
 
-          {/* Subscription-dependent Inquiry Button */}
-          {subscriptionLoading ? (
-            // Loading state
-            <div className="w-full bg-slate-600/50 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin"></div>
-                Laden...
-              </div>
-            </div>
-          ) : canReceiveInquiries ? (
-            // ✅ PRO/Trial users: Normal preview button
-            <button 
-              onClick={() => alert('Das ist nur Vorschau - Button funktioniert auf der öffentlichen Seite!')}
-              className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg"
-            >
-              📧 Anfrage senden
-            </button>
-          ) : (
-            // ❌ Freemium users: Upgrade prompt
-            <div className="w-full space-y-2">
-              <div className="bg-blue-500/10 border-2 border-dashed border-blue-500/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <span className="text-blue-400 text-lg">💡</span>
-                  <span className="font-semibold">Anfrage-Button verfügbar im PRO Plan</span>
-                </div>
-                <p className="text-xs text-blue-400/80 leading-relaxed">
-                  Empfangen Sie Kundenanfragen mit Fotos direkt über Ihre Visitenkarte
-                </p>
-              </div>
-              
-              <button 
-                onClick={() => {
-                  alert('🚀 Upgrade auf PRO Plan!\n\n✅ Unbegrenzte Kundenanfragen mit Fotos\n✅ Automatische E-Mail-Benachrichtigungen\n✅ Professionelle Rechnungserstellung\n✅ PDF-Export und Archiv\n\nNur 19,90€/Monat - 7 Tage kostenlos testen!')
-                }}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
-              >
-                🚀 Jetzt auf PRO upgraden
-              </button>
-            </div>
-          )}
-        </div>
+  {/* Inquiry Button - Always visible for ALL users */}
+  {subscriptionLoading ? (
+    // Loading state
+    <div className="w-full bg-slate-600/50 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">
+      <div className="flex items-center justify-center gap-2">
+        <div className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin"></div>
+        Laden...
+      </div>
+    </div>
+  ) : (
+    // ✅ Preview button for ALL users (Freemium + PRO)
+    <button 
+      onClick={() => alert('Das ist nur Vorschau - Button funktioniert auf der öffentlichen Seite!')}
+      className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg"
+    >
+      📧 Anfrage senden
+    </button>
+  )}
+</div>
 
         {/* Powered By */}
         <div className="pt-2 border-t border-white/20">

@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useSubscription } from '@/lib/hooks/useSubscription'
+
+
 
 export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState([])
@@ -24,6 +27,7 @@ export default function InquiriesPage() {
   // 🔥 NOVO: Contact question states
   const [showContactQuestion, setShowContactQuestion] = useState(false)
   const [contactMethod, setContactMethod] = useState('') // 'email' ili 'phone'
+  const { hasFeatureAccess } = useSubscription(majstor?.id)
 
   const router = useRouter()
 
@@ -823,38 +827,64 @@ const stats = {
           </div>
         </div>
       )}
+{/* Invoice Type Selection Modal - WITH SUBSCRIPTION GUARD */}
+{showInvoiceModal && selectedInquiryForInvoice && !invoiceType && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+      <h3 className="text-xl font-bold text-white mb-4 text-center">
+        Was möchten Sie für <span className="text-blue-400">{selectedInquiryForInvoice.customer_name}</span> erstellen?
+      </h3>
+      <div className="space-y-3">
+        {/* 🔥 Angebot Button */}
+        {hasFeatureAccess('invoicing') ? (
+          <button
+            onClick={() => handleInvoiceTypeSelect('quote')}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+          >
+            📄 Angebot erstellen
+          </button>
+        ) : (
+          <button
+            onClick={() => window.location.href = '/dashboard/subscription'}
+            className="w-full bg-slate-700/50 text-slate-400 py-3 rounded-lg flex items-center justify-center gap-2 font-medium relative hover:bg-slate-700 transition-colors"
+          >
+            📄 Angebot erstellen
+            <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full border border-blue-500">
+  🔒 Pro
+</span>
+          </button>
+        )}
 
-      {/* Invoice Type Selection Modal */}
-      {showInvoiceModal && selectedInquiryForInvoice && !invoiceType && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold text-white mb-4 text-center">
-              Was möchten Sie für <span className="text-blue-400">{selectedInquiryForInvoice.customer_name}</span> erstellen?
-            </h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => handleInvoiceTypeSelect('quote')}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
-              >
-                📄 Angebot erstellen
-              </button>
-              <button
-                onClick={() => handleInvoiceTypeSelect('invoice')}
-                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium"
-              >
-                🧾 Rechnung erstellen
-              </button>
-              <button
-                onClick={handleInvoiceModalClose}
-                className="w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700 transition-colors"
-              >
-                Abbrechen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* 🔥 Rechnung Button */}
+        {hasFeatureAccess('invoicing') ? (
+          <button
+            onClick={() => handleInvoiceTypeSelect('invoice')}
+            className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium"
+          >
+            🧾 Rechnung erstellen
+          </button>
+        ) : (
+          <button
+            onClick={() => window.location.href = '/dashboard/subscription'}
+            className="w-full bg-slate-700/50 text-slate-400 py-3 rounded-lg flex items-center justify-center gap-2 font-medium relative hover:bg-slate-700 transition-colors"
+          >
+            🧾 Rechnung erstellen
+            <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full border border-blue-500">
+  🔒 Pro
+</span>
+          </button>
+        )}
 
+        <button
+          onClick={handleInvoiceModalClose}
+          className="w-full bg-slate-600 text-white py-2 rounded-lg hover:bg-slate-700 transition-colors"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {/* Invoice Creator Modal */}
       {showInvoiceModal && selectedInquiryForInvoice && invoiceType && majstor && (
         <InvoiceCreator
