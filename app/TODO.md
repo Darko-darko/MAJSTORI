@@ -91,5 +91,7 @@
 - kunden fragen rechnungen flow
 - ai hibrid help
 - superadmin
-- zabranjen pristup iz kundenfragen i einštelung
-- tekst meilla prilikom slanja računa
+- zabranjen pristup iz kundenfragen i einštelung✅
+- tekst meilla prilikom slanja računa✅
+- mesto rada na fakturi
+
