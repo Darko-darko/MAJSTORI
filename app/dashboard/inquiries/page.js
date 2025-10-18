@@ -827,7 +827,7 @@ const stats = {
           </div>
         </div>
       )}
-{/* Invoice Type Selection Modal - WITH SUBSCRIPTION GUARD */}
+{/* Invoice Type Selection Modal - Mobile-Friendly */}
 {showInvoiceModal && selectedInquiryForInvoice && !invoiceType && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
     <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
@@ -844,15 +844,17 @@ const stats = {
             📄 Angebot erstellen
           </button>
         ) : (
-          <button
-            onClick={() => window.location.href = '/dashboard/subscription'}
-            className="w-full bg-slate-700/50 text-slate-400 py-3 rounded-lg flex items-center justify-center gap-2 font-medium relative hover:bg-slate-700 transition-colors"
-          >
-            📄 Angebot erstellen
-            <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full border border-blue-500">
-  🔒 Pro
-</span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => window.location.href = '/dashboard/subscription'}
+              className="w-full bg-slate-700/50 text-slate-400 py-3 rounded-lg flex items-center justify-center gap-2 font-medium hover:bg-slate-700 transition-colors"
+            >
+              📄 Angebot erstellen
+            </button>
+            <span className="absolute -top-2 right-2 flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded-full border border-blue-500 shadow-lg">
+              🔒 Pro
+            </span>
+          </div>
         )}
 
         {/* 🔥 Rechnung Button */}
@@ -864,15 +866,17 @@ const stats = {
             🧾 Rechnung erstellen
           </button>
         ) : (
-          <button
-            onClick={() => window.location.href = '/dashboard/subscription'}
-            className="w-full bg-slate-700/50 text-slate-400 py-3 rounded-lg flex items-center justify-center gap-2 font-medium relative hover:bg-slate-700 transition-colors"
-          >
-            🧾 Rechnung erstellen
-            <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full border border-blue-500">
-  🔒 Pro
-</span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => window.location.href = '/dashboard/subscription'}
+              className="w-full bg-slate-700/50 text-slate-400 py-3 rounded-lg flex items-center justify-center gap-2 font-medium hover:bg-slate-700 transition-colors"
+            >
+              🧾 Rechnung erstellen
+            </button>
+            <span className="absolute -top-2 right-2 flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded-full border border-blue-500 shadow-lg">
+              🔒 Pro
+            </span>
+          </div>
         )}
 
         <button
