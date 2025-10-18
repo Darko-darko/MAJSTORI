@@ -28,9 +28,8 @@ export default function EmailInvoiceModal({
     const defaultSubject = `${documentType} ${documentNumber} von ${businessName}`
     
     const isQuote = invoice.type === 'quote'
-    const defaultMessage = isQuote 
-      ? `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser Angebot ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
-      : `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unsere Rechnung ${documentNumber}.\n\nWir bitten um Begleichung innerhalb der angegebenen Zahlungsfrist.\n\nVielen Dank für Ihr Vertrauen.\n\nMit freundlichen Grüßen\n${businessName}`
+   // 🔥 ISTI TEKST za Angebot i Rechnung
+const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser ${documentType} ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
 
     setFormData(prev => ({
       ...prev,

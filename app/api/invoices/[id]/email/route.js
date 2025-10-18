@@ -193,9 +193,8 @@ function generateEmailHTML(invoice, majstor, customMessage) {
   const isQuote = invoice.type === 'quote'
   
   // Personalizovan default message sa imenom kupca
-  const defaultMessage = isQuote 
-    ? `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser Angebot ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.`
-    : `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unsere Rechnung ${documentNumber}.\n\nWir bitten um Begleichung innerhalb der angegebenen Zahlungsfrist.\n\nVielen Dank für Ihr Vertrauen.`
+ // 🔥 ISTI TEKST za Angebot i Rechnung
+const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser ${documentType} ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.`
 
   // Koristi custom message ako postoji, inače default
   const messageText = customMessage || defaultMessage
