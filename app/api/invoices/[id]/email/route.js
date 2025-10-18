@@ -186,16 +186,18 @@ function generateFilename(invoice) {
   
   return `${documentType}_${documentNumber}_${customerName}.pdf`
 }
-
 function generateEmailHTML(invoice, majstor, customMessage) {
   const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number
+  const customerName = invoice.customer_name || 'Damen und Herren'
   const isQuote = invoice.type === 'quote'
   
+  // Personalizovan default message sa imenom kupca
   const defaultMessage = isQuote 
-    ? `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie unser Angebot ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.`
-    : `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie unsere Rechnung ${documentNumber}.\n\nWir bitten um Begleichung innerhalb der angegebenen Zahlungsfrist.\n\nVielen Dank für Ihr Vertrauen.`
+    ? `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser Angebot ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.`
+    : `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unsere Rechnung ${documentNumber}.\n\nWir bitten um Begleichung innerhalb der angegebenen Zahlungsfrist.\n\nVielen Dank für Ihr Vertrauen.`
 
+  // Koristi custom message ako postoji, inače default
   const messageText = customMessage || defaultMessage
   const messageHTML = messageText.replace(/\n/g, '<br>')
 
@@ -205,11 +207,65 @@ function generateEmailHTML(invoice, majstor, customMessage) {
     <head>
       <meta charset="utf-8">
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 20px; }
-        .footer { border-top: 1px solid #e5e5e5; padding-top: 20px; margin-top: 30px; font-size: 12px; color: #666; }
-        .highlight { background-color: #f0f7ff; padding: 15px; border-left: 4px solid #1e40af; margin: 20px 0; }
+        body { 
+          font-family: Arial, sans-serif; 
+          line-height: 1.6; 
+          color: #333; 
+          background-color: #f9f9f9;
+        }
+        .container { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          padding: 20px;
+          background-color: #ffffff;
+        }
+        .header { 
+          border-bottom: 2px solid #1e40af; 
+          padding-bottom: 20px; 
+          margin-bottom: 20px;
+          color: #333;
+        }
+        .header h2 {
+          color: #333;
+          margin: 0 0 10px 0;
+        }
+        .header p {
+          color: #333;
+          margin: 0;
+        }
+        .content {
+          color: #333;
+        }
+        .content p {
+          color: #333;
+          margin: 10px 0;
+        }
+        .footer { 
+          border-top: 1px solid #e5e5e5; 
+          padding-top: 20px; 
+          margin-top: 30px; 
+          font-size: 12px; 
+          color: #333;
+        }
+        .footer p {
+          color: #333;
+          margin: 5px 0;
+        }
+        .highlight { 
+          background-color: #f0f7ff; 
+          padding: 15px; 
+          border-left: 4px solid #1e40af; 
+          margin: 20px 0;
+          color: #333;
+        }
+        .highlight strong {
+          color: #333;
+        }
+        hr {
+          border: none;
+          border-top: 1px solid #e5e5e5;
+          margin: 15px 0;
+        }
       </style>
     </head>
     <body>
@@ -220,7 +276,6 @@ function generateEmailHTML(invoice, majstor, customMessage) {
         </div>
         
         <div class="content">
-          <p>Liebe/r ${invoice.customer_name},</p>
           <p>${messageHTML}</p>
           
           <div class="highlight">
@@ -229,10 +284,10 @@ function generateEmailHTML(invoice, majstor, customMessage) {
         </div>
         
         <div class="footer">
-          <p>Mit freundlichen Grüßen<br>
-          <strong>${majstor.business_name || majstor.full_name}</strong></p>
+          <p><strong>Mit freundlichen Grüßen</strong><br>
+          ${majstor.business_name || majstor.full_name}</p>
           
-          <hr style="margin: 15px 0;">
+          <hr>
           
           <p>
             ${majstor.business_name || majstor.full_name}<br>
@@ -252,6 +307,7 @@ function generateEmailHTML(invoice, majstor, customMessage) {
     </html>
   `
 }
+
 
 async function logEmailActivity(invoiceId, recipientEmail, emailId) {
   try {

@@ -19,25 +19,26 @@ export default function EmailInvoiceModal({
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (invoice && majstor) {
-      const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
-      const documentNumber = invoice.invoice_number || invoice.quote_number
-      const businessName = majstor?.business_name || majstor?.full_name || 'Pro-Meister'
-      
-      const defaultSubject = `${documentType} ${documentNumber} von ${businessName}`
-      
-      const isQuote = invoice.type === 'quote'
-      const defaultMessage = isQuote 
-        ? `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie unser Angebot ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
-        : `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie unsere Rechnung ${documentNumber}.\n\nWir bitten um Begleichung innerhalb der angegebenen Zahlungsfrist.\n\nVielen Dank für Ihr Vertrauen.\n\nMit freundlichen Grüßen\n${businessName}`
+  if (invoice && majstor) {
+    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+    const documentNumber = invoice.invoice_number || invoice.quote_number
+    const businessName = majstor?.business_name || majstor?.full_name || 'Pro-Meister'
+    const customerName = invoice.customer_name || 'Damen und Herren'
+    
+    const defaultSubject = `${documentType} ${documentNumber} von ${businessName}`
+    
+    const isQuote = invoice.type === 'quote'
+    const defaultMessage = isQuote 
+      ? `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser Angebot ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
+      : `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unsere Rechnung ${documentNumber}.\n\nWir bitten um Begleichung innerhalb der angegebenen Zahlungsfrist.\n\nVielen Dank für Ihr Vertrauen.\n\nMit freundlichen Grüßen\n${businessName}`
 
-      setFormData(prev => ({
-        ...prev,
-        subject: defaultSubject,
-        message: defaultMessage
-      }))
-    }
-  }, [invoice, majstor, isOpen])
+    setFormData(prev => ({
+      ...prev,
+      subject: defaultSubject,
+      message: defaultMessage
+    }))
+  }
+}, [invoice, majstor, isOpen])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
