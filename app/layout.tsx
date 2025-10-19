@@ -50,6 +50,32 @@ export const metadata: Metadata = {
     initialScale: 1,
     maximumScale: 1,
   },
+
+  // 🌐 Open Graph - ZA VIBER, WHATSAPP, FACEBOOK
+  openGraph: {
+    type: 'website',
+    locale: 'de_DE',
+    url: 'https://pro-meister.de',
+    siteName: 'Pro-Meister',
+    title: 'Pro-Meister - Handwerker Dashboard',
+    description: 'Die moderne Plattform für Handwerker - Kundenverwaltung, Rechnungen & mehr',
+    images: [
+      {
+        url: 'https://pro-meister.de/og-image-1200.png',
+        width: 1200,
+        height: 630,
+        alt: 'Pro-Meister Logo',
+      }
+    ],
+  },
+
+  // 🐦 Twitter Cards
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pro-Meister - Handwerker Dashboard',
+    description: 'Die moderne Plattform für Handwerker - Kundenverwaltung, Rechnungen & mehr',
+    images: ['https://pro-meister.de/og-image-1200.png'],
+  },
 };
 
 export default function RootLayout({
