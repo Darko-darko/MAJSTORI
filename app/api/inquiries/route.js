@@ -42,6 +42,7 @@ export async function POST(request) {
         customer_name,
         customer_email,
         customer_phone: body.customer_phone || null,
+        customer_address: body.customer_address || null, // 🔥 DODAJ OVo
         subject,
         message,
         status: 'new',

@@ -290,7 +290,7 @@ const loadInquiries = async () => {
       name: inquiry.customer_name,
       email: inquiry.customer_email,
       phone: inquiry.customer_phone || '',
-      address: ''
+      address: inquiry.customer_address || '' // 🔥 SADA UZIMA PRAVU ADRESU!
     }
   }
 
@@ -513,7 +513,6 @@ const stats = {
         ) : (
           <div className="divide-y divide-slate-700">
 
-
 {filteredInquiries.map((inquiry) => (
   <div 
     key={inquiry.id}
@@ -537,9 +536,16 @@ const stats = {
       
       {/* KONTEJNER 2: Kunde info */}
       <div className="text-slate-300 mb-3">
-        <strong className="text-white">{inquiry.customer_name}</strong>
-        {inquiry.customer_phone && (
-          <span className="ml-2 text-slate-400 text-sm">{inquiry.customer_phone}</span>
+        <div>
+          <strong className="text-white">{inquiry.customer_name}</strong>
+          {inquiry.customer_phone && (
+            <span className="ml-2 text-slate-400 text-sm">{inquiry.customer_phone}</span>
+          )}
+        </div>
+        {inquiry.customer_address && (
+          <div className="text-slate-400 text-xs mt-1">
+            Adresse: {inquiry.customer_address}
+          </div>
         )}
       </div>
       
@@ -557,23 +563,23 @@ const stats = {
       {/* KONTEJNER 5: DROPDOWN-OVI - Potpuno izolovani */}
       <div className="grid grid-cols-2 gap-3">
         <select
-  value={inquiry.status}
-  onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
-  onChange={(e) => {
-    e.stopPropagation()
-    updateInquiryStatus(inquiry.id, e.target.value)
-  }}
+          value={inquiry.status}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation()
+            updateInquiryStatus(inquiry.id, e.target.value)
+          }}
           className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-         <option value="new" >🔴 Neu</option>
-        <option value="read" >🟡 Gelesen</option>
-        <option value="responded" >🔵 Beantwortet</option>
-       <option value="closed" >🟢 Abgeschlossen</option>
+          <option value="new">🔴 Neu</option>
+          <option value="read">🟡 Gelesen</option>
+          <option value="responded">🔵 Beantwortet</option>
+          <option value="closed">🟢 Abgeschlossen</option>
         </select>
         
         <select
           value={inquiry.priority}
-          onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             e.stopPropagation()
             setPriority(inquiry.id, e.target.value)
@@ -581,9 +587,9 @@ const stats = {
           className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="low">🔋 Niedrig</option>
-<option value="normal">📄 Normal</option>
-<option value="high">⚠️ Hoch</option>
-<option value="urgent">🔥 Urgent</option>
+          <option value="normal">📄 Normal</option>
+          <option value="high">⚠️ Hoch</option>
+          <option value="urgent">🔥 Urgent</option>
         </select>
       </div>
     </div>
@@ -595,10 +601,10 @@ const stats = {
           <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(inquiry.status)}`}></div>
           <h3 className="text-lg font-semibold text-white truncate">{inquiry.subject}</h3>
           <span className={`text-sm font-medium whitespace-nowrap ${getPriorityColor(inquiry.priority)}`}>
-             {inquiry.priority === 'urgent' && '🔥 Urgent'}
-             {inquiry.priority === 'high' && '⚠️ Hoch'}
-             {inquiry.priority === 'normal' && '📄 Normal'}
-             {inquiry.priority === 'low' && '🔋 Niedrig'}
+            {inquiry.priority === 'urgent' && '🔥 Urgent'}
+            {inquiry.priority === 'high' && '⚠️ Hoch'}
+            {inquiry.priority === 'normal' && '📄 Normal'}
+            {inquiry.priority === 'low' && '🔋 Niedrig'}
           </span>
         </div>
         
@@ -609,6 +615,11 @@ const stats = {
               <span className="ml-2 text-slate-400 text-sm">{inquiry.customer_phone}</span>
             )}
           </div>
+          {inquiry.customer_address && (
+            <div className="text-slate-400 text-xs mt-1 truncate">
+              Adresse: {inquiry.customer_address}
+            </div>
+          )}
         </div>
         
         <p className="text-slate-400 text-sm mb-3 line-clamp-2">
@@ -622,24 +633,24 @@ const stats = {
       </div>
       
       <div className="flex flex-col gap-2 w-36">
-       <select
-  value={inquiry.status}
-  onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
-  onChange={(e) => {
-    e.stopPropagation()
-    updateInquiryStatus(inquiry.id, e.target.value)
-  }}
+        <select
+          value={inquiry.status}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation()
+            updateInquiryStatus(inquiry.id, e.target.value)
+          }}
           className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-         <option value="new" >🔴 Neu</option>
-  <option value="read" >🟡 Gelesen</option>
-  <option value="responded" >🔵 Beantwortet</option>
-  <option value="closed" >🟢 Abgeschlossen</option>
+          <option value="new">🔴 Neu</option>
+          <option value="read">🟡 Gelesen</option>
+          <option value="responded">🔵 Beantwortet</option>
+          <option value="closed">🟢 Abgeschlossen</option>
         </select>
         
         <select
           value={inquiry.priority}
-          onClick={(e) => e.stopPropagation()} // 🔥 DODAJ OVO
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             e.stopPropagation()
             setPriority(inquiry.id, e.target.value)
@@ -647,9 +658,9 @@ const stats = {
           className="w-full px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="low">🔋 Niedrig</option>
-  <option value="normal">📄 Normal</option>
-  <option value="high">⚠️ Hoch</option>
-  <option value="urgent">🔥 Urgent</option>
+          <option value="normal">📄 Normal</option>
+          <option value="high">⚠️ Hoch</option>
+          <option value="urgent">🔥 Urgent</option>
         </select>
       </div>
     </div>
@@ -686,7 +697,10 @@ const stats = {
                   <p><strong>E-Mail:</strong> {selectedInquiry.customer_email}</p>
                   {selectedInquiry.customer_phone && (
                     <p><strong>Telefon:</strong> {selectedInquiry.customer_phone}</p>
-                  )}
+                    )}
+                  {selectedInquiry.customer_address && (
+  <p><strong>Adresse:</strong> {selectedInquiry.customer_address}</p>
+)}  
                   <p><strong>Datum:</strong> {formatDate(selectedInquiry.created_at)}</p>
                 </div>
               </div>
