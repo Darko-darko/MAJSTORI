@@ -34,6 +34,7 @@ export default function InvoiceCreator({
     customer_address: '',
     customer_phone: '',
     customer_tax_number: '',
+    place_of_service: '', // ✅ DODATO
     items: [{ description: '', quantity: 1, price: 0, total: 0 }],
     subtotal: 0,
     tax_rate: 19,
@@ -377,6 +378,7 @@ export default function InvoiceCreator({
         customer_address: editData.customer_address || '',
         customer_phone: editData.customer_phone || '',
         customer_tax_number: editData.customer_tax_number || '',
+        place_of_service: editData.place_of_service || '', // ✅ DODATO
         items: parsedItems,
         subtotal: editData.subtotal || 0,
         tax_rate: editData.tax_rate || defaultSettings.tax_rate,
@@ -396,7 +398,8 @@ export default function InvoiceCreator({
         customer_email: '',
         customer_address: '',
         customer_phone: '',
-        customer_tax_number: ''
+        customer_tax_number: '',
+        place_of_service: '', // ✅ DODATO
       }
 
       if (prefilledCustomer) {
@@ -649,6 +652,7 @@ export default function InvoiceCreator({
         customer_phone: formData.customer_phone,
         customer_address: formData.customer_address,
         customer_tax_number: formData.customer_tax_number || null,
+        place_of_service: formData.place_of_service || null, // ✅ DODATO
         items: JSON.stringify(formData.items),
         subtotal: formData.subtotal,
         tax_rate: formData.tax_rate,
@@ -981,8 +985,25 @@ export default function InvoiceCreator({
                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                     placeholder="Straße, PLZ Stadt"
                   />
+                  {/* ✅ NOVO POLJE - ORT DER LEISTUNG - odmah ispod adrese */}
+    <div className="md:col-span-2">
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Ort der Leistung (optional)
+      </label>
+      <input
+        type="text"
+        name="place_of_service"
+        value={formData.place_of_service}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+        placeholder="z.B. Berlin, 10115 Berlin, oder vollständige Adresse"
+      />
+      <p className="text-xs text-slate-500 mt-1">
+        Erforderlich für steuerliche Zwecke und ZUGFeRD-Compliance
+      </p>
                 </div>
               </div>
+            </div>
             </div>
 
             {/* Items Section */}
