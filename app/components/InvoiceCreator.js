@@ -451,27 +451,34 @@ export default function InvoiceCreator({
     return () => clearTimeout(timeoutId)
   }, [customerSearchTerm])
 
-  // Search customers
-  const searchCustomers = async (searchTerm) => {
-    try {
-      setSearchLoading(true)
-      const { data, error } = await supabase
-        .from('customers')
-        .select('name, email, phone, address, tax_number')
-        .eq('majstor_id', majstor.id)
-        .ilike('name', `%${searchTerm}%`)
-        .limit(5)
+ // Search customers
+const searchCustomers = async (searchTerm) => {
+  console.log('🔍 Searching for:', searchTerm)
+  
+  try {
+    setSearchLoading(true)
+    
+    // ✅ FIX: Koristimo STVARNE kolone iz tabele
+    const { data, error } = await supabase
+      .from('customers')
+      .select('name, email, phone, street, postal_code, city, tax_number, company_name')
+      .eq('majstor_id', majstor.id)
+      .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
+      .limit(10)
 
-      if (!error && data) {
-        setCustomerSuggestions(data)
-        setShowCustomerDropdown(data.length > 0)
-      }
-    } catch (err) {
-      console.error('Error searching customers:', err)
-    } finally {
-      setSearchLoading(false)
+    console.log('📦 Results:', data)
+    console.log('❌ Error:', error)
+
+    if (!error && data) {
+      setCustomerSuggestions(data)
+      setShowCustomerDropdown(data.length > 0)
     }
+  } catch (err) {
+    console.error('Error searching customers:', err)
+  } finally {
+    setSearchLoading(false)
   }
+}
 
   // Handle customer select
   const handleCustomerSelect = (customer) => {
@@ -913,27 +920,37 @@ export default function InvoiceCreator({
                   />
                   
                   {/* Customer Suggestions Dropdown */}
-                  {showCustomerDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
-                      {searchLoading ? (
-                        <div className="p-3 text-slate-400 text-center">Suche...</div>
-                      ) : customerSuggestions.length === 0 ? (
-                        <div className="p-3 text-slate-400 text-center">Keine Kunden gefunden</div>
-                      ) : (
-                        customerSuggestions.map((customer, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => handleCustomerSelect(customer)}
-                            className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0 focus:outline-none focus:bg-slate-700"
-                          >
-                            <div className="font-medium">{customer.name}</div>
-                            <div className="text-slate-400 text-xs">{customer.email}</div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
+{showCustomerDropdown && (
+  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+    {searchLoading ? (
+      <div className="p-3 text-slate-400 text-center">
+        🔍 Suche...
+      </div>
+    ) : customerSuggestions.length === 0 ? (
+      <div className="p-3 text-slate-400 text-center">
+        Keine Kunden gefunden
+      </div>
+    ) : (
+      customerSuggestions.map((customer, index) => (
+        <button
+          key={index}
+          type="button"
+          onClick={() => handleCustomerSelect(customer)}
+          className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0 focus:outline-none focus:bg-slate-700"
+        >
+          <div className="font-medium">{customer.name}</div>
+          {customer.company_name && (
+            <div className="text-slate-400 text-xs">🏢 {customer.company_name}</div>
+          )}
+          <div className="text-slate-400 text-xs">📧 {customer.email}</div>
+          {customer.phone && (
+            <div className="text-slate-400 text-xs">📞 {customer.phone}</div>
+          )}
+        </button>
+      ))
+    )}
+  </div>
+)}
                 </div>
 
                 <div>
