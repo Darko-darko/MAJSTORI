@@ -250,7 +250,7 @@ export default function InvoiceCreator({
             
             <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
               <p className="text-slate-300 text-sm mb-2">
-                <strong className="text-blue-400">Was passiert bei "Ja":</strong>
+                <strong className="text-blue-400">Was passiert bei &quotJa&quot:</strong>
               </p>
               <ul className="text-slate-400 text-sm space-y-1 ml-4">
                 <li>✅ Änderungen werden gespeichert</li>
@@ -262,7 +262,7 @@ export default function InvoiceCreator({
 
             <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
               <p className="text-slate-300 text-sm mb-2">
-                <strong className="text-slate-400">Was passiert bei "Nein":</strong>
+                <strong className="text-slate-400">Was passiert bei &quotNein&quot:</strong>
               </p>
               <ul className="text-slate-400 text-sm space-y-1 ml-4">
                 <li>❌ Änderungen werden NICHT gespeichert</li>
