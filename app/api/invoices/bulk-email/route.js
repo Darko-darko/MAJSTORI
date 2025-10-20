@@ -54,34 +54,9 @@ export async function POST(request) {
 
     console.log('📄 Found', invoices.length, 'invoices with existing PDFs')
 
-    // 🔥 NEW: Check for outdated PDFs in batch
-    const outdatedInvoices = invoices.filter(inv => 
-      inv.type === 'invoice' && 
-      inv.pdf_generated_at && 
-      new Date(inv.updated_at) > new Date(inv.pdf_generated_at)
-    )
+ 
 
-    if (outdatedInvoices.length > 0) {
-      console.warn('⚠️ CRITICAL: Found', outdatedInvoices.length, 'outdated invoice PDFs')
-      
-      const outdatedNumbers = outdatedInvoices.map(inv => inv.invoice_number).join(', ')
-      
-      return NextResponse.json({ 
-        error: `⚠️ ${outdatedInvoices.length} Rechnung(en) haben veraltete PDFs/ZUGFeRD XML:\n\n` +
-               `${outdatedNumbers}\n\n` +
-               `Diese Rechnungen wurden nach der PDF-Generierung aktualisiert.\n\n` +
-               `Bitte:\n` +
-               `1. Öffnen Sie jede Rechnung einzeln (regeneriert PDF automatisch)\n` +
-               `2. Oder verwenden Sie einzelnen E-Mail-Versand (regeneriert automatisch)\n` +
-               `3. Dann versuchen Sie den Bulk-Versand erneut\n\n` +
-               `❗ Bulk-Versand ist für Ihre Sicherheit blockiert, um zu verhindern ` +
-               `dass veraltete ZUGFeRD XML-Daten an Ihre Buchhalter gesendet werden.`,
-        outdatedInvoices: outdatedNumbers
-      }, { status: 400 })
-    }
-
-    console.log('✅ All invoice PDFs are up-to-date, safe for bulk email')
-
+    
     // Get majstor data
     const { data: majstor, error: majstorError } = await supabase
       .from('majstors')
