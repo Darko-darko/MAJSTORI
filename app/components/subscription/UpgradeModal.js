@@ -113,7 +113,7 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
       popular: false
     },
     yearly: {
-      price: 199.99,
+      price: 199.90,
       period: 'Jahr',
       periodShort: 'jährl.',
       savings: '16%',

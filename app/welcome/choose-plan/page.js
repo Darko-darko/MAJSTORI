@@ -32,7 +32,7 @@ export default function ChoosePlanPage() {
     },
     pro: {
       monthly: { price: 19.90, period: 'Monat' },
-      yearly: { price: 199.99, period: 'Jahr', monthlyEquiv: 16.67, savings: 17 },
+      yearly: { price: 199.90, period: 'Jahr', monthlyEquiv: 16.66, savings: 16 },
       name: 'PRO',
       icon: '💎',
       color: 'from-blue-600 to-purple-600',

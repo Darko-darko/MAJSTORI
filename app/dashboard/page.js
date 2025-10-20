@@ -509,15 +509,21 @@ function DashboardPageContent() {
           </SubscriptionGuard>
 
     
-            <Link
-              href="/dashboard/pdf-archive"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-            >
-              <div className="text-2xl mb-2">🗂️</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                PDF Archiv
-              </div>
-            </Link>
+            <SubscriptionGuard
+  feature="pdf_archive"
+  majstorId={majstor?.id}
+  showUpgradePrompt={false}
+>
+  <Link
+    href="/dashboard/pdf-archive"
+    className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
+  >
+    <div className="text-2xl mb-2">🗂️</div>
+    <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
+      PDF Archiv
+    </div>
+  </Link>
+</SubscriptionGuard>
          
           <SubscriptionGuard
             feature="settings"

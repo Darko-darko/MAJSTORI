@@ -15,6 +15,11 @@ export function SubscriptionGuard({
 }) {
   const { hasFeatureAccess, plan, loading, isFreemium } = useSubscription(majstorId)
 
+   // ✅ PDF Archive je UVEK dostupan - early return
+  if (feature === 'pdf_archive') {
+    return children
+  }
+
   if (loading) {
     return <div className="animate-pulse bg-slate-700 h-20 rounded-lg"></div>
   }
