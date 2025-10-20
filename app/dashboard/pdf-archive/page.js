@@ -1,4 +1,4 @@
-// app/dashboard/pdf-archive/page.js - KOMPLETAN SA PDF REGENERATION FIXOM
+// app/dashboard/pdf-archive/page.js - CLEAN VERSION WITHOUT DUPLICATES
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -93,7 +93,8 @@ export default function PDFArchivePage() {
         .select(`
           id, type, invoice_number, quote_number, customer_name, 
           total_amount, pdf_generated_at, pdf_storage_path, pdf_file_size,
-          created_at, status, customer_email, issue_date, updated_at
+          created_at, status, customer_email, issue_date, updated_at,
+          email_sent_at, email_sent_to
         `)
         .eq('majstor_id', majstorId)
         .not('pdf_storage_path', 'is', null)
@@ -130,17 +131,13 @@ export default function PDFArchivePage() {
       if (error) throw error
 
       setArchivedPDFs(pdfsData || [])
-      console.log('✅ Loaded', pdfsData?.length || 0, 'archived PDFs (no dummies)')
+      console.log('✅ Loaded', pdfsData?.length || 0, 'archived PDFs')
 
     } catch (err) {
       console.error('Archive loading error:', err)
       setError('Fehler beim Laden der PDF-Archive')
     }
   }
-
-  
-
-  
 
   const loadInvoiceDetails = async (pdfId) => {
     try {
@@ -155,7 +152,7 @@ export default function PDFArchivePage() {
       if (error) throw error
       
       setSelectedPDF(invoice)
-      console.log('✅ Loaded full invoice details for:', invoice.invoice_number || invoice.quote_number)
+      console.log('✅ Loaded full invoice details')
 
     } catch (err) {
       console.error('Error loading invoice details:', err)
@@ -230,45 +227,37 @@ export default function PDFArchivePage() {
     setSelectedPDFs(new Set())
   }
 
- const downloadPDF = async (pdfId) => {
-  try {
-    // ✅ UVEK svež PDF
-    const response = await fetch(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`)
-    if (!response.ok) throw new Error('PDF download failed')
-    
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `invoice-${pdfId}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch (err) {
-    alert('Download fehlgeschlagen: ' + err.message)
+  const downloadPDF = async (pdfId) => {
+    try {
+      const response = await fetch(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`)
+      if (!response.ok) throw new Error('PDF download failed')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoice-${pdfId}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Download fehlgeschlagen: ' + err.message)
+    }
   }
-}
 
- const openPDFInNewTab = (pdfId) => {
-  // ✅ UVEK regeneriši - garantuje svež PDF
-  window.open(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`, '_blank')
-}
+  const openPDFInNewTab = (pdfId) => {
+    window.open(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`, '_blank')
+  }
 
-// app/dashboard/pdf-archive/page.js
-// Dodaj ovu funkciju negde posle loadData(), pre handleBulkEmail()
+  const isPdfOutdated = (pdf) => {
+    if (pdf.type !== 'invoice') return false
+    if (!pdf.pdf_generated_at) return true
+    
+    const pdfGeneratedAt = new Date(pdf.pdf_generated_at)
+    const updatedAt = new Date(pdf.updated_at)
+    
+    return updatedAt > pdfGeneratedAt
+  }
 
-const isPdfOutdated = (pdf) => {
-  // Only check invoices (quotes don't have ZUGFeRD)
-  if (pdf.type !== 'invoice') return false
-  
-  // If no pdf_generated_at, consider it outdated
-  if (!pdf.pdf_generated_at) return true
-  
-  // Compare timestamps
-  const pdfGeneratedAt = new Date(pdf.pdf_generated_at)
-  const updatedAt = new Date(pdf.updated_at)
-  
-  return updatedAt > pdfGeneratedAt
-}
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
     
@@ -276,7 +265,6 @@ const isPdfOutdated = (pdf) => {
       const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
       const selectedIds = Array.from(selectedPDFs)
       
-      // 🔥 NEW: Check for outdated PDFs before sending
       const outdatedPDFs = selectedItems.filter(pdf => isPdfOutdated(pdf))
       
       if (outdatedPDFs.length > 0) {
@@ -312,8 +300,6 @@ const isPdfOutdated = (pdf) => {
           return
         }
         
-        console.log(`📦 Splitting ${selectedIds.length} PDFs into ${emailCount} emails`)
-        
         const emailValidation = validateEmails(emailData.email)
         if (!emailValidation.valid) {
           alert(`❌ Ungültige E-Mail-Adressen: ${emailValidation.invalidEmails.join(', ')}`)
@@ -327,8 +313,6 @@ const isPdfOutdated = (pdf) => {
         for (let i = 0; i < selectedIds.length; i += MAX_PDFS_PER_EMAIL) {
           const chunk = selectedIds.slice(i, i + MAX_PDFS_PER_EMAIL)
           const chunkNumber = Math.floor(i / MAX_PDFS_PER_EMAIL) + 1
-          
-          console.log(`📧 Sending email ${chunkNumber}/${emailCount} with ${chunk.length} PDFs`)
           
           try {
             const response = await fetch('/api/invoices/bulk-email', {
@@ -347,7 +331,6 @@ const isPdfOutdated = (pdf) => {
               successfulEmails++
             } else {
               failedEmails++
-              console.error(`Failed to send email chunk ${chunkNumber}:`, await response.text())
             }
             
             if (i + MAX_PDFS_PER_EMAIL < selectedIds.length) {
@@ -355,7 +338,6 @@ const isPdfOutdated = (pdf) => {
             }
             
           } catch (chunkError) {
-            console.error(`Error sending email chunk ${chunkNumber}:`, chunkError)
             failedEmails++
           }
         }
@@ -376,8 +358,6 @@ const isPdfOutdated = (pdf) => {
         alert(`❌ Ungültige E-Mail-Adressen: ${emailValidation.invalidEmails.join(', ')}`)
         return
       }
-      
-      console.log('📧 Sending single bulk email to:', emailValidation.emails)
       
       const response = await fetch('/api/invoices/bulk-email', {
         method: 'POST',
@@ -412,19 +392,11 @@ const isPdfOutdated = (pdf) => {
   const handleFilterChange = (newFilters) => {
     setFilters(prev => {
       if (newFilters.type && newFilters.type !== prev.type) {
-        return { 
-          ...prev, 
-          ...newFilters,
-          customer: ''
-        }
+        return { ...prev, ...newFilters, customer: '' }
       }
       
       if (newFilters.dateRange && newFilters.dateRange !== prev.dateRange) {
-        return { 
-          ...prev, 
-          ...newFilters,
-          customer: ''
-        }
+        return { ...prev, ...newFilters, customer: '' }
       }
       
       return { ...prev, ...newFilters }
@@ -474,6 +446,7 @@ const isPdfOutdated = (pdf) => {
     return colors[status] || colors.draft
   }
 
+  // ✅ CLEAN DetailView Component - NO DUPLICATES
   const DetailView = ({ invoice }) => {
     if (!invoice) return null
 
@@ -559,23 +532,32 @@ const isPdfOutdated = (pdf) => {
             </div>
           </div>
 
+          {/* ✅ NEW: Email & PDF Status Section */}
           <div className="bg-slate-900/50 rounded-lg p-3 mb-4">
-            <h5 className="text-white font-medium mb-2">📁 PDF Information</h5>
+            <h5 className="text-white font-medium mb-2">📧 Email & PDF Status</h5>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="text-slate-400">Erstellt:</span>
+                <span className="text-slate-400">PDF erstellt:</span>
                 <p className="text-slate-300">{formatDate(invoice.pdf_generated_at)}</p>
               </div>
-              <div>
-                <span className="text-slate-400">Dateigröße:</span>
-                <p className="text-slate-300">{formatFileSize(invoice.pdf_file_size)}</p>
-              </div>
-              <div>
-                <span className="text-slate-400">Speicherpfad:</span>
-                <p className="text-slate-300 truncate" title={invoice.pdf_storage_path}>
-                  {invoice.pdf_storage_path}
-                </p>
-              </div>
+              
+              {invoice.email_sent_at ? (
+                <>
+                  <div>
+                    <span className="text-slate-400">Zuletzt gesendet:</span>
+                    <p className="text-green-300">{formatDate(invoice.email_sent_at)}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Empfänger:</span>
+                    <p className="text-slate-300 truncate">{invoice.email_sent_to || 'N/A'}</p>
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-2">
+                  <span className="text-slate-400">Status:</span>
+                  <p className="text-yellow-300">📤 Noch nicht gesendet</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1170,55 +1152,42 @@ const isPdfOutdated = (pdf) => {
         </div>
       ) : (
         <div className="grid gap-3">
-          {archivedPDFs.map((pdf) => {
-     
-            
-            return (
-              <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-                
-           
-                
-                <div className="flex items-center gap-4">
-                  
+          {archivedPDFs.map((pdf) => (
+            <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+              <div className="flex items-center gap-4">
                 <input
-  type="checkbox"
-  checked={selectedPDFs.has(pdf.id)}
-  onChange={() => togglePDFSelection(pdf.id)}
-  className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded focus:ring-green-500"
-/>
+                  type="checkbox"
+                  checked={selectedPDFs.has(pdf.id)}
+                  onChange={() => togglePDFSelection(pdf.id)}
+                  className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded focus:ring-green-500"
+                />
 
-                  <div className="flex items-center gap-2 flex-1">
-                    <h4 className="text-white font-semibold">
-                      {pdf.invoice_number || pdf.quote_number}
-                    </h4>
-                    <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(pdf.type)}`}>
-                      {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
-                    </span>
-                    
-                
-                  </div>
-
-                  <div className="hidden sm:block text-slate-400 flex-1">
-                    {pdf.customer_name}
-                  </div>
-
-                  <div className="text-white font-semibold">
-                    {formatCurrency(pdf.total_amount)}
-                  </div>
-
-                  <button 
-  onClick={() => showDetails(pdf.id)}
-  className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
->
-  👁️ Ansehen
-</button>
+                <div className="flex items-center gap-2 flex-1">
+                  <h4 className="text-white font-semibold">
+                    {pdf.invoice_number || pdf.quote_number}
+                  </h4>
+                  <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(pdf.type)}`}>
+                    {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
+                  </span>
                 </div>
-                
-              
-                
+
+                <div className="hidden sm:block text-slate-400 flex-1">
+                  {pdf.customer_name}
+                </div>
+
+                <div className="text-white font-semibold">
+                  {formatCurrency(pdf.total_amount)}
+                </div>
+
+                <button 
+                  onClick={() => showDetails(pdf.id)}
+                  className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
+                >
+                  👁️ Ansehen
+                </button>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
 
