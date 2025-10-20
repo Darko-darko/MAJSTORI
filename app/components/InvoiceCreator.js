@@ -437,19 +437,7 @@ export default function InvoiceCreator({
     }
   }
 
-  // Customer search with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (customerSearchTerm.length >= 2 && !isEditMode && !prefilledCustomer) {
-        searchCustomers(customerSearchTerm)
-      } else {
-        setCustomerSuggestions([])
-        setShowCustomerDropdown(false)
-      }
-    }, 300)
-
-    return () => clearTimeout(timeoutId)
-  }, [customerSearchTerm])
+ 
 
  // Search customers
 const searchCustomers = async (searchTerm) => {
@@ -461,7 +449,7 @@ const searchCustomers = async (searchTerm) => {
     // ✅ FIX: Koristimo STVARNE kolone iz tabele
     const { data, error } = await supabase
       .from('customers')
-      .select('name, email, phone, street, postal_code, city, tax_number, company_name')
+      .select('name, email, phone, street, postal_code, city, tax_number')
       .eq('majstor_id', majstor.id)
       .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
       .limit(10)
@@ -482,17 +470,26 @@ const searchCustomers = async (searchTerm) => {
 
   // Handle customer select
   const handleCustomerSelect = (customer) => {
+
+    // ✅ PRVO definiši fullAddress
+  const addressParts = []
+  if (customer.street) addressParts.push(customer.street)
+  if (customer.postal_code || customer.city) {
+    addressParts.push(`${customer.postal_code || ''} ${customer.city || ''}`.trim())
+  }
+  const fullAddress = addressParts.join('\n')
     setFormData(prev => ({
       ...prev,
       customer_name: customer.name || '',
       customer_email: customer.email || '',
       customer_phone: customer.phone || '',
-      customer_address: customer.address || '',
+      customer_address: fullAddress || '',
       customer_tax_number: customer.tax_number || ''
     }))
     
-    setCustomerSearchTerm(customer.name)
-    setShowCustomerDropdown(false)
+  setCustomerSearchTerm(customer.name)
+  setShowCustomerDropdown(false)
+  setCustomerSuggestions([])  // ✅ DODAJ ovu liniju
   }
 
   // Service selection for items
@@ -512,23 +509,31 @@ const searchCustomers = async (searchTerm) => {
     calculateTotals(newItems)
   }
 
-  // Handle customer name change
-  const handleCustomerNameChange = (e) => {
-    const value = e.target.value
-    setCustomerSearchTerm(value)
-    setFormData(prev => ({ ...prev, customer_name: value }))
-    
-    if (value.length === 0) {
-      setFormData(prev => ({
-        ...prev,
-        customer_name: '',
-        customer_email: '',
-        customer_phone: '',
-        customer_address: '',
-        customer_tax_number: ''
-      }))
-    }
+  // 2. ✅ IZMENI handleCustomerNameChange (oko linije 320)
+const handleCustomerNameChange = (e) => {
+  const value = e.target.value
+  setCustomerSearchTerm(value)
+  setFormData(prev => ({ ...prev, customer_name: value }))
+  
+  // ✅ DODAJ search direktno ovde (kao kod services)
+  if (value.length >= 2 && !isEditMode && !prefilledCustomer) {
+    searchCustomers(value)
+  } else {
+    setCustomerSuggestions([])
+    setShowCustomerDropdown(false)
   }
+  
+  if (value.length === 0) {
+    setFormData(prev => ({
+      ...prev,
+      customer_name: '',
+      customer_email: '',
+      customer_phone: '',
+      customer_address: '',
+      customer_tax_number: ''
+    }))
+  }
+}
 
   // Handle input change
   const handleInputChange = (e) => {
