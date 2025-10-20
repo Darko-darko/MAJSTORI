@@ -43,17 +43,17 @@
 - doterati privacy i terms page
 - kada se registruje gore levo piše prvi deo maila, da se to automatski zameni kada se ime promeni u bazi (nakon prvog rechtung)✅
 - google auth sa supa baza pro✅
-- brojevi faktura nakon plaćanja opet da podese
+- brojevi faktura nakon plaćanja opet da podese✅
 - White kabeling bez google auth
 - wizzard i help
-- upload profil foto u general setings i promena teksta na upload logo u bizcard... (logo i vaša slika ili sl.)
+- upload profil foto u general setings i promena teksta na upload logo u bizcard... (logo i vaša slika ili sl.)✅
 - pdf arhiva i slanje knjigovođi✅
 
 - white lebeling ukloniti iz supabase  (subscription_features tabele) ili osmisliti kako to da rašimo!
 - pdf arhiva i bulk action!!!✅
 - možda doterati u create invoice da kad se napravi pdf da se promeni dugme, isto tako i za email✅
 - posle 300-500 korisnika poboljšati aplikaciju 
-- kasnije obrisati test za subskripcije
+- kasnije obrisati test za subskripcije✅
 - PWA
 - email za vizit karte... jedno inpu polje je višak !!✅
 - rešiti za freemium upgrade, pošto nema einstelung!✅
@@ -65,13 +65,13 @@
 
 - 1 za brisanje u hard resetu backspace✅
 - guards na stats✅
-- adresa na upitu
+- adresa na upitu✅
 - emeil potvrda
 - zmghnfz  plaćena verzja supa basea
 - videti securiry key✅✅✅
 - pdf arhif id majstora obrisati✅
-- brisanje test page
-- logo
+- brisanje test page✅
+- logo✅
 - google search konzola
 - help i faq
 - novi sad izbrista paddle support
@@ -88,10 +88,11 @@
 - ćošak iz rehnunga kontejner
 - ispitati kada se sve refrešuje leyout✅
 - možda ukinuti onih šest refreša za paddle✅
-- kunden fragen rechnungen flow
+- kunden fragen rechnungen flow✅
 - ai hibrid help
 - superadmin
 - zabranjen pristup iz kundenfragen i einštelung✅
 - tekst meilla prilikom slanja računa✅
-- mesto rada na fakturi
-
+- mesto rada na fakturi✅
+- da template u računu bude isti kao u angebotu za skanje en+maila✅
+- pdf arhiv treba da je dostupan za freemium

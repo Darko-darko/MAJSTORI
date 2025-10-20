@@ -253,6 +253,22 @@ export default function PDFArchivePage() {
   window.open(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`, '_blank')
 }
 
+// app/dashboard/pdf-archive/page.js
+// Dodaj ovu funkciju negde posle loadData(), pre handleBulkEmail()
+
+const isPdfOutdated = (pdf) => {
+  // Only check invoices (quotes don't have ZUGFeRD)
+  if (pdf.type !== 'invoice') return false
+  
+  // If no pdf_generated_at, consider it outdated
+  if (!pdf.pdf_generated_at) return true
+  
+  // Compare timestamps
+  const pdfGeneratedAt = new Date(pdf.pdf_generated_at)
+  const updatedAt = new Date(pdf.updated_at)
+  
+  return updatedAt > pdfGeneratedAt
+}
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
     
