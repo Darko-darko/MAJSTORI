@@ -637,7 +637,7 @@ useEffect(() => {
         name: 'PDF Archiv', 
         href: '/dashboard/pdf-archive', 
         icon: '🗂️',
-        protected: true,
+        protected: false,
         feature: 'pdf_archive'
       }
     ]

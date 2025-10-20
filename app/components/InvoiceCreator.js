@@ -727,34 +727,43 @@ const handleCustomerNameChange = (e) => {
           }
         }
 
-      } else {
-        // CREATE NEW INVOICE/QUOTE
-        result = await supabase
-          .from('invoices')
-          .insert(invoiceData)
-          .select()
-          .single()
+     } else {
+  // CREATE NEW INVOICE/QUOTE
+  result = await supabase
+    .from('invoices')
+    .insert(invoiceData)
+    .select()
+    .single()
 
-        if (result.error) throw result.error
+  if (result.error) throw result.error
 
-        // AUTO-PDF GENERATION for NEW invoices/quotes
-        try {
-          console.log('🤖 Auto-generating PDF for new document:', result.data.id)
-          
-          const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
-          
-          if (pdfResponse.ok) {
-            console.log('✅ PDF automatically generated and stored')
-          } else {
-            console.warn('⚠️ Auto PDF generation failed:', pdfResponse.statusText)
-          }
-        } catch (pdfError) {
-          console.warn('⚠️ Auto PDF generation error:', pdfError)
-        }
-      }
+  // ✅ POKUŠAJ PDF generaciju
+  console.log('🤖 Generating PDF for new document:', result.data.id)
+  
+  try {
+    const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
+    
+    if (pdfResponse.ok) {
+      console.log('✅ PDF successfully generated')
+    } else {
+      throw new Error(pdfResponse.statusText)
+    }
+  } catch (pdfError) {
+    console.error('❌ PDF generation failed:', pdfError)
+    
+    // ⚠️ UPOZORI korisnika ALI nastavi
+    alert(
+      '⚠️ WICHTIG: PDF wurde nicht generiert!\n\n' +
+      'Die Rechnung ist gespeichert, aber das PDF fehlt.\n' +
+      'Bitte öffnen Sie die Rechnung über "Ansehen" um das PDF zu generieren.'
+    )
+    
+    // ✅ NE bacaj grešku - nastavi normalno
+  }
+}
 
-      onSuccess(result.data)
-      onClose()
+onSuccess(result.data)
+onClose()
 
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)

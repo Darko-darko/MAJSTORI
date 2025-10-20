@@ -508,25 +508,7 @@ function DashboardPageContent() {
             </Link>
           </SubscriptionGuard>
 
-          <SubscriptionGuard
-            feature="pdf_archive"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => handleProtectedFeatureClick('pdf_archive', 'PDF Archiv')}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-              >
-                <div className="text-2xl mb-2 opacity-60">🗂️</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  PDF Archiv
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
+    
             <Link
               href="/dashboard/pdf-archive"
               className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
@@ -536,8 +518,7 @@ function DashboardPageContent() {
                 PDF Archiv
               </div>
             </Link>
-          </SubscriptionGuard>
-
+         
           <SubscriptionGuard
             feature="settings"
             majstorId={majstor?.id}

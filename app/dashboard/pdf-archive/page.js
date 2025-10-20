@@ -126,7 +126,8 @@ export default function PDFArchivePage() {
           .lte('pdf_generated_at', endOfCustomMonth.toISOString())
       }
 
-      const { data: pdfsData, error } = await query.order('pdf_generated_at', { ascending: false })
+      const { data: pdfsData, error } = await query
+  .order('invoice_number', { ascending: false })  // ✅ Sortiraj po broju fakture
 
       if (error) throw error
 
