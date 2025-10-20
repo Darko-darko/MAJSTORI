@@ -248,15 +248,7 @@ export default function PDFArchivePage() {
     window.open(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`, '_blank')
   }
 
-  const isPdfOutdated = (pdf) => {
-    if (pdf.type !== 'invoice') return false
-    if (!pdf.pdf_generated_at) return true
-    
-    const pdfGeneratedAt = new Date(pdf.pdf_generated_at)
-    const updatedAt = new Date(pdf.updated_at)
-    
-    return updatedAt > pdfGeneratedAt
-  }
+
 
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
@@ -265,25 +257,7 @@ export default function PDFArchivePage() {
       const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
       const selectedIds = Array.from(selectedPDFs)
       
-      const outdatedPDFs = selectedItems.filter(pdf => isPdfOutdated(pdf))
-      
-      if (outdatedPDFs.length > 0) {
-        const outdatedNumbers = outdatedPDFs.map(pdf => 
-          pdf.invoice_number || pdf.quote_number
-        ).join(', ')
-        
-        alert(
-          `⚠️ ACHTUNG: ${outdatedPDFs.length} PDF(s) sind veraltet!\n\n` +
-          `Veraltete Dokumente:\n${outdatedNumbers}\n\n` +
-          `Diese PDFs wurden nach der Erstellung bearbeitet und müssen ` +
-          `zuerst regeneriert werden, um sicherzustellen, dass aktuelle ` +
-          `Daten (inkl. ZUGFeRD XML) gesendet werden.\n\n` +
-          `Bitte regenerieren Sie die PDFs einzeln und versuchen Sie es erneut.`
-        )
-        
-        setBulkEmailLoading(false)
-        return
-      }
+  
       
       if (selectedIds.length > MAX_PDFS_PER_EMAIL) {
         const emailCount = Math.ceil(selectedIds.length / MAX_PDFS_PER_EMAIL)
