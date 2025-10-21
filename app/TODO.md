@@ -96,3 +96,6 @@
 - mesto rada na fakturi✅
 - da template u računu bude isti kao u angebotu za skanje en+maila✅
 - pdf arhiv treba da je dostupan za freemium
+- import kundena (proveriti kolone)✅
+- proveriti slanje mejlova iz arhiva ako ih je višež
+- ako ima puno mejlova za slanje iz pdf archive da stavimo neki spiner dok se čeka

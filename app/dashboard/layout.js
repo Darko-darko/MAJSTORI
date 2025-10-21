@@ -581,208 +581,236 @@ useEffect(() => {
     }
   }
 
-  const getNavigation = () => {
-    const baseNavigation = [
-      { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
-    ]
+// app/dashboard/layout.js - SA PRAVILNIM PRO BADGE DIZAJNOM
+// SAMO UPDATE getNavigation() i NavigationItem funkcija
 
-    const freeFeatures = [
-      { 
-        name: 'QR Visitenkarte', 
-        href: '/dashboard/business-card/create', 
-        icon: '📱', 
-        protected: false
-      },
-      { 
-        name: 'Kundenanfragen', 
-        href: '/dashboard/inquiries', 
-        icon: '📧', 
-        badge: formatBadgeCount(badges.inquiries),
-        badgeColor: 'bg-red-500',
-        protected: false
-      }
-    ]
+const getNavigation = () => {
+  const baseNavigation = [
+    { 
+      name: 'Übersicht', 
+      href: '/dashboard', 
+      icon: '📊', 
+      protected: false 
+    }
+  ]
 
-    const protectedFeatures = [
-      { 
-        name: 'Meine Kunden', 
-        href: '/dashboard/customers', 
-        icon: '👥', 
-        protected: true,
-        feature: 'customer_management'
-      },
-      { 
-        name: 'Rechnungen', 
-        href: '/dashboard/invoices', 
-        icon: '📄',
-        badge: formatBadgeCount(badges.invoices),
-        badgeColor: 'bg-red-500',
-        protected: true,
-        feature: 'invoicing'
-      },
-      { 
-        name: 'Meine Services', 
-        href: '/dashboard/services', 
-        icon: '🔧',
-        protected: true,
-        feature: 'services_management'
-      },
-      { 
-        name: 'PDF Archiv', 
-        href: '/dashboard/pdf-archive', 
-        icon: '🗂️',
-        protected: true,
-        feature: 'pdf_archive'
-      }
-    ]
+  const freeFeatures = [
+    { 
+      name: 'QR Visitenkarte', 
+      href: '/dashboard/business-card/create', 
+      icon: '📱', 
+      protected: false
+    },
+    { 
+      name: 'Kundenanfragen', 
+      href: '/dashboard/inquiries', 
+      icon: '📧', 
+      badge: formatBadgeCount(badges.inquiries),
+      badgeColor: 'bg-red-500',
+      protected: false
+    }
+  ]
 
-    const subscriptionItem = {
-      name: 'Meine Mitgliedschaft',
-      href: '/dashboard/subscription',
-      icon: '💎',
+  const protectedFeatures = [
+    { 
+      name: 'Meine Kunden', 
+      href: '/dashboard/customers', 
+      icon: '👥', 
+      protected: true,
+      feature: 'customer_management'
+    },
+    { 
+      name: 'Rechnungen', 
+      href: '/dashboard/invoices', 
+      icon: '📄',
+      badge: formatBadgeCount(badges.invoices),
+      badgeColor: 'bg-red-500',
+      protected: true,
+      feature: 'invoicing'
+    },
+    { 
+      name: 'Meine Services', 
+      href: '/dashboard/services', 
+      icon: '🔧',
+      protected: true,
+      feature: 'services_management'
+    },
+    { 
+      name: 'PDF Archiv', 
+      href: '/dashboard/pdf-archive', 
+      icon: '🗂️',
+      protected: true,
+      feature: 'pdf_archive'
+    }
+  ]
+
+  // 🆕 SUPPORT & HILFE SEKCIJA
+  const supportSection = [
+    {
+      name: 'Support kontaktieren',
+      icon: '💬',
       protected: false,
       isSeparator: true,
-      badge: getSubscriptionBadge()
+      isButton: true,
+      onClick: openSupport,
+      description: 'Stellen Sie eine Frage'
+    },
+    {
+      name: 'FAQ & Hilfe',
+      href: '/faq',
+      icon: '📚',
+      protected: false,
+      target: '_blank',
+      description: 'Häufig gestellte Fragen'
     }
+  ]
 
-    const settingsItem = { 
-      name: 'Einstellungen', 
-      href: '/dashboard/settings', 
-      icon: '⚙️', 
-      protected: true,
-      feature: 'settings'
-    }
-
-    return [
-      ...baseNavigation, 
-      ...freeFeatures, 
-      ...protectedFeatures,
-      subscriptionItem,
-      settingsItem
-    ]
+  const subscriptionItem = {
+    name: 'Meine Mitgliedschaft',
+    href: '/dashboard/subscription',
+    icon: '💎',
+    protected: false,
+    isSeparator: true,
+    badge: getSubscriptionBadge()
   }
 
-  const NavigationItem = ({ item, isMobile = false }) => {
-    const separator = item.isSeparator ? (
-      <div className="my-2 border-t border-slate-700"></div>
-    ) : null
+  const settingsItem = { 
+    name: 'Einstellungen', 
+    href: '/dashboard/settings', 
+    icon: '⚙️', 
+    protected: true,
+    feature: 'settings'
+  }
 
-    const isSubscriptionItem = item.href === '/dashboard/subscription'
-    
-    let subscriptionStyles = ''
-    if (isSubscriptionItem) {
-      if (isFreemium) {
-        subscriptionStyles = 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 text-yellow-300 hover:from-yellow-500/20 hover:to-orange-500/20 hover:border-yellow-400/50 hover:text-yellow-200 shadow-sm'
-      } else if (isPaid) {
-        subscriptionStyles = 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 text-green-300 hover:from-green-500/20 hover:to-emerald-500/20 hover:border-green-400/50 hover:text-green-200 shadow-sm'
-      } else if (subscription?.cancel_at_period_end === true) {
-  subscriptionStyles = 'bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 text-orange-300 hover:from-orange-500/20 hover:to-red-500/20 hover:border-orange-400/50 hover:text-orange-200 shadow-sm'
-} else {
-        subscriptionStyles = 'bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/30 text-slate-300 hover:bg-slate-700'
-      }
+  return [
+    ...baseNavigation, 
+    ...freeFeatures, 
+    ...protectedFeatures,
+    ...supportSection, // 🆕
+    subscriptionItem,
+    settingsItem
+  ]
+}
+
+// 🔧 UPDATED NavigationItem sa PRAVILNIM badge dizajnom
+const NavigationItem = ({ item, isMobile = false }) => {
+  const separator = item.isSeparator ? 'mt-6 pt-6 border-t border-slate-700' : ''
+  
+  const baseClasses = `
+    group flex items-center px-3 py-2.5 rounded-lg transition-all
+    ${separator}
+  `
+
+  // 🆕 AKO JE BUTTON (Support Modal)
+  if (item.isButton) {
+    return (
+      <button
+        onClick={item.onClick}
+        className={`
+          ${baseClasses}
+          w-full text-left
+          text-slate-300 hover:bg-slate-700/50 hover:text-white
+        `}
+      >
+        <span className="text-xl mr-3">{item.icon}</span>
+        <span className="flex-1 font-medium">{item.name}</span>
+      </button>
+    )
+  }
+
+  const isActive = router.pathname === item.href
+  
+  const linkClasses = `
+    ${baseClasses}
+    ${isActive 
+      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
+      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
     }
-    
-    const content = (
-      <div className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-        isSubscriptionItem 
-          ? subscriptionStyles
-          : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-      } ${
-        item.comingSoon ? 'opacity-60' : ''
-      }`}>
-        <span className={`mr-3 ${isSubscriptionItem ? 'text-xl' : 'text-lg'}`}>{item.icon}</span>
-        <span className="flex-1">
-          {item.name}
-          {item.comingSoon && (
-            <span className="ml-2 text-xs text-orange-400">(Uskoro)</span>
+  `
+
+  const content = (
+    <>
+      <span className="text-xl mr-3">{item.icon}</span>
+      <span className="flex-1 font-medium">{item.name}</span>
+      
+      {/* Regular Badge Display (brojevi) */}
+      {item.badge && typeof item.badge === 'string' && (
+        <span className={`
+          ml-2 px-2 py-0.5 rounded-full text-xs font-bold text-white
+          ${item.badgeColor || 'bg-blue-500'}
+        `}>
+          {item.badge}
+        </span>
+      )}
+      
+      {/* Subscription Badge (PRO, Trial, etc) */}
+      {item.badge && typeof item.badge === 'object' && (
+        <span className={`
+          ml-2 px-2 py-0.5 rounded-full text-xs font-bold text-white
+          ${item.badge.multiline 
+            ? 'flex flex-col items-center leading-tight text-[10px]' 
+            : ''
+          }
+          ${item.badge.color || 'bg-blue-500'}
+        `}>
+          {item.badge.multiline ? (
+            <>
+              <span>{item.badge.text.split('(')[0]}</span>
+              <span>({item.badge.text.split('(')[1]}</span>
+            </>
+          ) : (
+            item.badge.text
           )}
         </span>
-        {item.badge && typeof item.badge === 'string' && (
-          <span className={`ml-2 px-2 py-1 text-xs ${item.badgeColor || 'bg-red-500'} text-white rounded-full font-medium`}>
-            {item.badge}
-          </span>
-        )}
-        {item.badge && typeof item.badge === 'object' && (
-          <span className={`ml-2 px-2 py-1 text-xs ${item.badge.color} text-white rounded-full font-medium shadow-sm ${
-            item.badge.multiline ? 'whitespace-pre-line text-center leading-tight' : ''
-          }`}>
-            {item.badge.text}
-          </span>
-        )}
-      </div>
-    )
+      )}
+      
+      {/* 🆕 External Link Icon */}
+      {item.target === '_blank' && (
+        <span className="ml-2 text-slate-400 text-sm group-hover:text-slate-300 transition-colors">
+          ↗
+        </span>
+      )}
+    </>
+  )
 
-    if (item.protected && item.feature && !item.comingSoon) {
-      return (
-        <>
-          {separator}
-          <SubscriptionGuard
-            key={item.name}
-            feature={item.feature}
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => {
-                  const featureNames = {
-                    'customer_management': 'Kundenverwaltung',
-                    'invoicing': 'Rechnungen & Angebote',
-                    'services_management': 'Services Verwaltung',
-                    'pdf_archive': 'PDF Archiv',
-                    'settings': 'Erweiterte Einstellungen'
-                  }
-                  showFeatureModal(
-                    item.feature, 
-                    featureNames[item.feature] || item.name,
-                    'Freemium'
-                  )
-                  if (isMobile) setSidebarOpen(false)
-                }}
-                className="w-full group flex items-center px-3 py-2 text-sm font-medium rounded-md text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 transition-colors cursor-pointer"
-              >
-                <span className="mr-3 text-lg opacity-75">{item.icon}</span>
-                <span className="flex-1 text-left">{item.name}</span>
-                <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium group-hover:bg-blue-500">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
-            <Link
-              href={item.href}
-              onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-            >
-              {content}
-            </Link>
-          </SubscriptionGuard>
-        </>
-      )
-    }
-
-    if (item.comingSoon) {
-      return (
-        <>
-          {separator}
-          <div key={item.name} className="cursor-not-allowed">
-            {content}
-          </div>
-        </>
-      )
-    }
-
+  // 🔒 PROTECTED FEATURES - sa PRAVIM badge dizajnom
+  if (item.protected && isFreemium) {
     return (
-      <>
-        {separator}
-        <Link
-          key={item.name}
-          href={item.href}
-          onClick={isMobile ? () => setSidebarOpen(false) : undefined}
-        >
-          {content}
-        </Link>
-      </>
+      <button
+        onClick={() => {
+          showUpgradeModal({
+            feature: item.feature || 'premium_feature',
+            featureName: item.name,
+            currentPlan: 'freemium'
+          })
+        }}
+        className={linkClasses}
+      >
+        <span className="text-xl mr-3">{item.icon}</span>
+        <span className="flex-1 font-medium">{item.name}</span>
+        
+        {/* 🔒 PRAVI PRO BADGE - sa KATANCEM za freemium */}
+        <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
+          <span>🔒</span>
+          <span>Pro</span>
+        </span>
+      </button>
     )
   }
+
+  // Regular navigation links
+  return (
+    <Link
+      href={item.href}
+      target={item.target || '_self'}
+      rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+      className={linkClasses}
+      onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+    >
+      {content}
+    </Link>
+  )
+}
 
   // 🔥 UPGRADE PROCESSING MODAL - NA TOP LAYOUT NIVOU!
   const UpgradeProcessingModal = () => {
