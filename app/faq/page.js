@@ -1,4 +1,4 @@
-// app/faq/page.js - OPTIMIZOVANA VERZIJA SA PADAJUĆIM MENIJEM
+// app/faq/page.js - FIX ZA X DUGME
 
 'use client'
 import { useState, useMemo, useRef, useEffect } from 'react'
@@ -23,8 +23,9 @@ export default function FAQPage() {
   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   const firstResultRef = useRef(null)
   const searchContainerRef = useRef(null)
+  const inputRef = useRef(null)
 
-  // 🔍 Popular searches - 9 termina
+  // 🔍 Popular searches
   const popularSearches = [
     { term: 'Rechnung', icon: '📄' },
     { term: 'Kostenlos', icon: '💎' },
@@ -160,6 +161,16 @@ export default function FAQPage() {
     }
   }, [searchTerm, totalResults])
 
+  // ✅ HANDLE CLEAR BUTTON - NE OTVARA SUGGESTIONS
+  const handleClear = () => {
+    setSearchTerm('')
+    setShowSuggestions(false)
+    // Keep focus on input without triggering suggestions
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
@@ -206,6 +217,7 @@ export default function FAQPage() {
         <div ref={searchContainerRef} className="relative max-w-2xl mx-auto">
           <div className="relative">
             <input
+              ref={inputRef}
               type="text"
               placeholder="Suchen Sie nach einer Frage..."
               value={searchTerm}
@@ -213,18 +225,21 @@ export default function FAQPage() {
                 setSearchTerm(e.target.value)
                 setShowSuggestions(false)
               }}
-              onFocus={() => setShowSuggestions(!searchTerm)}
+              onFocus={() => {
+                // Only show suggestions if search is empty
+                if (!searchTerm) {
+                  setShowSuggestions(true)
+                }
+              }}
               className="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-6 py-4 pr-12 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
             
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
               {searchTerm && (
                 <button
-                  onClick={() => {
-                    setSearchTerm('')
-                    setShowSuggestions(true)
-                  }}
+                  onClick={handleClear}
                   className="text-slate-400 hover:text-white transition-colors"
+                  type="button"
                 >
                   <span className="text-xl">✕</span>
                 </button>
