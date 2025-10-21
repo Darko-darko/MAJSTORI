@@ -1,4 +1,4 @@
-// app/faq/page.js - KOMPLETNA VERZIJA BEZ DUPLIKATA
+// app/faq/page.js - OPTIMIZOVANA VERZIJA SA PADAJUĆIM MENIJEM
 
 'use client'
 import { useState, useMemo, useRef, useEffect } from 'react'
@@ -22,18 +22,19 @@ export default function FAQPage() {
   
   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   const firstResultRef = useRef(null)
+  const searchContainerRef = useRef(null)
 
-  // 🔍 Popular searches - 9 termina za simetriju (3x3 grid)
+  // 🔍 Popular searches - 9 termina
   const popularSearches = [
     { term: 'Rechnung', icon: '📄' },
     { term: 'Kostenlos', icon: '💎' },
     { term: 'Trial', icon: '🎯' },
-    { term: 'QR-Code', icon: '📱' },
-    { term: 'DSGVO', icon: '🔐' },
-    { term: 'Kunden', icon: '👥' },
     { term: 'ZUGFeRD', icon: '📊' },
-    { term: 'DATEV', icon: '💼' },
-    { term: 'Services', icon: '🔧' }  // 🆕 9. term
+    { term: 'DSGVO', icon: '🔐' },
+    { term: 'Services', icon: '🔧' },
+    { term: 'Kunden', icon: '👥' },
+    { term: 'QR-Code', icon: '📱' },
+    { term: 'DATEV', icon: '💼' }
   ]
 
   // 🔒 CHECK AUTHENTICATION
@@ -66,6 +67,18 @@ export default function FAQPage() {
       setLoading(false)
     }
   }
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // MAP FAQ DATA
   const faqCategories = useMemo(() => {
@@ -190,7 +203,7 @@ export default function FAQPage() {
         </p>
 
         {/* SEARCH BAR */}
-        <div className="relative max-w-2xl mx-auto">
+        <div ref={searchContainerRef} className="relative max-w-2xl mx-auto">
           <div className="relative">
             <input
               type="text"
@@ -220,24 +233,29 @@ export default function FAQPage() {
             </div>
           </div>
 
-          {/* SUGGESTIONS */}
+          {/* DROPDOWN SUGGESTIONS */}
           {showSuggestions && !searchTerm && (
-            <div className="absolute top-full mt-2 w-full bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 z-10">
-              <p className="text-slate-400 text-sm mb-3 font-medium">
-                Beliebte Suchbegriffe:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {popularSearches.map((search) => (
+            <div className="absolute top-full mt-2 w-full bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
+              <div className="p-3 bg-slate-700/50 border-b border-slate-600">
+                <p className="text-slate-300 text-sm font-medium">
+                  💡 Beliebte Suchbegriffe
+                </p>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {popularSearches.map((search, index) => (
                   <button
                     key={search.term}
                     onClick={() => {
                       setSearchTerm(search.term)
                       setShowSuggestions(false)
                     }}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-blue-600 text-slate-300 hover:text-white rounded-lg transition-all text-sm"
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-700 transition-colors ${
+                      index !== popularSearches.length - 1 ? 'border-b border-slate-700/50' : ''
+                    }`}
                   >
-                    <span>{search.icon}</span>
-                    <span>{search.term}</span>
+                    <span className="text-2xl flex-shrink-0">{search.icon}</span>
+                    <span className="text-slate-200 font-medium">{search.term}</span>
+                    <span className="ml-auto text-slate-500 text-sm">→</span>
                   </button>
                 ))}
               </div>
@@ -253,7 +271,7 @@ export default function FAQPage() {
                 </span>
               ) : (
                 <span className="text-red-400">
-                  ❌ Keine Ergebnisse für &quot{searchTerm}&quot
+                  ❌ Keine Ergebnisse für &quot;{searchTerm}&quot;
                 </span>
               )}
             </div>
@@ -267,7 +285,7 @@ export default function FAQPage() {
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🤷</div>
             <p className="text-slate-400 text-lg mb-4">
-              Keine Ergebnisse für &quot<strong className="text-white">{searchTerm}</strong>&quot gefunden
+              Keine Ergebnisse für &quot;<strong className="text-white">{searchTerm}</strong>&quot; gefunden
             </p>
             
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 max-w-md mx-auto">
