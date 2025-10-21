@@ -23,7 +23,7 @@ export default function FAQPage() {
   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   const firstResultRef = useRef(null)
 
-  // 🔍 Popular searches - SAMO JEDNA DEFINICIJA!
+  // 🔍 Popular searches - 9 termina za simetriju (3x3 grid)
   const popularSearches = [
     { term: 'Rechnung', icon: '📄' },
     { term: 'Kostenlos', icon: '💎' },
@@ -32,7 +32,8 @@ export default function FAQPage() {
     { term: 'DSGVO', icon: '🔐' },
     { term: 'Kunden', icon: '👥' },
     { term: 'ZUGFeRD', icon: '📊' },
-    { term: 'DATEV', icon: '💼' }
+    { term: 'DATEV', icon: '💼' },
+    { term: 'Services', icon: '🔧' }  // 🆕 9. term
   ]
 
   // 🔒 CHECK AUTHENTICATION
@@ -252,7 +253,7 @@ export default function FAQPage() {
                 </span>
               ) : (
                 <span className="text-red-400">
-                  ❌ Keine Ergebnisse für &quot{searchTerm}&quot
+                  ❌ Keine Ergebnisse für "{searchTerm}"
                 </span>
               )}
             </div>
@@ -266,7 +267,7 @@ export default function FAQPage() {
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🤷</div>
             <p className="text-slate-400 text-lg mb-4">
-              Keine Ergebnisse für &quot<strong className="text-white">{searchTerm}</strong>&quot gefunden
+              Keine Ergebnisse für "<strong className="text-white">{searchTerm}</strong>" gefunden
             </p>
             
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 max-w-md mx-auto">
