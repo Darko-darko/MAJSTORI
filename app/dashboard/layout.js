@@ -673,7 +673,7 @@ const getNavigation = () => {
       href: '/faq',
       icon: '📚',
       protected: false,
-      target: '_blank',
+      //target: '_blank',
       description: 'Häufig gestellte Fragen',
       hasBottomBorder: true  // 🆕 DONJA LINIJA posle FAQ
     }
