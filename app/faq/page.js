@@ -1,4 +1,4 @@
-// app/faq/page.js - PROTECTED VERSION (samo za prijavljene majstore)
+// app/faq/page.js - KOMPLETNA VERZIJA BEZ DUPLIKATA
 
 'use client'
 import { useState, useMemo, useRef, useEffect } from 'react'
@@ -23,6 +23,18 @@ export default function FAQPage() {
   const { isOpen: supportOpen, openSupport, closeSupport } = useSupportModal()
   const firstResultRef = useRef(null)
 
+  // 🔍 Popular searches - SAMO JEDNA DEFINICIJA!
+  const popularSearches = [
+    { term: 'Rechnung', icon: '📄' },
+    { term: 'Kostenlos', icon: '💎' },
+    { term: 'Trial', icon: '🎯' },
+    { term: 'QR-Code', icon: '📱' },
+    { term: 'DSGVO', icon: '🔐' },
+    { term: 'Kunden', icon: '👥' },
+    { term: 'ZUGFeRD', icon: '📊' },
+    { term: 'DATEV', icon: '💼' }
+  ]
+
   // 🔒 CHECK AUTHENTICATION
   useEffect(() => {
     checkAuth()
@@ -33,14 +45,12 @@ export default function FAQPage() {
       const { data: { user }, error } = await supabase.auth.getUser()
       
       if (error || !user) {
-        // Redirect to login if not authenticated
         router.push('/login?redirect=/faq')
         return
       }
 
       setUser(user)
       
-      // Get majstor data for support modal
       const { data: majstorData } = await supabase
         .from('majstors')
         .select('full_name')
@@ -56,44 +66,18 @@ export default function FAQPage() {
     }
   }
 
-  // Popular searches
-  const popularSearches = [
-    { term: 'Rechnung', icon: '📄' },
-    { term: 'Kostenlos', icon: '💎' },
-    { term: 'Trial', icon: '🎯' },
-    { term: 'QR-Code', icon: '📱' },
-    { term: 'DSGVO', icon: '🔐' },
-    { term: 'Kunden', icon: '👥' },
-    { term: 'ZUGFeRD', icon: '📊' },
-    { term: 'DATEV', icon: '💼' }
-  ]
-
   // MAP FAQ DATA
   const faqCategories = useMemo(() => {
     return faqData.categories.map(cat => ({
       id: cat.id,
       title: `${cat.icon} ${cat.title}`,
-      color: getCategoryColor(cat.id),
+      color: 'from-blue-600 to-blue-700',
       questions: cat.questions.map(q => ({
         q: q.question,
         a: q.answer
       }))
     }))
   }, [])
-
-  function getCategoryColor(categoryId) {
-    const colors = {
-      'grundlagen': 'from-blue-500 to-cyan-500',
-      'registrierung': 'from-green-500 to-emerald-500',
-      'visitenkarte': 'from-purple-500 to-pink-500',
-      'kunden': 'from-orange-500 to-red-500',
-      'rechnungen': 'from-yellow-500 to-orange-500',
-      'abonnement': 'from-indigo-500 to-purple-500',
-      'sicherheit': 'from-red-500 to-pink-500',
-      'support': 'from-cyan-500 to-blue-500'
-    }
-    return colors[categoryId] || 'from-slate-500 to-slate-600'
-  }
 
   // FILTER
   const filteredCategories = useMemo(() => {
@@ -112,7 +96,7 @@ export default function FAQPage() {
           categoriesMap.set(category.id, {
             id: category.id,
             title: `${category.icon} ${category.title}`,
-            color: getCategoryColor(category.id),
+            color: 'from-blue-600 to-blue-700',
             questions: []
           })
         }
@@ -162,7 +146,6 @@ export default function FAQPage() {
     }
   }, [searchTerm, totalResults])
 
-  // 🔒 LOADING STATE
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
@@ -171,7 +154,6 @@ export default function FAQPage() {
     )
   }
 
-  // 🔒 NOT AUTHENTICATED (should not reach here due to redirect)
   if (!user) {
     return null
   }
@@ -179,12 +161,11 @@ export default function FAQPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       
-      {/* 🔒 AUTHENTICATED HEADER */}
+      {/* HEADER */}
       <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="text-2xl font-bold text-white flex items-center gap-2">
-            <span className="text-3xl">🔧</span>
-            pro-meister.de
+          <Link href="/dashboard" className="text-2xl font-bold text-white">
+            Pro-meister<span className="text-blue-400">.de</span>
           </Link>
           <div className="flex items-center gap-4">
             <Link 
@@ -197,7 +178,7 @@ export default function FAQPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* HERO */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-6 animate-bounce">❓</div>
         <h1 className="text-5xl font-bold text-white mb-4">
@@ -207,7 +188,7 @@ export default function FAQPage() {
           Finden Sie schnell Antworten auf Ihre Fragen zu pro-meister.de
         </p>
 
-        {/* Search Bar */}
+        {/* SEARCH BAR */}
         <div className="relative max-w-2xl mx-auto">
           <div className="relative">
             <input
@@ -238,7 +219,7 @@ export default function FAQPage() {
             </div>
           </div>
 
-          {/* Suggestions */}
+          {/* SUGGESTIONS */}
           {showSuggestions && !searchTerm && (
             <div className="absolute top-full mt-2 w-full bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 z-10">
               <p className="text-slate-400 text-sm mb-3 font-medium">
@@ -262,7 +243,7 @@ export default function FAQPage() {
             </div>
           )}
 
-          {/* Results Counter */}
+          {/* RESULTS COUNTER */}
           {searchTerm && (
             <div className="mt-3 text-slate-400 text-sm">
               {totalResults > 0 ? (
@@ -279,7 +260,7 @@ export default function FAQPage() {
         </div>
       </div>
 
-      {/* FAQ Sections */}
+      {/* FAQ SECTIONS */}
       <div className="max-w-4xl mx-auto px-4 pb-16 space-y-8">
         {filteredCategories.length === 0 ? (
           <div className="text-center py-12">
@@ -373,7 +354,7 @@ export default function FAQPage() {
         )}
       </div>
 
-      {/* CTA Section */}
+      {/* CTA */}
       <div className="max-w-4xl mx-auto px-4 pb-16">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center shadow-2xl">
           <div className="text-5xl mb-4">💬</div>
@@ -394,7 +375,7 @@ export default function FAQPage() {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* FOOTER */}
       <footer className="bg-slate-900 border-t border-slate-800 py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center text-slate-400 mb-4">
@@ -417,7 +398,6 @@ export default function FAQPage() {
         </div>
       </footer>
 
-      {/* 🔒 Support Modal sa user data */}
       <SupportModal 
         isOpen={supportOpen}
         onClose={closeSupport}

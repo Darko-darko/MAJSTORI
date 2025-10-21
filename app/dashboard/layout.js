@@ -581,8 +581,11 @@ useEffect(() => {
     }
   }
 
-// app/dashboard/layout.js - SA PRAVILNIM PRO BADGE DIZAJNOM
-// SAMO UPDATE getNavigation() i NavigationItem funkcija
+// app/dashboard/layout.js - FINALNI SA ISPRAVNIM REDOM I ORIGINAL FONT SIZE
+// Samo izmeni getNavigation() i NavigationItem
+
+// app/dashboard/layout.js - FINALNI SA ISPRAVNIM REDOM I ORIGINAL FONT SIZE
+// Samo izmeni getNavigation() i NavigationItem
 
 const getNavigation = () => {
   const baseNavigation = [
@@ -644,6 +647,16 @@ const getNavigation = () => {
     }
   ]
 
+  // 🎯 SUBSCRIPTION - POMERENO GORE (pre Support sekcije)
+  const subscriptionItem = {
+    name: 'Meine Mitgliedschaft',
+    href: '/dashboard/subscription',
+    icon: '💎',
+    protected: false,
+    isSeparator: true,
+    badge: getSubscriptionBadge()
+  }
+
   // 🆕 SUPPORT & HILFE SEKCIJA
   const supportSection = [
     {
@@ -661,18 +674,10 @@ const getNavigation = () => {
       icon: '📚',
       protected: false,
       target: '_blank',
-      description: 'Häufig gestellte Fragen'
+      description: 'Häufig gestellte Fragen',
+      hasBottomBorder: true  // 🆕 DONJA LINIJA posle FAQ
     }
   ]
-
-  const subscriptionItem = {
-    name: 'Meine Mitgliedschaft',
-    href: '/dashboard/subscription',
-    icon: '💎',
-    protected: false,
-    isSeparator: true,
-    badge: getSubscriptionBadge()
-  }
 
   const settingsItem = { 
     name: 'Einstellungen', 
@@ -680,25 +685,29 @@ const getNavigation = () => {
     icon: '⚙️', 
     protected: true,
     feature: 'settings'
+    // ❌ Uklonjen isSeparator - sada se koristi donja linija FAQ-a
   }
 
+  // 🎯 NOVI REDOSLED - Subscription pre Support & FAQ
   return [
     ...baseNavigation, 
     ...freeFeatures, 
     ...protectedFeatures,
-    ...supportSection, // 🆕
-    subscriptionItem,
-    settingsItem
+    subscriptionItem,      // 1. Subscription (sa separatorom)
+    ...supportSection,     // 2. Support & FAQ (sa separatorom)
+    settingsItem          // 3. Einstellungen
   ]
 }
 
-// 🔧 UPDATED NavigationItem sa PRAVILNIM badge dizajnom
+// 🔧 NavigationItem - SA ORIGINAL FONT SIZE (text-sm)
 const NavigationItem = ({ item, isMobile = false }) => {
   const separator = item.isSeparator ? 'mt-6 pt-6 border-t border-slate-700' : ''
+  const bottomBorder = item.hasBottomBorder ? 'mb-6 pb-6 border-b border-slate-700' : ''  // 🆕
   
   const baseClasses = `
-    group flex items-center px-3 py-2.5 rounded-lg transition-all
+    group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all
     ${separator}
+    ${bottomBorder}
   `
 
   // 🆕 AKO JE BUTTON (Support Modal)
@@ -709,71 +718,57 @@ const NavigationItem = ({ item, isMobile = false }) => {
         className={`
           ${baseClasses}
           w-full text-left
-          text-slate-300 hover:bg-slate-700/50 hover:text-white
+          text-slate-300 hover:bg-slate-700 hover:text-white
         `}
       >
-        <span className="text-xl mr-3">{item.icon}</span>
-        <span className="flex-1 font-medium">{item.name}</span>
+        <span className="mr-3 text-lg">{item.icon}</span>
+        <span className="flex-1">{item.name}</span>
       </button>
     )
   }
 
-  const isActive = router.pathname === item.href
-  
   const linkClasses = `
     ${baseClasses}
-    ${isActive 
-      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
-      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-    }
+    text-slate-300 hover:bg-slate-700 hover:text-white
   `
 
   const content = (
     <>
-      <span className="text-xl mr-3">{item.icon}</span>
-      <span className="flex-1 font-medium">{item.name}</span>
+      <span className="mr-3 text-lg">{item.icon}</span>
+      <span className="flex-1">{item.name}</span>
       
       {/* Regular Badge Display (brojevi) */}
       {item.badge && typeof item.badge === 'string' && (
         <span className={`
-          ml-2 px-2 py-0.5 rounded-full text-xs font-bold text-white
-          ${item.badgeColor || 'bg-blue-500'}
+          ml-2 px-2 py-1 text-xs font-medium rounded-full text-white
+          ${item.badgeColor || 'bg-red-500'}
         `}>
           {item.badge}
         </span>
       )}
       
-      {/* Subscription Badge (PRO, Trial, etc) */}
+      {/* Subscription Badge (PRO, Upgrade, Trial) */}
       {item.badge && typeof item.badge === 'object' && (
         <span className={`
-          ml-2 px-2 py-0.5 rounded-full text-xs font-bold text-white
+          ml-2 px-2 py-1 text-xs font-medium rounded-full text-white shadow-sm
           ${item.badge.multiline 
-            ? 'flex flex-col items-center leading-tight text-[10px]' 
+            ? 'whitespace-pre-line text-center leading-tight' 
             : ''
           }
-          ${item.badge.color || 'bg-blue-500'}
+          ${item.badge.color}
         `}>
-          {item.badge.multiline ? (
-            <>
-              <span>{item.badge.text.split('(')[0]}</span>
-              <span>({item.badge.text.split('(')[1]}</span>
-            </>
-          ) : (
-            item.badge.text
-          )}
+          {item.badge.text}
         </span>
       )}
       
       {/* 🆕 External Link Icon */}
       {item.target === '_blank' && (
-        <span className="ml-2 text-slate-400 text-sm group-hover:text-slate-300 transition-colors">
-          ↗
-        </span>
+        <span className="ml-2 text-slate-400 text-xs">↗</span>
       )}
     </>
   )
 
-  // 🔒 PROTECTED FEATURES - sa PRAVIM badge dizajnom
+  // 🔒 PROTECTED FEATURES - sa badge dizajnom
   if (item.protected && isFreemium) {
     return (
       <button
@@ -786,10 +781,10 @@ const NavigationItem = ({ item, isMobile = false }) => {
         }}
         className={linkClasses}
       >
-        <span className="text-xl mr-3">{item.icon}</span>
-        <span className="flex-1 font-medium">{item.name}</span>
+        <span className="mr-3 text-lg opacity-75">{item.icon}</span>
+        <span className="flex-1">{item.name}</span>
         
-        {/* 🔒 PRAVI PRO BADGE - sa KATANCEM za freemium */}
+        {/* 🔒 PRO BADGE - sa katancem */}
         <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
           <span>🔒</span>
           <span>Pro</span>
