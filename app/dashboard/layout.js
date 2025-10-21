@@ -72,7 +72,7 @@ useEffect(() => {
   const [badges, setBadges] = useState({
     inquiries: 0,
     invoices: 0,
-    warranties: 0
+ 
   })
   
   const router = useRouter()
@@ -316,7 +316,7 @@ useEffect(() => {
     if (!majstor?.id) return
 
     try {
-      const [inquiriesResult, invoicesResult, warrantiesResult] = await Promise.all([
+      const [inquiriesResult, invoicesResult] = await Promise.all([
         supabase
           .from('inquiries')
           .select('id', { count: 'exact', head: true })
@@ -329,13 +329,7 @@ useEffect(() => {
           .eq('majstor_id', majstor.id)
           .in('status', ['sent', 'draft'])
           .neq('status', 'dummy'),
-
-        supabase
-          .from('warranties')
-          .select('id', { count: 'exact', head: true })
-          .eq('majstor_id', majstor.id)
-          .eq('status', 'active')
-          .lte('end_date', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+       
       ])
 
       let overdueCount = 0
@@ -353,8 +347,8 @@ useEffect(() => {
 
       setBadges({
         inquiries: inquiriesResult.count || 0,
-        invoices: overdueCount,
-        warranties: warrantiesResult.count || 0
+        invoices: overdueCount
+      
       })
 
     } catch (error) {
@@ -1208,7 +1202,7 @@ useEffect(() => {
                   title="Refresh notifications"
                 >
                   <span className="text-xl">🔔</span>
-                  {(badges.inquiries + badges.invoices + badges.warranties) > 0 && (
+                  {(badges.inquiries + badges.invoices ) > 0 && (
                     <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                   )}
                 </button>
