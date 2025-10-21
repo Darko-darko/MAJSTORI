@@ -271,7 +271,7 @@ export default function FAQPage() {
                 </span>
               ) : (
                 <span className="text-red-400">
-                  ❌ Keine Ergebnisse für "{searchTerm}"
+                  ❌ Keine Ergebnisse für &quot{searchTerm}&quot
                 </span>
               )}
             </div>
@@ -285,7 +285,7 @@ export default function FAQPage() {
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🤷</div>
             <p className="text-slate-400 text-lg mb-4">
-              Keine Ergebnisse für "<strong className="text-white">{searchTerm}</strong>" gefunden
+              Keine Ergebnisse für &quot<strong className="text-white">{searchTerm}</strong>&quot gefunden
             </p>
             
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 max-w-md mx-auto">
