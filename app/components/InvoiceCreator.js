@@ -1,6 +1,4 @@
-// app/components/InvoiceCreator.js - COMPLETE WITH EDIT CONFIRMATION MODAL
-// KOMPLETAN FAJL SA SVIM FUNKCIONALNOSTIMA + NOVI MODAL
-
+// app/components/InvoiceCreator.js - WEG ADDRESS SYSTEM IMPLEMENTATION
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -24,17 +22,37 @@ export default function InvoiceCreator({
   const [numbersInitialized, setNumbersInitialized] = useState(false)
   const [showNumbersSetupModal, setShowNumbersSetupModal] = useState(false)
 
-  // 🔥 NEW: Edit confirmation modal states
+  // Edit confirmation modal states
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false)
   const [pendingFormData, setPendingFormData] = useState(null)
 
   const [formData, setFormData] = useState({
+    // Customer identification
+    customer_id: null,
     customer_name: '',
     customer_email: '',
-    customer_address: '',
     customer_phone: '',
     customer_tax_number: '',
-    place_of_service: '', // ✅ DODATO
+    
+    // ✅ Billing address - structured fields
+    customer_street: '',
+    customer_postal_code: '',
+    customer_city: '',
+    customer_country: 'Deutschland',
+    show_country: false,
+    
+    // ✅ WEG object address (optional, collapsed by default)
+    show_weg: false,
+    weg_property_name: '',  // ← DODAJ OVO
+    weg_street: '',
+    weg_postal_code: '',
+    weg_city: '',
+    weg_country: 'Deutschland',
+    
+    // Service location (existing field, improved UX)
+    place_of_service: '',
+    
+    // Invoice items and totals (existing)
     items: [{ description: '', quantity: 1, price: 0, total: 0 }],
     subtotal: 0,
     tax_rate: 19,
@@ -220,7 +238,7 @@ export default function InvoiceCreator({
     )
   }
 
-  // 🔥 NEW: Edit Confirmation Modal
+  // Edit Confirmation Modal
   const EditConfirmationModal = () => {
     if (!showEditConfirmModal) return null
 
@@ -373,12 +391,28 @@ export default function InvoiceCreator({
       const parsedItems = editData.items ? JSON.parse(editData.items) : [{ description: '', quantity: 1, price: 0, total: 0 }]
       
       setFormData({
+        customer_id: editData.customer_id || null,
         customer_name: editData.customer_name || '',
         customer_email: editData.customer_email || '',
-        customer_address: editData.customer_address || '',
         customer_phone: editData.customer_phone || '',
         customer_tax_number: editData.customer_tax_number || '',
-        place_of_service: editData.place_of_service || '', // ✅ DODATO
+        
+        // ✅ Structured billing address from invoice
+        customer_street: editData.customer_street || '',
+        customer_postal_code: editData.customer_postal_code || '',
+        customer_city: editData.customer_city || '',
+        customer_country: editData.customer_country || 'Deutschland',
+        show_country: editData.customer_country && editData.customer_country !== 'Deutschland',
+        
+        // ✅ WEG address from invoice
+        show_weg: !!(editData.weg_street),
+        weg_property_name: editData.weg_property_name || '',  // ← DODAJ OVO
+        weg_street: editData.weg_street || '',
+        weg_postal_code: editData.weg_postal_code || '',
+        weg_city: editData.weg_city || '',
+        weg_country: editData.weg_country || 'Deutschland',
+        
+        place_of_service: editData.place_of_service || '',
         items: parsedItems,
         subtotal: editData.subtotal || 0,
         tax_rate: editData.tax_rate || defaultSettings.tax_rate,
@@ -394,21 +428,44 @@ export default function InvoiceCreator({
       setCustomerSearchTerm(editData.customer_name || '')
     } else {
       let initialCustomerData = {
+        customer_id: null,
         customer_name: '',
         customer_email: '',
-        customer_address: '',
         customer_phone: '',
         customer_tax_number: '',
-        place_of_service: '', // ✅ DODATO
+        customer_street: '',
+        customer_postal_code: '',
+        customer_city: '',
+        customer_country: 'Deutschland',
+        show_country: false,
+        show_weg: false,
+        weg_property_name: '',  // ← DODAJ OVO OVDE
+        weg_street: '',
+        weg_postal_code: '',
+        weg_city: '',
+        weg_country: 'Deutschland',
+        place_of_service: '',
       }
 
       if (prefilledCustomer) {
         initialCustomerData = {
+          customer_id: prefilledCustomer.id || null,
           customer_name: prefilledCustomer.name || '',
           customer_email: prefilledCustomer.email || '',
-          customer_address: prefilledCustomer.address || '',
           customer_phone: prefilledCustomer.phone || '',
-          customer_tax_number: prefilledCustomer.tax_number || ''
+          customer_tax_number: prefilledCustomer.tax_number || '',
+          customer_street: prefilledCustomer.street || '',
+          customer_postal_code: prefilledCustomer.postal_code || '',
+          customer_city: prefilledCustomer.city || '',
+          customer_country: prefilledCustomer.country || 'Deutschland',
+          show_country: prefilledCustomer.country && prefilledCustomer.country !== 'Deutschland',
+          show_weg: !!(prefilledCustomer.weg_street),
+          weg_property_name: prefilledCustomer.weg_property_name || '',  // ← DODAJ OVO
+          weg_street: prefilledCustomer.weg_street || '',
+          weg_postal_code: prefilledCustomer.weg_postal_code || '',
+          weg_city: prefilledCustomer.weg_city || '',
+          weg_country: prefilledCustomer.weg_country || 'Deutschland',
+          place_of_service: prefilledCustomer.last_service_location || ''
         }
         setCustomerSearchTerm(prefilledCustomer.name || '')
       }
@@ -437,59 +494,68 @@ export default function InvoiceCreator({
     }
   }
 
- 
-
- // Search customers
-const searchCustomers = async (searchTerm) => {
-  console.log('🔍 Searching for:', searchTerm)
-  
-  try {
-    setSearchLoading(true)
+  // ✅ FIXED: Search customers with correct columns
+  const searchCustomers = async (searchTerm) => {
+    console.log('🔍 Searching for:', searchTerm)
     
-    // ✅ FIX: Koristimo STVARNE kolone iz tabele
-    const { data, error } = await supabase
-      .from('customers')
-      .select('name, email, phone, street, postal_code, city, tax_number')
-      .eq('majstor_id', majstor.id)
-      .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
-      .limit(10)
+    try {
+      setSearchLoading(true)
+      
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, name, email, phone, street, postal_code, city, country, tax_number, weg_street, weg_postal_code, weg_city, weg_country, last_service_location')
+        .eq('majstor_id', majstor.id)
+        .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+        .limit(10)
 
-    console.log('📦 Results:', data)
-    console.log('❌ Error:', error)
+      console.log('📦 Results:', data)
+      console.log('❌ Error:', error)
 
-    if (!error && data) {
-      setCustomerSuggestions(data)
-      setShowCustomerDropdown(data.length > 0)
+      if (!error && data) {
+        setCustomerSuggestions(data)
+        setShowCustomerDropdown(data.length > 0)
+      }
+    } catch (err) {
+      console.error('Error searching customers:', err)
+    } finally {
+      setSearchLoading(false)
     }
-  } catch (err) {
-    console.error('Error searching customers:', err)
-  } finally {
-    setSearchLoading(false)
   }
-}
 
-  // Handle customer select
+  // ✅ IMPROVED: Handle customer select with structured address
   const handleCustomerSelect = (customer) => {
+    console.log('✅ Customer selected:', customer)
 
-    // ✅ PRVO definiši fullAddress
-  const addressParts = []
-  if (customer.street) addressParts.push(customer.street)
-  if (customer.postal_code || customer.city) {
-    addressParts.push(`${customer.postal_code || ''} ${customer.city || ''}`.trim())
-  }
-  const fullAddress = addressParts.join('\n')
     setFormData(prev => ({
       ...prev,
+      customer_id: customer.id,
       customer_name: customer.name || '',
       customer_email: customer.email || '',
       customer_phone: customer.phone || '',
-      customer_address: fullAddress || '',
-      customer_tax_number: customer.tax_number || ''
+      customer_tax_number: customer.tax_number || '',
+      
+      // ✅ Structured billing address
+      customer_street: customer.street || '',
+      customer_postal_code: customer.postal_code || '',
+      customer_city: customer.city || '',
+      customer_country: customer.country || 'Deutschland',
+      show_country: customer.country && customer.country !== 'Deutschland',
+      
+      // ✅ WEG address (auto-show if exists)
+      show_weg: !!(customer.weg_street),
+      weg_property_name: customer.weg_property_name || '',  // ← DODAJ OVO
+      weg_street: customer.weg_street || '',
+      weg_postal_code: customer.weg_postal_code || '',
+      weg_city: customer.weg_city || '',
+      weg_country: customer.weg_country || 'Deutschland',
+      
+      // ✅ Last service location
+      place_of_service: customer.last_service_location || ''
     }))
     
-  setCustomerSearchTerm(customer.name)
-  setShowCustomerDropdown(false)
-  setCustomerSuggestions([])  // ✅ DODAJ ovu liniju
+    setCustomerSearchTerm(customer.name)
+    setShowCustomerDropdown(false)
+    setCustomerSuggestions([])
   }
 
   // Service selection for items
@@ -509,36 +575,52 @@ const searchCustomers = async (searchTerm) => {
     calculateTotals(newItems)
   }
 
-  // 2. ✅ IZMENI handleCustomerNameChange (oko linije 320)
-const handleCustomerNameChange = (e) => {
-  const value = e.target.value
-  setCustomerSearchTerm(value)
-  setFormData(prev => ({ ...prev, customer_name: value }))
-  
-  // ✅ DODAJ search direktno ovde (kao kod services)
-  if (value.length >= 2 && !isEditMode && !prefilledCustomer) {
-    searchCustomers(value)
-  } else {
-    setCustomerSuggestions([])
-    setShowCustomerDropdown(false)
+  // ✅ Handle customer name change with search
+  const handleCustomerNameChange = (e) => {
+    const value = e.target.value
+    setCustomerSearchTerm(value)
+    setFormData(prev => ({ ...prev, customer_name: value }))
+    
+    if (value.length >= 2 && !isEditMode && !prefilledCustomer) {
+      searchCustomers(value)
+    } else {
+      setCustomerSuggestions([])
+      setShowCustomerDropdown(false)
+    }
+    
+    if (value.length === 0) {
+      setFormData(prev => ({
+        ...prev,
+        customer_id: null,
+        customer_name: '',
+        customer_email: '',
+        customer_phone: '',
+        customer_tax_number: '',
+        customer_street: '',
+        customer_postal_code: '',
+        customer_city: '',
+        customer_country: 'Deutschland',
+        show_country: false,
+        show_weg: false,
+        weg_property_name: '',  // ← DODAJ OVO
+        weg_street: '',
+        weg_postal_code: '',
+        weg_city: '',
+        weg_country: 'Deutschland',
+        place_of_service: ''
+      }))
+    }
   }
-  
-  if (value.length === 0) {
-    setFormData(prev => ({
-      ...prev,
-      customer_name: '',
-      customer_email: '',
-      customer_phone: '',
-      customer_address: '',
-      customer_tax_number: ''
-    }))
-  }
-}
 
   // Handle input change
   const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
   }
 
   // Handle item changes with proper service filtering
@@ -603,23 +685,45 @@ const handleCustomerNameChange = (e) => {
     }))
   }
 
-  // 🔥 MODIFIED: Handle submit - now checks for edit mode + invoice type
+  // ✅ NEW: Quick-fill functions
+  const copyBillingToWeg = () => {
+    setFormData(prev => ({
+      ...prev,
+      weg_property_name: '',  // ← DODAJ OVO (ostavi prazno jer nije deo billing adrese)
+      weg_street: prev.customer_street,
+      weg_postal_code: prev.customer_postal_code,
+      weg_city: prev.customer_city,
+      weg_country: prev.customer_country
+    }))
+  }
+
+  const copyWegToService = () => {
+    const serviceLocation = `${formData.weg_street}, ${formData.weg_postal_code} ${formData.weg_city}`
+    setFormData(prev => ({ ...prev, place_of_service: serviceLocation }))
+  }
+
+  const copyBillingToService = () => {
+    const serviceLocation = `${formData.customer_street}, ${formData.customer_postal_code} ${formData.customer_city}`
+    setFormData(prev => ({ ...prev, place_of_service: serviceLocation }))
+  }
+
+  // Handle submit
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // 🔥 NEW: For EDIT mode + INVOICE → show confirmation modal
+    // For EDIT mode + INVOICE → show confirmation modal
     if (isEditMode && editData?.id && type === 'invoice') {
       console.log('🔥 Edit invoice detected - showing confirmation modal')
       setPendingFormData(formData)
       setShowEditConfirmModal(true)
-      return // STOP - wait for user response
+      return
     }
     
-    // All other cases: save directly (quote, new invoice, etc.)
+    // All other cases: save directly
     await handleActualSave()
   }
 
-  // 🔥 NEW: Actual save function (extracted from handleSubmit)
+  // ✅ IMPROVED: Actual save function with customer auto-create
   const handleActualSave = async () => {
     if (!businessDataComplete) {
       setShowBusinessDataModal(true)
@@ -635,8 +739,13 @@ const handleCustomerNameChange = (e) => {
     setLoading(true)
 
     try {
+      // ✅ Validation - structured billing address required
       if (!formData.customer_name || !formData.customer_email) {
         throw new Error('Kunde Name und E-Mail sind erforderlich')
+      }
+
+      if (!formData.customer_street || !formData.customer_postal_code || !formData.customer_city) {
+        throw new Error('Rechnungsadresse ist erforderlich (Straße, PLZ, Stadt)')
       }
 
       if (formData.items.some(item => !item.description || item.price <= 0)) {
@@ -653,18 +762,131 @@ const handleCustomerNameChange = (e) => {
         uniqueServices.map(serviceName => autoSaveServiceFromInvoice(serviceName))
       )
 
+      // ✅ Check/create customer
+      let customerId = formData.customer_id
+      
+      if (!customerId) {
+        console.log('🔍 Searching for existing customer...')
+        
+        // Duplicate detection by name + email
+        const { data: existingCustomers } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('majstor_id', majstor.id)
+          .eq('name', formData.customer_name.trim())
+          .eq('email', formData.customer_email.trim())
+        
+        if (existingCustomers && existingCustomers.length > 0) {
+          console.log('✅ Found existing customer:', existingCustomers[0].id)
+          customerId = existingCustomers[0].id
+          
+          // Update existing customer with latest data
+          await supabase
+            .from('customers')
+            .update({
+              phone: formData.customer_phone || null,
+              street: formData.customer_street,
+              postal_code: formData.customer_postal_code,
+              city: formData.customer_city,
+              country: formData.customer_country,
+              tax_number: formData.customer_tax_number || null,
+              weg_property_name: formData.weg_property_name || null,  // ← DODAJ OVO
+              weg_street: formData.weg_street || null,
+              weg_postal_code: formData.weg_postal_code || null,
+              weg_city: formData.weg_city || null,
+              weg_country: formData.weg_country || null,
+              last_service_location: formData.place_of_service || null,
+              last_contact_date: new Date().toISOString().split('T')[0],
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', customerId)
+        } else {
+          console.log('➕ Creating new customer...')
+          
+          // Create new customer
+          const { data: newCustomer, error: customerError } = await supabase
+            .from('customers')
+            .insert({
+              majstor_id: majstor.id,
+              name: formData.customer_name.trim(),
+              email: formData.customer_email.trim(),
+              phone: formData.customer_phone || null,
+              street: formData.customer_street,
+              postal_code: formData.customer_postal_code,
+              city: formData.customer_city,
+              country: formData.customer_country,
+              tax_number: formData.customer_tax_number || null,
+              weg_property_name: formData.weg_property_name || null,  // ← DODAJ OVO
+              weg_street: formData.weg_street || null,
+              weg_postal_code: formData.weg_postal_code || null,
+              weg_city: formData.weg_city || null,
+              weg_country: formData.weg_country || null,
+              last_service_location: formData.place_of_service || null,
+              source: 'invoice',
+              last_contact_date: new Date().toISOString().split('T')[0]
+            })
+            .select()
+            .single()
+          
+          if (customerError) throw customerError
+          
+          console.log('✅ Customer created:', newCustomer.id)
+          customerId = newCustomer.id
+        }
+      } else {
+        console.log('🔄 Updating existing customer:', customerId)
+        
+        // Update existing customer
+        await supabase
+          .from('customers')
+          .update({
+            phone: formData.customer_phone || null,
+            street: formData.customer_street,
+            postal_code: formData.customer_postal_code,
+            city: formData.customer_city,
+            country: formData.customer_country,
+            tax_number: formData.customer_tax_number || null,
+            weg_property_name: formData.weg_property_name || null,  // ← DODAJ OVO
+            weg_street: formData.weg_street || null,
+            weg_postal_code: formData.weg_postal_code || null,
+            weg_city: formData.weg_city || null,
+            weg_country: formData.weg_country || null,
+            last_service_location: formData.place_of_service || null,
+            last_contact_date: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', customerId)
+      }
+
       const dueDate = new Date(formData.issue_date)
       dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
 
+      // ✅ Create invoice with customer_id + structured addresses
       const invoiceData = {
         majstor_id: majstor.id,
+        customer_id: customerId,
         type: type,
         customer_name: formData.customer_name,
         customer_email: formData.customer_email,
-        customer_phone: formData.customer_phone,
-        customer_address: formData.customer_address,
+        customer_phone: formData.customer_phone || null,
         customer_tax_number: formData.customer_tax_number || null,
-        place_of_service: formData.place_of_service || null, // ✅ DODATO
+        
+        // ✅ Structured billing address
+        customer_street: formData.customer_street,
+        customer_postal_code: formData.customer_postal_code,
+        customer_city: formData.customer_city,
+        customer_country: formData.customer_country,
+        
+        // ✅ WEG address (nullable)
+        weg_property_name: formData.weg_property_name || null,  // ← DODAJ OVO
+        weg_street: formData.weg_street || null,
+        weg_postal_code: formData.weg_postal_code || null,
+        weg_city: formData.weg_city || null,
+        weg_country: formData.weg_country || null,
+        
+        // Service location
+        place_of_service: formData.place_of_service || null,
+        
         items: JSON.stringify(formData.items),
         subtotal: formData.subtotal,
         tax_rate: formData.tax_rate,
@@ -694,7 +916,7 @@ const handleCustomerNameChange = (e) => {
 
         // AUTO-REGENERATE PDF AFTER EDIT (for invoices)
         if (type === 'invoice') {
-          console.log('🔄 Invoice updated, regenerating PDF to ensure sync...')
+          console.log('📄 Invoice updated, regenerating PDF to ensure sync...')
           
           try {
             const regenResponse = await fetch(
@@ -727,43 +949,40 @@ const handleCustomerNameChange = (e) => {
           }
         }
 
-     } else {
-  // CREATE NEW INVOICE/QUOTE
-  result = await supabase
-    .from('invoices')
-    .insert(invoiceData)
-    .select()
-    .single()
+      } else {
+        // CREATE NEW INVOICE/QUOTE
+        result = await supabase
+          .from('invoices')
+          .insert(invoiceData)
+          .select()
+          .single()
 
-  if (result.error) throw result.error
+        if (result.error) throw result.error
 
-  // ✅ POKUŠAJ PDF generaciju
-  console.log('🤖 Generating PDF for new document:', result.data.id)
-  
-  try {
-    const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
-    
-    if (pdfResponse.ok) {
-      console.log('✅ PDF successfully generated')
-    } else {
-      throw new Error(pdfResponse.statusText)
-    }
-  } catch (pdfError) {
-    console.error('❌ PDF generation failed:', pdfError)
-    
-    // ⚠️ UPOZORI korisnika ALI nastavi
-    alert(
-      '⚠️ WICHTIG: PDF wurde nicht generiert!\n\n' +
-      'Die Rechnung ist gespeichert, aber das PDF fehlt.\n' +
-      'Bitte öffnen Sie die Rechnung über "Ansehen" um das PDF zu generieren.'
-    )
-    
-    // ✅ NE bacaj grešku - nastavi normalno
-  }
-}
+        // Try PDF generation
+        console.log('🤖 Generating PDF for new document:', result.data.id)
+        
+        try {
+          const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
+          
+          if (pdfResponse.ok) {
+            console.log('✅ PDF successfully generated')
+          } else {
+            throw new Error(pdfResponse.statusText)
+          }
+        } catch (pdfError) {
+          console.error('❌ PDF generation failed:', pdfError)
+          
+          alert(
+            '⚠️ WICHTIG: PDF wurde nicht generiert!\n\n' +
+            'Die Rechnung ist gespeichert, aber das PDF fehlt.\n' +
+            'Bitte öffnen Sie die Rechnung über "Ansehen" um das PDF zu generieren.'
+          )
+        }
+      }
 
-onSuccess(result.data)
-onClose()
+      onSuccess(result.data)
+      onClose()
 
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
@@ -773,7 +992,7 @@ onClose()
     }
   }
 
-  // 🔥 NEW: Handler for confirm edit (YES)
+  // Handler for confirm edit (YES)
   const handleConfirmEdit = async () => {
     console.log('✅ User confirmed edit - proceeding with save + regenerate')
     setShowEditConfirmModal(false)
@@ -781,12 +1000,11 @@ onClose()
     await handleActualSave()
   }
 
-  // 🔥 NEW: Handler for cancel edit (NO)
+  // Handler for cancel edit (NO)
   const handleCancelEdit = () => {
     console.log('❌ User cancelled edit - no changes saved')
     setShowEditConfirmModal(false)
     setPendingFormData(null)
-    // Stay on edit form, nothing changes
   }
 
   // Format currency
@@ -828,7 +1046,7 @@ onClose()
         onSuccess={handleNumbersSetupSuccess}
       />
       
-      {/* 🔥 NEW: Edit Confirmation Modal */}
+      {/* Edit Confirmation Modal */}
       <EditConfirmationModal />
       
       {/* Main Invoice Creator Modal */}
@@ -916,126 +1134,350 @@ onClose()
               </div>
             </div>
 
-            {/* Customer Information */}
-            <div>
-              <h4 className="text-white font-semibold mb-4">Kundeninformationen</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative" ref={customerInputRef}>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Kundenname * {!isEditMode && '(mindestens 2 Zeichen)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={customerSearchTerm}
-                    onChange={handleCustomerNameChange}
-                    required
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="z.B. Max Mustermann (mindestens 2 Zeichen)"
-                  />
-                  
-                  {/* Customer Suggestions Dropdown */}
-{showCustomerDropdown && (
-  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
-    {searchLoading ? (
-      <div className="p-3 text-slate-400 text-center">
-        🔍 Suche...
-      </div>
-    ) : customerSuggestions.length === 0 ? (
-      <div className="p-3 text-slate-400 text-center">
-        Keine Kunden gefunden
-      </div>
-    ) : (
-      customerSuggestions.map((customer, index) => (
-        <button
-          key={index}
-          type="button"
-          onClick={() => handleCustomerSelect(customer)}
-          className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0 focus:outline-none focus:bg-slate-700"
-        >
-          <div className="font-medium">{customer.name}</div>
-          {customer.company_name && (
-            <div className="text-slate-400 text-xs">🏢 {customer.company_name}</div>
-          )}
-          <div className="text-slate-400 text-xs">📧 {customer.email}</div>
-          {customer.phone && (
-            <div className="text-slate-400 text-xs">📞 {customer.phone}</div>
-          )}
-        </button>
-      ))
-    )}
-  </div>
-)}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">E-Mail *</label>
-                  <input
-                    type="email"
-                    name="customer_email"
-                    value={formData.customer_email}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="max@example.com"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Telefon</label>
-                  <input
-                    type="tel"
-                    name="customer_phone"
-                    value={formData.customer_phone}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="+49 123 456789"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Steuernummer (optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="customer_tax_number"
-                    value={formData.customer_tax_number}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="DE123456789"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Adresse</label>
-                  <textarea
-                    name="customer_address"
-                    value={formData.customer_address}
-                    onChange={handleInputChange}
-                    rows={2}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                    placeholder="Straße, PLZ Stadt"
-                  />
-                  {/* ✅ NOVO POLJE - ORT DER LEISTUNG - odmah ispod adrese */}
-    <div className="md:col-span-2">
+            {/* ✅ CUSTOMER INFORMATION - IMPROVED */}
+<div>
+  <h4 className="text-white font-semibold mb-4">📋 Kundeninformationen</h4>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Customer Name - Autocomplete */}
+    <div className="relative" ref={customerInputRef}>
       <label className="block text-sm font-medium text-slate-300 mb-2">
-        Ort der Leistung (optional)
+        Kundenname * {!isEditMode && '(mindestens 2 Zeichen)'}
       </label>
       <input
         type="text"
-        name="place_of_service"
-        value={formData.place_of_service}
+        value={customerSearchTerm}
+        onChange={handleCustomerNameChange}
+        required
+        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+        placeholder="z.B. Max Mustermann"
+      />
+      
+      {/* Customer Suggestions Dropdown */}
+      {showCustomerDropdown && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+          {searchLoading ? (
+            <div className="p-3 text-slate-400 text-center">
+              🔍 Suche...
+            </div>
+          ) : customerSuggestions.length === 0 ? (
+            <div className="p-3 text-slate-400 text-center">
+              Keine Kunden gefunden
+            </div>
+          ) : (
+            customerSuggestions.map((customer, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => handleCustomerSelect(customer)}
+                className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0 focus:outline-none focus:bg-slate-700"
+              >
+                <div className="font-medium">{customer.name}</div>
+                <div className="text-slate-400 text-xs">📧 {customer.email}</div>
+                {customer.phone && (
+                  <div className="text-slate-400 text-xs">📞 {customer.phone}</div>
+                )}
+                {customer.street && (
+                  <div className="text-slate-400 text-xs">📍 {customer.street}, {customer.postal_code} {customer.city}</div>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+
+    {/* Email */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">E-Mail *</label>
+      <input
+        type="email"
+        name="customer_email"
+        value={formData.customer_email}
+        onChange={handleInputChange}
+        required
+        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+        placeholder="max@example.com"
+      />
+    </div>
+    
+    {/* Phone */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Telefon</label>
+      <input
+        type="tel"
+        name="customer_phone"
+        value={formData.customer_phone}
         onChange={handleInputChange}
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-        placeholder="z.B. Berlin, 10115 Berlin, oder vollständige Adresse"
+        placeholder="+49 123 456789"
       />
-      <p className="text-xs text-slate-500 mt-1">
-        Erforderlich für steuerliche Zwecke und ZUGFeRD-Compliance
+    </div>
+
+    {/* Tax Number */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Steuernummer (optional)
+      </label>
+      <input
+        type="text"
+        name="customer_tax_number"
+        value={formData.customer_tax_number}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+        placeholder="DE123456789"
+      />
+    </div>
+  </div>
+
+  {/* ✅ BILLING ADDRESS - STRUCTURED FIELDS */}
+  <div className="mt-4 p-4 bg-slate-900/30 rounded-lg border-l-4 border-blue-500">
+    <h5 className="text-white font-medium mb-3">Rechnungsadresse</h5>
+    
+    <div className="grid grid-cols-1 gap-3">
+      {/* Street */}
+      <div>
+        <label className="block text-sm text-slate-400 mb-1">Straße und Hausnummer *</label>
+        <input
+          type="text"
+          name="customer_street"
+          value={formData.customer_street}
+          onChange={handleInputChange}
+          required
+          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          placeholder="z.B. Musterstraße 123"
+        />
+      </div>
+      
+      {/* PLZ + City */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">PLZ *</label>
+          <input
+            type="text"
+            name="customer_postal_code"
+            value={formData.customer_postal_code}
+            onChange={handleInputChange}
+            required
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            placeholder="12345"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Stadt *</label>
+          <input
+            type="text"
+            name="customer_city"
+            value={formData.customer_city}
+            onChange={handleInputChange}
+            required
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            placeholder="z.B. Berlin"
+          />
+        </div>
+      </div>
+      
+      {/* ✅ Country - Collapsible with SELECT dropdown */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          name="show_country"
+          checked={formData.show_country}
+          onChange={handleInputChange}
+          className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500"
+        />
+        <span className="text-sm text-slate-400">🌍 Außerhalb Deutschlands</span>
+      </label>
+      
+      {formData.show_country && (
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Land</label>
+          <select
+            name="customer_country"
+            value={formData.customer_country}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          >
+            <option value="Deutschland">🇩🇪 Deutschland</option>
+            <option value="Österreich">🇦🇹 Österreich</option>
+            <option value="Schweiz">🇨🇭 Schweiz</option>
+            <option value="Serbien">🇷🇸 Serbien</option>
+            <option value="Kroatien">🇭🇷 Kroatien</option>
+            <option value="Frankreich">🇫🇷 Frankreich</option>
+            <option value="Italien">🇮🇹 Italien</option>
+            <option value="Niederlande">🇳🇱 Niederlande</option>
+            <option value="Polen">🇵🇱 Polen</option>
+          </select>
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* ✅ WEG/OBJECT ADDRESS - MINIMALIST + CHECKBOX COUNTRY */}
+<div className="mt-4">
+  {!formData.show_weg ? (
+    <button
+      type="button"
+      onClick={() => setFormData(prev => ({ ...prev, show_weg: true }))}
+      className="w-full p-3 flex items-center gap-3 text-blue-400 hover:text-blue-300 transition-colors text-sm bg-transparent"
+    >
+      <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+      <span>+ Objektadresse hinzufügen (falls abweichend)</span>
+    </button>
+  ) : (
+    <div className="p-4 bg-slate-900/30 rounded-lg border-l-4 border-green-500">
+      <div className="flex justify-between items-center mb-3">
+        <h5 className="text-green-300 font-medium">Objektadresse</h5>
+        <button
+          type="button"
+          onClick={() => setFormData(prev => ({ 
+            ...prev, 
+            show_weg: false,
+            weg_property_name: '',  // ← DODAJ OVO
+            weg_street: '',
+            weg_postal_code: '',
+            weg_city: '',
+            weg_country: 'Deutschland'
+          }))}
+          className="text-slate-400 hover:text-white text-xl"
+          title="Objektadresse entfernen"
+        >
+          ×
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-3">
+        {/* 🔥 NOVO POLJE - DODAJ OVDE */}
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Objektname</label>
+          <input
+            type="text"
+            name="weg_property_name"
+            value={formData.weg_property_name}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            placeholder="z.B. Wohnanlage Musterpark"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Straße und Hausnummer</label>
+          <input
+            type="text"
+            name="weg_street"
+            value={formData.weg_street}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            placeholder="z.B. Musterstraße 123"
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">PLZ</label>
+            <input
+              type="text"
+              name="weg_postal_code"
+              value={formData.weg_postal_code}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+              placeholder="12345"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Stadt</label>
+            <input
+              type="text"
+              name="weg_city"
+              value={formData.weg_city}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+              placeholder="z.B. Berlin"
+            />
+          </div>
+        </div>
+        
+        {/* ✅ WEG Country - Checkbox logic (same as billing) */}
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.weg_country !== 'Deutschland'}
+            onChange={(e) => {
+              setFormData(prev => ({
+                ...prev,
+                weg_country: e.target.checked ? '' : 'Deutschland'
+              }))
+            }}
+            className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-slate-400">🌍 Außerhalb Deutschlands</span>
+        </label>
+        
+       {formData.weg_country !== 'Deutschland' && (
+  <div>
+    <label className="block text-sm text-slate-400 mb-1">Land</label>
+    <select
+      name="weg_country"
+      value={formData.weg_country}
+      onChange={handleInputChange}
+      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+    >
+      <option value="Deutschland">🇩🇪 Deutschland</option>
+      <option value="Österreich">🇦🇹 Österreich</option>
+      <option value="Schweiz">🇨🇭 Schweiz</option>
+      <option value="Serbien">🇷🇸 Serbien</option>
+      <option value="Kroatien">🇭🇷 Kroatien</option>
+      <option value="Frankreich">🇫🇷 Frankreich</option>
+      <option value="Italien">🇮🇹 Italien</option>
+      <option value="Niederlande">🇳🇱 Niederlande</option>
+      <option value="Polen">🇵🇱 Polen</option>
+    </select>
+  </div>
+)}
+      </div>
+      
+      <p className="text-xs text-slate-500 mt-3">
+        💡 Z.B. WEG-Gebäude, Baustelle, oder Arbeitsort falls abweichend von Rechnungsadresse
       </p>
-                </div>
-              </div>
-            </div>
-            </div>
+    </div>
+  )}
+</div>
+
+  {/* ✅ SERVICE LOCATION - IMPROVED WITH QUICK-FILL */}
+  <div className="mt-4">
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      📍 Ort der Leistung (optional)
+    </label>
+    <div className="flex gap-2 mb-2">
+      <button
+        type="button"
+        onClick={copyBillingToService}
+        className="px-3 py-1 bg-slate-700 text-slate-300 text-xs rounded hover:bg-slate-600 transition-colors"
+      >
+        📋 Von Rechnungsadresse
+      </button>
+      {formData.show_weg && (
+        <button
+          type="button"
+          onClick={copyWegToService}
+          className="px-3 py-1 bg-slate-700 text-slate-300 text-xs rounded hover:bg-slate-600 transition-colors"
+        >
+          📋 Von Lieferadresse
+        </button>
+      )}
+    </div>
+    <input
+      type="text"
+      name="place_of_service"
+      value={formData.place_of_service}
+      onChange={handleInputChange}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+      placeholder="z.B. Berlin, 10115 Berlin, Treppenhaus 2.OG"
+    />
+    <p className="text-xs text-slate-500 mt-1">
+      💡 Wichtig für steuerliche Zwecke und ZUGFeRD-Compliance
+    </p>
+  </div>
+</div>
 
             {/* Items Section */}
             <div>
