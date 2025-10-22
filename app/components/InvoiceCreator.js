@@ -26,28 +26,27 @@ export default function InvoiceCreator({
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false)
   const [pendingFormData, setPendingFormData] = useState(null)
 
-  const [formData, setFormData] = useState({
-    // Customer identification
-    customer_id: null,
-    customer_name: '',
-    customer_email: '',
-    customer_phone: '',
-    customer_tax_number: '',
+ const [formData, setFormData] = useState({
+  // Customer identification
+  customer_id: null,
+  customer_name: '',
+  customer_email: '',
+  customer_phone: '',
+  customer_tax_number: '',
+  
+  // ✅ Billing address - structured fields
+  customer_street: '',
+  customer_postal_code: '',
+  customer_city: '',
+  customer_country: '',
     
-    // ✅ Billing address - structured fields
-    customer_street: '',
-    customer_postal_code: '',
-    customer_city: '',
-    customer_country: 'Deutschland',
-    show_country: false,
-    
-    // ✅ WEG object address (optional, collapsed by default)
-    show_weg: false,
-    weg_property_name: '',  // ← DODAJ OVO
-    weg_street: '',
-    weg_postal_code: '',
-    weg_city: '',
-    weg_country: 'Deutschland',
+   // ✅ WEG object address (optional, collapsed by default)
+  show_weg: false,
+  weg_property_name: '',
+  weg_street: '',
+  weg_postal_code: '',
+  weg_city: '',
+  weg_country: '',
     
     // Service location (existing field, improved UX)
     place_of_service: '',
@@ -387,7 +386,7 @@ export default function InvoiceCreator({
       payment_terms_days: majstor?.payment_terms_days || 14
     }
 
-    if (isEditMode && editData) {
+   if (isEditMode && editData) {
       const parsedItems = editData.items ? JSON.parse(editData.items) : [{ description: '', quantity: 1, price: 0, total: 0 }]
       
       setFormData({
@@ -401,16 +400,15 @@ export default function InvoiceCreator({
         customer_street: editData.customer_street || '',
         customer_postal_code: editData.customer_postal_code || '',
         customer_city: editData.customer_city || '',
-        customer_country: editData.customer_country || 'Deutschland',
-        show_country: editData.customer_country && editData.customer_country !== 'Deutschland',
+        customer_country: editData.customer_country || '',
         
         // ✅ WEG address from invoice
         show_weg: !!(editData.weg_street),
-        weg_property_name: editData.weg_property_name || '',  // ← DODAJ OVO
+        weg_property_name: editData.weg_property_name || '',
         weg_street: editData.weg_street || '',
         weg_postal_code: editData.weg_postal_code || '',
         weg_city: editData.weg_city || '',
-        weg_country: editData.weg_country || 'Deutschland',
+        weg_country: editData.weg_country || '',
         
         place_of_service: editData.place_of_service || '',
         items: parsedItems,
@@ -436,14 +434,13 @@ export default function InvoiceCreator({
         customer_street: '',
         customer_postal_code: '',
         customer_city: '',
-        customer_country: 'Deutschland',
-        show_country: false,
+        customer_country: '',
         show_weg: false,
-        weg_property_name: '',  // ← DODAJ OVO OVDE
+        weg_property_name: '',
         weg_street: '',
         weg_postal_code: '',
         weg_city: '',
-        weg_country: 'Deutschland',
+        weg_country: '',
         place_of_service: '',
       }
 
@@ -457,14 +454,13 @@ export default function InvoiceCreator({
           customer_street: prefilledCustomer.street || '',
           customer_postal_code: prefilledCustomer.postal_code || '',
           customer_city: prefilledCustomer.city || '',
-          customer_country: prefilledCustomer.country || 'Deutschland',
-          show_country: prefilledCustomer.country && prefilledCustomer.country !== 'Deutschland',
+          customer_country: prefilledCustomer.country || '',
           show_weg: !!(prefilledCustomer.weg_street),
-          weg_property_name: prefilledCustomer.weg_property_name || '',  // ← DODAJ OVO
+          weg_property_name: prefilledCustomer.weg_property_name || '',
           weg_street: prefilledCustomer.weg_street || '',
           weg_postal_code: prefilledCustomer.weg_postal_code || '',
           weg_city: prefilledCustomer.weg_city || '',
-          weg_country: prefilledCustomer.weg_country || 'Deutschland',
+          weg_country: prefilledCustomer.weg_country || '',
           place_of_service: prefilledCustomer.last_service_location || ''
         }
         setCustomerSearchTerm(prefilledCustomer.name || '')
@@ -1277,39 +1273,27 @@ export default function InvoiceCreator({
         </div>
       </div>
       
-      {/* ✅ Country - Collapsible with SELECT dropdown */}
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          name="show_country"
-          checked={formData.show_country}
+    {/* ✅ Country - UVEK VIDLJIVO */}
+      <div>
+        <label className="block text-sm text-slate-400 mb-1">Land (optional)</label>
+        <select
+          name="customer_country"
+          value={formData.customer_country}
           onChange={handleInputChange}
-          className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500"
-        />
-        <span className="text-sm text-slate-400">🌍 Außerhalb Deutschlands</span>
-      </label>
-      
-      {formData.show_country && (
-        <div>
-          <label className="block text-sm text-slate-400 mb-1">Land</label>
-          <select
-            name="customer_country"
-            value={formData.customer_country}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
-          >
-            <option value="Deutschland">🇩🇪 Deutschland</option>
-            <option value="Österreich">🇦🇹 Österreich</option>
-            <option value="Schweiz">🇨🇭 Schweiz</option>
-            <option value="Serbien">🇷🇸 Serbien</option>
-            <option value="Kroatien">🇭🇷 Kroatien</option>
-            <option value="Frankreich">🇫🇷 Frankreich</option>
-            <option value="Italien">🇮🇹 Italien</option>
-            <option value="Niederlande">🇳🇱 Niederlande</option>
-            <option value="Polen">🇵🇱 Polen</option>
-          </select>
-        </div>
-      )}
+          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+        >
+          <option value="">-- Nicht angegeben --</option>
+          <option value="Deutschland">🇩🇪 Deutschland</option>
+          <option value="Österreich">🇦🇹 Österreich</option>
+          <option value="Schweiz">🇨🇭 Schweiz</option>
+          <option value="Serbien">🇷🇸 Serbien</option>
+          <option value="Kroatien">🇭🇷 Kroatien</option>
+          <option value="Frankreich">🇫🇷 Frankreich</option>
+          <option value="Italien">🇮🇹 Italien</option>
+          <option value="Niederlande">🇳🇱 Niederlande</option>
+          <option value="Polen">🇵🇱 Polen</option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -1396,43 +1380,27 @@ export default function InvoiceCreator({
           </div>
         </div>
         
-        {/* ✅ WEG Country - Checkbox logic (same as billing) */}
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={formData.weg_country !== 'Deutschland'}
-            onChange={(e) => {
-              setFormData(prev => ({
-                ...prev,
-                weg_country: e.target.checked ? '' : 'Deutschland'
-              }))
-            }}
-            className="w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500"
-          />
-          <span className="text-sm text-slate-400">🌍 Außerhalb Deutschlands</span>
-        </label>
-        
-       {formData.weg_country !== 'Deutschland' && (
-  <div>
-    <label className="block text-sm text-slate-400 mb-1">Land</label>
-    <select
-      name="weg_country"
-      value={formData.weg_country}
-      onChange={handleInputChange}
-      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
-    >
-      <option value="Deutschland">🇩🇪 Deutschland</option>
-      <option value="Österreich">🇦🇹 Österreich</option>
-      <option value="Schweiz">🇨🇭 Schweiz</option>
-      <option value="Serbien">🇷🇸 Serbien</option>
-      <option value="Kroatien">🇭🇷 Kroatien</option>
-      <option value="Frankreich">🇫🇷 Frankreich</option>
-      <option value="Italien">🇮🇹 Italien</option>
-      <option value="Niederlande">🇳🇱 Niederlande</option>
-      <option value="Polen">🇵🇱 Polen</option>
-    </select>
-  </div>
-)}
+     {/* ✅ WEG Country - UVEK VIDLJIVO */}
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Land (optional)</label>
+          <select
+            name="weg_country"
+            value={formData.weg_country}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          >
+            <option value="">-- Nicht angegeben --</option>
+            <option value="Deutschland">🇩🇪 Deutschland</option>
+            <option value="Österreich">🇦🇹 Österreich</option>
+            <option value="Schweiz">🇨🇭 Schweiz</option>
+            <option value="Serbien">🇷🇸 Serbien</option>
+            <option value="Kroatien">🇭🇷 Kroatien</option>
+            <option value="Frankreich">🇫🇷 Frankreich</option>
+            <option value="Italien">🇮🇹 Italien</option>
+            <option value="Niederlande">🇳🇱 Niederlande</option>
+            <option value="Polen">🇵🇱 Polen</option>
+          </select>
+        </div>
       </div>
       
       <p className="text-xs text-slate-500 mt-3">

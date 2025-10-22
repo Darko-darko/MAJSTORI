@@ -103,3 +103,5 @@
 - I KAD SE MeNJA FAKTURA, KUNDEN DA SE ZAPAMTI!
 - kad čekira državu ide u bazu , a kada ne, ne ide
 - aitofil weg objekta, kad odaberem iz padjućeg menija iz rehnung
+- peyment secur by padlle
+- ifaktur da pravi ili ili imae ili mejl, samo ako su oba ista ne valja
