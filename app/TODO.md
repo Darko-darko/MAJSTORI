@@ -101,3 +101,5 @@
 - ako ima puno mejlova za slanje iz pdf archive da stavimo neki spiner dok se čeka
 - ZA KUNDEN ADRESA U TRI REDA
 - I KAD SE MeNJA FAKTURA, KUNDEN DA SE ZAPAMTI!
+- kad čekira državu ide u bazu , a kada ne, ne ide
+- aitofil weg objekta, kad odaberem iz padjućeg menija iz rehnung

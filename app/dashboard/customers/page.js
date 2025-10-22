@@ -29,6 +29,8 @@ export default function CustomersPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false) // 🔥 NEW DELETE MODAL
   const [customerToDelete, setCustomerToDelete] = useState(null) // 🔥 NEW
+  const [showNotesModal, setShowNotesModal] = useState(false)
+  const [selectedCustomerNotes, setSelectedCustomerNotes] = useState(null)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null)
@@ -656,8 +658,7 @@ export default function CustomersPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider w-8"></th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Kontakt</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Adresse</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Typ</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider w-64">Adresse</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Rechnungen</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Umsatz</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Aktionen</th>
@@ -666,7 +667,7 @@ export default function CustomersPage() {
               <tbody className="divide-y divide-slate-700">
                 {filteredCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
+                    <td colSpan="7" className="px-4 py-8 text-center text-slate-400">
                       Keine Kunden gefunden
                     </td>
                   </tr>
@@ -684,31 +685,48 @@ export default function CustomersPage() {
                             <span className="text-slate-600">☆</span>
                           )}
                         </button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-white">{customer.name}</div>
+                        </td>
+                     <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-white">{customer.name}</div>
+                          {customer.notes && (
+                            <button
+                              onClick={() => {
+                                setSelectedCustomerNotes({
+                                  name: customer.name,
+                                  notes: customer.notes
+                                })
+                                setShowNotesModal(true)
+                              }}
+                              className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors"
+                              title="Notizen anzeigen"
+                            >
+                              📝
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm text-slate-300">{customer.email || '-'}</div>
                         <div className="text-xs text-slate-400">{customer.phone || '-'}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm text-slate-300">
-                          {customer.street ? `${customer.street}` : '-'}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {customer.postal_code && customer.city ? `${customer.postal_code} ${customer.city}` : ''}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {customer.weg_street ? (
-                          <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs font-medium">
-                            WEG
-                          </span>
-                        ) : (
-                          <span className="text-slate-500 text-xs">-</span>
-                        )}
-                      </td>
+  <div className="flex items-center gap-2">
+    <div>
+      <div className="text-sm text-slate-300">
+        {customer.street ? `${customer.street}` : '-'}
+      </div>
+      <div className="text-xs text-slate-400">
+        {customer.postal_code && customer.city ? `${customer.postal_code} ${customer.city}` : ''}
+      </div>
+    </div>
+    {customer.weg_street && (
+      <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs font-medium whitespace-nowrap">
+        WEG
+      </span>
+    )}
+  </div>
+</td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-slate-300 font-medium">{customer.total_invoices || 0}</span>
                       </td>
@@ -764,29 +782,44 @@ export default function CustomersPage() {
           ) : (
             filteredCustomers.map(customer => (
               <div key={customer.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 hover:border-slate-600 transition-colors">
-                {/* Header with name and favorite */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <button
-                        onClick={() => handleToggleFavorite(customer)}
-                        className="hover:scale-125 transition-transform"
-                      >
-                        {customer.is_favorite ? (
-                          <span className="text-yellow-400 text-lg">⭐</span>
-                        ) : (
-                          <span className="text-slate-600 text-lg">☆</span>
-                        )}
-                      </button>
-                      <h3 className="font-semibold text-white text-lg">{customer.name}</h3>
-                    </div>
-                  </div>
-                  {customer.weg_street && (
-                    <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs font-medium">
-                      WEG
-                    </span>
-                  )}
-                </div>
+               {/* Header with name and favorite */}
+<div className="flex items-start justify-between mb-3">
+  <div className="flex-1">
+    <div className="flex items-center gap-2 mb-1">
+      <button
+        onClick={() => handleToggleFavorite(customer)}
+        className="hover:scale-125 transition-transform"
+      >
+        {customer.is_favorite ? (
+          <span className="text-yellow-400 text-lg">⭐</span>
+        ) : (
+          <span className="text-slate-600 text-lg">☆</span>
+        )}
+      </button>
+      <h3 className="font-semibold text-white text-lg">{customer.name}</h3>
+      {customer.notes && (
+        <button
+          onClick={() => {
+            setSelectedCustomerNotes({
+              name: customer.name,
+              notes: customer.notes
+            })
+            setShowNotesModal(true)
+          }}
+          className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors"
+          title="Notizen anzeigen"
+        >
+          📝
+        </button>
+      )}
+    </div>
+  </div>
+  {customer.weg_street && (
+    <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs font-medium">
+      WEG
+    </span>
+  )}
+</div>
 
                 {/* Contact info */}
                 <div className="space-y-2 mb-4">
@@ -905,7 +938,55 @@ export default function CustomersPage() {
             </div>
           </div>
         )}
+        {/* 📝 NOTES MODAL */}
+        {showNotesModal && selectedCustomerNotes && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl p-6 max-w-lg w-full border-2 border-blue-500/30">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-xl">
+                    📝
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Notizen</h3>
+                    <p className="text-sm text-slate-400">{selectedCustomerNotes.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNotesModal(false)
+                    setSelectedCustomerNotes(null)
+                  }}
+                  className="text-slate-400 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
+              </div>
 
+              {/* Content */}
+              <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
+                <p className="text-slate-300 whitespace-pre-wrap">
+                  {selectedCustomerNotes.notes}
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => {
+                    setShowNotesModal(false)
+                    setSelectedCustomerNotes(null)
+                  }}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* CREATE/EDIT MODAL */}
         {(showCreateModal || showEditModal) && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
