@@ -99,3 +99,5 @@
 - import kundena (proveriti kolone)✅
 - proveriti slanje mejlova iz arhiva ako ih je višež
 - ako ima puno mejlova za slanje iz pdf archive da stavimo neki spiner dok se čeka
+- ZA KUNDEN ADRESA U TRI REDA
+- I KAD SE MeNJA FAKTURA, KUNDEN DA SE ZAPAMTI!
