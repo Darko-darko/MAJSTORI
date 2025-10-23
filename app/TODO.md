@@ -106,3 +106,5 @@
 - "peyment secur by padlle"
 - ifaktur da pravi ili ili imae ili mejl, samo ako su oba ista ne valja✅
 - itgled preko 100000e na kundenfragen✅
+- adresa na vizit karti opciono
+- agresevna zvezdica u majne kunden 

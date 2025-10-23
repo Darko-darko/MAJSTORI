@@ -83,9 +83,9 @@ export default function CustomersPage() {
     }
   }, [majstor])
 
-  useEffect(() => {
-    filterCustomers()
-  }, [customers, searchTerm, filterWEG, filterFavorites, sortBy])
+useEffect(() => {
+  filterCustomers()
+}, [customers, searchTerm, filterWEG, filterFavorites, sortBy])  // ❌ OVO MENJAJ
 
   const loadProfile = async () => {
     try {
@@ -174,21 +174,62 @@ export default function CustomersPage() {
     setFilteredCustomers(filtered)
   }
 
-  const handleToggleFavorite = async (customer) => {
-    try {
-      const { error } = await supabase
-        .from('customers')
-        .update({ is_favorite: !customer.is_favorite })
-        .eq('id', customer.id)
+const handleToggleFavorite = async (customer) => {
+  const newFavoriteStatus = !customer.is_favorite
+  
+  // ✅ Update SAMO filteredCustomers (ne diraj customers uopšte!)
+  setFilteredCustomers(prevFiltered =>
+    prevFiltered.map(c =>
+      c.id === customer.id
+        ? { ...c, is_favorite: newFavoriteStatus }
+        : c
+    )
+  )
+  
+  // ✅ Update stats
+  setStats(prev => ({
+    ...prev,
+    favorites: newFavoriteStatus 
+      ? prev.favorites + 1 
+      : prev.favorites - 1
+  }))
+  
+  // ✅ Update bazu u pozadini
+  try {
+    const { error } = await supabase
+      .from('customers')
+      .update({ is_favorite: newFavoriteStatus })
+      .eq('id', customer.id)
 
-      if (error) throw error
-      loadCustomers()
-    } catch (err) {
-      console.error('Error toggling favorite:', err)
-      alert('Fehler beim Aktualisieren')
-    }
+    if (error) throw error
+    
+    // ✅ Tiho update customers state (bez da korisnik primeti)
+    setCustomers(prevCustomers => 
+      prevCustomers.map(c => 
+        c.id === customer.id 
+          ? { ...c, is_favorite: newFavoriteStatus }
+          : c
+      )
+    )
+  } catch (err) {
+    console.error('Error toggling favorite:', err)
+    // Rollback
+    setFilteredCustomers(prevFiltered =>
+      prevFiltered.map(c =>
+        c.id === customer.id
+          ? { ...c, is_favorite: !newFavoriteStatus }
+          : c
+      )
+    )
+    setStats(prev => ({
+      ...prev,
+      favorites: newFavoriteStatus 
+        ? prev.favorites - 1 
+        : prev.favorites + 1
+    }))
+    alert('Fehler beim Aktualisieren')
   }
-
+}
   const handleCreateCustomer = async (e) => {
     e.preventDefault()
     
