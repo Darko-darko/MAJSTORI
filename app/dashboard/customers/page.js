@@ -711,10 +711,28 @@ export default function CustomersPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-slate-300">{customer.email || '-'}</div>
-                        <div className="text-xs text-slate-400">{customer.phone || '-'}</div>
-                      </td>
+                <td className="px-4 py-3">
+  {customer.email ? (
+    <a 
+      href={`mailto:${customer.email}`}
+      className="text-sm text-blue-400 hover:text-blue-300 underline transition-colors block"
+    >
+      {customer.email}
+    </a>
+  ) : (
+    <div className="text-sm text-slate-500">-</div>
+  )}
+  {customer.phone ? (
+    <a 
+      href={`tel:${customer.phone}`}
+      className="text-xs text-green-400 hover:text-green-300 underline transition-colors block"
+    >
+      {customer.phone}
+    </a>
+  ) : (
+    <div className="text-xs text-slate-500">-</div>
+  )}
+</td>
                       <td className="px-4 py-3">
   <div className="flex items-center gap-2">
     <div>
@@ -828,18 +846,24 @@ export default function CustomersPage() {
 
                 {/* Contact info */}
                 <div className="space-y-2 mb-4">
-                  {customer.email && (
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                      <span className="text-slate-500">📧</span>
-                      <span>{customer.email}</span>
-                    </div>
-                  )}
-                  {customer.phone && (
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                      <span className="text-slate-500">📞</span>
-                      <span>{customer.phone}</span>
-                    </div>
-                  )}
+                {customer.email && (
+  <a 
+    href={`mailto:${customer.email}`}
+    className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+  >
+    <span className="text-slate-500">📧</span>
+    <span className="underline">{customer.email}</span>
+  </a>
+)}
+{customer.phone && (
+  <a 
+    href={`tel:${customer.phone}`}
+    className="flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition-colors"
+  >
+    <span className="text-slate-500">📞</span>
+    <span className="underline">{customer.phone}</span>
+  </a>
+)}
                   {customer.street && (
                     <div className="flex items-center gap-2 text-sm text-slate-300">
                       <span className="text-slate-500">📍</span>
