@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import Link from 'next/link'
 import { faqData } from '@/lib/faq-data'
 
-export default function PublicFAQPage() {
+export default function DashboardFAQPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedQuestions, setExpandedQuestions] = useState(new Set())
   const [showCategoryMenu, setShowCategoryMenu] = useState(false)
@@ -62,28 +61,18 @@ export default function PublicFAQPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Navigation - JAVNA VERZIJA */}
-      <nav className="fixed top-0 w-full bg-white/10 backdrop-blur-md border-b border-white/10 z-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
-            <Link href="/" className="text-xl sm:text-2xl font-bold text-white text-center sm:text-left">
-              Pro-meister<span className="text-blue-400">.de</span>
-            </Link>
-            <div className="flex gap-2 sm:gap-4 justify-center">
-              <a href="/login" className="text-white/80 hover:text-white px-3 sm:px-4 py-2 transition-colors text-sm sm:text-base">
-                Anmelden
-              </a>
-              <a href="/signup" className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm sm:text-base">
-                Registrieren
-              </a>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen">
+      {/* SKAČUĆI ZNAK PITANJA */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all duration-300 flex items-center justify-center text-3xl font-bold z-40 animate-bounce hover:animate-none"
+        title="Zurück nach oben"
+      >
+        ?
+      </button>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-12 px-4 sm:px-6">
+      <section className="pt-8 pb-12 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">
             Hilfe & FAQ
@@ -99,7 +88,7 @@ export default function PublicFAQPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Suche nach Thema, Stichwort oder Frage..."
+                placeholder="FAQ durchsuchen..."
                 className="w-full px-6 py-4 bg-slate-800/50 border border-slate-600 rounded-full text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-all"
               />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -150,7 +139,7 @@ export default function PublicFAQPage() {
                   Suchergebnisse
                 </h2>
                 <p className="text-slate-400">
-                  {filteredQuestions.length} {filteredQuestions.length === 1 ? 'Ergebnis' : 'Ergebnisse'} für &quot;{searchTerm}&quot;
+                  {filteredQuestions.length} {filteredQuestions.length === 1 ? 'Ergebnis' : 'Ergebnisse'} für &quot{searchTerm}&quot
                 </p>
               </div>
 
@@ -280,58 +269,9 @@ export default function PublicFAQPage() {
             >
               📧 E-Mail Support
             </a>
-            <a
-              href="/signup"
-              className="border-2 border-slate-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-slate-800 transition-all duration-300"
-            >
-              Kostenlos registrieren
-            </a>
           </div>
         </div>
       </section>
-
-      {/* Footer - SAMO JAVNA VERZIJA IMA */}
-      <footer className="border-t border-slate-800 py-12 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <Link href="/" className="text-2xl font-bold text-white mb-4 inline-block">
-                Pro-meister<span className="text-blue-400">.de</span>
-              </Link>
-              <p className="text-slate-400">
-                Professionelle Rechnungslösung für deutsche Handwerker.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Produkt</h4>
-             <div className="space-y-2">
-  <Link href="/#features" className="block text-slate-400 hover:text-white transition-colors">Funktionen</Link>
-  <Link href="/#pricing" className="block text-slate-400 hover:text-white transition-colors">Preise</Link>
-  <Link href="/login" className="block text-slate-400 hover:text-white transition-colors">Anmelden</Link>
-  <Link href="/signup" className="block text-slate-400 hover:text-white transition-colors">Registrieren</Link>
-</div>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Support</h4>
-              <div className="space-y-2">
-                <a href="mailto:support@pro-meister.de" className="block text-slate-400 hover:text-white transition-colors">E-Mail Support</a>
-                <a href="/faq" className="block text-slate-400 hover:text-white transition-colors">Hilfe & FAQ</a>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Rechtliches</h4>
-              <div className="space-y-2">
-                <a href="/privacy" className="block text-slate-400 hover:text-white transition-colors">Datenschutz</a>
-                <a href="/terms" className="block text-slate-400 hover:text-white transition-colors">AGB</a>
-                <a href="/imprint" className="block text-slate-400 hover:text-white transition-colors">Impressum</a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; {new Date().getFullYear()} pro-meister.de</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

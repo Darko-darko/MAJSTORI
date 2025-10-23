@@ -670,7 +670,7 @@ const getNavigation = () => {
     },
     {
       name: 'FAQ & Hilfe',
-      href: '/faq',
+      href: '/dashboard/help',
       icon: '📚',
       protected: false,
       //target: '_blank',
