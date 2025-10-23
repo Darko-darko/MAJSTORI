@@ -196,12 +196,12 @@ export default function CustomersPage() {
     try {
       // Check duplicate: BOTH name AND email must match
       if (formData.name?.trim() && formData.email?.trim()) {
-        const { data: existing } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('majstor_id', majstor.id)
-          .eq('name', formData.name.trim())
-          .eq('email', formData.email.trim())
+       const { data: existing } = await supabase
+  .from('customers')
+  .select('id')
+  .eq('majstor_id', majstor.id)
+  .ilike('name', formData.name.trim())
+  .ilike('email', formData.email.trim())
         
         if (existing && existing.length > 0) {
           alert('⚠️ Dieser Kunde existiert bereits!\n\nEin Kunde mit dem gleichen Namen UND E-Mail ist bereits vorhanden.')
