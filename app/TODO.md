@@ -74,7 +74,7 @@
 - logo✅
 - google search konzola
 - help i faq
-- novi sad izbrista paddle support
+- novi sad izbrista paddle support✅
 - arhiva 10 godina
 - zvono? da vodi na side bar
 - kad se klinke na račun kome je istekla valuta da filtrira✅
@@ -95,13 +95,14 @@
 - tekst meilla prilikom slanja računa✅
 - mesto rada na fakturi✅
 - da template u računu bude isti kao u angebotu za skanje en+maila✅
-- pdf arhiv treba da je dostupan za freemium
+- pdf arhiv treba da je dostupan za freemium✅
 - import kundena (proveriti kolone)✅
-- proveriti slanje mejlova iz arhiva ako ih je višež
+- proveriti slanje mejlova iz arhiva ako ih je višež✅
 - ako ima puno mejlova za slanje iz pdf archive da stavimo neki spiner dok se čeka
-- ZA KUNDEN ADRESA U TRI REDA
+- ZA KUNDEN ADRESA U TRI REDA✅
 - I KAD SE MeNJA FAKTURA, KUNDEN DA SE ZAPAMTI!
-- kad čekira državu ide u bazu , a kada ne, ne ide
-- aitofil weg objekta, kad odaberem iz padjućeg menija iz rehnung
-- peyment secur by padlle
-- ifaktur da pravi ili ili imae ili mejl, samo ako su oba ista ne valja
+- kad čekira državu ide u bazu , a kada ne, ne ide✅.... rešeno sa drugačijim padajućim menijem
+- aitofil weg objekta, kad odaberem iz padjućeg menija iz rehnung✅
+- "peyment secur by padlle"
+- ifaktur da pravi ili ili imae ili mejl, samo ako su oba ista ne valja✅
+- itgled preko 100000e na kundenfragen✅
