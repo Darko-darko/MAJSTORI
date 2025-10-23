@@ -30,12 +30,12 @@ const handleGoogleLogin = async () => {
     setGoogleLoading(true)
     setError('')
     
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'https://pro-meister.de/auth/callback' // Hardkodiraj production URL
-      }
-    })
+   const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: `${window.location.origin}/auth/callback` // Dinamički!
+  }
+})
 
     if (error) {
       console.error('Google OAuth error:', error)
