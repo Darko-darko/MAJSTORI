@@ -22,7 +22,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterWEG, setFilterWEG] = useState('all')
   const [filterFavorites, setFilterFavorites] = useState(false)
-  const [sortBy, setSortBy] = useState('name')
+  const [sortBy, setSortBy] = useState('created_at')
   
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -158,16 +158,18 @@ export default function CustomersPage() {
       filtered = filtered.filter(c => c.is_favorite)
     }
 
-    filtered = filtered.sort((a, b) => {
-      if (sortBy === 'name') {
-        return (a.name || '').localeCompare(b.name || '')
-      } else if (sortBy === 'revenue') {
-        return (parseFloat(b.total_revenue) || 0) - (parseFloat(a.total_revenue) || 0)
-      } else if (sortBy === 'last_contact') {
-        return new Date(b.last_contact_date || 0) - new Date(a.last_contact_date || 0)
-      }
-      return 0
-    })
+  filtered = filtered.sort((a, b) => {
+  if (sortBy === 'name') {
+    return (a.name || '').localeCompare(b.name || '')
+  } else if (sortBy === 'revenue') {
+    return (parseFloat(b.total_revenue) || 0) - (parseFloat(a.total_revenue) || 0)
+  } else if (sortBy === 'last_contact') {
+    return new Date(b.last_contact_date || 0) - new Date(a.last_contact_date || 0)
+  } else if (sortBy === 'created_at') {
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  }
+  return 0
+})
 
     setFilteredCustomers(filtered)
   }
@@ -602,13 +604,15 @@ export default function CustomersPage() {
             <div className="text-2xl font-bold text-yellow-400">{stats.favorites}</div>
             <div className="text-xs text-slate-500 mt-1">Filtern</div>
           </div>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <div className="text-slate-400 text-sm mb-1">Gesamtumsatz</div>
-            <div className="text-2xl font-bold text-green-400 flex items-center gap-2">
-              <span>💰</span>
-              {stats.totalRevenue.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-            </div>
-          </div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+  <div className="text-slate-400 text-sm mb-1">Gesamtumsatz</div>
+  <div className="text-base sm:text-xl lg:text-2xl font-bold text-green-400 flex items-center gap-2 flex-wrap">
+    <span>💰</span>
+    <span className="break-words">
+      {stats.totalRevenue.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+    </span>
+  </div>
+</div>
         </div>
 
         {/* Filters - COMPLETE */}
@@ -639,14 +643,15 @@ export default function CustomersPage() {
 
           {/* Sort Dropdown */}
           <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-          >
-            <option value="name">Nach Name</option>
-            <option value="revenue">Nach Umsatz</option>
-            <option value="last_contact">Nach letztem Kontakt</option>
-          </select>
+  value={sortBy}
+  onChange={(e) => setSortBy(e.target.value)}
+  className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+>
+  <option value="created_at">Neueste zuerst</option>
+  <option value="name">Nach Name</option>
+  <option value="revenue">Nach Umsatz</option>
+  <option value="last_contact">Nach letztem Kontakt</option>
+</select>
         </div>
 
         {/* Customers Table - Desktop */}
@@ -863,26 +868,29 @@ export default function CustomersPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => handleNewInvoiceClick(customer)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    💼 Rechnung
-                  </button>
-                  <button
-                    onClick={() => openEditModal(customer)}
-                    className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    ✏️ Bearbeiten
-                  </button>
-                  <button
-                    onClick={() => openDeleteModal(customer)}
-                    className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    🗑️ Löschen
-                  </button>
-                </div>
+           <div className="grid grid-cols-3 gap-2">
+  <button
+    onClick={() => handleNewInvoiceClick(customer)}
+    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
+  >
+    <span className="text-base">💼</span>
+    <span>Rechnung</span>
+  </button>
+  <button
+    onClick={() => openEditModal(customer)}
+    className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
+  >
+    <span className="text-base">✏️</span>
+    <span>Bearbeiten</span>
+  </button>
+  <button
+    onClick={() => openDeleteModal(customer)}
+    className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
+  >
+    <span className="text-base">🗑️</span>
+    <span>Löschen</span>
+  </button>
+</div>
               </div>
             ))
           )}
