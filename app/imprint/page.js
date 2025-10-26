@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function Imprint() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -5,23 +7,23 @@ export default function Imprint() {
       <nav className="fixed top-0 w-full bg-white/10 backdrop-blur-md border-b border-white/10 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
-            <a href="/" className="text-xl sm:text-2xl font-bold text-white text-center sm:text-left hover:text-blue-400 transition-colors">
+            <Link href="/" className="text-xl sm:text-2xl font-bold text-white text-center sm:text-left hover:text-blue-400 transition-colors">
               Pro-meister<span className="text-blue-400">.de</span>
-            </a>
+            </Link>
             
             <div className="flex gap-2 sm:gap-4 justify-center">
-              <a
+              <Link
                 href="/login"
                 className="text-white/80 hover:text-white px-3 sm:px-4 py-2 transition-colors text-sm sm:text-base"
               >
                 Anmelden
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/signup"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 rounded-full font-medium transition-all duration-300 hover:scale-105 text-sm sm:text-base"
               >
                 Registrieren
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -131,12 +133,12 @@ export default function Imprint() {
 
           {/* Back to Home */}
           <div className="text-center mt-12">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors font-medium"
             >
               ← Zurück zur Startseite
-            </a>
+            </Link>
           </div>
         </div>
       </main>
@@ -145,15 +147,15 @@ export default function Imprint() {
       <footer className="border-t border-slate-800 py-8 px-6">
         <div className="max-w-6xl mx-auto text-center">
           <div className="flex flex-wrap justify-center gap-6 mb-4">
-            <a href="/privacy" className="text-slate-400 hover:text-white transition-colors text-sm">
+            <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors text-sm">
               Datenschutz
-            </a>
-            <a href="/terms" className="text-slate-400 hover:text-white transition-colors text-sm">
+            </Link>
+            <Link href="/terms" className="text-slate-400 hover:text-white transition-colors text-sm">
               AGB
-            </a>
-            <a href="/imprint" className="text-slate-400 hover:text-white transition-colors text-sm">
+            </Link>
+            <Link href="/imprint" className="text-slate-400 hover:text-white transition-colors text-sm">
               Impressum
-            </a>
+            </Link>
           </div>
           <p className="text-slate-400 text-sm">
             &copy; {new Date().getFullYear()} pro-meister.de
