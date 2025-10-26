@@ -1,8 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { auth, supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -12,7 +13,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showPassword, setShowPassword] = useState(false) // NEW: Password visibility toggle
+  const [showPassword, setShowPassword] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const router = useRouter()
 
   const handleChange = (e) => {
@@ -23,38 +25,43 @@ export default function LoginPage() {
   }
 
   // Google OAuth Login
-const handleGoogleLogin = async () => {
-  try {
-    console.log('🔍 Current window.location.origin:', window.location.origin)
-    console.log('🔍 Full redirect URL:', `${window.location.origin}/auth/callback`)
-    setGoogleLoading(true)
-    setError('')
-    
-   const { data, error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: `${window.location.origin}/auth/callback` // Dinamički!
-  }
-})
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('🔍 Current window.location.origin:', window.location.origin)
+      console.log('🔍 Full redirect URL:', `${window.location.origin}/auth/callback`)
+      setGoogleLoading(true)
+      setError('')
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
 
-    if (error) {
-      console.error('Google OAuth error:', error)
-      setError('Fehler bei Google Anmeldung: ' + error.message)
+      if (error) {
+        console.error('Google OAuth error:', error)
+        setError('Fehler bei Google Anmeldung: ' + error.message)
+      }
+    } catch (err) {
+      console.error('Google signup error:', err)
+      setError('Ein unerwarteter Fehler ist aufgetreten')
+    } finally {
+      setGoogleLoading(false)
     }
-  } catch (err) {
-    console.error('Google signup error:', err)
-    setError('Ein unerwarteter Fehler ist aufgetreten')
-  } finally {
-    setGoogleLoading(false)
   }
-}
-  // Regular email/password login
+
+  // Regular email/password login with Turnstile
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
+      if (!turnstileToken) {
+        throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
+      }
+
       const { data, error: signInError } = await auth.signIn(
         formData.email, 
         formData.password
@@ -180,10 +187,22 @@ const handleGoogleLogin = async () => {
               </Link>
             </div>
 
+            {/* Turnstile - Invisible */}
+            <div className="flex justify-center">
+              <Turnstile
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onError={() => setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')}
+                onExpire={() => setTurnstileToken('')}
+                theme="dark"
+                size="invisible"
+              />
+            </div>
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || !turnstileToken}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Anmeldung läuft...' : 'Anmelden'}

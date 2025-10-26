@@ -1,9 +1,10 @@
-// app/signup/page.js - UPDATED sa welcome/choose-plan redirect
+// app/signup/page.js - SA TURNSTILE + HIBRID PASSWORD METER
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -15,6 +16,9 @@ export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [passwordStrength, setPasswordStrength] = useState({
     length: false,
     uppercase: false,
@@ -44,6 +48,28 @@ export default function SignupPage() {
       number: /\d/.test(password),
       special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
     })
+  }
+
+  // Calculate password strength percentage
+  const getPasswordStrengthScore = () => {
+    const checks = Object.values(passwordStrength)
+    const passed = checks.filter(Boolean).length
+    return (passed / checks.length) * 100
+  }
+
+  const getPasswordStrengthLabel = (score) => {
+    if (score === 0) return { text: 'Sehr schwach', color: 'text-red-400' }
+    if (score <= 40) return { text: 'Schwach', color: 'text-red-400' }
+    if (score <= 60) return { text: 'Mittel', color: 'text-orange-400' }
+    if (score < 100) return { text: 'Gut', color: 'text-yellow-400' }
+    return { text: 'Sehr stark', color: 'text-green-400' }
+  }
+
+  const getProgressBarColor = (score) => {
+    if (score <= 40) return 'bg-red-500'
+    if (score <= 60) return 'bg-orange-500'
+    if (score < 100) return 'bg-yellow-500'
+    return 'bg-green-500'
   }
 
   const validatePassword = (password) => {
@@ -77,10 +103,13 @@ export default function SignupPage() {
       throw new Error('Alle Felder sind erforderlich')
     }
 
-    // Neue komplexe password validacija
+    if (!turnstileToken) {
+      throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
+    }
+
     const passwordErrors = validatePassword(formData.password)
     if (passwordErrors.length > 0) {
-      throw new Error(passwordErrors[0]) // Prikaži prvi error
+      throw new Error(passwordErrors[0])
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -122,7 +151,7 @@ export default function SignupPage() {
     }
   }
 
-  // Email/Password signup - UPDATED to go to welcome page
+  // Email/Password signup with Turnstile
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setError('')
@@ -131,21 +160,29 @@ export default function SignupPage() {
     try {
       validateForm()
 
-      // 1. Create auth user with MINIMAL data
+      // Create auth user with Turnstile token
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
+          captchaToken: turnstileToken,
           data: {
             signup_type: 'email'
           }
         }
       })
 
-      if (authError) throw authError
+      if (authError) {
+        // Handle leaked password error
+        if (authError.message.includes('Password should not be a common password') || 
+            authError.message.includes('breached')) {
+          throw new Error('❌ Dieses Passwort wurde in Datenlecks gefunden und ist nicht sicher. Bitte wählen Sie ein anderes Passwort.')
+        }
+        throw authError
+      }
 
       if (authData.user) {
-        // 2. Create MINIMAL majstor profile via API - NO SUBSCRIPTION YET
+        // Create MINIMAL majstor profile via API
         const response = await fetch('/api/create-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -153,9 +190,6 @@ export default function SignupPage() {
             id: authData.user.id,
             email: formData.email,
             full_name: formData.email.split('@')[0],
-            // 🔥 REMOVED: No subscription setup here
-            // subscription_status: 'trial',
-            // subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             is_active: true,
             profile_completed: false,
             profile_source: 'email_signup'
@@ -167,12 +201,10 @@ export default function SignupPage() {
           throw new Error(errorData.error || 'Fehler beim Erstellen des Profils')
         }
 
-        // 3. Success redirect to WELCOME PAGE instead of dashboard
+        // Success redirect to WELCOME PAGE
         if (authData.user.email_confirmed_at) {
-          // Email already confirmed (rare) - go to welcome
           router.push('/welcome/choose-plan')
         } else {
-          // Need email confirmation - show message and redirect to login
           alert('✅ Registrierung erfolgreich!\n\nBitte prüfen Sie Ihre E-Mails zur Bestätigung, dann können Sie sich anmelden und Ihren Plan wählen.')
           router.push('/login?message=confirm_email_then_welcome')
         }
@@ -187,6 +219,27 @@ export default function SignupPage() {
   }
 
   const isPasswordValid = Object.values(passwordStrength).every(Boolean)
+  const passwordScore = getPasswordStrengthScore()
+  const strengthLabel = getPasswordStrengthLabel(passwordScore)
+  
+  const showPasswordMismatch = confirmPasswordTouched && 
+                                formData.confirmPassword.length > 0 && 
+                                formData.password !== formData.confirmPassword
+  
+  const showPasswordMatch = confirmPasswordTouched && 
+                           formData.confirmPassword.length > 0 && 
+                           formData.password === formData.confirmPassword
+
+  // Get missing requirements
+  const getMissingRequirements = () => {
+    const missing = []
+    if (!passwordStrength.length) missing.push('8+ Zeichen')
+    if (!passwordStrength.uppercase) missing.push('Großbuchstabe')
+    if (!passwordStrength.lowercase) missing.push('Kleinbuchstabe')
+    if (!passwordStrength.number) missing.push('Zahl')
+    if (!passwordStrength.special) missing.push('Sonderzeichen')
+    return missing
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -265,7 +318,7 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* Password */}
+          {/* Password with HYBRID Strength Meter */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Passwort
@@ -277,44 +330,64 @@ export default function SignupPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
                 placeholder="Ihr Passwort eingeben"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
               >
                 {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
             
-            {/* Password Requirements - Show only when user starts typing */}
+            {/* HYBRID Password Strength Meter */}
             {formData.password && (
               <div className="mt-3 p-3 bg-slate-900/30 rounded-lg border border-slate-700">
-                <p className="text-xs text-slate-400 mb-2">Passwort muss enthalten:</p>
-                <div className="grid grid-cols-2 gap-1 text-xs">
-                  <div className={`flex items-center gap-1 ${passwordStrength.length ? 'text-green-400' : 'text-red-400'}`}>
-                    <span>{passwordStrength.length ? '✓' : '✗'}</span>
-                    <span>8+ Zeichen</span>
+                {/* Progress Bar */}
+                <div className="mb-3">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-xs font-medium ${strengthLabel.color}`}>
+                      {strengthLabel.text}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {Math.round(passwordScore)}%
+                    </span>
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordStrength.uppercase ? 'text-green-400' : 'text-red-400'}`}>
-                    <span>{passwordStrength.uppercase ? '✓' : '✗'}</span>
-                    <span>Großbuchstabe</span>
-                  </div>
-                  <div className={`flex items-center gap-1 ${passwordStrength.lowercase ? 'text-green-400' : 'text-red-400'}`}>
-                    <span>{passwordStrength.lowercase ? '✓' : '✗'}</span>
-                    <span>Kleinbuchstabe</span>
-                  </div>
-                  <div className={`flex items-center gap-1 ${passwordStrength.number ? 'text-green-400' : 'text-red-400'}`}>
-                    <span>{passwordStrength.number ? '✓' : '✗'}</span>
-                    <span>Zahl</span>
-                  </div>
-                  <div className={`flex items-center gap-1 col-span-2 ${passwordStrength.special ? 'text-green-400' : 'text-red-400'}`}>
-                    <span>{passwordStrength.special ? '✓' : '✗'}</span>
-                    <span>Sonderzeichen (!@#$%...)</span>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(passwordScore)}`}
+                      style={{ width: `${passwordScore}%` }}
+                    />
                   </div>
                 </div>
+
+                {/* Missing Requirements */}
+                {getMissingRequirements().length > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-2">
+                      {passwordScore < 100 ? 'Noch benötigt:' : 'Fast fertig!'}
+                    </p>
+                    <div className="space-y-1">
+                      {getMissingRequirements().map((req, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-red-400">
+                          <span>✗</span>
+                          <span>{req}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* All Requirements Met */}
+                {isPasswordValid && (
+                  <div className="flex items-center gap-2 text-xs text-green-400">
+                    <span>✓</span>
+                    <span>Alle Anforderungen erfüllt</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -326,33 +399,35 @@ export default function SignupPage() {
             </label>
             <div className="relative">
               <input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                onBlur={() => setConfirmPasswordTouched(true)}
                 required
-                className={`w-full px-4 py-3 bg-slate-900/50 rounded-lg text-white placeholder-slate-400 focus:outline-none transition-colors ${
-                  formData.confirmPassword && formData.password !== formData.confirmPassword
-                    ? 'border-2 border-red-500 focus:ring-2 focus:ring-red-500'
-                    : 'border border-slate-600 focus:ring-2 focus:ring-blue-500'
-                }`}
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
                 placeholder="Passwort wiederholen"
               />
-              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <span className="text-red-500 text-xl">⚠️</span>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors z-10"
+                title={showConfirmPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+              >
+                {showConfirmPassword ? '🙈' : '👁️'}
+              </button>
             </div>
-            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-              <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-red-400 text-sm font-medium flex items-center gap-2">
-                  <span className="text-red-500">❌</span>
+            
+            {showPasswordMismatch && (
+              <div className="mt-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                <p className="text-orange-400 text-sm font-medium flex items-center gap-2">
+                  <span className="text-orange-500">⚠️</span>
                   Passwörter stimmen nicht überein
                 </p>
               </div>
             )}
-            {formData.confirmPassword && formData.password === formData.confirmPassword && formData.confirmPassword.length > 0 && (
+            
+            {showPasswordMatch && (
               <>
                 {isPasswordValid ? (
                   <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
@@ -362,9 +437,9 @@ export default function SignupPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <p className="text-red-400 text-sm font-medium flex items-center gap-2">
-                      <span className="text-red-500">⚠️</span>
+                  <div className="mt-2 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                    <p className="text-orange-400 text-sm font-medium flex items-center gap-2">
+                      <span className="text-orange-500">ℹ️</span>
                       Passwörter stimmen überein, aber das Passwort ist zu schwach
                     </p>
                   </div>
@@ -372,6 +447,8 @@ export default function SignupPage() {
               </>
             )}
           </div>
+
+          
 
           {/* Terms */}
           <div className="flex items-start gap-3">
@@ -399,11 +476,23 @@ export default function SignupPage() {
             </div>
           )}
 
+          {/* Turnstile - Invisible */}
+          <div className="flex justify-center">
+            <Turnstile
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onError={() => setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')}
+              onExpire={() => setTurnstileToken('')}
+              theme="dark"
+              size="invisible"
+            />
+          </div>
+
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || googleLoading || !isPasswordValid}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
+            disabled={loading || googleLoading || !isPasswordValid || !turnstileToken}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Registrierung läuft...' : '🚀 Jetzt registrieren'}
           </button>
