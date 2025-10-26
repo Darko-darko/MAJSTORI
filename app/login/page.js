@@ -1,8 +1,8 @@
-// app/login/page.js - FIXED TURNSTILE INTEGRATION
+// app/login/page.js - FIXED to pass captchaToken to auth.signIn()
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { auth, supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { Turnstile } from '@marsidev/react-turnstile'
 
@@ -51,7 +51,7 @@ export default function LoginPage() {
     }
   }
 
-  // 🔥 FIXED: Email/password login with PROPER captchaToken handling
+  // 🔥 FIXED: Email/password login - passes captchaToken to auth.signIn()
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -61,19 +61,16 @@ export default function LoginPage() {
       console.log('🔐 Login attempt for:', formData.email)
       console.log('🛡️ Turnstile token present:', !!turnstileToken)
 
-      // 🔥 FIX: Check for token
       if (!turnstileToken) {
         throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
       }
 
-      // 🔥 FIX: Pass captchaToken through OPTIONS!
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          captchaToken: turnstileToken  // ✅ CRITICAL: Must be in options!
-        }
-      })
+      // 🔥 FIX: Pass captchaToken as 3rd parameter!
+      const { data, error: signInError } = await auth.signIn(
+        formData.email,
+        formData.password,
+        turnstileToken  // ✅ CRITICAL: Pass token here!
+      )
 
       if (signInError) {
         console.error('❌ Supabase login error:', signInError)
@@ -88,7 +85,6 @@ export default function LoginPage() {
     } catch (err) {
       console.error('❌ Login failed:', err)
       
-      // Better error messages
       if (err.message.includes('Invalid login credentials')) {
         setError('Ungültige E-Mail oder Passwort')
       } else if (err.message.includes('Email not confirmed')) {
@@ -200,7 +196,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* 🔥 TURNSTILE: Invisible widget */}
+            {/* Turnstile - Invisible */}
             <div className="flex justify-center">
               <Turnstile
                 siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
@@ -230,7 +226,7 @@ export default function LoginPage() {
               {loading ? 'Anmeldung läuft...' : 'Anmelden'}
             </button>
 
-            {/* Turnstile Status Indicator */}
+            {/* Turnstile Status */}
             {!turnstileToken && (
               <div className="text-center">
                 <p className="text-xs text-slate-500">
