@@ -208,14 +208,7 @@ export default function LoginPage() {
               {loading ? 'Anmeldung läuft...' : 'Anmelden'}
             </button>
 
-            {/* Demo Account Info */}
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-              <p className="text-green-300 text-sm">
-                <strong>Demo Account:</strong><br/>
-                E-Mail: demo@pro-meister.de<br/>
-                Passwort: demo123
-              </p>
-            </div>
+            
 
             {/* Signup Link */}
             <div className="text-center">
