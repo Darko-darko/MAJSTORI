@@ -1,10 +1,9 @@
-// app/login/page.js - FIXED to pass captchaToken to auth.signIn()
+// app/login/page.js - CLEAN VERSION WITHOUT TURNSTILE
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { auth, supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -15,7 +14,6 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [turnstileToken, setTurnstileToken] = useState('')
   const router = useRouter()
 
   const handleChange = (e) => {
@@ -51,7 +49,7 @@ export default function LoginPage() {
     }
   }
 
-  // 🔥 FIXED: Email/password login - passes captchaToken to auth.signIn()
+  // ✅ CLEAN: Simple email/password login WITHOUT captcha
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -59,21 +57,15 @@ export default function LoginPage() {
 
     try {
       console.log('🔐 Login attempt for:', formData.email)
-      console.log('🛡️ Turnstile token present:', !!turnstileToken)
 
-      if (!turnstileToken) {
-        throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
-      }
-
-      // 🔥 FIX: Pass captchaToken as 3rd parameter!
+      // Simple auth call - NO captcha needed!
       const { data, error: signInError } = await auth.signIn(
         formData.email,
-        formData.password,
-        turnstileToken  // ✅ CRITICAL: Pass token here!
+        formData.password
       )
 
       if (signInError) {
-        console.error('❌ Supabase login error:', signInError)
+        console.error('❌ Login error:', signInError)
         throw signInError
       }
 
@@ -89,8 +81,6 @@ export default function LoginPage() {
         setError('Ungültige E-Mail oder Passwort')
       } else if (err.message.includes('Email not confirmed')) {
         setError('Bitte bestätigen Sie Ihre E-Mail-Adresse')
-      } else if (err.message.includes('captcha')) {
-        setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
       } else {
         setError(err.message || 'Ein Fehler ist aufgetreten')
       }
@@ -196,44 +186,14 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Turnstile - Invisible */}
-            <div className="flex justify-center">
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                onSuccess={(token) => {
-                  console.log('✅ Turnstile token received')
-                  setTurnstileToken(token)
-                }}
-                onError={() => {
-                  console.error('❌ Turnstile error')
-                  setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
-                }}
-                onExpire={() => {
-                  console.warn('⚠️ Turnstile token expired')
-                  setTurnstileToken('')
-                }}
-                theme="dark"
-                size="invisible"
-              />
-            </div>
-
-            {/* Submit Button */}
+            {/* Submit Button - NO captcha dependency! */}
             <button
               type="submit"
-              disabled={loading || googleLoading || !turnstileToken}
+              disabled={loading || googleLoading}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Anmeldung läuft...' : 'Anmelden'}
             </button>
-
-            {/* Turnstile Status */}
-            {!turnstileToken && (
-              <div className="text-center">
-                <p className="text-xs text-slate-500">
-                  🛡️ Sicherheitsprüfung wird geladen...
-                </p>
-              </div>
-            )}
 
             {/* Demo Account Info */}
             <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
