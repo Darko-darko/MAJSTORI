@@ -1,3 +1,4 @@
+// app/api/inquiries/route.js - WITH TURNSTILE BOT PROTECTION
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -7,10 +8,66 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// 🔥 POSTOJEĆI POST - za kreiranje inquiry
+// 🔥 TURNSTILE: Validate token with Cloudflare API
+async function verifyTurnstileToken(token) {
+  try {
+    const response = await fetch(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: token,
+        }),
+      }
+    )
+
+    const data = await response.json()
+    
+    console.log('🔒 Turnstile verification result:', {
+      success: data.success,
+      challenge_ts: data.challenge_ts,
+      hostname: data.hostname,
+      error_codes: data['error-codes']
+    })
+
+    return data.success
+  } catch (error) {
+    console.error('❌ Turnstile verification error:', error)
+    return false
+  }
+}
+
+// 🔥 EXISTING POST - for creating inquiry with Turnstile protection
 export async function POST(request) {
   try {
     const body = await request.json()
+    
+    // 🔥 TURNSTILE: Validate bot protection token FIRST
+    const { turnstileToken } = body
+    
+    if (!turnstileToken) {
+      console.warn('⚠️ Missing Turnstile token')
+      return NextResponse.json(
+        { error: 'Security verification required' },
+        { status: 400 }
+      )
+    }
+
+    const isValidToken = await verifyTurnstileToken(turnstileToken)
+    
+    if (!isValidToken) {
+      console.warn('⚠️ Invalid Turnstile token')
+      return NextResponse.json(
+        { error: 'Security verification failed' },
+        { status: 400 }
+      )
+    }
+
+    console.log('✅ Turnstile token verified successfully')
     
     // Validate required fields
     const { majstor_id, customer_name, customer_email, subject, message } = body
@@ -42,12 +99,12 @@ export async function POST(request) {
         customer_name,
         customer_email,
         customer_phone: body.customer_phone || null,
-        customer_address: body.customer_address || null, // 🔥 DODAJ OVo
+        customer_address: body.customer_address || null,
         subject,
         message,
         status: 'new',
-        priority: priority,                                   // 🔥 MAPPED URGENCY → PRIORITY
-        urgency: body.urgency || 'normal',                   // Original urgency value
+        priority: priority,
+        urgency: body.urgency || 'normal',
         preferred_contact: body.preferred_contact || 'email',
         source: body.source || 'business_card',
         description: body.description || message,
@@ -57,12 +114,14 @@ export async function POST(request) {
       .single()
 
     if (inquiryError) {
-      console.error('Error creating inquiry:', inquiryError)
+      console.error('❌ Error creating inquiry:', inquiryError)
       return NextResponse.json(
         { error: 'Failed to create inquiry' },
         { status: 500 }
       )
     }
+
+    console.log('✅ Inquiry created successfully:', inquiry.id)
 
     // Handle images if any
     if (body.images && body.images.length > 0) {
@@ -77,8 +136,10 @@ export async function POST(request) {
         .insert(imagePromises)
 
       if (imagesError) {
-        console.error('Error saving images:', imagesError)
+        console.error('⚠️ Error saving images:', imagesError)
         // Don't fail the whole request if images fail
+      } else {
+        console.log('✅ Images saved:', body.images.length)
       }
     }
 
@@ -91,7 +152,7 @@ export async function POST(request) {
     )
 
   } catch (error) {
-    console.error('API error:', error)
+    console.error('💥 API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -99,7 +160,7 @@ export async function POST(request) {
   }
 }
 
-// 🔥 NOVI PATCH - za update status/priority
+// 🔥 EXISTING PATCH - for updating status/priority
 export async function PATCH(request) {
   try {
     const body = await request.json()
@@ -137,12 +198,14 @@ export async function PATCH(request) {
       .single()
 
     if (updateError) {
-      console.error('Error updating inquiry:', updateError)
+      console.error('❌ Error updating inquiry:', updateError)
       return NextResponse.json(
         { error: 'Failed to update inquiry' },
         { status: 500 }
       )
     }
+
+    console.log('✅ Inquiry updated successfully:', inquiry.id)
 
     return NextResponse.json(
       { 
@@ -153,7 +216,7 @@ export async function PATCH(request) {
     )
 
   } catch (error) {
-    console.error('API error:', error)
+    console.error('💥 API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

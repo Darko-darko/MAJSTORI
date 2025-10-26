@@ -1,8 +1,9 @@
-// app/m/[slug]/page.js - COMPLETE WITH SUBSCRIPTION LOGIC
+// app/m/[slug]/page.js - COMPLETE WITH SUBSCRIPTION LOGIC + TURNSTILE BOT PROTECTION
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useSubscription } from '@/lib/hooks/useSubscription' // 🔥 NEW: Subscription logic
+import { useSubscription } from '@/lib/hooks/useSubscription'
+import { Turnstile } from '@marsidev/react-turnstile' // 🔥 TURNSTILE: Bot protection
 
 export default function PublicBusinessCardPage({ params }) {
   const [businessCard, setBusinessCard] = useState(null)
@@ -14,13 +15,13 @@ export default function PublicBusinessCardPage({ params }) {
   // Gallery modal state
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   
-  // 🔥 RENAMED: Inquiry form states (renamed to avoid conflict)
+  // Inquiry form states
   const [showInquiryFormModal, setShowInquiryFormModal] = useState(false)
   const [inquiryData, setInquiryData] = useState({
     customer_name: '',
     customer_email: '',
     customer_phone: '',
-    customer_address: '', // 🔥 DODAJ OVO
+    customer_address: '',
     service_type: '',
     description: '',
     urgency: 'normal',
@@ -29,6 +30,9 @@ export default function PublicBusinessCardPage({ params }) {
   const [inquiryLoading, setInquiryLoading] = useState(false)
   const [inquirySuccess, setInquirySuccess] = useState(false)
   const [inquiryError, setInquiryError] = useState('')
+  
+  // 🔥 TURNSTILE: Bot protection state
+  const [turnstileToken, setTurnstileToken] = useState('')
   
   // Photo upload states
   const [uploadedImages, setUploadedImages] = useState([])
@@ -41,10 +45,10 @@ export default function PublicBusinessCardPage({ params }) {
   const [hasCamera, setHasCamera] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
-  // 🔥 NEW: Subscription logic for majstor
+  // Subscription logic for majstor
   const { hasFeatureAccess, plan, isFreemium, loading: subscriptionLoading } = useSubscription(majstor?.id)
 
-  // 🔥 NEW: Check if customer inquiries feature is available
+  // Check if customer inquiries feature is available
   const canReceiveInquiries = hasFeatureAccess('customer_inquiries')
 
   useEffect(() => {
@@ -347,7 +351,7 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // Handle inquiry submission
+  // 🔥 TURNSTILE: Handle inquiry submission with bot protection
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
@@ -355,6 +359,11 @@ export default function PublicBusinessCardPage({ params }) {
 
     try {
       console.log('📤 Submitting inquiry for majstor:', majstor.id)
+
+      // 🔥 TURNSTILE: Validate token is present
+      if (!turnstileToken) {
+        throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
+      }
 
       if (!inquiryData.customer_name.trim()) {
         throw new Error('Name ist erforderlich')
@@ -373,7 +382,7 @@ export default function PublicBusinessCardPage({ params }) {
         customer_name: inquiryData.customer_name.trim(),
         customer_email: inquiryData.customer_email.trim(),
         customer_phone: inquiryData.customer_phone.trim() || null,
-        customer_address: inquiryData.customer_address.trim() || null, // 🔥 DODAJ OVO
+        customer_address: inquiryData.customer_address.trim() || null,
         service_type: inquiryData.service_type.trim() || null,
         description: inquiryData.description.trim(),
         urgency: inquiryData.urgency,
@@ -382,14 +391,16 @@ export default function PublicBusinessCardPage({ params }) {
         subject: inquiryData.service_type.trim() || 'Kundenanfrage',
         message: inquiryData.description.trim() || '-',
         images: uploadedImages.map(img => img.url),
-        photo_urls: uploadedImages.map(img => img.url)
+        photo_urls: uploadedImages.map(img => img.url),
+        turnstileToken: turnstileToken // 🔥 TURNSTILE: Send token to API
       }
 
       console.log('📋 Submitting with payload:', {
         customer: inquiryPayload.customer_name,
         service: inquiryPayload.service_type,
         urgency: inquiryPayload.urgency,
-        images: inquiryPayload.images.length
+        images: inquiryPayload.images.length,
+        hasTurnstileToken: !!turnstileToken
       })
 
       const response = await fetch('/api/inquiries', {
@@ -423,18 +434,19 @@ export default function PublicBusinessCardPage({ params }) {
           customer_name: '',
           customer_email: '',
           customer_phone: '',
-          customer_address: '', // 🔥 DODAJ OVO
+          customer_address: '',
           service_type: '',
           description: '',
           urgency: 'normal',
           preferred_contact: 'email'
         })
         setUploadedImages([])
+        setTurnstileToken('') // 🔥 TURNSTILE: Reset token
       }, 200)
 
       setTimeout(() => {
         setInquirySuccess(false)
-        setShowInquiryFormModal(false) // 🔥 CHANGED
+        setShowInquiryFormModal(false)
         setShowSuccessPopup(false)
       }, 5000)
 
@@ -451,6 +463,8 @@ export default function PublicBusinessCardPage({ params }) {
         errorMessage = 'Zeitüberschreitung - bitte versuchen Sie es erneut'
       } else if (err.message?.includes('404')) {
         errorMessage = 'Service nicht verfügbar - bitte kontaktieren Sie den Support'
+      } else if (err.message?.includes('Security verification')) {
+        errorMessage = 'Sicherheitsprüfung fehlgeschlagen - bitte laden Sie die Seite neu'
       }
       
       setInquiryError(errorMessage)
@@ -459,9 +473,9 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // 🔥 UPDATED: Handle inquiry button click
+  // Handle inquiry button click
   const handleInquiryClick = () => {
-    setShowInquiryFormModal(true) // 🔥 CHANGED
+    setShowInquiryFormModal(true)
     setInquiryError('')
     setInquirySuccess(false)
     
@@ -473,7 +487,7 @@ export default function PublicBusinessCardPage({ params }) {
     }, 100)
   }
 
-  // 🔥 UPDATED: Preview Card Component with Subscription Logic
+  // Preview Card Component with Subscription Logic
   const PreviewCard = ({ isMobile = false }) => {
     if (!businessCard) return null
 
@@ -582,7 +596,7 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
         )}
 
-        {/* 🔥 UPDATED: Action Buttons with Subscription Logic */}
+        {/* Action Buttons with Subscription Logic */}
         <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
           {/* Save Contact Button - Always visible */}
           <button 
@@ -592,17 +606,15 @@ export default function PublicBusinessCardPage({ params }) {
             📱 Kontakt speichern
           </button>
 
-         {/* 🔥 INQUIRY BUTTON - Available for ALL users (Freemium + PRO) */}
-{!subscriptionLoading && (
-  <button 
-    onClick={handleInquiryClick}
-    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
-  >
-    📧 Anfrage senden
-  </button>
-)}
-
-          {/* 🔥 NO BUTTON FOR FREEMIUM - completely invisible to customers */}
+          {/* Inquiry Button - Available for ALL users (Freemium + PRO) */}
+          {!subscriptionLoading && (
+            <button 
+              onClick={handleInquiryClick}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
+            >
+              🔧 Anfrage senden
+            </button>
+          )}
         </div>
 
         {/* Powered By */}
@@ -696,7 +708,7 @@ export default function PublicBusinessCardPage({ params }) {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-white">Anfrage senden</h2>
                 <button
-                  onClick={() => setShowInquiryFormModal(false)} // 🔥 CHANGED
+                  onClick={() => setShowInquiryFormModal(false)}
                   className="text-slate-400 hover:text-white text-2xl transition-colors"
                   title="Schließen"
                 >
@@ -788,22 +800,23 @@ export default function PublicBusinessCardPage({ params }) {
                       placeholder="+49 123 456789"
                     />
                   </div>
+
                   <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Adresse (optional)
-  </label>
-  <input
-    type="text"
-    name="customer_address"
-    value={inquiryData.customer_address}
-    onChange={handleInquiryChange}
-    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-    placeholder="Straße 123, 10115 Berlin"
-  />
-  <p className="text-xs text-slate-500 mt-1">
-    Ihre Adresse hilft uns bei der Angebotserstellung
-  </p>
-</div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Adresse (optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="customer_address"
+                      value={inquiryData.customer_address}
+                      onChange={handleInquiryChange}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Straße 123, 10115 Berlin"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Ihre Adresse hilft uns bei der Angebotserstellung
+                    </p>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -982,7 +995,7 @@ export default function PublicBusinessCardPage({ params }) {
                     {uploadedImages.length > 0 && (
                       <div>
                         <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
-                          <span className="text-green-400">🔎</span>
+                          <span className="text-green-400">📎</span>
                           Hochgeladene Bilder ({uploadedImages.length}/5):
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1025,7 +1038,7 @@ export default function PublicBusinessCardPage({ params }) {
                               <li>📸 <strong>Foto aufnehmen:</strong> Öffnet Ihre Kamera für neue Fotos</li>
                             )}
                             <li>🖼️ <strong>{isMobile ? 'Aus Galerie:' : 'Dateien:'}</strong> {isMobile ? 'Wählen Sie vorhandene Bilder aus' : 'Wählen Sie Bilder vom Computer'}</li>
-                            <li>🔍 Mehrere Winkel helfen bei der Problemdiagnose</li>
+                            <li>📐 Mehrere Winkel helfen bei der Problemdiagnose</li>
                             <li>💡 Gute Beleuchtung macht Details sichtbar</li>
                           </ul>
                         </div>
@@ -1034,11 +1047,28 @@ export default function PublicBusinessCardPage({ params }) {
                   </div>
                 </div>
 
+                {/* 🔥 TURNSTILE: Bot Protection Widget */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                    🛡️ Sicherheitsprüfung
+                  </label>
+                  <div className="flex justify-center">
+                    <Turnstile
+                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                      onSuccess={(token) => setTurnstileToken(token)}
+                      onError={() => setInquiryError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')}
+                      onExpire={() => setTurnstileToken('')}
+                      theme="dark"
+                      size="compact"
+                    />
+                  </div>
+                </div>
+
                 {/* Submit Buttons */}
                 <div className="flex gap-3 pt-6 border-t border-slate-700">
                   <button
                     type="button"
-                    onClick={() => setShowInquiryFormModal(false)} // 🔥 CHANGED
+                    onClick={() => setShowInquiryFormModal(false)}
                     disabled={inquiryLoading}
                     className="px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
                   >
@@ -1046,7 +1076,7 @@ export default function PublicBusinessCardPage({ params }) {
                   </button>
                   <button
                     type="submit"
-                    disabled={inquiryLoading || imageUploading}
+                    disabled={inquiryLoading || imageUploading || !turnstileToken}
                     className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-semibold transition-all disabled:opacity-50 shadow-lg hover:shadow-green-500/25"
                   >
                     {inquiryLoading ? (
@@ -1056,7 +1086,7 @@ export default function PublicBusinessCardPage({ params }) {
                       </span>
                     ) : (
                       <>
-                        📧 Anfrage senden
+                        🔧 Anfrage senden
                         {uploadedImages.length > 0 && (
                           <span className="text-sm opacity-90 ml-2">
                             (+{uploadedImages.length} Foto{uploadedImages.length > 1 ? 's' : ''})
