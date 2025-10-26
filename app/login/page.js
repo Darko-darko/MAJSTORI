@@ -1,7 +1,8 @@
+// app/login/page.js - FIXED TURNSTILE INTEGRATION
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { auth, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { Turnstile } from '@marsidev/react-turnstile'
 
@@ -27,8 +28,7 @@ export default function LoginPage() {
   // Google OAuth Login
   const handleGoogleLogin = async () => {
     try {
-      console.log('🔍 Current window.location.origin:', window.location.origin)
-      console.log('🔍 Full redirect URL:', `${window.location.origin}/auth/callback`)
+      console.log('🔍 OAuth redirect:', `${window.location.origin}/auth/callback`)
       setGoogleLoading(true)
       setError('')
       
@@ -40,48 +40,61 @@ export default function LoginPage() {
       })
 
       if (error) {
-        console.error('Google OAuth error:', error)
+        console.error('❌ Google OAuth error:', error)
         setError('Fehler bei Google Anmeldung: ' + error.message)
       }
     } catch (err) {
-      console.error('Google signup error:', err)
+      console.error('❌ Google login error:', err)
       setError('Ein unerwarteter Fehler ist aufgetreten')
     } finally {
       setGoogleLoading(false)
     }
   }
 
-  // Regular email/password login with Turnstile
+  // 🔥 FIXED: Email/password login with PROPER captchaToken handling
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
+      console.log('🔐 Login attempt for:', formData.email)
+      console.log('🛡️ Turnstile token present:', !!turnstileToken)
+
+      // 🔥 FIX: Check for token
       if (!turnstileToken) {
         throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
       }
 
-      const { data, error: signInError } = await auth.signIn(
-        formData.email, 
-        formData.password
-      )
+      // 🔥 FIX: Pass captchaToken through OPTIONS!
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          captchaToken: turnstileToken  // ✅ CRITICAL: Must be in options!
+        }
+      })
 
       if (signInError) {
+        console.error('❌ Supabase login error:', signInError)
         throw signInError
       }
 
       if (data.user) {
-        // Success - redirect to dashboard
+        console.log('✅ Login successful:', data.user.email)
         router.push('/dashboard')
       }
 
     } catch (err) {
-      console.error('Login error:', err)
+      console.error('❌ Login failed:', err)
+      
+      // Better error messages
       if (err.message.includes('Invalid login credentials')) {
         setError('Ungültige E-Mail oder Passwort')
       } else if (err.message.includes('Email not confirmed')) {
         setError('Bitte bestätigen Sie Ihre E-Mail-Adresse')
+      } else if (err.message.includes('captcha')) {
+        setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
       } else {
         setError(err.message || 'Ein Fehler ist aufgetreten')
       }
@@ -187,13 +200,22 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Turnstile - Invisible */}
+            {/* 🔥 TURNSTILE: Invisible widget */}
             <div className="flex justify-center">
               <Turnstile
                 siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onError={() => setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')}
-                onExpire={() => setTurnstileToken('')}
+                onSuccess={(token) => {
+                  console.log('✅ Turnstile token received')
+                  setTurnstileToken(token)
+                }}
+                onError={() => {
+                  console.error('❌ Turnstile error')
+                  setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
+                }}
+                onExpire={() => {
+                  console.warn('⚠️ Turnstile token expired')
+                  setTurnstileToken('')
+                }}
                 theme="dark"
                 size="invisible"
               />
@@ -208,7 +230,23 @@ export default function LoginPage() {
               {loading ? 'Anmeldung läuft...' : 'Anmelden'}
             </button>
 
-            
+            {/* Turnstile Status Indicator */}
+            {!turnstileToken && (
+              <div className="text-center">
+                <p className="text-xs text-slate-500">
+                  🛡️ Sicherheitsprüfung wird geladen...
+                </p>
+              </div>
+            )}
+
+            {/* Demo Account Info */}
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+              <p className="text-green-300 text-sm">
+                <strong>Demo Account:</strong><br/>
+                E-Mail: demo@pro-meister.de<br/>
+                Passwort: demo123
+              </p>
+            </div>
 
             {/* Signup Link */}
             <div className="text-center">

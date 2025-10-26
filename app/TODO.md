@@ -108,3 +108,4 @@
 - itgled preko 100000e na kundenfragen✅
 - adresa na vizit karti opciono
 - agresevna zvezdica u majne kunden 
+- KAD SE PRAVI RAČUN I KUNDENFRAGEN DA OSTANE NA REHNUNGU
