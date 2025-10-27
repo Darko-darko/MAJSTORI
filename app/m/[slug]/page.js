@@ -1,9 +1,9 @@
-// app/m/[slug]/page.js - COMPLETE WITH SUBSCRIPTION LOGIC + TURNSTILE BOT PROTECTION
+// app/m/[slug]/page.js - COMPLETE WITH SUBSCRIPTION LOGIC + INVISIBLE TURNSTILE
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/hooks/useSubscription'
-import { Turnstile } from '@marsidev/react-turnstile' // 🔥 TURNSTILE: Bot protection
+import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function PublicBusinessCardPage({ params }) {
   const [businessCard, setBusinessCard] = useState(null)
@@ -31,8 +31,9 @@ export default function PublicBusinessCardPage({ params }) {
   const [inquirySuccess, setInquirySuccess] = useState(false)
   const [inquiryError, setInquiryError] = useState('')
   
-  // 🔥 TURNSTILE: Bot protection state
+  // 🛡️ TURNSTILE: Bot protection state
   const [turnstileToken, setTurnstileToken] = useState('')
+  const turnstileRef = useRef(null)
   
   // Photo upload states
   const [uploadedImages, setUploadedImages] = useState([])
@@ -351,7 +352,7 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // 🔥 TURNSTILE: Handle inquiry submission with bot protection
+  // 🛡️ INVISIBLE TURNSTILE: Handle inquiry submission with bot protection
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
@@ -360,9 +361,18 @@ export default function PublicBusinessCardPage({ params }) {
     try {
       console.log('📤 Submitting inquiry for majstor:', majstor.id)
 
-      // 🔥 TURNSTILE: Validate token is present
+      // 🛡️ INVISIBLE: Execute Turnstile if no token yet
+      if (!turnstileToken && turnstileRef.current) {
+        console.log('🛡️ Executing invisible Turnstile...')
+        turnstileRef.current.execute()
+        
+        // Wait for token generation
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+
+      // 🛡️ Validate token is present
       if (!turnstileToken) {
-        throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
+        throw new Error('Bitte warten Sie einen Moment und versuchen Sie es erneut')
       }
 
       if (!inquiryData.customer_name.trim()) {
@@ -392,7 +402,7 @@ export default function PublicBusinessCardPage({ params }) {
         message: inquiryData.description.trim() || '-',
         images: uploadedImages.map(img => img.url),
         photo_urls: uploadedImages.map(img => img.url),
-        turnstileToken: turnstileToken // 🔥 TURNSTILE: Send token to API
+        turnstileToken: turnstileToken
       }
 
       console.log('📋 Submitting with payload:', {
@@ -441,7 +451,7 @@ export default function PublicBusinessCardPage({ params }) {
           preferred_contact: 'email'
         })
         setUploadedImages([])
-        setTurnstileToken('') // 🔥 TURNSTILE: Reset token
+        setTurnstileToken('')
       }, 200)
 
       setTimeout(() => {
@@ -612,7 +622,7 @@ export default function PublicBusinessCardPage({ params }) {
               onClick={handleInquiryClick}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
             >
-              🔧 Anfrage senden
+              📧 Anfrage senden
             </button>
           )}
         </div>
@@ -699,7 +709,7 @@ export default function PublicBusinessCardPage({ params }) {
             <PreviewCard isMobile={false} />
           </div>
 
-          {/* 🔥 INQUIRY FORM - Only show for subscribed majstors */}
+          {/* INQUIRY FORM - Only show for subscribed majstors */}
           {showInquiryFormModal && (
             <div 
               ref={inquiryFormRef}
@@ -995,7 +1005,7 @@ export default function PublicBusinessCardPage({ params }) {
                     {uploadedImages.length > 0 && (
                       <div>
                         <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
-                          <span className="text-green-400">📎</span>
+                          <span className="text-green-400">🔍</span>
                           Hochgeladene Bilder ({uploadedImages.length}/5):
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1047,21 +1057,26 @@ export default function PublicBusinessCardPage({ params }) {
                   </div>
                 </div>
 
-                {/* 🔥 TURNSTILE: Bot Protection Widget */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-3">
-                    🛡️ Sicherheitsprüfung
-                  </label>
-                  <div className="flex justify-center">
-                    <Turnstile
-                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                      onSuccess={(token) => setTurnstileToken(token)}
-                      onError={() => setInquiryError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')}
-                      onExpire={() => setTurnstileToken('')}
-                      theme="dark"
-                      size="compact"
-                    />
-                  </div>
+                {/* 🛡️ INVISIBLE TURNSTILE WIDGET */}
+                <div className="hidden">
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                    onSuccess={(token) => {
+                      console.log('✅ Turnstile token received')
+                      setTurnstileToken(token)
+                    }}
+                    onError={() => {
+                      console.error('❌ Turnstile error')
+                      setInquiryError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
+                    }}
+                    onExpire={() => {
+                      console.log('⏱️ Turnstile token expired')
+                      setTurnstileToken('')
+                    }}
+                    size="invisible"
+                    theme="light"
+                  />
                 </div>
 
                 {/* Submit Buttons */}
@@ -1076,7 +1091,7 @@ export default function PublicBusinessCardPage({ params }) {
                   </button>
                   <button
                     type="submit"
-                    disabled={inquiryLoading || imageUploading || !turnstileToken}
+                    disabled={inquiryLoading || imageUploading}
                     className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-semibold transition-all disabled:opacity-50 shadow-lg hover:shadow-green-500/25"
                   >
                     {inquiryLoading ? (
@@ -1086,7 +1101,7 @@ export default function PublicBusinessCardPage({ params }) {
                       </span>
                     ) : (
                       <>
-                        🔧 Anfrage senden
+                        📧 Anfrage senden
                         {uploadedImages.length > 0 && (
                           <span className="text-sm opacity-90 ml-2">
                             (+{uploadedImages.length} Foto{uploadedImages.length > 1 ? 's' : ''})
