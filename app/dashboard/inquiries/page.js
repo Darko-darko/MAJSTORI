@@ -5,7 +5,7 @@ import InvoiceCreator from '@/app/components/InvoiceCreator'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSubscription } from '@/lib/hooks/useSubscription'
-
+import { customersAPI } from '@/lib/customers'
 
 
 export default function InquiriesPage() {
@@ -31,10 +31,17 @@ export default function InquiriesPage() {
 
   const router = useRouter()
 
-  useEffect(() => {
-    loadInquiries()
-    getCurrentUser()
-  }, [filter, sortBy])
+  const [customers, setCustomers] = useState([])
+
+ useEffect(() => {
+  loadInquiries()
+  getCurrentUser()
+}, [filter, sortBy])
+
+// ✅ NOVI useEffect samo za customers - poziva se samo jednom na mount
+useEffect(() => {
+  loadCustomers()
+}, []) // ✅ PRAZNE dependencies = poziva se samo jednom!
 
   const getCurrentUser = async () => {
     try {
@@ -55,7 +62,22 @@ export default function InquiriesPage() {
       console.error('Error getting user:', error)
     }
   }
+    const loadCustomers = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
+    console.log('📦 Loading customers...')
+    const result = await customersAPI.getAll(user.id)
+    
+    if (result.data) {
+      setCustomers(result.data)
+      console.log('✅ Customers loaded:', result.data.length)
+    }
+  } catch (error) {
+    console.error('❌ Error loading customers:', error)
+  }
+}
   // Fallback refresh every 60 seconds - respecting current filters
   useEffect(() => {
     const interval = setInterval(() => {
@@ -289,15 +311,60 @@ const loadInquiries = async () => {
   }
 }
 
-  const formatInquiryForInvoice = (inquiry) => {
-    return {
-      name: inquiry.customer_name,
-      email: inquiry.customer_email,
-      phone: inquiry.customer_phone || '',
-      address: inquiry.customer_address || '' // 🔥 SADA UZIMA PRAVU ADRESU!
-    }
+ const formatInquiryForInvoice = (inquiry) => {
+  console.log('🔍 formatInquiryForInvoice called')
+  console.log('📧 Inquiry email:', inquiry.customer_email)
+  console.log('👤 Inquiry name:', inquiry.customer_name)
+  console.log('📦 Total customers loaded:', customers.length)
+  
+  // 🔍 Pokušaj pronaći postojećeg customera po email-u I imenu
+  const existingCustomer = customers.find(c => {
+    const emailMatch = c.email?.toLowerCase().trim() === inquiry.customer_email?.toLowerCase().trim()
+    const nameMatch = c.name?.toLowerCase().trim() === inquiry.customer_name?.toLowerCase().trim()
+    
+    console.log(`   Checking customer: ${c.name} (${c.email})`)
+    console.log(`   - Email match: ${emailMatch}`)
+    console.log(`   - Name match: ${nameMatch}`)
+    
+    return emailMatch && nameMatch
+  })
+
+  // ✅ Ako postoji customer SA ISTIM EMAILOM I IMENOM, vrati njegove podatke
+  if (existingCustomer) {
+    console.log('✅ MATCH FOUND! Customer:', existingCustomer.name)
+    console.log('🏠 Address data:', {
+      street: existingCustomer.street,
+      postal_code: existingCustomer.postal_code,
+      city: existingCustomer.city
+    })
+    
+   const result = {
+    name: existingCustomer.name,
+    email: existingCustomer.email,
+    phone: existingCustomer.phone || inquiry.customer_phone || '',
+    street: existingCustomer.street || '',           // ✅ STREET (ne address)
+    postal_code: existingCustomer.postal_code || '', // ✅ SNAKE_CASE (ne postalCode)
+    city: existingCustomer.city || '',               // ✅ CITY
+    country: existingCustomer.country || '',         // ✅ COUNTRY (optional)
+    company_name: existingCustomer.company_name || '' // ✅ COMPANY_NAME (snake_case)
+  }
+    
+    console.log('📤 Returning customer data:', result)
+    return result
   }
 
+  // ❌ Ako NE postoji, vrati inquiry podatke (bez adrese)
+  console.log('❌ No existing customer match (email + name), using inquiry data')
+  const result = {
+    name: inquiry.customer_name,
+    email: inquiry.customer_email,
+    phone: inquiry.customer_phone || '',
+   
+  }
+  
+  console.log('📤 Returning inquiry data:', result)
+  return result
+}
   // 🔥 NOVO: Contact handling functions
   const handleContactClick = (method, contactInfo) => {
     // Otvori email/phone kao pre
