@@ -109,3 +109,10 @@
 - adresa na vizit karti opciono
 - agresevna zvezdica u majne kunden 
 - KAD SE PRAVI RAČUN I KUNDENFRAGEN DA OSTANE NA REHNUNGU
+- ubaciti politiku povrata novca
+
+
+
+
+---------------------------------------------
+- Urado ta poslednji kommit (wli nisam commitovao) ... izbacio adresu iz slug, izbaci 123 il logina

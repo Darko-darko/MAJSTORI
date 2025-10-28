@@ -21,8 +21,7 @@ export default function PublicBusinessCardPage({ params }) {
     customer_name: '',
     customer_email: '',
     customer_phone: '',
-    customer_address: '',
-    service_type: '',
+      service_type: '',
     description: '',
     urgency: 'normal',
     preferred_contact: 'email'
@@ -392,7 +391,6 @@ export default function PublicBusinessCardPage({ params }) {
         customer_name: inquiryData.customer_name.trim(),
         customer_email: inquiryData.customer_email.trim(),
         customer_phone: inquiryData.customer_phone.trim() || null,
-        customer_address: inquiryData.customer_address.trim() || null,
         service_type: inquiryData.service_type.trim() || null,
         description: inquiryData.description.trim(),
         urgency: inquiryData.urgency,
@@ -444,7 +442,6 @@ export default function PublicBusinessCardPage({ params }) {
           customer_name: '',
           customer_email: '',
           customer_phone: '',
-          customer_address: '',
           service_type: '',
           description: '',
           urgency: 'normal',
@@ -811,22 +808,6 @@ export default function PublicBusinessCardPage({ params }) {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Adresse (optional)
-                    </label>
-                    <input
-                      type="text"
-                      name="customer_address"
-                      value={inquiryData.customer_address}
-                      onChange={handleInquiryChange}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Straße 123, 10115 Berlin"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      Ihre Adresse hilft uns bei der Angebotserstellung
-                    </p>
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
