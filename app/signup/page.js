@@ -1,4 +1,4 @@
-// app/signup/page.js - SA TURNSTILE + HIBRID PASSWORD METER
+// app/signup/page.js - SA TURNSTILE + HONEYPOT + HIBRID PASSWORD METER
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,10 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState('')
+  
+  // 🍯 HONEYPOT: Bot trap field
+  const [honeypot, setHoneypot] = useState('')
+  
   const [passwordStrength, setPasswordStrength] = useState({
     length: false,
     uppercase: false,
@@ -151,13 +155,23 @@ export default function SignupPage() {
     }
   }
 
-  // Email/Password signup with Turnstile
+  // 🛡️ Email/Password signup with Turnstile + 🍯 Honeypot
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
+      // 🍯 HONEYPOT: Check if bot filled the trap field
+      if (honeypot) {
+        console.warn('🚫 Honeypot triggered - potential bot detected')
+        // Simulate loading for bot, then silently reject
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        setError('Ein Fehler ist aufgetreten')
+        setLoading(false)
+        return
+      }
+
       validateForm()
 
       // Create auth user with Turnstile token
@@ -302,6 +316,24 @@ export default function SignupPage() {
         {/* Email Form */}
         <form onSubmit={handleEmailSignup} className="space-y-4">
           
+          {/* 🍯 HONEYPOT: Hidden field for bots */}
+          <input
+            type="text"
+            name="website"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+            autoComplete="off"
+            tabIndex={-1}
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              width: '1px',
+              height: '1px',
+              opacity: 0
+            }}
+            aria-hidden="true"
+          />
+
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -448,8 +480,6 @@ export default function SignupPage() {
             )}
           </div>
 
-          
-
           {/* Terms */}
           <div className="flex items-start gap-3">
             <input
@@ -476,17 +506,43 @@ export default function SignupPage() {
             </div>
           )}
 
-          {/* Turnstile - Invisible */}
+          {/* Turnstile - VISIBLE for testing */}
           <div className="flex justify-center">
             <Turnstile
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-              onSuccess={(token) => setTurnstileToken(token)}
-              onError={() => setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')}
-              onExpire={() => setTurnstileToken('')}
+              onSuccess={(token) => {
+                console.log('✅ Turnstile token received:', token.substring(0, 20) + '...')
+                setTurnstileToken(token)
+              }}
+              onError={(error) => {
+                console.error('❌ Turnstile error:', error)
+                setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
+              }}
+              onExpire={() => {
+                console.warn('⏱️ Turnstile token expired')
+                setTurnstileToken('')
+              }}
               theme="dark"
-              size="invisible"
+              size="normal"
             />
           </div>
+          
+          {/* Turnstile Status */}
+          {!turnstileToken && (
+            <div className="text-center">
+              <p className="text-xs text-slate-500">
+                🛡️ Sicherheitsprüfung wird geladen...
+              </p>
+            </div>
+          )}
+          
+          {turnstileToken && (
+            <div className="text-center">
+              <p className="text-xs text-green-500">
+                ✅ Sicherheitsprüfung abgeschlossen
+              </p>
+            </div>
+          )}
 
           {/* Submit */}
           <button

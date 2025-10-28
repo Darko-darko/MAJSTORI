@@ -1,10 +1,9 @@
-// app/login/page.js - FIXED to pass captchaToken to auth.signIn()
+// app/login/page.js - CLEAN VERSION: No Turnstile, only Honeypot
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { auth, supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -15,7 +14,10 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [turnstileToken, setTurnstileToken] = useState('')
+  
+  // 🍯 HONEYPOT: Bot trap field
+  const [honeypot, setHoneypot] = useState('')
+  
   const router = useRouter()
 
   const handleChange = (e) => {
@@ -28,7 +30,7 @@ export default function LoginPage() {
   // Google OAuth Login
   const handleGoogleLogin = async () => {
     try {
-      console.log('🔍 OAuth redirect:', `${window.location.origin}/auth/callback`)
+      console.log('🔗 OAuth redirect:', `${window.location.origin}/auth/callback`)
       setGoogleLoading(true)
       setError('')
       
@@ -51,25 +53,29 @@ export default function LoginPage() {
     }
   }
 
-  // 🔥 FIXED: Email/password login - passes captchaToken to auth.signIn()
+  // ✅ CLEAN: Email/password login WITHOUT Turnstile
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      console.log('🔐 Login attempt for:', formData.email)
-      console.log('🛡️ Turnstile token present:', !!turnstileToken)
-
-      if (!turnstileToken) {
-        throw new Error('Bitte warten Sie auf die Sicherheitsprüfung')
+      // 🍯 HONEYPOT: Check if bot filled the trap field
+      if (honeypot) {
+        console.warn('🚫 Honeypot triggered - potential bot detected')
+        // Simulate loading for bot, then silently reject
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        setError('Ein Fehler ist aufgetreten')
+        setLoading(false)
+        return
       }
 
-      // 🔥 FIX: Pass captchaToken as 3rd parameter!
+      console.log('🔐 Login attempt for:', formData.email)
+
+      // ✅ CLEAN: No captchaToken parameter!
       const { data, error: signInError } = await auth.signIn(
         formData.email,
-        formData.password,
-        turnstileToken  // ✅ CRITICAL: Pass token here!
+        formData.password
       )
 
       if (signInError) {
@@ -89,8 +95,6 @@ export default function LoginPage() {
         setError('Ungültige E-Mail oder Passwort')
       } else if (err.message.includes('Email not confirmed')) {
         setError('Bitte bestätigen Sie Ihre E-Mail-Adresse')
-      } else if (err.message.includes('captcha')) {
-        setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
       } else {
         setError(err.message || 'Ein Fehler ist aufgetreten')
       }
@@ -147,6 +151,24 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 🍯 HONEYPOT: Hidden field for bots */}
+            <input
+              type="text"
+              name="website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              autoComplete="off"
+              tabIndex={-1}
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                width: '1px',
+                height: '1px',
+                opacity: 0
+              }}
+              aria-hidden="true"
+            />
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -196,46 +218,14 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Turnstile - Invisible */}
-            <div className="flex justify-center">
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                onSuccess={(token) => {
-                  console.log('✅ Turnstile token received')
-                  setTurnstileToken(token)
-                }}
-                onError={() => {
-                  console.error('❌ Turnstile error')
-                  setError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
-                }}
-                onExpire={() => {
-                  console.warn('⚠️ Turnstile token expired')
-                  setTurnstileToken('')
-                }}
-                theme="dark"
-                size="invisible"
-              />
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || googleLoading || !turnstileToken}
+              disabled={loading || googleLoading}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Anmeldung läuft...' : 'Anmelden'}
             </button>
-
-            {/* Turnstile Status */}
-            {!turnstileToken && (
-              <div className="text-center">
-                <p className="text-xs text-slate-500">
-                  🛡️ Sicherheitsprüfung wird geladen...
-                </p>
-              </div>
-            )}
-
-           
 
             {/* Signup Link */}
             <div className="text-center">

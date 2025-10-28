@@ -1,4 +1,4 @@
-// app/api/inquiries/route.js - WITH TURNSTILE BOT PROTECTION
+// app/api/inquiries/route.js - WITH TURNSTILE + HONEYPOT PROTECTION
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -41,16 +41,33 @@ async function verifyTurnstileToken(token) {
   }
 }
 
-// 🔥 EXISTING POST - for creating inquiry with Turnstile protection
+// 🔥 POST - Create inquiry with DUAL PROTECTION (Turnstile + Honeypot)
 export async function POST(request) {
   try {
     const body = await request.json()
     
-    // 🔥 TURNSTILE: Validate bot protection token FIRST
+    // 🍯 HONEYPOT CHECK: If website_url is filled, it's likely a bot
+    if (body.website_url && body.website_url.trim() !== '') {
+      console.warn('🍯 Honeypot triggered! Bot detected:', body.customer_email || 'unknown')
+      
+      // Don't tell the bot it failed - return fake success
+      return NextResponse.json(
+        { 
+          success: true,
+          inquiry: {
+            id: 'honeypot-' + Date.now(),
+            status: 'blocked'
+          }
+        },
+        { status: 201 }
+      )
+    }
+    
+    // 🔥 TURNSTILE: Validate bot protection token
     const { turnstileToken } = body
     
     if (!turnstileToken) {
-      console.warn('⚠️ Missing Turnstile token')
+      console.warn('⚠️ Missing Turnstile token from:', body.customer_email || 'unknown')
       return NextResponse.json(
         { error: 'Security verification required' },
         { status: 400 }
@@ -60,14 +77,14 @@ export async function POST(request) {
     const isValidToken = await verifyTurnstileToken(turnstileToken)
     
     if (!isValidToken) {
-      console.warn('⚠️ Invalid Turnstile token')
+      console.warn('⚠️ Invalid Turnstile token from:', body.customer_email || 'unknown')
       return NextResponse.json(
         { error: 'Security verification failed' },
         { status: 400 }
       )
     }
 
-    console.log('✅ Turnstile token verified successfully')
+    console.log('✅ Security checks passed (Turnstile + Honeypot)')
     
     // Validate required fields
     const { majstor_id, customer_name, customer_email, subject, message } = body
@@ -160,7 +177,7 @@ export async function POST(request) {
   }
 }
 
-// 🔥 EXISTING PATCH - for updating status/priority
+// 🔥 PATCH - Update status/priority (unchanged)
 export async function PATCH(request) {
   try {
     const body = await request.json()

@@ -1,4 +1,4 @@
-// app/m/[slug]/page.js - COMPLETE WITH SUBSCRIPTION LOGIC + INVISIBLE TURNSTILE
+// app/m/[slug]/page.js - PUBLIC BUSINESS CARD WITH HONEYPOT + TURNSTILE
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -21,10 +21,12 @@ export default function PublicBusinessCardPage({ params }) {
     customer_name: '',
     customer_email: '',
     customer_phone: '',
-      service_type: '',
+    service_type: '',
     description: '',
     urgency: 'normal',
-    preferred_contact: 'email'
+    preferred_contact: 'email',
+    // 🍯 HONEYPOT: Hidden field that bots will fill
+    website_url: ''
   })
   const [inquiryLoading, setInquiryLoading] = useState(false)
   const [inquirySuccess, setInquirySuccess] = useState(false)
@@ -351,7 +353,7 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // 🛡️ INVISIBLE TURNSTILE: Handle inquiry submission with bot protection
+  // 🍯 HONEYPOT + 🛡️ TURNSTILE: Handle inquiry submission with dual protection
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
@@ -360,7 +362,20 @@ export default function PublicBusinessCardPage({ params }) {
     try {
       console.log('📤 Submitting inquiry for majstor:', majstor.id)
 
-      // 🛡️ INVISIBLE: Execute Turnstile if no token yet
+      // 🍯 HONEYPOT CHECK: If filled, it's a bot
+      if (inquiryData.website_url && inquiryData.website_url.trim() !== '') {
+        console.warn('🍯 Honeypot triggered! Bot detected.')
+        // Don't tell the bot it failed - fake success
+        setInquirySuccess(true)
+        setShowSuccessPopup(true)
+        setTimeout(() => {
+          setShowInquiryFormModal(false)
+          setShowSuccessPopup(false)
+        }, 3000)
+        return
+      }
+
+      // 🛡️ TURNSTILE: Execute if no token yet
       if (!turnstileToken && turnstileRef.current) {
         console.log('🛡️ Executing invisible Turnstile...')
         turnstileRef.current.execute()
@@ -400,7 +415,8 @@ export default function PublicBusinessCardPage({ params }) {
         message: inquiryData.description.trim() || '-',
         images: uploadedImages.map(img => img.url),
         photo_urls: uploadedImages.map(img => img.url),
-        turnstileToken: turnstileToken
+        turnstileToken: turnstileToken,
+        // 🍯 Don't send honeypot to API
       }
 
       console.log('📋 Submitting with payload:', {
@@ -445,7 +461,8 @@ export default function PublicBusinessCardPage({ params }) {
           service_type: '',
           description: '',
           urgency: 'normal',
-          preferred_contact: 'email'
+          preferred_contact: 'email',
+          website_url: '' // Reset honeypot
         })
         setUploadedImages([])
         setTurnstileToken('')
@@ -613,13 +630,13 @@ export default function PublicBusinessCardPage({ params }) {
             📱 Kontakt speichern
           </button>
 
-          {/* Inquiry Button - Available for ALL users (Freemium + PRO) */}
+          {/* Inquiry Button - Available for ALL users */}
           {!subscriptionLoading && (
             <button 
               onClick={handleInquiryClick}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
             >
-              📧 Anfrage senden
+              🔧 Anfrage senden
             </button>
           )}
         </div>
@@ -706,7 +723,7 @@ export default function PublicBusinessCardPage({ params }) {
             <PreviewCard isMobile={false} />
           </div>
 
-          {/* INQUIRY FORM - Only show for subscribed majstors */}
+          {/* INQUIRY FORM */}
           {showInquiryFormModal && (
             <div 
               ref={inquiryFormRef}
@@ -762,6 +779,20 @@ export default function PublicBusinessCardPage({ params }) {
 
               <form onSubmit={handleInquirySubmit} className="space-y-6">
                 
+                {/* 🍯 HONEYPOT - Hidden field for bot detection */}
+                <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }} aria-hidden="true">
+                  <label htmlFor="website_url">Website (leave blank)</label>
+                  <input
+                    type="text"
+                    name="website_url"
+                    id="website_url"
+                    value={inquiryData.website_url}
+                    onChange={handleInquiryChange}
+                    tabIndex="-1"
+                    autoComplete="off"
+                  />
+                </div>
+
                 {/* Basic Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -808,7 +839,6 @@ export default function PublicBusinessCardPage({ params }) {
                     />
                   </div>
 
-
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Art der Dienstleistung *
@@ -818,7 +848,7 @@ export default function PublicBusinessCardPage({ params }) {
                       name="service_type"
                       value={inquiryData.service_type}
                       onChange={handleInquiryChange}
-                      placeholder="Kurze Beschreibung des Problems..."
+                      placeholder="z.B. Badezimmerrenovierung"
                       className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       autoComplete="off"
                       required
@@ -873,11 +903,11 @@ export default function PublicBusinessCardPage({ params }) {
                     onChange={handleInquiryChange}
                     rows={4}
                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-                    placeholder="Beschreiben Sie bitte Ihr Anliegen oder den gewünschten Service detailliert..."
+                    placeholder="Beschreiben Sie bitte Ihr Anliegen detailliert..."
                   />
                 </div>
 
-                {/* Photo Upload Section */}
+                {/* Photo Upload Section - keeping existing implementation */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     📷 Fotos hinzufügen (optional)
@@ -986,7 +1016,7 @@ export default function PublicBusinessCardPage({ params }) {
                     {uploadedImages.length > 0 && (
                       <div>
                         <p className="text-sm text-slate-300 mb-3 flex items-center gap-2">
-                          <span className="text-green-400">🔍</span>
+                          <span className="text-green-400">📎</span>
                           Hochgeladene Bilder ({uploadedImages.length}/5):
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1015,26 +1045,6 @@ export default function PublicBusinessCardPage({ params }) {
                         </div>
                       </div>
                     )}
-
-                    {/* Info Box */}
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <span className="text-blue-400 text-sm">💡</span>
-                        <div>
-                          <p className="text-blue-300 text-sm">
-                            <strong>Fototipps:</strong>
-                          </p>
-                          <ul className="text-blue-200 text-xs mt-1 space-y-1">
-                            {isMobile && hasCamera && (
-                              <li>📸 <strong>Foto aufnehmen:</strong> Öffnet Ihre Kamera für neue Fotos</li>
-                            )}
-                            <li>🖼️ <strong>{isMobile ? 'Aus Galerie:' : 'Dateien:'}</strong> {isMobile ? 'Wählen Sie vorhandene Bilder aus' : 'Wählen Sie Bilder vom Computer'}</li>
-                            <li>📐 Mehrere Winkel helfen bei der Problemdiagnose</li>
-                            <li>💡 Gute Beleuchtung macht Details sichtbar</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -1082,7 +1092,7 @@ export default function PublicBusinessCardPage({ params }) {
                       </span>
                     ) : (
                       <>
-                        📧 Anfrage senden
+                        🔧 Anfrage senden
                         {uploadedImages.length > 0 && (
                           <span className="text-sm opacity-90 ml-2">
                             (+{uploadedImages.length} Foto{uploadedImages.length > 1 ? 's' : ''})
