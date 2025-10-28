@@ -520,14 +520,20 @@ export default function Home() {
               </div>
             </div>
             
-            <div>
-              <h4 className="text-white font-semibold mb-4">Support</h4>
-              <div className="space-y-2">
-                <a href="/faq" className="block text-slate-400 hover:text-white transition-colors">Hilfe & FAQ</a>
-                <a href="mailto:support@pro-meister.de" className="block text-slate-400 hover:text-white transition-colors">E-Mail Support</a>
-                <a href="/contact" className="block text-slate-400 hover:text-white transition-colors">Kontakt</a>
-              </div>
-            </div>
+         <div>
+  <h4 className="text-white font-semibold mb-4">Support</h4>
+  <div className="space-y-2">
+    <a href="/faq" className="block text-slate-400 hover:text-white transition-colors">
+      Hilfe & FAQ
+    </a>
+    <a 
+      href="mailto:support@pro-meister.de?subject=Anfrage%20von%20pro-meister.de" 
+      className="block text-slate-400 hover:text-white transition-colors"
+    >
+    E-Mail Support
+    </a>
+  </div>
+</div>
             
             <div>
               <h4 className="text-white font-semibold mb-4">Rechtliches</h4>
@@ -535,6 +541,9 @@ export default function Home() {
                 <a href="/privacy" className="block text-slate-400 hover:text-white transition-colors">Datenschutz</a>
                 <a href="/terms" className="block text-slate-400 hover:text-white transition-colors">AGB</a>
                 <a href="/imprint" className="block text-slate-400 hover:text-white transition-colors">Impressum</a>
+                <a href="/refund" className="text-slate-400 hover:text-white"> Rückerstattung</a>
+                
+
               </div>
             </div>
           </div>
