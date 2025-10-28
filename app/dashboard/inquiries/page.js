@@ -257,33 +257,37 @@ const loadInquiries = async () => {
     setInvoiceType(null)
   }
 
-  // 🔥 UPDATED: handleInvoiceSuccess sa automatskim zatvaranjem
-  const handleInvoiceSuccess = async (createdInvoice) => {
+ const handleInvoiceSuccess = async (createdInvoice) => {
+  try {
     console.log('✅ Invoice created:', createdInvoice)
     
     // 🔥 AUTOMATIZACIJA: inquiry workflow
     if (selectedInquiryForInvoice?.id) {
-      // Ako je status 'read' → promeni na 'responded' 
       if (selectedInquiryForInvoice.status === 'read') {
         console.log('📈 Auto-updating inquiry: read → responded')
         await updateInquiryStatus(selectedInquiryForInvoice.id, 'responded')
-      }
-      // Ako je status 'responded' → promeni na 'closed'
-      else if (selectedInquiryForInvoice.status === 'responded') {
+      } else if (selectedInquiryForInvoice.status === 'responded') {
         console.log('📈 Auto-updating inquiry: responded → closed')  
         await updateInquiryStatus(selectedInquiryForInvoice.id, 'closed')
-      }
-      // Ako je 'new' ili bilo koji drugi → direktno na 'closed' (kompletiran workflow)
-      else {
+      } else {
         console.log('📈 Auto-updating inquiry: any → closed (workflow completed)')
         await updateInquiryStatus(selectedInquiryForInvoice.id, 'closed')
       }
     }
     
-    // Zatvori modal i idi na invoices page
+    // Zatvori modal
     handleInvoiceModalClose()
     
+    // ✅ REDIRECT NA INVOICES
+    const invoiceTab = createdInvoice?.type === 'invoice' ? 'invoices' : 'quotes'
+    const redirectUrl = `/dashboard/invoices?tab=${invoiceTab}&from=inquiries`
+    console.log('🚀 Redirecting to:', redirectUrl)
+    router.push(redirectUrl)
+    
+  } catch (error) {
+    console.error('❌ Error in handleInvoiceSuccess:', error)
   }
+}
 
   const formatInquiryForInvoice = (inquiry) => {
     return {

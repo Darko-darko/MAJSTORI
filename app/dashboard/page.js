@@ -352,7 +352,7 @@ function DashboardPageContent() {
         />
 
         <ProtectedStatCard
-          href="/dashboard/invoices"
+          href="/dashboard/invoices?tab=invoices"
           icon="📄"
           iconBg="bg-purple-600"
           title="Rechnungen"
@@ -387,7 +387,7 @@ function DashboardPageContent() {
 
           <ProtectedNavItem
             feature="invoicing"
-            href="/dashboard/invoices"
+            href="/dashboard/invoices?tab=invoices"
             icon="📄"
             title={stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
             description={stats.totalInvoices === 0 
@@ -468,7 +468,7 @@ function DashboardPageContent() {
             showUpgradePrompt={false}
           >
             <Link
-              href="/dashboard/invoices"
+              href="/dashboard/invoices?tab=invoices"
               className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
             >
               <div className="text-2xl mb-2">📄</div>
