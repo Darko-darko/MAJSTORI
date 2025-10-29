@@ -1,4 +1,8 @@
-// app/m/[slug]/page.js - PUBLIC BUSINESS CARD WITH HONEYPOT + TURNSTILE
+// app/m/[slug]/page.js - OPTIMIZED PUBLIC BUSINESS CARD
+// ✅ Turnstile CAPTCHA only (no honeypot)
+// ✅ Fixed Next.js 15 params Promise handling
+// ✅ Clean code, user-friendly bot protection
+
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -6,6 +10,8 @@ import { useSubscription } from '@/lib/hooks/useSubscription'
 import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function PublicBusinessCardPage({ params }) {
+  // ✅ FIX: Unwrap params Promise for Next.js 15 compatibility
+  const [slug, setSlug] = useState(null)
   const [businessCard, setBusinessCard] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -24,9 +30,7 @@ export default function PublicBusinessCardPage({ params }) {
     service_type: '',
     description: '',
     urgency: 'normal',
-    preferred_contact: 'email',
-    // 🍯 HONEYPOT: Hidden field that bots will fill
-    website_url: ''
+    preferred_contact: 'email'
   })
   const [inquiryLoading, setInquiryLoading] = useState(false)
   const [inquirySuccess, setInquirySuccess] = useState(false)
@@ -52,6 +56,13 @@ export default function PublicBusinessCardPage({ params }) {
 
   // Check if customer inquiries feature is available
   const canReceiveInquiries = hasFeatureAccess('customer_inquiries')
+
+  // ✅ Unwrap params Promise (Next.js 15 fix)
+  useEffect(() => {
+    params.then(resolvedParams => {
+      setSlug(resolvedParams.slug)
+    })
+  }, [params])
 
   useEffect(() => {
     // Detect mobile device
@@ -83,21 +94,21 @@ export default function PublicBusinessCardPage({ params }) {
   }, [])
 
   useEffect(() => {
-    if (params.slug) {
+    if (slug) {
       loadBusinessCard()
     }
-  }, [params.slug])
+  }, [slug])
 
   const loadBusinessCard = async () => {
     try {
       setLoading(true)
-      console.log('🔍 Loading business card for slug:', params.slug)
+      console.log('🔍 Loading business card for slug:', slug)
 
       // Load majstor by slug
       const { data: majstorData, error: majstorError } = await supabase
         .from('majstors')
         .select('*')
-        .eq('slug', params.slug)
+        .eq('slug', slug)
         .eq('is_active', true)
         .single()
 
@@ -217,7 +228,7 @@ export default function PublicBusinessCardPage({ params }) {
 
     console.log('📷 Starting photo upload:', files.length, 'files')
 
-    const validFiles = files.filter((file, index) => {
+    const validFiles = files.filter((file) => {
       if (!file.type.startsWith('image/')) {
         alert(`❌ ${file.name} ist keine Bilddatei`)
         return false
@@ -353,7 +364,7 @@ export default function PublicBusinessCardPage({ params }) {
     }
   }
 
-  // 🍯 HONEYPOT + 🛡️ TURNSTILE: Handle inquiry submission with dual protection
+  // 🛡️ TURNSTILE ONLY: Handle inquiry submission
   const handleInquirySubmit = async (e) => {
     e.preventDefault()
     setInquiryError('')
@@ -362,29 +373,16 @@ export default function PublicBusinessCardPage({ params }) {
     try {
       console.log('📤 Submitting inquiry for majstor:', majstor.id)
 
-      // 🍯 HONEYPOT CHECK: If filled, it's a bot
-      if (inquiryData.website_url && inquiryData.website_url.trim() !== '') {
-        console.warn('🍯 Honeypot triggered! Bot detected.')
-        // Don't tell the bot it failed - fake success
-        setInquirySuccess(true)
-        setShowSuccessPopup(true)
-        setTimeout(() => {
-          setShowInquiryFormModal(false)
-          setShowSuccessPopup(false)
-        }, 3000)
-        return
-      }
-
-      // 🛡️ TURNSTILE: Execute if no token yet
+      // 🛡️ TURNSTILE: Execute invisible widget if no token yet
       if (!turnstileToken && turnstileRef.current) {
         console.log('🛡️ Executing invisible Turnstile...')
         turnstileRef.current.execute()
         
-        // Wait for token generation
+        // Wait for token generation (max 2 seconds)
         await new Promise(resolve => setTimeout(resolve, 2000))
       }
 
-      // 🛡️ Validate token is present
+      // 🛡️ TURNSTILE: Validate token is present
       if (!turnstileToken) {
         throw new Error('Bitte warten Sie einen Moment und versuchen Sie es erneut')
       }
@@ -415,8 +413,7 @@ export default function PublicBusinessCardPage({ params }) {
         message: inquiryData.description.trim() || '-',
         images: uploadedImages.map(img => img.url),
         photo_urls: uploadedImages.map(img => img.url),
-        turnstileToken: turnstileToken,
-        // 🍯 Don't send honeypot to API
+        turnstileToken: turnstileToken
       }
 
       console.log('📋 Submitting with payload:', {
@@ -461,11 +458,15 @@ export default function PublicBusinessCardPage({ params }) {
           service_type: '',
           description: '',
           urgency: 'normal',
-          preferred_contact: 'email',
-          website_url: '' // Reset honeypot
+          preferred_contact: 'email'
         })
         setUploadedImages([])
         setTurnstileToken('')
+        
+        // Reset Turnstile widget
+        if (turnstileRef.current) {
+          turnstileRef.current.reset()
+        }
       }, 200)
 
       setTimeout(() => {
@@ -487,7 +488,7 @@ export default function PublicBusinessCardPage({ params }) {
         errorMessage = 'Zeitüberschreitung - bitte versuchen Sie es erneut'
       } else if (err.message?.includes('404')) {
         errorMessage = 'Service nicht verfügbar - bitte kontaktieren Sie den Support'
-      } else if (err.message?.includes('Security verification')) {
+      } else if (err.message?.includes('Security verification') || err.message?.includes('Sicherheitsprüfung')) {
         errorMessage = 'Sicherheitsprüfung fehlgeschlagen - bitte laden Sie die Seite neu'
       }
       
@@ -620,9 +621,9 @@ export default function PublicBusinessCardPage({ params }) {
           </div>
         )}
 
-        {/* Action Buttons with Subscription Logic */}
+        {/* Action Buttons */}
         <div className={`mb-${isMobile ? '3' : '4'} space-y-2`}>
-          {/* Save Contact Button - Always visible */}
+          {/* Save Contact Button */}
           <button 
             onClick={handleSaveContact}
             className="bg-white/20 hover:bg-white/30 border border-white/40 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full"
@@ -630,13 +631,13 @@ export default function PublicBusinessCardPage({ params }) {
             📱 Kontakt speichern
           </button>
 
-          {/* Inquiry Button - Available for ALL users */}
+          {/* Inquiry Button */}
           {!subscriptionLoading && (
             <button 
               onClick={handleInquiryClick}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full shadow-lg hover:shadow-green-500/25"
             >
-              🔧 Anfrage senden
+              📧 Anfrage senden
             </button>
           )}
         </div>
@@ -701,20 +702,6 @@ export default function PublicBusinessCardPage({ params }) {
 
   return (
     <>
-      {/* SEO Meta Tags */}
-      <head>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={pageDescription} />
-        <meta property="og:type" content="profile" />
-        {businessCard.logo_url && (
-          <meta property="og:image" content={businessCard.logo_url} />
-        )}
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="canonical" href={`https://pro-meister.de/m/${params.slug}`} />
-      </head>
-
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4" suppressHydrationWarning>
         <div className="max-w-2xl mx-auto space-y-8">
           
@@ -779,20 +766,6 @@ export default function PublicBusinessCardPage({ params }) {
 
               <form onSubmit={handleInquirySubmit} className="space-y-6">
                 
-                {/* 🍯 HONEYPOT - Hidden field for bot detection */}
-                <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }} aria-hidden="true">
-                  <label htmlFor="website_url">Website (leave blank)</label>
-                  <input
-                    type="text"
-                    name="website_url"
-                    id="website_url"
-                    value={inquiryData.website_url}
-                    onChange={handleInquiryChange}
-                    tabIndex="-1"
-                    autoComplete="off"
-                  />
-                </div>
-
                 {/* Basic Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -907,7 +880,7 @@ export default function PublicBusinessCardPage({ params }) {
                   />
                 </div>
 
-                {/* Photo Upload Section - keeping existing implementation */}
+                {/* Photo Upload Section */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     📷 Fotos hinzufügen (optional)
@@ -1049,7 +1022,7 @@ export default function PublicBusinessCardPage({ params }) {
                 </div>
 
                 {/* 🛡️ INVISIBLE TURNSTILE WIDGET */}
-                <div className="hidden">
+                <div style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none' }}>
                   <Turnstile
                     ref={turnstileRef}
                     siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
@@ -1092,7 +1065,7 @@ export default function PublicBusinessCardPage({ params }) {
                       </span>
                     ) : (
                       <>
-                        🔧 Anfrage senden
+                        📧 Anfrage senden
                         {uploadedImages.length > 0 && (
                           <span className="text-sm opacity-90 ml-2">
                             (+{uploadedImages.length} Foto{uploadedImages.length > 1 ? 's' : ''})
