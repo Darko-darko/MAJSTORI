@@ -1,6 +1,6 @@
-// app/signup/page.js - SA TURNSTILE + HONEYPOT + HIBRID PASSWORD METER
+// app/signup/page.js - DYNAMIC HONEYPOT (Browser-proof)
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -20,8 +20,10 @@ export default function SignupPage() {
   const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState('')
   
-  // 🍯 HONEYPOT: Bot trap field
+  // 🍯 DYNAMIC HONEYPOT: Created AFTER page load, autofill won't see it
+  const [honeypotMounted, setHoneypotMounted] = useState(false)
   const [honeypot, setHoneypot] = useState('')
+  const [formStartTime] = useState(Date.now())
   
   const [passwordStrength, setPasswordStrength] = useState({
     length: false,
@@ -31,6 +33,14 @@ export default function SignupPage() {
     special: false
   })
   const router = useRouter()
+
+  // 🎯 Mount honeypot AFTER autofill happens (500ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHoneypotMounted(true)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleChange = (e) => {
     setFormData(prev => ({
@@ -126,6 +136,24 @@ export default function SignupPage() {
     }
   }
 
+  // 🛡️ SMART BOT DETECTION (only checks if honeypot is mounted)
+  const detectBot = () => {
+    // Only check honeypot if it was actually mounted (after autofill)
+    if (honeypotMounted && honeypot && honeypot.length > 0) {
+      console.warn('🚫 Honeypot triggered - bot detected')
+      return true
+    }
+    
+    // Check 2: Form submitted too fast (< 2 seconds = suspicious)
+    const timeSpent = (Date.now() - formStartTime) / 1000
+    if (timeSpent < 2) {
+      console.warn('⚡ Form submitted too fast:', timeSpent, 'seconds')
+      return true
+    }
+    
+    return false
+  }
+
   // Google OAuth signup
   const handleGoogleSignup = async () => {
     try {
@@ -155,19 +183,18 @@ export default function SignupPage() {
     }
   }
 
-  // 🛡️ Email/Password signup with Turnstile + 🍯 Honeypot
+  // 🛡️ Email/Password signup with SMART BOT DETECTION
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      // 🍯 HONEYPOT: Check if bot filled the trap field
-      if (honeypot) {
-        console.warn('🚫 Honeypot triggered - potential bot detected')
-        // Simulate loading for bot, then silently reject
+      // 🍯 BOT DETECTION: Smart check (only if honeypot was mounted)
+      if (detectBot()) {
+        // Simulate normal loading for bot, then silently reject
         await new Promise(resolve => setTimeout(resolve, 2000))
-        setError('Ein Fehler ist aufgetreten')
+        setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.')
         setLoading(false)
         return
       }
@@ -316,23 +343,26 @@ export default function SignupPage() {
         {/* Email Form */}
         <form onSubmit={handleEmailSignup} className="space-y-4">
           
-          {/* 🍯 HONEYPOT: Hidden field for bots */}
-          <input
-            type="text"
-            name="website"
-            value={honeypot}
-            onChange={(e) => setHoneypot(e.target.value)}
-            autoComplete="off"
-            tabIndex={-1}
-            style={{
-              position: 'absolute',
-              left: '-9999px',
-              width: '1px',
-              height: '1px',
-              opacity: 0
-            }}
-            aria-hidden="true"
-          />
+          {/* 🍯 DYNAMIC HONEYPOT: Only renders AFTER autofill (500ms delay) */}
+          {honeypotMounted && (
+            <input
+              type="text"
+              name="company_website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              autoComplete="off"
+              tabIndex={-1}
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                width: '1px',
+                height: '1px',
+                opacity: 0,
+                pointerEvents: 'none'
+              }}
+            />
+          )}
 
           {/* Email */}
           <div>
@@ -345,6 +375,7 @@ export default function SignupPage() {
               value={formData.email}
               onChange={handleChange}
               required
+              autoComplete="email"
               className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="ihre@email.de"
             />
@@ -362,6 +393,7 @@ export default function SignupPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                autoComplete="new-password"
                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
                 placeholder="Ihr Passwort eingeben"
               />
@@ -437,6 +469,7 @@ export default function SignupPage() {
                 onChange={handleChange}
                 onBlur={() => setConfirmPasswordTouched(true)}
                 required
+                autoComplete="new-password"
                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
                 placeholder="Passwort wiederholen"
               />
@@ -506,7 +539,7 @@ export default function SignupPage() {
             </div>
           )}
 
-          {/* Turnstile - VISIBLE for testing */}
+          {/* Turnstile */}
           <div className="flex justify-center">
             <Turnstile
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
