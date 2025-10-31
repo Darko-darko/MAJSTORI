@@ -277,22 +277,24 @@ export default function Home() {
 
             {/* PRO Plan */}
             <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-2 border-blue-500/50 rounded-2xl p-8 relative transform scale-105">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-1 rounded-full text-sm font-bold whitespace-nowrap">EMPFOHLEN</span>
-              </div>
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-4">PRO</h3>
-                <div className="flex items-baseline justify-center gap-2 mb-6">
-                  <span className="text-4xl font-bold text-white">19,90€</span>
-                  <span className="text-slate-400">/Monat</span>
-                </div>
-               <p className="text-slate-400 text-sm mt-1">
-                    zzgl. 19% MwSt.
-                  </p>
-                <p className="text-slate-300">
-                  Vollzugang zu allen Funktionen
-                </p>
-              </div>
+  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+    <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-1 rounded-full text-sm font-bold whitespace-nowrap">EMPFOHLEN</span>
+  </div>
+  <div className="text-center mb-8">
+    <h3 className="text-2xl font-bold text-white mb-4">PRO</h3>
+    <div className="mb-6">
+      <div className="flex items-baseline justify-center gap-2">
+        <span className="text-4xl font-bold text-white">19,90€</span>
+        <span className="text-slate-400">/Monat</span>
+      </div>
+      <p className="text-slate-400 text-xs mt-0.5">
+        zzgl. 19% MwSt.
+      </p>
+    </div>
+    <p className="text-slate-300">
+      Vollzugang zu allen Funktionen
+    </p>
+  </div>
 
               <div className="space-y-4 mb-8">
                 <div className="flex items-center gap-3">
@@ -343,22 +345,24 @@ export default function Home() {
 
             {/* PRO+ Plan */}
             <div className="bg-slate-800/30 border border-slate-600/50 rounded-2xl p-8 opacity-75 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">BALD VERFÜGBAR</span>
-              </div>
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-4">PRO+</h3>
-                <div className="flex items-baseline justify-center gap-2 mb-6">
-                  <span className="text-4xl font-bold text-slate-400">39,90€</span>
-                  <span className="text-slate-500">/Monat</span>
-                </div>
-                <p className="text-slate-500 text-sm mt-1">
-                    zzgl. 19% MwSt.
-                  </p>
-                <p className="text-slate-400">
-                  Enterprise-Lösung
-                </p>
-              </div>
+  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+    <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">BALD VERFÜGBAR</span>
+  </div>
+  <div className="text-center mb-8">
+    <h3 className="text-2xl font-bold text-white mb-4">PRO+</h3>
+    <div className="mb-6">
+      <div className="flex items-baseline justify-center gap-2">
+        <span className="text-4xl font-bold text-slate-400">39,90€</span>
+        <span className="text-slate-500">/Monat</span>
+      </div>
+      <p className="text-slate-500 text-xs mt-0.5">
+        zzgl. 19% MwSt.
+      </p>
+    </div>
+    <p className="text-slate-400">
+      Enterprise-Lösung
+    </p>
+  </div>
 
               <div className="space-y-4 mb-8">
                 <div className="flex items-center gap-3">
@@ -400,7 +404,7 @@ export default function Home() {
             </h3>
             <p className="text-blue-200 mb-6 text-lg">
               Nach der Registrierung haben Sie 30 Tage Vollzugang zu allen PRO-Funktionen. 
-              Danach wählen Sie zwischen Freemium (kostenlos) oder PRO (19,90€/Monat + MwSt.).
+              Danach wählen Sie zwischen Freemium (kostenlos) oder PRO (19,90€/Monat zzgl. MwSt.).
             </p>
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div className="bg-slate-800/50 rounded-lg p-4">
