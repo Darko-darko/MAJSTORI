@@ -286,6 +286,9 @@ export default function Home() {
                   <span className="text-4xl font-bold text-white">19,90€</span>
                   <span className="text-slate-400">/Monat</span>
                 </div>
+               <p className="text-slate-400 text-sm mt-1">
+                    zzgl. 19% MwSt.
+                  </p>
                 <p className="text-slate-300">
                   Vollzugang zu allen Funktionen
                 </p>
@@ -349,6 +352,9 @@ export default function Home() {
                   <span className="text-4xl font-bold text-slate-400">39,90€</span>
                   <span className="text-slate-500">/Monat</span>
                 </div>
+                <p className="text-slate-500 text-sm mt-1">
+                    zzgl. 19% MwSt.
+                  </p>
                 <p className="text-slate-400">
                   Enterprise-Lösung
                 </p>
