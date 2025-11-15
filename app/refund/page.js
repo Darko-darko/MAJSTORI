@@ -1,4 +1,4 @@
-// app/refund/page.js - Refund Policy za Paddle zahteve
+// app/refund/page.js - Refund Policy za FastSpring
 import Link from 'next/link';
 
 export default function RefundPolicy() {
@@ -82,7 +82,7 @@ export default function RefundPolicy() {
                       wirksam zum Ende des Jahresabonnements
                     </li>
                     <li>
-                      Die Kündigung erfolgt direkt über Ihr Paddle-Kundenkonto oder per E-Mail an 
+                      Die Kündigung erfolgt direkt über Ihr FastSpring-Kundenkonto oder per E-Mail an 
                       <a href="mailto:support@pro-meister.de" className="text-blue-400 hover:text-blue-300 ml-1">
                         support@pro-meister.de
                       </a>
@@ -186,27 +186,37 @@ export default function RefundPolicy() {
               {/* Zahlungsanbieter */}
               <section>
                 <h2 className="text-2xl font-bold text-white mb-6">
-                  5. Zahlungsabwicklung über Paddle
+                  5. Zahlungsabwicklung über FastSpring
                 </h2>
                 <div className="space-y-4">
                   <p>
                     Alle Zahlungen und Rückerstattungen werden über unseren Zahlungsdienstleister 
-                    <strong className="text-white"> Paddle</strong> abgewickelt.
+                    <strong className="text-white"> FastSpring</strong> abgewickelt.
                   </p>
                   <ul className="list-disc ml-6 space-y-2">
                     <li>
-                      Paddle fungiert als Reseller und wickelt alle Transaktionen sicher ab
+                      FastSpring fungiert als Reseller und wickelt alle Transaktionen sicher ab
                     </li>
                     <li>
-                      Ihre Zahlungsinformationen werden gemäß PCI-DSS-Standards geschützt
+                      Ihre Zahlungsinformationen werden gemäß PCI-DSS Level 1 Standards geschützt
                     </li>
                     <li>
-                      Rückerstattungen erfolgen über Paddle zurück auf Ihr Zahlungsmittel
+                      Rückerstattungen erfolgen über FastSpring zurück auf Ihr Zahlungsmittel
                     </li>
                     <li>
-                      Bei Fragen zu Transaktionen kontaktieren Sie uns oder direkt Paddle Support
+                      Bei Fragen zu Transaktionen kontaktieren Sie uns oder direkt FastSpring Support
+                    </li>
+                    <li>
+                      FastSpring ist EU-konform und stellt automatisch korrekte Rechnungen mit MwSt. aus
                     </li>
                   </ul>
+                  <div className="bg-slate-700/50 border border-slate-600 rounded-xl p-4 mt-4">
+                    <p className="text-sm text-slate-300">
+                      <strong className="text-white">FastSpring Kontakt:</strong><br/>
+                      FastSpring (als Reseller) verwaltet Ihre Abonnements und Zahlungen. 
+                      Sie können Ihr Abonnement jederzeit über das FastSpring Account Management Portal verwalten.
+                    </p>
+                  </div>
                 </div>
               </section>
 
@@ -276,6 +286,10 @@ export default function RefundPolicy() {
                 <li className="flex items-start gap-3">
                   <span className="text-green-400 text-xl flex-shrink-0">✓</span>
                   <span><strong>Schnelle Bearbeitung</strong> – Rückerstattung innerhalb von 48 Stunden</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-green-400 text-xl flex-shrink-0">✓</span>
+                  <span><strong>Sichere Zahlungen</strong> – über FastSpring (PCI-DSS Level 1)</span>
                 </li>
               </ul>
             </div>

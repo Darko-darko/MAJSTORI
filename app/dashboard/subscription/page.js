@@ -1,12 +1,12 @@
-// app/dashboard/subscription/page.js - FIXED VERSION
-// 🔥 Dugme "Auf PRO upgraden" sada direktno otvara Paddle kao i dugmad sa katancem!
+// app/dashboard/subscription/page.js - FASTSPRING VERSION
+// 🔥 MIGRACIJA: Paddle → FastSpring
 
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/hooks/useSubscription'
-import { initializePaddle, openPaddleCheckout, PADDLE_CONFIG } from '@/lib/paddle'
+import { initializeFastSpring, openFastSpringCheckout, FASTSPRING_CONFIG } from '@/lib/fastspring'
 
 export default function SubscriptionPage() {
   const router = useRouter()
@@ -15,7 +15,7 @@ export default function SubscriptionPage() {
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [reactivating, setReactivating] = useState(false)
-  const [paddleReady, setPaddleReady] = useState(false)
+  const [fastspringReady, setFastspringReady] = useState(false)
 
   // Processing state - za progress indicator
   const [processingAction, setProcessingAction] = useState(null)
@@ -62,17 +62,17 @@ export default function SubscriptionPage() {
     loadProfile()
   }, [router])
 
-  // 🔥 Initialize Paddle
+  // 🔥 Initialize FastSpring
   useEffect(() => {
-    console.log('🔥 Initializing Paddle in subscription page...')
-    initializePaddle(
+    console.log('🔥 Initializing FastSpring in subscription page...')
+    initializeFastSpring(
       () => {
-        console.log('✅ Paddle ready!')
-        setPaddleReady(true)
+        console.log('✅ FastSpring ready!')
+        setFastspringReady(true)
       },
       (err) => {
-        console.error('❌ Paddle init failed:', err)
-        setError('Paddle konnte nicht geladen werden.')
+        console.error('❌ FastSpring init failed:', err)
+        setError('FastSpring konnte nicht geladen werden.')
       }
     )
   }, [])
@@ -149,10 +149,10 @@ export default function SubscriptionPage() {
     }
   }, [majstor?.id, processingAction, refresh])
 
-  // 🔥 FIXED: Direktno otvara Paddle kao dugmad sa katancem!
+  // 🔥 FIXED: Direktno otvara FastSpring kao dugmad sa katancem!
   const handleUpgradeClick = async () => {
-    if (!paddleReady) {
-      setError('Paddle wird noch geladen...')
+    if (!fastspringReady) {
+      setError('FastSpring wird noch geladen...')
       return
     }
 
@@ -161,18 +161,18 @@ export default function SubscriptionPage() {
       return
     }
 
-    console.log('🚀 Opening Paddle Checkout directly!')
+    console.log('🚀 Opening FastSpring Checkout directly!')
 
-    const priceId = PADDLE_CONFIG.priceIds.monthly
+    const productId = FASTSPRING_CONFIG.productIds.monthly
 
-    if (!priceId) {
-      setError('Price ID nicht konfiguriert')
+    if (!productId) {
+      setError('Product ID nicht konfiguriert')
       return
     }
 
     try {
-      await openPaddleCheckout({
-        priceId: priceId,
+      await openFastSpringCheckout({
+        priceId: productId,
         email: majstor.email,
         majstorId: majstor.id,
         billingInterval: 'monthly',
@@ -180,12 +180,15 @@ export default function SubscriptionPage() {
           console.log('✅ Payment successful!', data)
           setTimeout(() => {
             refresh(true)
-            window.location.href = '/dashboard?paddle_success=true&plan=monthly'
+            window.location.href = '/dashboard?fastspring_success=true&plan=monthly'
           }, 2000)
         },
         onError: (err) => {
           console.error('❌ Payment error:', err)
           setError('Zahlung fehlgeschlagen: ' + err.message)
+        },
+        onClose: () => {
+          console.log('🚪 FastSpring popup closed')
         }
       })
     } catch (err) {
@@ -213,14 +216,15 @@ export default function SubscriptionPage() {
     try {
       console.log('🚫 Starting cancellation process...')
       
-      const response = await fetch('/.netlify/functions/paddle-cancel-subscription', {
+      // 🔥 FASTSPRING: Koristi fastspring-cancel-subscription funkciju
+      const response = await fetch('/.netlify/functions/fastspring-cancel-subscription', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          subscriptionId: subscription.paddle_subscription_id,
+          subscriptionId: subscription.provider_subscription_id,
           majstorId: majstor.id
         })
       })
@@ -231,11 +235,11 @@ export default function SubscriptionPage() {
         throw new Error(data.error || data.message || 'Fehler beim Kündigen')
       }
 
-      console.log('✅ Paddle API call successful!')
+      console.log('✅ FastSpring API call successful!')
       console.log('⏳ Waiting for webhook confirmation via Realtime...')
 
       const steps = [
-        { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
+        { step: 20, delay: 500, message: 'Verbindung zu FastSpring...' },
         { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
         { step: 60, delay: 4000, message: 'Webhook wird empfangen...' },
         { step: 80, delay: 6000, message: 'Datenbank wird aktualisiert...' },
@@ -308,14 +312,15 @@ export default function SubscriptionPage() {
     try {
       console.log('▶️ Starting reactivation process...')
 
-      const response = await fetch('/.netlify/functions/paddle-reactivate-subscription', {
+      // 🔥 FASTSPRING: Koristi fastspring-reactivate-subscription funkciju
+      const response = await fetch('/.netlify/functions/fastspring-reactivate-subscription', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          subscriptionId: subscription.paddle_subscription_id,
+          subscriptionId: subscription.provider_subscription_id,
           majstorId: majstor.id
         })
       })
@@ -326,11 +331,11 @@ export default function SubscriptionPage() {
         throw new Error(data.error || data.message || 'Fehler beim Reaktivieren')
       }
 
-      console.log('✅ Paddle API call successful!')
+      console.log('✅ FastSpring API call successful!')
       console.log('⏳ Waiting for webhook confirmation via Realtime...')
 
       const steps = [
-        { step: 20, delay: 500, message: 'Verbindung zu Paddle...' },
+        { step: 20, delay: 500, message: 'Verbindung zu FastSpring...' },
         { step: 40, delay: 2000, message: 'Warte auf Bestätigung...' },
         { step: 60, delay: 4000, message: 'Webhook wird empfangen...' },
         { step: 80, delay: 6000, message: 'Datenbank wird aktualisiert...' },
@@ -534,13 +539,13 @@ export default function SubscriptionPage() {
           </div>
         )}
 
-        {/* Paddle Loading Indicator */}
-        {!paddleReady && (
+        {/* FastSpring Loading Indicator */}
+        {!fastspringReady && (
           <div className="mt-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-yellow-500 border-t-transparent"></div>
               <p className="text-yellow-300 text-sm">
-                Paddle wird geladen...
+                FastSpring wird geladen...
               </p>
             </div>
           </div>
@@ -571,10 +576,10 @@ export default function SubscriptionPage() {
               {statusInfo.showUpgrade && (
                 <button
                   onClick={handleUpgradeClick}
-                  disabled={processingAction || !paddleReady}
+                  disabled={processingAction || !fastspringReady}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {!paddleReady ? 'Paddle lädt...' : '🚀 Auf PRO upgraden'}
+                  {!fastspringReady ? 'FastSpring lädt...' : '🚀 Auf PRO upgraden'}
                 </button>
               )}
               
@@ -677,10 +682,10 @@ export default function SubscriptionPage() {
           {statusInfo.showUpgrade && (
             <button
               onClick={handleUpgradeClick}
-              disabled={!paddleReady}
+              disabled={!fastspringReady}
               className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {!paddleReady ? 'Paddle lädt...' : 'Jetzt upgraden'}
+              {!fastspringReady ? 'FastSpring lädt...' : 'Jetzt upgraden'}
             </button>
           )}
         </div>

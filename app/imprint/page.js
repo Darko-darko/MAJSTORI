@@ -120,19 +120,19 @@ export default function Imprint() {
               </div>
             </section>
 
-            {/* Payment Provider */}
+         {/* Payment Provider */}
             <section className="mb-10 border-t border-slate-700 pt-10">
               <h2 className="text-2xl font-bold text-white mb-6">Zahlungsabwicklung</h2>
               <div className="text-slate-300 space-y-3">
                 <p>Die Zahlungsabwicklung erfolgt über unseren autorisierten Reseller:</p>
                 <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mt-3">
-                  <p className="font-medium text-white">Paddle.com Market Limited</p>
-                  <p className="text-sm mt-2">Judd House, 18–29 Mora Street</p>
-                  <p className="text-sm">London EC1V 8BT, United Kingdom</p>
+                  <p className="font-medium text-white">FastSpring Inc.</p>
+                  <p className="text-sm mt-2">801 Garden Street, Suite 201</p>
+                  <p className="text-sm">Santa Barbara, CA 93101, USA</p>
                 </div>
                 <p className="text-sm text-slate-400 mt-3">
-                  Paddle ist Vertragspartner beim Kauf, verantwortlich für Zahlungsabwicklung, Rechnungsstellung und zahlungsbezogenen Support.
-                  Die jeweilige VAT-Nummer entnehmen Sie bitte der Paddle-Rechnung.
+                  FastSpring ist Vertragspartner beim Kauf, verantwortlich für Zahlungsabwicklung, Rechnungsstellung und zahlungsbezogenen Support.
+                  Die jeweilige VAT-Nummer entnehmen Sie bitte der FastSpring-Rechnung.
                 </p>
               </div>
             </section>

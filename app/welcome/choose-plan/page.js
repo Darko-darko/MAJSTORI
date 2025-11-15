@@ -1,15 +1,16 @@
-// app/welcome/choose-plan/page.js - SIMPLIFIED (samo layout.js progress modal)
+// app/welcome/choose-plan/page.js - FASTSPRING VERSION
+// 🔥 MIGRACIJA: Paddle → FastSpring
 
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { 
-  initializePaddle, 
-  openPaddleCheckout, 
-  PADDLE_CONFIG,
-  validatePaddleConfig 
-} from '@/lib/paddle'
+  initializeFastSpring, 
+  openFastSpringCheckout, 
+  FASTSPRING_CONFIG,
+  validateFastSpringConfig 
+} from '@/lib/fastspring'
 import { clearSubscriptionCache } from '@/lib/hooks/useSubscription'
 
 export default function ChoosePlanPage() {
@@ -18,7 +19,7 @@ export default function ChoosePlanPage() {
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [selectedProInterval, setSelectedProInterval] = useState('monthly')
-  const [paddleReady, setPaddleReady] = useState(false)
+  const [fastspringReady, setFastspringReady] = useState(false)
   const router = useRouter()
 
   // Pricing data
@@ -51,21 +52,21 @@ export default function ChoosePlanPage() {
   useEffect(() => {
     loadUserData()
     
-    // Initialize Paddle
-    initializePaddle(
-      (paddle) => {
-        console.log('✅ Paddle initialized')
-        setPaddleReady(true)
+    // Initialize FastSpring
+    initializeFastSpring(
+      (fastspring) => {
+        console.log('✅ FastSpring initialized')
+        setFastspringReady(true)
       },
       (error) => {
-        console.error('❌ Paddle init failed:', error)
-        setError('Paddle konnte nicht geladen werden.')
+        console.error('❌ FastSpring init failed:', error)
+        setError('FastSpring konnte nicht geladen werden.')
       }
     )
 
-    // Validate Paddle config
-    if (!validatePaddleConfig()) {
-      setError('Paddle Konfiguration fehlt.')
+    // Validate FastSpring config
+    if (!validateFastSpringConfig()) {
+      setError('FastSpring Konfiguration fehlt.')
     }
   }, [])
 
@@ -100,10 +101,10 @@ export default function ChoosePlanPage() {
     }
   }
 
-  // 💎 PRO Subscription Handler - SIMPLIFIED
+  // 💎 PRO Subscription Handler - FASTSPRING VERSION
   const handleProSelect = async () => {
-    if (!paddleReady) {
-      setError('Paddle wird noch geladen...')
+    if (!fastspringReady) {
+      setError('FastSpring wird noch geladen...')
       return
     }
 
@@ -111,50 +112,55 @@ export default function ChoosePlanPage() {
     setError('')
 
     try {
-      console.log(`🚀 Opening Paddle Checkout: ${selectedProInterval}`)
+      console.log(`🚀 Opening FastSpring Checkout: ${selectedProInterval}`)
 
-      const priceId = selectedProInterval === 'yearly' 
-        ? PADDLE_CONFIG.priceIds.yearly 
-        : PADDLE_CONFIG.priceIds.monthly
+      const productId = selectedProInterval === 'yearly' 
+        ? FASTSPRING_CONFIG.productIds.yearly 
+        : FASTSPRING_CONFIG.productIds.monthly
 
-      if (!priceId) {
-        throw new Error(`Price ID nicht gefunden für ${selectedProInterval}`)
+      if (!productId) {
+        throw new Error(`Product ID nicht gefunden für ${selectedProInterval}`)
       }
 
-      console.log('📋 Price ID:', priceId)
+      console.log('📋 Product ID:', productId)
       console.log('👤 User:', user.email)
       console.log('🆔 Majstor ID:', user.id)
 
-      // 🔥 SIMPLIFIED: Samo otvori checkout i redirect sa paddle_success=true
-      openPaddleCheckout({
-        priceId: priceId,
+      // 🔥 SIMPLIFIED: Samo otvori checkout i redirect sa fastspring_success=true
+      openFastSpringCheckout({
+        priceId: productId,
         email: user.email,
         majstorId: user.id,
         billingInterval: selectedProInterval,
         
         onSuccess: async (checkoutData) => {
-          console.log('✅ Paddle Checkout successful!')
+          console.log('✅ FastSpring Checkout successful!')
           console.log('📋 Checkout Data:', checkoutData)
           
           // 🔥 Clear cache PRE redirect-a
           console.log('🗑️ Clearing cache before redirect...')
           clearSubscriptionCache(user.id)
 
-          // 🔥 REDIRECT SA paddle_success=true - layout.js će pokazati progress modal!
+          // 🔥 REDIRECT SA fastspring_success=true
           const timestamp = Date.now()
-          console.log('🔄 Redirecting to dashboard with paddle_success flag...')
-          window.location.replace(`/dashboard?paddle_success=true&plan=${selectedProInterval}&t=${timestamp}`)
+          console.log('🔄 Redirecting to dashboard with fastspring_success flag...')
+          window.location.replace(`/dashboard?fastspring_success=true&plan=${selectedProInterval}&t=${timestamp}`)
         },
         
         onError: (error) => {
-          console.error('❌ Paddle Checkout error:', error)
+          console.error('❌ FastSpring Checkout error:', error)
           setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+          setLoading(false)
+        },
+
+        onClose: () => {
+          console.log('🚪 FastSpring popup closed by user')
           setLoading(false)
         }
       })
 
     } catch (err) {
-      console.error('❌ Error opening Paddle Checkout:', err)
+      console.error('❌ Error opening FastSpring Checkout:', err)
       setError('Fehler beim Öffnen des Checkouts: ' + err.message)
       setLoading(false)
     }
@@ -226,8 +232,8 @@ export default function ChoosePlanPage() {
           </div>
         )}
 
-        {/* Paddle Loading */}
-        {!paddleReady && (
+        {/* FastSpring Loading */}
+        {!fastspringReady && (
           <div className="mb-8 bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 max-w-2xl mx-auto">
             <p className="text-blue-400 text-center">
               🔄 Zahlungssystem wird geladen...
@@ -374,15 +380,15 @@ export default function ChoosePlanPage() {
 
             <button
               onClick={handleProSelect}
-              disabled={loading || !paddleReady}
+              disabled={loading || !fastspringReady}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 shadow-xl"
             >
-              {loading ? 'Wird geladen...' : !paddleReady ? 'Laden...' : '🚀 Jetzt starten'}
+              {loading ? 'Wird geladen...' : !fastspringReady ? 'Laden...' : '🚀 Jetzt starten'}
             </button>
 
             <div className="text-xs text-slate-400 text-center mt-4 space-y-1">
               <p>✓ Kreditkarte erforderlich</p>
-              <p>✓ Trial-Periode lt. Paddle</p>
+              <p>✓ Trial-Periode lt. FastSpring</p>
               <p>✓ 30 Tage Kündigungsfrist</p>
             </div>
           </div>
@@ -393,7 +399,7 @@ export default function ChoosePlanPage() {
             {/* Coming Soon Badge */}
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
               <div className="bg-orange-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
-                📜 BALD VERFÜGBAR
+                🔜 BALD VERFÜGBAR
               </div>
             </div>
 
@@ -459,7 +465,7 @@ export default function ChoosePlanPage() {
               <span className="text-green-400 text-2xl">🔒</span>
             </div>
             <div>
-              <h4 className="text-green-300 font-bold text-lg mb-3">Sichere Zahlung via Paddle</h4>
+              <h4 className="text-green-300 font-bold text-lg mb-3">Sichere Zahlung via FastSpring</h4>
               <div className="grid md:grid-cols-2 gap-3 text-green-200 text-sm">
                 <p className="flex items-center gap-2">
                   <span className="text-green-400">✓</span>

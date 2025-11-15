@@ -113,24 +113,24 @@ export default function PrivacyPolicy() {
               </p>
             </section>
 
-            {/* 7. Paddle */}
+           {/* 7. FastSpring */}
             <section>
-              <h2 className="text-xl font-semibold text-white mb-4">7. Zahlungsabwicklung über Paddle (Reseller)</h2>
+              <h2 className="text-xl font-semibold text-white mb-4">7. Zahlungsabwicklung über FastSpring (Payment Provider)</h2>
               <p>
-                Die Zahlungsabwicklung erfolgt über <strong className="text-white">Paddle.com Market Limited</strong>,
-                Judd House, 18–29 Mora Street, London EC1V 8BT, Vereinigtes Königreich.
-                Paddle agiert als <strong className="text-white">eigenständiger Verantwortlicher (Reseller)</strong>.
+                Die Zahlungsabwicklung erfolgt über <strong className="text-white">FastSpring Inc.</strong>,
+                801 Garden Street, Suite 201, Santa Barbara, CA 93101, USA.
+                FastSpring agiert als <strong className="text-white">eigenständiger Verantwortlicher (Merchant of Record)</strong>.
               </p>
               <p className="mt-2">
-                <a href="https://www.paddle.com/legal/privacy" target="_blank" rel="noopener noreferrer"
-                   className="text-blue-400 hover:text-blue-300">paddle.com/legal/privacy</a>
+                <a href="https://fastspring.com/privacy/" target="_blank" rel="noopener noreferrer"
+                   className="text-blue-400 hover:text-blue-300">fastspring.com/privacy/</a>
               </p>
               <p className="mt-3">
-                Wir erhalten keinen Zugriff auf Zahlungsdaten. Paddle verarbeitet Zahlungs- und Rechnungsinformationen
-                ausschließlich gemäß PCI-DSS-Standards.
+                Wir erhalten keinen Zugriff auf Zahlungsdaten. FastSpring verarbeitet Zahlungs- und Rechnungsinformationen
+                ausschließlich gemäß PCI-DSS Level 1 Standards.
               </p>
             </section>
-
+            
             {/* 8. Cookies */}
             <section>
               <h2 className="text-xl font-semibold text-white mb-4">8. Cookies und vergleichbare Technologien</h2>

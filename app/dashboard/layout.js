@@ -200,33 +200,35 @@ useEffect(() => {
     }
   }, [refresh])
 
-  // 🔥 GLAVNA LOGIKA: Detektuj paddle_success ODMAH i prikaži modal PRE svega!
+ // 🔥 GLAVNA LOGIKA: Detektuj paddle_success ili fastspring_success ODMAH i prikaži modal PRE svega!
   useEffect(() => {
     const paddleSuccess = searchParams.get('paddle_success')
+    const fastspringSuccess = searchParams.get('fastspring_success')
     const planType = searchParams.get('plan')
     
-    if (paddleSuccess === 'true' && !showUpgradeModal) {
-      console.log('🎯 LAYOUT: Paddle payment detected - showing progress modal IMMEDIATELY!')
-      startUpgradeProcess(planType)
+    if ((paddleSuccess === 'true' || fastspringSuccess === 'true') && !showUpgradeModal) {
+      const provider = fastspringSuccess === 'true' ? 'FastSpring' : 'Paddle'
+      console.log(`🎯 LAYOUT: ${provider} payment detected - showing progress modal IMMEDIATELY!`)
+      startUpgradeProcess(planType, provider)
     }
   }, [searchParams, showUpgradeModal])
 
-  const startUpgradeProcess = (planType) => {
+  const startUpgradeProcess = (planType, provider = 'Paddle') => {
     setShowUpgradeModal(true)
     setUpgradeProgress(0)
     setUpgradeMessage('Zahlung erfolgreich! Aktiviere PRO...')
     
     window.dispatchEvent(new CustomEvent('subscription-changed', {
-      detail: { action: 'upgraded', timestamp: Date.now(), plan: planType }
+      detail: { action: 'upgraded', timestamp: Date.now(), plan: planType, provider }
     }))
     
     // 🔥 PHASE 1: Brzi progress do 85% (12 sekundi)
     const initialStages = [
       { delay: 0, progress: 0, message: 'Zahlung erfolgreich! Aktiviere PRO...' },
-      { delay: 1500, progress: 15, message: 'Verbindung zu Paddle...' },
+      { delay: 1500, progress: 15, message: `Verbindung zu ${provider}...` },
       { delay: 3000, progress: 30, message: 'Warte auf Bestätigung...' },
       { delay: 4500, progress: 45, message: 'Subscription wird erstellt...' },
-      { delay: 6000, progress: 60, message: 'Synchronisiere mit Paddle...' },
+      { delay: 6000, progress: 60, message: `Synchronisiere mit ${provider}...` },
       { delay: 8000, progress: 70, message: 'Webhook wird empfangen...' },
       { delay: 10000, progress: 80, message: 'Datenbank wird aktualisiert...' },
       { delay: 12000, progress: 85, message: 'Überprüfe Status...' }
@@ -241,7 +243,6 @@ useEffect(() => {
         }
       }, stage.delay)
     })
-    
     // 🔥 PHASE 2: Aktivno proveravaj status (od 12s do max 30s)
     let checkCount = 0
     const maxChecks = 36 // 18 sekundi provera (36 * 500ms)
