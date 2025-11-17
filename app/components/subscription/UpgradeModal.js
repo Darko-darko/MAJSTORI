@@ -1,31 +1,32 @@
-// app/components/subscription/UpgradeModal.js - QUICK FIX
+// app/components/subscription/UpgradeModal.js - FASTSPRING VERSION
+// 🔥 MIGRACIJA: Paddle → FastSpring (UI ostaje identičan!)
 
 'use client'
 import { useState, useEffect } from 'react'
-import { initializePaddle, openPaddleCheckout, PADDLE_CONFIG } from '@/lib/paddle'
+import { initializeFastSpring, openFastSpringCheckout, FASTSPRING_CONFIG } from '@/lib/fastspring'
 import { supabase } from '@/lib/supabase'
 
 export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPlan }) {
   const [billingInterval, setBillingInterval] = useState('monthly')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [paddleReady, setPaddleReady] = useState(false)
+  const [fastspringReady, setFastspringReady] = useState(false)
 
   useEffect(() => {
-    if (isOpen && !paddleReady) {
-      console.log('🔥 Initializing Paddle...')
-      initializePaddle(
+    if (isOpen && !fastspringReady) {
+      console.log('🔥 Initializing FastSpring...')
+      initializeFastSpring(
         () => {
-          console.log('✅ Paddle initialized in UpgradeModal')
-          setPaddleReady(true)
+          console.log('✅ FastSpring initialized in UpgradeModal')
+          setFastspringReady(true)
         },
         (err) => {
-          console.error('❌ Paddle initialization failed:', err)
-          setError('Paddle loading failed')
+          console.error('❌ FastSpring initialization failed:', err)
+          setError('FastSpring loading failed')
         }
       )
     }
-  }, [isOpen, paddleReady])
+  }, [isOpen, fastspringReady])
 
   useEffect(() => {
     if (!isOpen) {
@@ -54,33 +55,39 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
 
       if (majstorError) throw majstorError
 
-      const priceId = billingInterval === 'monthly' 
-        ? PADDLE_CONFIG.priceIds.monthly
-        : PADDLE_CONFIG.priceIds.yearly
+      // 🔥 PROMENA: FastSpring productIds umesto Paddle priceIds
+      const productId = billingInterval === 'monthly' 
+        ? FASTSPRING_CONFIG.productIds.monthly
+        : FASTSPRING_CONFIG.productIds.yearly
 
-      if (!priceId) {
-        throw new Error('Price ID not configured')
+      if (!productId) {
+        throw new Error('Product ID not configured')
       }
 
-      console.log('🚀 Opening Paddle checkout:', {
-        priceId,
+      console.log('🚀 Opening FastSpring checkout:', {
+        productId,
         billingInterval,
         email: majstorData.email,
         majstorId: majstorData.id
       })
 
-      await openPaddleCheckout({
-        priceId: priceId,
+      // 🔥 PROMENA: openFastSpringCheckout umesto openPaddleCheckout
+      await openFastSpringCheckout({
+        priceId: productId, // FastSpring i dalje prima kao 'priceId' parameter (compatibility)
         email: majstorData.email,
         majstorId: majstorData.id,
         billingInterval: billingInterval,
         onSuccess: (data) => {
-          console.log('✅ Paddle checkout success:', data)
-          window.location.href = `/dashboard?paddle_success=true&plan=${billingInterval}`
+          console.log('✅ FastSpring checkout success:', data)
+          window.location.href = `/dashboard?fastspring_success=true&plan=${billingInterval}`
         },
         onError: (err) => {
-          console.error('❌ Paddle checkout error:', err)
+          console.error('❌ FastSpring checkout error:', err)
           setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+          setLoading(false)
+        },
+        onClose: () => {
+          console.log('🚪 FastSpring popup closed')
           setLoading(false)
         }
       })
@@ -258,23 +265,21 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
             </div>
           )}
 
-          {/* Debug Info */}
-          {!paddleReady && (
+          {/* FastSpring Loading Indicator */}
+          {!fastspringReady && (
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-3 text-yellow-300">
                 <span className="text-2xl">⏳</span>
-                <span className="text-sm">Paddle wird geladen...</span>
+                <span className="text-sm">FastSpring wird geladen...</span>
               </div>
             </div>
           )}
-
-
 
           {/* Action Buttons */}
           <div className="space-y-3">
             <button
               onClick={handleUpgrade}
-              disabled={loading || !paddleReady}
+              disabled={loading || !fastspringReady}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? (
@@ -282,10 +287,10 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
                   <span className="animate-spin">⏳</span>
                   Lädt...
                 </span>
-              ) : !paddleReady ? (
+              ) : !fastspringReady ? (
                 <span className="flex items-center justify-center gap-3">
                   <span className="animate-pulse">⏳</span>
-                  Paddle lädt...
+                  FastSpring lädt...
                 </span>
               ) : (
                 <>
@@ -303,7 +308,7 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
           </div>
 
           <p className="text-center text-slate-500 text-xs mt-4">
-            Sichere Zahlung über Paddle.
+            Sichere Zahlung über FastSpring.
           </p>
         </div>
       </div>
