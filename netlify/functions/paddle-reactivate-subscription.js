@@ -231,7 +231,8 @@ exports.handler = async (event, context) => {
         cancelled_at: null,
         updated_at: new Date().toISOString()
       })
-      .eq('paddle_subscription_id', subscriptionId)
+      .or(`paddle_subscription_id.eq.${subscriptionId},provider_subscription_id.eq.${subscriptionId}`)
+
 
     if (updateError) {
       console.error('⚠️ Supabase update error:', updateError)

@@ -99,6 +99,14 @@ export default function SubscriptionPage() {
 
         console.log(`📊 Cancel flag: ${oldCancelFlag} → ${newCancelFlag}`)
         console.log(`📊 Status: ${payload.old?.status} → ${newStatus}`)
+// 🛑 IGNORE: expired status updates when already expired (prevents infinite loop)
+        if (newStatus === 'expired' && payload.old?.status !== 'active' && payload.old?.status !== 'trial' && payload.old?.status !== 'cancelled') {
+          console.log('⏭️ Ignoring redundant expired status update (prevents loop)')
+          return
+        }
+
+      
+        
 
         if (newCancelFlag === true && processingAction === 'cancel') {
           console.log('✅ CANCEL CONFIRMED via Realtime!')

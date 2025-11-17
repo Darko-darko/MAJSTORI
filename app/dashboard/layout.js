@@ -55,7 +55,8 @@ useEffect(() => {
     window.removeEventListener('subscription-cancelled', handleSubscriptionChange)
     window.removeEventListener('subscription-reactivated', handleSubscriptionChange)
   }
-}, [majstor?.id, refresh])
+
+}, [majstor?.id])
 
 // 🔥 BACKUP: Watch subscription/plan changes directly
 useEffect(() => {
