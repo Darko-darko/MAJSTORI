@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
 
 const FASTSPRING_USERNAME = process.env.FASTSPRING_USERNAME
 const FASTSPRING_PASSWORD = process.env.FASTSPRING_PASSWORD
-const FASTSPRING_API_URL = 'https://api.test.fastspring.com'
+const FASTSPRING_API_URL = 'https://api.fastspring.com'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
