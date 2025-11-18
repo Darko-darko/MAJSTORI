@@ -1,4 +1,4 @@
-// app/terms/page.js — AGB (DE), pravno usklađeno, sa 30-dnevnom probom i Paddle reseller napomenama
+// app/terms/page.js — AGB (DE), pravno usklađeno, sa 30-dnevnom probom i FastSpring reseller napomenama
 export default function Terms() {
   return (
     <div className="min-h-screen bg-slate-900 py-12 px-4">
@@ -12,7 +12,7 @@ export default function Terms() {
               <h2 className="text-xl font-semibold text-white mb-4">1. Geltungsbereich</h2>
               <p>
                 Diese Allgemeinen Geschäftsbedingungen (AGB) regeln die Nutzung der Plattform
-                <span className="text-white font-medium"> Pro-meister.de</span> („Plattform“) sowie aller damit
+                <span className="text-white font-medium"> Pro-meister.de</span> (&bdquo;Plattform&bdquo;) sowie aller damit
                 verbundenen Dienste des Anbieters <span className="text-white font-medium">Kilimanjaro doo</span>.
                 Abweichende Bedingungen gelten nicht, es sei denn, ihrer Geltung wurde ausdrücklich schriftlich zugestimmt.
               </p>
@@ -72,17 +72,17 @@ export default function Terms() {
               <p>
                 Der <span className="text-white font-medium">Leistungsanbieter</span> der Plattform ist Kilimanjaro doo.
                 Der <span className="text-white font-medium">Vertrag über den Erwerb des Abonnements (Zahlung)</span> kommt über unseren autorisierten
-                Wiederverkäufer <span className="text-white font-medium">Paddle.com Market Limited</span> (Reseller) zustande.
+                Zahlungsdienstleister <span className="text-white font-medium">FastSpring</span> (Reseller of Record) zustande.
               </p>
               <ul className="list-disc ml-6 mt-3 space-y-2">
                 <li><span className="text-white font-medium">Monatliches Abonnement:</span> Verlängert sich automatisch monatlich; Kündigung zum Ende des jeweiligen Abrechnungszeitraums möglich.</li>
                 <li><span className="text-white font-medium">Jährliches Abonnement:</span> Verlängert sich automatisch jährlich; Kündigung zum Ende des Jahresabonnements möglich.</li>
-                <li>Zahlungen werden ausschließlich über Paddle abgewickelt; wir erhalten keinen Zugriff auf Zahlungsdaten.</li>
+                <li>Zahlungen werden ausschließlich über FastSpring abgewickelt; wir erhalten keinen Zugriff auf Zahlungsdaten.</li>
                 <li>Bei Zahlungsausfall können PRO-Funktionen vorübergehend eingeschränkt werden.</li>
                 <li>Preisänderungen werden mindestens 30 Tage vor Wirksamwerden angekündigt.</li>
               </ul>
               <p className="mt-3 text-sm text-slate-400">
-                Verwaltung des Abonnements (Rechnungen, Kündigung, Zahlungsarten) erfolgt im Paddle-Kundenkonto (Customer Portal).
+                Verwaltung des Abonnements (Rechnungen, Kündigung, Zahlungsarten) erfolgt im FastSpring-Kundenkonto (Account Management).
               </p>
             </section>
 
@@ -91,7 +91,7 @@ export default function Terms() {
               <h2 className="text-xl font-semibold text-white mb-4">6. Kündigung, Widerruf und Rückerstattung</h2>
               <p className="font-medium text-white">Kündigung durch den Nutzer</p>
               <ul className="list-disc ml-6 space-y-2">
-                <li>Kündigung ist jederzeit möglich über das Paddle-Kundenkonto oder per E-Mail an <a href="mailto:support@pro-meister.de" className="text-blue-400 hover:text-blue-300">support@pro-meister.de</a>.</li>
+                <li>Kündigung ist jederzeit möglich über das FastSpring-Kundenkonto oder per E-Mail an <a href="mailto:support@pro-meister.de" className="text-blue-400 hover:text-blue-300">support@pro-meister.de</a>.</li>
                 <li>Die Leistungen bleiben bis zum Ende des bereits bezahlten Zeitraums aktiv.</li>
                 <li>Die digitale Visitenkarte bleibt auch nach Kündigung im Freemium-Modell verfügbar.</li>
               </ul>
