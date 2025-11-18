@@ -182,7 +182,6 @@ export default function Imprint() {
           <div className="flex flex-wrap justify-center gap-6 mb-4">
             <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors text-sm">Datenschutz</Link>
             <Link href="/terms" className="text-slate-400 hover:text-white transition-colors text-sm">AGB</Link>
-            <Link href="/withdrawal" className="text-slate-400 hover:text-white transition-colors text-sm">Widerrufsbelehrung</Link>
             <Link href="/refund" className="text-slate-400 hover:text-white transition-colors text-sm">Rückerstattung</Link>
             <Link href="/imprint" className="text-slate-400 hover:text-white transition-colors text-sm font-semibold">Impressum</Link>
           </div>

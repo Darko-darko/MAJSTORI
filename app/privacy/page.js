@@ -1,4 +1,4 @@
-// app/privacy/page.js — Finalna pravna verzija (DE, 2025)
+// app/privacy/page.js — Finalna pravna verzija (DE, 2025) sa FastSpring
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-slate-900 py-12 px-4">
@@ -58,7 +58,7 @@ export default function PrivacyPolicy() {
                 <li><strong className="text-white">Unternehmensdaten:</strong> Firmenname, Anschrift, Steuernummer, Logo (für Rechnungen)</li>
                 <li><strong className="text-white">Kundendaten:</strong> von Ihnen eingegebene Kunden- und Auftragsdaten</li>
                 <li><strong className="text-white">Nutzungsdaten:</strong> IP-Adresse, Browsertyp, Zugriffszeitpunkte</li>
-                <li><strong className="text-white">Zahlungsdaten:</strong> ausschließlich durch Paddle verarbeitet</li>
+                <li><strong className="text-white">Zahlungsdaten:</strong> ausschließlich durch FastSpring verarbeitet</li>
               </ul>
             </section>
 
@@ -115,11 +115,11 @@ export default function PrivacyPolicy() {
 
            {/* 7. FastSpring */}
             <section>
-              <h2 className="text-xl font-semibold text-white mb-4">7. Zahlungsabwicklung über FastSpring (Payment Provider)</h2>
+              <h2 className="text-xl font-semibold text-white mb-4">7. Zahlungsabwicklung über FastSpring (Reseller of Record)</h2>
               <p>
-                Die Zahlungsabwicklung erfolgt über <strong className="text-white">FastSpring Inc.</strong>,
+                Die Zahlungsabwicklung erfolgt über <strong className="text-white">FastSpring</strong>,
                 801 Garden Street, Suite 201, Santa Barbara, CA 93101, USA.
-                FastSpring agiert als <strong className="text-white">eigenständiger Verantwortlicher (Merchant of Record)</strong>.
+                FastSpring agiert als <strong className="text-white">Reseller of Record</strong> und ist eigenständiger Verantwortlicher für die Zahlungsverarbeitung.
               </p>
               <p className="mt-2">
                 <a href="https://fastspring.com/privacy/" target="_blank" rel="noopener noreferrer"
@@ -130,7 +130,7 @@ export default function PrivacyPolicy() {
                 ausschließlich gemäß PCI-DSS Level 1 Standards.
               </p>
             </section>
-            
+
             {/* 8. Cookies */}
             <section>
               <h2 className="text-xl font-semibold text-white mb-4">8. Cookies und vergleichbare Technologien</h2>
@@ -153,11 +153,11 @@ export default function PrivacyPolicy() {
               </p>
             </section>
 
-            {/* 10. Weitergabe */}
+           {/* 10. Weitergabe */}
             <section>
               <h2 className="text-xl font-semibold text-white mb-4">10. Weitergabe von Daten an Dritte</h2>
               <ul className="list-disc ml-6 space-y-2">
-                <li><strong className="text-white">Paddle:</strong> Zahlungsabwicklung</li>
+                <li><strong className="text-white">FastSpring:</strong> Zahlungsabwicklung (Reseller of Record)</li>
                 <li><strong className="text-white">Supabase:</strong> Hosting innerhalb der EU (DPA vorhanden)</li>
                 <li><strong className="text-white">Gesetzliche Verpflichtungen:</strong> nur bei rechtlicher Pflicht</li>
               </ul>
