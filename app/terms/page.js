@@ -12,7 +12,7 @@ export default function Terms() {
               <h2 className="text-xl font-semibold text-white mb-4">1. Geltungsbereich</h2>
               <p>
                 Diese Allgemeinen Geschäftsbedingungen (AGB) regeln die Nutzung der Plattform
-                <span className="text-white font-medium"> Pro-meister.de</span> („Plattform") sowie aller damit
+                <span className="text-white font-medium"> Pro-meister.de</span> (&bdquo;Plattform&bdquo;) sowie aller damit
                 verbundenen Dienste des Anbieters <span className="text-white font-medium">Kilimanjaro doo</span>.
                 Abweichende Bedingungen gelten nicht, es sei denn, ihrer Geltung wurde ausdrücklich schriftlich zugestimmt.
               </p>
