@@ -764,14 +764,18 @@ export default function InvoiceCreator({
       if (!customerId) {
         console.log('🔍 Searching for existing customer...')
         
-        // Duplicate detection by name + email
-        const { data: existingCustomers } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('majstor_id', majstor.id)
-          .eq('name', formData.customer_name.trim())
-          .eq('email', formData.customer_email.trim())
-        
+      // ✅ FIXED: Case-insensitive duplicate detection
+const { data: existingCustomers, error: searchError } = await supabase
+  .from('customers')
+  .select('id')
+  .eq('majstor_id', majstor.id)
+  .ilike('name', formData.customer_name.trim())
+  .ilike('email', formData.customer_email.trim())
+
+if (searchError) {
+  console.error('ERROR searching customer:', searchError)
+  throw new Error('Fehler bei der Kundensuche: ' + searchError.message)
+}
         if (existingCustomers && existingCustomers.length > 0) {
           console.log('✅ Found existing customer:', existingCustomers[0].id)
           customerId = existingCustomers[0].id
