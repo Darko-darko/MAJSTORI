@@ -108,9 +108,11 @@
 - itgled preko 100000e na kundenfragen✅
 - adresa na vizit karti opciono
 - agresevna zvezdica u majne kunden ✅
-- KAD SE PRAVI RAČUN I KUNDENFRAGEN DA OSTANE NA REHNUNGU
-- ubaciti politiku povrata novca
+- KAD SE PRAVI RAČUN I KUNDENFRAGEN DA OSTANE NA REHNUNGU✅
+- ubaciti politiku povrata novca✅
 - treba popraviti slug od autofill i pharm greške
+
+- PROBLEM SA CIFROM U KUNDEN
 
 
 
