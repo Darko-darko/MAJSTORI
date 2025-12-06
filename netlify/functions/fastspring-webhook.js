@@ -9,9 +9,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// FastSpring API credentials
-const FASTSPRING_USERNAME = process.env.FASTSPRING_USERNAME
-const FASTSPRING_PASSWORD = process.env.FASTSPRING_PASSWORD
+// FastSpring API credentials (ovde ti ne trebaju username/password – koristiš ih u cancel funkciji)
 const FASTSPRING_HMAC_SECRET = process.env.FASTSPRING_HMAC_SECRET
 
 exports.handler = async (event) => {
@@ -66,13 +64,11 @@ exports.handler = async (event) => {
       }
     }
 
-    // FastSpring sends array of events
     const events = body.events || []
     console.log('📦 Events count:', events.length)
 
     const results = []
 
-    // Process each event
     for (const evt of events) {
       const eventType = evt.type
       const eventData = evt.data
@@ -80,6 +76,11 @@ exports.handler = async (event) => {
       console.log('\n---')
       console.log('Event:', eventType)
       console.log('ID:', evt.id)
+
+      // ⚠️ Za debug – možeš smanjiti ili izbaciti kasnije
+      try {
+        console.log('📥 Raw event data (truncated):', JSON.stringify(eventData).slice(0, 1000))
+      } catch (_) {}
 
       let result
       switch (eventType) {
@@ -149,81 +150,128 @@ exports.handler = async (event) => {
 
 /**
  * subscription.activated
- * Triggered when:
- * - New subscription starts (after trial or immediate)
- * - Subscription is reactivated after being deactivated
  */
 async function handleSubscriptionActivated(data) {
   console.log('✅ subscription.activated')
 
   try {
-    const subscription = data.subscription
-    const account = data.account
+    // ⚙️ Subscription ID (može biti string ili objekat)
+    const subscriptionId =
+      typeof data.subscription === 'string'
+        ? data.subscription
+        : data.subscription?.id
 
-    const subscriptionId = subscription.id
-    const accountId = account.id
-    const status = subscription.state // 'active' or 'trial'
+    // ⚙️ Account ID (može biti string ili objekat)
+    const accountObj = data.account
+    const accountId =
+      typeof accountObj === 'string'
+        ? accountObj
+        : accountObj?.id
 
-    // Get majstor_id from tags (set during checkout)
-let majstorId = subscription.tags?.majstor_id
+    const statusRaw = data.state // 'trial' ili 'active'
 
-// ✅ FALLBACK - if no tags, find by email
-if (!majstorId) {
-  console.log('⚠️ No majstor_id in tags, trying email lookup...')
-  
-  const customerEmail = account.contact?.email
-  
-  if (customerEmail) {
-    const { data: majstor, error: lookupError } = await supabaseAdmin
-      .from('majstors')
-      .select('id')
-      .eq('email', customerEmail)
-      .single()
-    
-    if (majstor) {
-      majstorId = majstor.id
-      console.log(`✅ Found majstor by email: ${majstorId}`)
-    } else {
-      console.error(`❌ No majstor found for email: ${customerEmail}`, lookupError)
+    // 🔎 Majstor ID iz tagova (ako je subscription expanded)
+    let majstorId = 
+      typeof data.subscription === 'object'
+        ? data.subscription.tags?.majstor_id
+        : undefined
+
+    // ✅ FALLBACK – lookup po email-u
+    if (!majstorId) {
+      console.log('⚠️ No majstor_id in tags, trying email lookup...')
+      const customerEmail =
+        typeof accountObj === 'object'
+          ? accountObj.contact?.email
+          : null
+
+      if (customerEmail) {
+        const { data: majstor, error: lookupError } = await supabaseAdmin
+          .from('majstors')
+          .select('id')
+          .eq('email', customerEmail)
+          .single()
+        
+        if (majstor) {
+          majstorId = majstor.id
+          console.log(`✅ Found majstor by email: ${majstorId}`)
+        } else {
+          console.error(`❌ No majstor found for email: ${customerEmail}`, lookupError)
+        }
+      }
     }
-  }
-}
 
-if (!majstorId) {
-  console.error('❌ Cannot identify majstor - no tags and no email match')
-  return { error: 'Cannot identify majstor' }
-}
+    if (!majstorId) {
+      console.error('❌ Cannot identify majstor - no tags and no email match')
+      return { error: 'Cannot identify majstor' }
+    }
+
+    // ⚙️ Product path – prvo koristi data.product, pa tek onda subscription.product
+    const productPath =
+      typeof data.product === 'string'
+        ? data.product
+        : (typeof data.subscription === 'object'
+            ? data.subscription.product
+            : null)
+
     console.log('📋 Subscription ID:', subscriptionId)
     console.log('👤 Majstor ID:', majstorId)
-    console.log('📊 Status:', status)
+    console.log('📊 Status (raw):', statusRaw)
+    console.log('🛒 Product path:', productPath)
 
-    // Determine plan from product
-    const productPath = subscription.product
     const planId = await getPlanIdFromProduct(productPath)
 
-    if (!planId) {
-      console.error('❌ Could not determine plan_id')
-      return { error: 'Unknown product' }
+    if (!subscriptionId || !planId) {
+      console.error('❌ Could not determine subscriptionId or plan_id')
+      return { error: 'Unknown subscription or product' }
     }
 
-    // Get period dates
-    const currentPeriodStart = subscription.nextChargeDate 
-      ? new Date(new Date(subscription.nextChargeDate).getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString()
+    // 🕒 Period start / end – FastSpring daje milisekunde (begin, nextChargeDate)
+    const beginMs =
+      typeof data.subscription === 'object'
+        ? data.subscription.begin
+        : data.begin
+
+    const nextChargeMs =
+      typeof data.subscription === 'object'
+        ? data.subscription.nextChargeDate
+        : data.nextChargeDate
+
+    const currentPeriodStart = beginMs
+      ? new Date(beginMs).toISOString()
       : new Date().toISOString()
-    
-    const currentPeriodEnd = subscription.nextChargeDate
 
-    // Determine if trial
-    let finalStatus = 'active'
-    let trialEndsAt = null
+    const currentPeriodEnd = nextChargeMs
+      ? new Date(nextChargeMs).toISOString()
+      : null
 
-    if (subscription.inTrial) {
-      finalStatus = 'trial'
-      trialEndsAt = subscription.nextChargeDate
-      console.log('🎯 TRIAL subscription')
-    }
+    // 🎯 Trial ili active
+    const inTrial =
+      statusRaw === 'trial' ||
+      data.inTrial === true ||
+      data.nextNotificationType === 'FREE_TRIAL_NOTIFICATION'
 
-    // Upsert subscription
+    const finalStatus = inTrial ? 'trial' : 'active'
+    const trialEndsAt = inTrial ? currentPeriodEnd : null
+
+    // 🔁 autoRenew – pokušavamo iz subscription objekta, pa iz root polja
+    const autoRenew =
+      typeof data.subscription === 'object'
+        ? data.subscription.autoRenew
+        : (typeof data.autoRenew === 'boolean'
+            ? data.autoRenew
+            : true)
+
+    const intervalUnit =
+      typeof data.subscription === 'object'
+        ? data.subscription.intervalUnit
+        : data.intervalUnit
+
+    const intervalLength =
+      typeof data.subscription === 'object'
+        ? data.subscription.intervalLength
+        : data.intervalLength
+
+    // ⬆️ Upsert u user_subscriptions
     const { data: sub, error: upsertError } = await supabaseAdmin
       .from('user_subscriptions')
       .upsert({
@@ -232,17 +280,17 @@ if (!majstorId) {
         status: finalStatus,
         payment_provider: 'fastspring',
         provider_subscription_id: subscriptionId,
-        provider_customer_id: accountId,
+        provider_customer_id: accountId || null,
         current_period_start: currentPeriodStart,
         current_period_end: currentPeriodEnd,
-        trial_starts_at: subscription.inTrial ? currentPeriodStart : null,
+        trial_starts_at: inTrial ? currentPeriodStart : null,
         trial_ends_at: trialEndsAt,
         cancel_at_period_end: false,
         cancelled_at: null,
         provider_metadata: {
-          autoRenew: subscription.autoRenew,
-          intervalUnit: subscription.intervalUnit,
-          intervalLength: subscription.intervalLength
+          autoRenew,
+          intervalUnit,
+          intervalLength
         },
         updated_at: new Date().toISOString()
       }, {
@@ -258,7 +306,7 @@ if (!majstorId) {
 
     console.log('✅ Subscription saved:', sub.id)
 
-    // Update majstor record
+    // 🔄 Update majstors
     await supabaseAdmin
       .from('majstors')
       .update({
@@ -273,25 +321,25 @@ if (!majstorId) {
     return { success: true, status: finalStatus }
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    console.error('❌ Error in handleSubscriptionActivated:', error)
     return { error: error.message }
   }
 }
 
 /**
  * subscription.deactivated
- * Triggered when subscription is cancelled/expires
  */
 async function handleSubscriptionDeactivated(data) {
   console.log('❌ subscription.deactivated')
 
   try {
-    const subscription = data.subscription
-    const subscriptionId = subscription.id
+    const subscriptionId =
+      typeof data.subscription === 'string'
+        ? data.subscription
+        : data.subscription?.id
 
     console.log('📋 Subscription ID:', subscriptionId)
 
-    // Get existing subscription
     const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
       .select('majstor_id, status')
@@ -305,7 +353,6 @@ async function handleSubscriptionDeactivated(data) {
 
     const majstorId = existingSub.majstor_id
 
-    // Update to cancelled status
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
@@ -315,7 +362,6 @@ async function handleSubscriptionDeactivated(data) {
       })
       .eq('provider_subscription_id', subscriptionId)
 
-    // Update majstor to freemium
     await supabaseAdmin
       .from('majstors')
       .update({
@@ -331,39 +377,44 @@ async function handleSubscriptionDeactivated(data) {
     return { success: true, newStatus: 'cancelled' }
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    console.error('❌ Error in handleSubscriptionDeactivated:', error)
     return { error: error.message }
   }
 }
 
 /**
- * subscription.updated
- * Triggered when subscription details change
+ * subscription.updated (npr. promena autoRenew)
  */
 async function handleSubscriptionUpdated(data) {
   console.log('🔄 subscription.updated')
 
   try {
-    const subscription = data.subscription
-    const subscriptionId = subscription.id
+    const subscriptionId =
+      typeof data.subscription === 'string'
+        ? data.subscription
+        : data.subscription?.id
 
     console.log('📋 Subscription ID:', subscriptionId)
 
-    // Check if autoRenew changed (cancellation scheduled)
-    const autoRenew = subscription.autoRenew
+    const autoRenew =
+      typeof data.subscription === 'object'
+        ? data.subscription.autoRenew
+        : (typeof data.autoRenew === 'boolean'
+            ? data.autoRenew
+            : true)
+
     const cancelAtPeriodEnd = !autoRenew
 
     console.log('🔄 AutoRenew:', autoRenew)
     console.log('📅 Cancel at period end:', cancelAtPeriodEnd)
 
-    // Update subscription
     const { error: updateError } = await supabaseAdmin
       .from('user_subscriptions')
       .update({
         cancel_at_period_end: cancelAtPeriodEnd,
         cancelled_at: cancelAtPeriodEnd ? new Date().toISOString() : null,
         provider_metadata: {
-          autoRenew: autoRenew
+          autoRenew
         },
         updated_at: new Date().toISOString()
       })
@@ -375,27 +426,29 @@ async function handleSubscriptionUpdated(data) {
     }
 
     console.log('✅ Subscription updated')
-
     return { success: true, cancelAtPeriodEnd }
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    console.error('❌ Error in handleSubscriptionUpdated:', error)
     return { error: error.message }
   }
 }
 
 /**
  * subscription.charge.completed
- * Triggered when payment succeeds
  */
 async function handleSubscriptionChargeCompleted(data) {
   console.log('💳 subscription.charge.completed')
 
   try {
-    const subscription = data.subscription
-    const subscriptionId = subscription.id
+    // Ovde je subscription sigurno objekat (po FS dokumentaciji),
+    // ali opet budimo robustni:
+    const subscriptionObj = data.subscription
+    const subscriptionId =
+      typeof subscriptionObj === 'string'
+        ? subscriptionObj
+        : subscriptionObj?.id
 
-    // If was in trial and payment succeeded → move to active
     const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
       .select('status')
@@ -418,23 +471,24 @@ async function handleSubscriptionChargeCompleted(data) {
     return { success: true }
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    console.error('❌ Error in handleSubscriptionChargeCompleted:', error)
     return { error: error.message }
   }
 }
 
 /**
  * subscription.charge.failed
- * Triggered when payment fails
  */
 async function handleSubscriptionChargeFailed(data) {
   console.log('⚠️ subscription.charge.failed')
 
   try {
-    const subscription = data.subscription
-    const subscriptionId = subscription.id
+    const subscriptionObj = data.subscription
+    const subscriptionId =
+      typeof subscriptionObj === 'string'
+        ? subscriptionObj
+        : subscriptionObj?.id
 
-    // Mark as past_due
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
@@ -448,21 +502,17 @@ async function handleSubscriptionChargeFailed(data) {
     return { success: true }
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    console.error('❌ Error in handleSubscriptionChargeFailed:', error)
     return { error: error.message }
   }
 }
 
 /**
  * subscription.trial.reminder
- * Triggered before trial ends (optional handling)
  */
 async function handleTrialReminder(data) {
   console.log('⏰ subscription.trial.reminder')
-  
-  // Optional: Send email reminder to user
-  // For now, just log it
-  
+  // Za sada samo logujemo
   return { success: true, message: 'Trial reminder logged' }
 }
 
@@ -474,8 +524,6 @@ async function handleTrialReminder(data) {
  * Map FastSpring product to plan_id
  */
 async function getPlanIdFromProduct(productPath) {
-  // Product path format: "promeister-monthly" or "promeister-yearly"
-  
   const productMap = {
     'promeister-monthly': 'pro',
     'promeister-yearly': 'pro'
@@ -488,7 +536,6 @@ async function getPlanIdFromProduct(productPath) {
     return null
   }
 
-  // Get plan_id from database
   const { data: plan } = await supabaseAdmin
     .from('subscription_plans')
     .select('id')
