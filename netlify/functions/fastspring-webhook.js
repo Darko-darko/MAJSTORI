@@ -165,13 +165,34 @@ async function handleSubscriptionActivated(data) {
     const status = subscription.state // 'active' or 'trial'
 
     // Get majstor_id from tags (set during checkout)
-    const majstorId = subscription.tags?.majstor_id
+let majstorId = subscription.tags?.majstor_id
 
-    if (!majstorId) {
-      console.error('❌ Missing majstor_id in tags')
-      return { error: 'Missing majstor_id' }
+// ✅ FALLBACK - if no tags, find by email
+if (!majstorId) {
+  console.log('⚠️ No majstor_id in tags, trying email lookup...')
+  
+  const customerEmail = account.contact?.email
+  
+  if (customerEmail) {
+    const { data: majstor, error: lookupError } = await supabaseAdmin
+      .from('majstors')
+      .select('id')
+      .eq('email', customerEmail)
+      .single()
+    
+    if (majstor) {
+      majstorId = majstor.id
+      console.log(`✅ Found majstor by email: ${majstorId}`)
+    } else {
+      console.error(`❌ No majstor found for email: ${customerEmail}`, lookupError)
     }
+  }
+}
 
+if (!majstorId) {
+  console.error('❌ Cannot identify majstor - no tags and no email match')
+  return { error: 'Cannot identify majstor' }
+}
     console.log('📋 Subscription ID:', subscriptionId)
     console.log('👤 Majstor ID:', majstorId)
     console.log('📊 Status:', status)

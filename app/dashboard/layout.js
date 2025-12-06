@@ -38,11 +38,26 @@ useEffect(() => {
 
   console.log('🔔 [LAYOUT] Setting up custom event listener for badge...')
 
+  // 🛑 DEBOUNCE - spreči višestruke pozive
+  let isProcessing = false
+
   const handleSubscriptionChange = (event) => {
+    if (isProcessing) {
+      console.log('⏸️ [LAYOUT] Already processing, skipping...')
+      return
+    }
+    
+    isProcessing = true
+    
     console.log('🔔 [LAYOUT] Subscription changed event received!', event.detail)
     refresh(true)
     setBadgeKey(prev => prev + 1)
     console.log('🔄 [LAYOUT] Badge will re-render with new data')
+    
+    // Reset flag nakon 2 sekunde
+    setTimeout(() => {
+      isProcessing = false
+    }, 2000)
   }
 
   window.addEventListener('subscription-changed', handleSubscriptionChange)
@@ -56,7 +71,7 @@ useEffect(() => {
     window.removeEventListener('subscription-reactivated', handleSubscriptionChange)
   }
 
-}, [majstor?.id])
+}, [majstor?.id, refresh])
 
 // 🔥 BACKUP: Watch subscription/plan changes directly
 useEffect(() => {
@@ -183,23 +198,23 @@ useEffect(() => {
   }, [touchStart, touchEnd, sidebarOpen, isSwiping])
 
   // 🔥 EVENT LISTENER za subscription changes
-  useEffect(() => {
-    const handleSubscriptionChanged = (event) => {
-      console.log('📢 LAYOUT: subscription-changed event received!')
-      console.log('Event detail:', event.detail)
+  // useEffect(() => {
+  //  const handleSubscriptionChanged = (event) => {
+   //   console.log('📢 LAYOUT: subscription-changed event received!')
+   //   console.log('Event detail:', event.detail)
       
-      if (refresh && typeof refresh === 'function') {
-        console.log('🔄 LAYOUT: Triggering subscription refresh...')
-        refresh()
-      }
-    }
+   //   if (refresh && typeof refresh === 'function') {
+   //     console.log('🔄 LAYOUT: Triggering subscription refresh...')
+   //     refresh()
+   //   }
+   // }
 
-    window.addEventListener('subscription-changed', handleSubscriptionChanged)
+   // window.addEventListener('subscription-changed', handleSubscriptionChanged)
 
-    return () => {
-      window.removeEventListener('subscription-changed', handleSubscriptionChanged)
-    }
-  }, [refresh])
+  //  return () => {
+  //    window.removeEventListener('subscription-changed', handleSubscriptionChanged)
+  //  }
+  // }, [refresh])
 
  // 🔥 GLAVNA LOGIKA: Detektuj paddle_success ili fastspring_success ODMAH i prikaži modal PRE svega!
   useEffect(() => {
