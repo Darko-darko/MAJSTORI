@@ -155,6 +155,26 @@ async function handleSubscriptionActivated(data) {
  console.log(' subscription.activated')
 
  try {
+
+   // 🔍 VERBOSE DEBUG LOGGING
+    console.log('🔍 CHECKING FOR TAGS...')
+    console.log('🔍 typeof data.subscription:', typeof data.subscription)
+    
+    if (typeof data.subscription === 'object' && data.subscription !== null) {
+      console.log('🔍 subscription object keys:', Object.keys(data.subscription).join(', '))
+      console.log('🔍 data.subscription.tags:', JSON.stringify(data.subscription.tags || null))
+      
+      if (data.subscription.tags) {
+        console.log('🏷️ TAGS FOUND!')
+        console.log('🏷️ majstor_id:', data.subscription.tags.majstor_id)
+        console.log('🏷️ billing_interval:', data.subscription.tags.billing_interval)
+        console.log('🏷️ source:', data.subscription.tags.source)
+      } else {
+        console.log('❌ NO TAGS in subscription object!')
+      }
+    } else {
+      console.log('❌ subscription is NOT an object, it is:', data.subscription)
+    }
  // Subscription ID (moe biti string ili objekat)
  const subscriptionId =
  typeof data.subscription === 'string'
