@@ -205,18 +205,41 @@ async function handleSubscriptionActivated(data) {
       return { error: 'Cannot identify majstor' }
     }
 
-    // ⚙️ Product path – prvo koristi data.product, pa tek onda subscription.product
-    const productPath =
-      typeof data.product === 'string'
-        ? data.product
-        : (typeof data.subscription === 'object'
-            ? data.subscription.product
-            : null)
+  // 🛒 Product path – FastSpring šalje ili string ili objekat
+let productPath = null
+
+// za debug: da vidimo kako izgleda raw product
+try {
+  console.log('🧪 data.product raw:', JSON.stringify(data.product))
+} catch (_) {}
+
+// 1) najpre ako je product čist string (npr. "promeister-monthly")
+if (typeof data.product === 'string') {
+  productPath = data.product
+
+// 2) ako je objekat, tražimo polje "product" ili "path" ili "sku"
+} else if (data.product && typeof data.product === 'object') {
+  productPath =
+    data.product.product ||  // najčešći slučaj: { product: "promeister-monthly", ... }
+    data.product.path ||
+    data.product.sku ||
+    null
+
+// 3) fallback – ako je product nekad sakriven unutar subscription objekta
+} else if (typeof data.subscription === 'object') {
+  productPath =
+    data.subscription.product ||
+    data.subscription.sku ||
+    null
+}
+
+console.log('🛒 Product path (resolved):', productPath)
+
 
     console.log('📋 Subscription ID:', subscriptionId)
     console.log('👤 Majstor ID:', majstorId)
     console.log('📊 Status (raw):', statusRaw)
-    console.log('🛒 Product path:', productPath)
+
 
     const planId = await getPlanIdFromProduct(productPath)
 
