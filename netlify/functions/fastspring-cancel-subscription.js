@@ -1,5 +1,5 @@
 // netlify/functions/fastspring-cancel-subscription.js
-// Cancel FastSpring subscription (set autoRenew = false)
+// Cancel at period end: turn OFF auto-renew (manualRenew = true)
 
 const { createClient } = require('@supabase/supabase-js')
 
@@ -20,24 +20,20 @@ const corsHeaders = {
 
 exports.handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: ''
-    }
+    return { statusCode: 200, headers: corsHeaders, body: '' }
   }
 
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
       headers: corsHeaders,
-      body: JSON.stringify({ error: 'Method not allowed' })
+      body: JSON.stringify({ error: 'Method not allowed' }),
     }
   }
 
   try {
     console.log('🚫 Cancel subscription request received')
-    
+
     const body = JSON.parse(event.body)
     const { subscriptionId, majstorId } = body
 
@@ -45,30 +41,39 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           error: 'Missing required fields',
-          required: ['subscriptionId', 'majstorId']
-        })
+          required: ['subscriptionId', 'majstorId'],
+        }),
       }
     }
 
     console.log('📋 Subscription ID:', subscriptionId)
     console.log('👤 Majstor ID:', majstorId)
+    console.log('🔐 FS username set:', !!FASTSPRING_USERNAME)
+    console.log('🔐 FS password set:', !!FASTSPRING_PASSWORD)
 
-    // FastSpring API: Update subscription to disable autoRenew
-    const authString = Buffer.from(`${FASTSPRING_USERNAME}:${FASTSPRING_PASSWORD}`).toString('base64')
+    const authString = Buffer.from(
+      `${FASTSPRING_USERNAME}:${FASTSPRING_PASSWORD}`
+    ).toString('base64')
 
+    // 🔴 BITNO: POST na /subscriptions, ne /subscriptions/{id}
     const fastspringResponse = await fetch(
-      `${FASTSPRING_API_URL}/subscriptions/${subscriptionId}`,
+      `${FASTSPRING_API_URL}/subscriptions`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Basic ${authString}`,
-          'Content-Type': 'application/json'
+          Authorization: `Basic ${authString}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          autoRenew: false
-        })
+          subscriptions: [
+            {
+              subscription: subscriptionId,
+              manualRenew: 'true', // isključi auto-renew
+            },
+          ],
+        }),
       }
     )
 
@@ -78,26 +83,26 @@ exports.handler = async (event, context) => {
       return {
         statusCode: fastspringResponse.status,
         headers: corsHeaders,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           error: 'FastSpring cancellation failed',
-          details: errorText.substring(0, 300)
-        })
+          details: errorText.substring(0, 300),
+        }),
       }
     }
 
     const fastspringData = await fastspringResponse.json()
-    console.log('✅ FastSpring subscription cancelled (autoRenew = false)')
+    console.log('✅ FastSpring subscription set to manual (autoRenew = false)')
 
-    // Update database
+    // Opcioni lokalni update – webhook će svakako potvrditi
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
         cancel_at_period_end: true,
         cancelled_at: new Date().toISOString(),
         provider_metadata: {
-          autoRenew: false
+          autoRenew: false,
         },
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('provider_subscription_id', subscriptionId)
 
@@ -111,23 +116,21 @@ exports.handler = async (event, context) => {
         success: true,
         message: 'Cancellation scheduled',
         data: {
-          subscriptionId: subscriptionId,
+          subscriptionId,
           autoRenew: false,
-          endsAt: fastspringData.subscription?.nextChargeDate
-        }
-      })
+          endsAt: fastspringData.subscriptions?.[0]?.nextChargeDate,
+        },
+      }),
     }
-
   } catch (error) {
     console.error('💥 Cancel error:', error)
-    
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         error: 'Failed to cancel subscription',
-        message: error.message
-      })
+        message: error.message,
+      }),
     }
   }
 }
