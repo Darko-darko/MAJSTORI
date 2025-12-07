@@ -1,5 +1,4 @@
 // netlify/functions/fastspring-cancel-subscription.js
-// Cancel at period end: turn OFF auto-renew (manualRenew = true)
 
 const { createClient } = require('@supabase/supabase-js')
 
@@ -18,7 +17,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' }
   }
@@ -34,7 +33,7 @@ exports.handler = async (event, context) => {
   try {
     console.log('🚫 Cancel subscription request received')
 
-    const body = JSON.parse(event.body)
+    const body = JSON.parse(event.body || '{}')
     const { subscriptionId, majstorId } = body
 
     if (!subscriptionId || !majstorId) {
@@ -57,57 +56,49 @@ exports.handler = async (event, context) => {
       `${FASTSPRING_USERNAME}:${FASTSPRING_PASSWORD}`
     ).toString('base64')
 
-    // 🔴 BITNO: POST na /subscriptions, ne /subscriptions/{id}
+    // ✅ Ovo je pravi način za cancel na kraju perioda
     const fastspringResponse = await fetch(
-      `${FASTSPRING_API_URL}/subscriptions`,
+      `${FASTSPRING_API_URL}/subscriptions/${subscriptionId}`,
       {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           Authorization: `Basic ${authString}`,
-          'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
-        body: JSON.stringify({
-          subscriptions: [
-            {
-              subscription: subscriptionId,
-              manualRenew: 'true', // isključi auto-renew
-            },
-          ],
-        }),
       }
     )
 
+    console.log('🔢 FS status:', fastspringResponse.status)
+
     if (!fastspringResponse.ok) {
       const errorText = await fastspringResponse.text()
-      console.error('❌ FastSpring API error:', errorText)
+      console.error('❌ FastSpring API error body:', errorText)
+
       return {
         statusCode: fastspringResponse.status,
         headers: corsHeaders,
         body: JSON.stringify({
           error: 'FastSpring cancellation failed',
-          details: errorText.substring(0, 300),
+          status: fastspringResponse.status,
+          details: errorText?.slice(0, 300) || null,
         }),
       }
     }
 
     const fastspringData = await fastspringResponse.json()
-    console.log('✅ FastSpring subscription set to manual (autoRenew = false)')
+    console.log('✅ FastSpring cancellation scheduled')
 
-    // Opcioni lokalni update – webhook će svakako potvrditi
     await supabaseAdmin
       .from('user_subscriptions')
       .update({
         cancel_at_period_end: true,
         cancelled_at: new Date().toISOString(),
-        provider_metadata: {
-          autoRenew: false,
-        },
+        provider_metadata: { autoRenew: false },
         updated_at: new Date().toISOString(),
       })
       .eq('provider_subscription_id', subscriptionId)
 
     console.log('✅ Database updated')
-    console.log('⏳ Subscription will end at period end')
 
     return {
       statusCode: 200,
@@ -118,12 +109,13 @@ exports.handler = async (event, context) => {
         data: {
           subscriptionId,
           autoRenew: false,
-          endsAt: fastspringData.subscriptions?.[0]?.nextChargeDate,
+          endsAt: fastspringData.nextChargeDate, // ili fastspringData.subscriptions[0] u zavisnosti od responsa
         },
       }),
     }
   } catch (error) {
     console.error('💥 Cancel error:', error)
+
     return {
       statusCode: 500,
       headers: corsHeaders,
