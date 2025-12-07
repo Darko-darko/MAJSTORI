@@ -230,89 +230,39 @@ useEffect(() => {
   }, [searchParams, showUpgradeModal])
 
   const startUpgradeProcess = (planType, provider = 'Paddle') => {
-    setShowUpgradeModal(true)
-    setUpgradeProgress(0)
-    setUpgradeMessage('Zahlung erfolgreich! Aktiviere PRO...')
-    
-    window.dispatchEvent(new CustomEvent('subscription-changed', {
-      detail: { action: 'upgraded', timestamp: Date.now(), plan: planType, provider }
-    }))
-    
-    // 🔥 PHASE 1: Brzi progress do 85% (12 sekundi)
-    const initialStages = [
-      { delay: 0, progress: 0, message: 'Zahlung erfolgreich! Aktiviere PRO...' },
-      { delay: 1500, progress: 15, message: `Verbindung zu ${provider}...` },
-      { delay: 3000, progress: 30, message: 'Warte auf Bestätigung...' },
-      { delay: 4500, progress: 45, message: 'Subscription wird erstellt...' },
-      { delay: 6000, progress: 60, message: `Synchronisiere mit ${provider}...` },
-      { delay: 8000, progress: 70, message: 'Webhook wird empfangen...' },
-      { delay: 10000, progress: 80, message: 'Datenbank wird aktualisiert...' },
-      { delay: 12000, progress: 85, message: 'Überprüfe Status...' }
-    ]
-    
-    initialStages.forEach((stage) => {
-      setTimeout(() => {
-        setUpgradeProgress(stage.progress)
-        setUpgradeMessage(stage.message)
-        if (refresh && typeof refresh === 'function') {
-          refresh()
-        }
-      }, stage.delay)
-    })
-    // 🔥 PHASE 2: Aktivno proveravaj status (od 12s do max 30s)
-    let checkCount = 0
-    const maxChecks = 36 // 18 sekundi provera (36 * 500ms)
-    const startTime = Date.now()
-    const maxWaitTime = 30000 // Max 30 sekundi od starta
-    
-    const checkInterval = setInterval(async () => {
-      checkCount++
-      const elapsed = Date.now() - startTime
-      
-      // Povećaj progress polako dok čekamo (85% -> 95%)
-      const checkProgress = 85 + Math.min((checkCount / maxChecks) * 10, 10)
-      setUpgradeProgress(Math.round(checkProgress))
-      
-      if (checkCount % 4 === 0) {
-        setUpgradeMessage('Warte auf Webhook...')
-      } else if (checkCount % 4 === 2) {
-        setUpgradeMessage('Synchronisierung läuft...')
-      }
-      
-      // Refresh subscription
-      if (refresh && typeof refresh === 'function') {
-        refresh()
-      }
-      
-      // Proveri da li je subscription postao PRO ili Trial
-      const isPro = subscription?.status === 'active' || subscription?.status === 'trial'
-      
-      // Zatvori modal ako je PRO ILI ako je prošlo 30s
-      if (isPro || elapsed >= maxWaitTime || checkCount >= maxChecks) {
-        clearInterval(checkInterval)
-        
-        console.log(isPro 
-          ? '✅ Subscription confirmed as PRO! Closing modal...' 
-          : `⏱️ Timeout reached (${elapsed}ms). Closing modal...`)
-        
-        // Završi animaciju
-        setUpgradeProgress(100)
-        setUpgradeMessage('✅ PRO Mitgliedschaft aktiviert!')
-        
-        setTimeout(() => {
-          // Ukloni parametre
-          const url = new URL(window.location.href)
-          url.searchParams.delete('paddle_success')
-          url.searchParams.delete('plan')
-          window.history.replaceState({}, '', url.toString())
-          
-          // Reload
-          window.location.reload()
-        }, 1500)
-      }
-    }, 500) // Provera svakih 500ms
-  }
-
+  setShowUpgradeModal(true)
+  setUpgradeProgress(0)
+  setUpgradeMessage('Zahlung erfolgreich! Aktiviere PRO...')
+  
+  // Progress stages (12 sekundi ukupno)
+  const stages = [
+    { delay: 0, progress: 0, message: 'Zahlung erfolgreich!' },
+    { delay: 1500, progress: 15, message: `Verbindung zu ${provider}...` },
+    { delay: 3000, progress: 30, message: 'Warte auf Bestätigung...' },
+    { delay: 4500, progress: 45, message: 'Subscription wird erstellt...' },
+    { delay: 6000, progress: 60, message: 'Synchronisiere...' },
+    { delay: 8000, progress: 75, message: 'Fast fertig...' },
+    { delay: 10000, progress: 90, message: 'Aktivierung läuft...' },
+    { delay: 11500, progress: 100, message: '✅ Abgeschlossen!' }
+  ]
+  
+  stages.forEach((stage) => {
+    setTimeout(() => {
+      setUpgradeProgress(stage.progress)
+      setUpgradeMessage(stage.message)
+    }, stage.delay)
+  })
+  
+  // Nach 12 Sekunden: Redirect
+  setTimeout(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('fastspring_success')
+    url.searchParams.delete('paddle_success')
+    url.searchParams.delete('plan')
+    window.history.replaceState({}, '', url.toString())
+    window.location.reload()
+  }, 12000)
+}
   useEffect(() => {
     checkUser()
   }, [])
