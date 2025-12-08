@@ -3,6 +3,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { Buffer } from 'node:buffer'
+
+// VAŽNO: Node runtime (Resend, Buffer, Supabase itd.)
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,9 +16,11 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-export async function POST(request, { params }) {
+export async function POST(request, routeData) {
   try {
-    const { id } = params
+    // 👇 GLAVNI FIX: params je Promise
+    const { id } = await routeData.params
+
     const { recipientEmail, ccEmail, subject, message } = await request.json()
     
     console.log('📧 Email API called for invoice:', id)
@@ -34,6 +41,7 @@ export async function POST(request, { params }) {
       .single()
 
     if (invoiceError || !invoice) {
+      console.error('❌ Invoice not found:', invoiceError)
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
@@ -49,10 +57,16 @@ export async function POST(request, { params }) {
         
         // 🔥 AUTO-REGENERATE before sending
         console.log('🔄 Auto-regenerating PDF before email...')
-        
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                       (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
-        
+
+        const host = request.headers.get('host')
+        const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
+
+        // ostavljam tvoju logiku, ali malo robusnije za localhost
+        const siteUrl = envSiteUrl 
+          || (host?.includes('localhost')
+                ? `http://${host}`
+                : `https://${host}`)
+
         const regenResponse = await fetch(
           `${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`,
           {
@@ -62,7 +76,7 @@ export async function POST(request, { params }) {
         )
         
         if (!regenResponse.ok) {
-          console.error('❌ PDF regeneration failed before email')
+          console.error('❌ PDF regeneration failed before email, status:', regenResponse.status)
           return NextResponse.json({ 
             error: '⚠️ Rechnung wurde aktualisiert, aber PDF/ZUGFeRD ist veraltet.\n\n' +
                    'Die Rechnung kann nicht per E-Mail gesendet werden, da das PDF ' +
@@ -89,6 +103,7 @@ export async function POST(request, { params }) {
       .single()
 
     if (majstorError || !majstor) {
+      console.error('❌ Majstor not found:', majstorError)
       return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
@@ -186,17 +201,13 @@ function generateFilename(invoice) {
   
   return `${documentType}_${documentNumber}_${customerName}.pdf`
 }
+
 function generateEmailHTML(invoice, majstor, customMessage) {
   const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number
   const customerName = invoice.customer_name || 'Damen und Herren'
-  const isQuote = invoice.type === 'quote'
-  
-  // Personalizovan default message sa imenom kupca
- // 🔥 ISTI TEKST za Angebot i Rechnung
-const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser ${documentType} ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.`
 
-  // Koristi custom message ako postoji, inače default
+  const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser ${documentType} ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.`
   const messageText = customMessage || defaultMessage
   const messageHTML = messageText.replace(/\n/g, '<br>')
 
@@ -306,7 +317,6 @@ const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie un
     </html>
   `
 }
-
 
 async function logEmailActivity(invoiceId, recipientEmail, emailId) {
   try {
