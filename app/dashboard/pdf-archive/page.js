@@ -1,4 +1,4 @@
-// app/dashboard/pdf-archive/page.js - CLEAN VERSION WITHOUT DUPLICATES
+// app/dashboard/pdf-archive/page.js - COMPLETE FIXED VERSION
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -126,8 +126,7 @@ export default function PDFArchivePage() {
           .lte('pdf_generated_at', endOfCustomMonth.toISOString())
       }
 
-      const { data: pdfsData, error } = await query
-  .order('invoice_number', { ascending: false })  // ✅ Sortiraj po broju fakture
+      const { data: pdfsData, error } = await query.order('invoice_number', { ascending: false })
 
       if (error) throw error
 
@@ -228,28 +227,119 @@ export default function PDFArchivePage() {
     setSelectedPDFs(new Set())
   }
 
+  // ✅ FIXED - Download PDF directly from Supabase Storage (like email does!)
   const downloadPDF = async (pdfId) => {
     try {
-      const response = await fetch(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`)
-      if (!response.ok) throw new Error('PDF download failed')
+      console.log('📥 Downloading PDF:', pdfId)
       
-      const blob = await response.blob()
+      // 1️⃣ Get invoice data
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('id, pdf_storage_path, invoice_number, quote_number, type')
+        .eq('id', pdfId)
+        .single()
+
+      if (invoiceError || !invoice) {
+        throw new Error('Invoice not found')
+      }
+
+      if (!invoice.pdf_storage_path) {
+        throw new Error('PDF not generated yet')
+      }
+
+      console.log('📂 PDF path:', invoice.pdf_storage_path)
+
+      // 2️⃣ Download directly from Storage (SAME AS EMAIL!)
+      const { data: pdfData, error: downloadError } = await supabase.storage
+        .from('invoice-pdfs')
+        .download(invoice.pdf_storage_path)
+
+      if (downloadError || !pdfData) {
+        throw new Error('PDF download failed: ' + downloadError?.message)
+      }
+
+      console.log('✅ PDF loaded from storage, size:', pdfData.size)
+
+      // 3️⃣ Create download link
+      const blob = new Blob([pdfData], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
+      
+      const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+      const documentNumber = invoice.invoice_number || invoice.quote_number
+      const filename = `${documentType}_${documentNumber}.pdf`
+      
       const a = document.createElement('a')
       a.href = url
-      a.download = `invoice-${pdfId}.pdf`
+      a.download = filename
       a.click()
+      
       URL.revokeObjectURL(url)
+      
+      console.log('✅ Download started:', filename)
+
     } catch (err) {
+      console.error('❌ Download error:', err)
       alert('Download fehlgeschlagen: ' + err.message)
     }
   }
 
-  const openPDFInNewTab = (pdfId) => {
-    window.open(`/api/invoices/${pdfId}/pdf?forceRegenerate=true&t=${Date.now()}`, '_blank')
+  // ✅ FIXED - Open PDF directly from Supabase Storage (like email does!)
+  const openPDFInNewTab = async (pdfId) => {
+    try {
+      console.log('👁️ Opening PDF:', pdfId)
+      
+      // 1️⃣ Get invoice data
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('id, pdf_storage_path, invoice_number, quote_number, type')
+        .eq('id', pdfId)
+        .single()
+
+      if (invoiceError || !invoice) {
+        throw new Error('Invoice not found')
+      }
+
+      if (!invoice.pdf_storage_path) {
+        throw new Error('PDF not generated yet')
+      }
+
+      console.log('📂 PDF path:', invoice.pdf_storage_path)
+
+      // 2️⃣ Download directly from Storage (SAME AS EMAIL!)
+      const { data: pdfData, error: downloadError } = await supabase.storage
+        .from('invoice-pdfs')
+        .download(invoice.pdf_storage_path)
+
+      if (downloadError || !pdfData) {
+        throw new Error('PDF download failed: ' + downloadError?.message)
+      }
+
+      console.log('✅ PDF loaded from storage, size:', pdfData.size)
+
+      // 3️⃣ Open in new tab
+      const blob = new Blob([pdfData], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      
+      const newWindow = window.open(url, '_blank')
+      
+      // Cleanup after window opens
+      if (newWindow) {
+        newWindow.onload = () => {
+          URL.revokeObjectURL(url)
+        }
+      } else {
+        // Fallback if popup is blocked
+        URL.revokeObjectURL(url)
+        alert('Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite.')
+      }
+      
+      console.log('✅ PDF opened in new tab')
+
+    } catch (err) {
+      console.error('❌ Open PDF error:', err)
+      alert('PDF öffnen fehlgeschlagen: ' + err.message)
+    }
   }
-
-
 
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
@@ -257,8 +347,6 @@ export default function PDFArchivePage() {
     try {
       const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
       const selectedIds = Array.from(selectedPDFs)
-      
-  
       
       if (selectedIds.length > MAX_PDFS_PER_EMAIL) {
         const emailCount = Math.ceil(selectedIds.length / MAX_PDFS_PER_EMAIL)
@@ -421,8 +509,8 @@ export default function PDFArchivePage() {
     return colors[status] || colors.draft
   }
 
-  // ✅ CLEAN DetailView Component - NO DUPLICATES
-  const DetailView = ({ invoice }) => {
+  // ✅ DetailView Component - receives functions as props
+  const DetailView = ({ invoice, onDownloadPDF, onOpenPDF }) => {
     if (!invoice) return null
 
     const items = JSON.parse(invoice.items || '[]')
@@ -440,13 +528,13 @@ export default function PDFArchivePage() {
           
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => openPDFInNewTab(invoice.id)}
+              onClick={() => onOpenPDF(invoice.id)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               👁️ PDF öffnen
             </button>
             <button 
-              onClick={() => downloadPDF(invoice.id)}
+              onClick={() => onDownloadPDF(invoice.id)}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
               📥 Download
@@ -507,7 +595,6 @@ export default function PDFArchivePage() {
             </div>
           </div>
 
-          {/* ✅ NEW: Email & PDF Status Section */}
           <div className="bg-slate-900/50 rounded-lg p-3 mb-4">
             <h5 className="text-white font-medium mb-2">📧 Email & PDF Status</h5>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -983,7 +1070,12 @@ export default function PDFArchivePage() {
       )
     }
     
-    return <DetailView invoice={selectedPDF} />
+    // Pass functions as props to DetailView
+    return <DetailView 
+      invoice={selectedPDF} 
+      onDownloadPDF={downloadPDF}
+      onOpenPDF={openPDFInNewTab}
+    />
   }
 
   return (

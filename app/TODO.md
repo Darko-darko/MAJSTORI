@@ -110,9 +110,13 @@
 - agresevna zvezdica u majne kunden ✅
 - KAD SE PRAVI RAČUN I KUNDENFRAGEN DA OSTANE NA REHNUNGU✅
 - ubaciti politiku povrata novca✅
-- treba popraviti slug od autofill i pharm greške
+- treba popraviti slug od autofill i pharm greške✅
 
-- PROBLEM SA CIFROM U KUNDEN
+- PROBLEM SA CIFROM U KUNDEN✅
+
+- pdf archive da bude dostupna u freemiumu...
+- ne vidi se pdf u pdf arhiv (možda ukinuti dugme, a možda rešiti... i proveriti download
+
 
 
 
