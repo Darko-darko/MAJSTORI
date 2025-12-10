@@ -507,44 +507,137 @@ async function handleSubscriptionUpdated(data) {
  * subscription.charge.completed
  */
 async function handleSubscriptionChargeCompleted(data) {
- console.log(' subscription.charge.completed')
+  console.log('🔔 subscription.charge.completed')
 
- try {
- // Ovde je subscription sigurno objekat (po FS dokumentaciji),
- // ali opet budimo robustni:
- const subscriptionObj = data.subscription
- const subscriptionId =
- typeof subscriptionObj === 'string'
- ? subscriptionObj
- : subscriptionObj?.id
+  try {
+    const subscriptionObj = data.subscription
+    const subscriptionId =
+      typeof subscriptionObj === 'string'
+        ? subscriptionObj
+        : subscriptionObj?.id
 
- const { data: existingSub } = await supabaseAdmin
- .from('user_subscriptions')
- .select('status')
- .eq('provider_subscription_id', subscriptionId)
- .single()
+    console.log('📋 Subscription ID (charge.completed):', subscriptionId)
 
- if (existingSub?.status === 'trial') {
- await supabaseAdmin
- .from('user_subscriptions')
- .update({
- status: 'active',
- trial_ends_at: null,
- updated_at: new Date().toISOString()
- })
- .eq('provider_subscription_id', subscriptionId)
+    const { data: existingSub, error: subError } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('id, majstor_id, status, current_period_start, current_period_end')
+      .eq('provider_subscription_id', subscriptionId)
+      .single()
 
- console.log(' Trial Active conversion')
- }
+    if (subError) {
+      console.error('❌ Error loading existing subscription:', subError)
+      return { error: subError.message }
+    }
 
- return { success: true }
+    if (!existingSub) {
+      console.error('❌ No subscription found for subscriptionId:', subscriptionId)
+      return { error: 'Subscription not found' }
+    }
 
- } catch (error) {
- console.error(' Error in handleSubscriptionChargeCompleted:', error)
- return { error: error.message }
- }
+    // 🔥 Extract nextChargeDate from webhook
+    let nextChargeMs = null
+    if (typeof subscriptionObj === 'object' && subscriptionObj !== null) {
+      nextChargeMs = subscriptionObj.nextChargeDate || null
+    }
+    if (!nextChargeMs && data.nextChargeDate) {
+      nextChargeMs = data.nextChargeDate
+    }
+
+    const now = new Date()
+    const nowIso = now.toISOString()
+
+    // 🔥 Calculate new period end
+    let newCurrentPeriodEnd
+    if (nextChargeMs) {
+      newCurrentPeriodEnd = new Date(nextChargeMs).toISOString()
+      console.log('✅ Using nextChargeDate as period end:', newCurrentPeriodEnd)
+    } else {
+      // Fallback: +1 month from now
+      const fallback = new Date(now)
+      fallback.setMonth(fallback.getMonth() + 1)
+      newCurrentPeriodEnd = fallback.toISOString()
+      console.warn('⚠️ No nextChargeDate, using +1 month fallback:', newCurrentPeriodEnd)
+    }
+
+    // 🔥 Update subscription (trial → active OR active → active)
+    if (existingSub.status === 'trial') {
+      // Trial → Active conversion
+      const { error: updateSubError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .update({
+          status: 'active',
+          trial_ends_at: null,
+          current_period_start: nowIso,
+          current_period_end: newCurrentPeriodEnd,
+          updated_at: nowIso
+        })
+        .eq('id', existingSub.id)
+
+      if (updateSubError) {
+        console.error('❌ Error updating user_subscriptions:', updateSubError)
+        return { error: updateSubError.message }
+      }
+
+      const { error: updateMajstorError } = await supabaseAdmin
+        .from('majstors')
+        .update({
+          subscription_status: 'active',
+          subscription_ends_at: newCurrentPeriodEnd,
+          updated_at: nowIso
+        })
+        .eq('id', existingSub.majstor_id)
+
+      if (updateMajstorError) {
+        console.error('❌ Error updating majstor:', updateMajstorError)
+        return { error: updateMajstorError.message }
+      }
+
+      console.log('✅ Trial → Active conversion complete')
+      console.log('   New period:', nowIso, '→', newCurrentPeriodEnd)
+
+    } else if (existingSub.status === 'active') {
+      // 🔁 Active renewal (regular monthly charge)
+      const { error: updateSubError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .update({
+          current_period_start: nowIso,  // ✅ FIX: Trenutak naplate
+          current_period_end: newCurrentPeriodEnd,
+          updated_at: nowIso
+        })
+        .eq('id', existingSub.id)
+
+      if (updateSubError) {
+        console.error('❌ Error updating subscription period:', updateSubError)
+        return { error: updateSubError.message }
+      }
+
+      const { error: updateMajstorError } = await supabaseAdmin
+        .from('majstors')
+        .update({
+          subscription_ends_at: newCurrentPeriodEnd,
+          updated_at: nowIso
+        })
+        .eq('id', existingSub.majstor_id)
+
+      if (updateMajstorError) {
+        console.error('❌ Error updating majstor:', updateMajstorError)
+      }
+
+      console.log('✅ Active subscription renewed')
+      console.log('   New period:', nowIso, '→', newCurrentPeriodEnd)
+
+    } else {
+      console.warn('⚠️ Charge completed but status is:', existingSub.status)
+      console.warn('   No action taken')
+    }
+
+    return { success: true }
+
+  } catch (error) {
+    console.error('❌ Error in handleSubscriptionChargeCompleted:', error)
+    return { error: error.message }
+  }
 }
-
 /**
  * subscription.charge.failed
  */
