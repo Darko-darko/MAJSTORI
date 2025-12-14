@@ -94,108 +94,7 @@ useEffect(() => {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // 🔥 SWIPE GESTURE za otvaranje sidebar-a na mobilnom
-  const [touchStart, setTouchStart] = useState(null)
-  const [touchEnd, setTouchEnd] = useState(null)
-  const [isSwiping, setIsSwiping] = useState(false)
 
-  // Min. distance za validni swipe (u px)
-  const minSwipeDistance = 50
-
-  const onTouchStart = (e) => {
-    setTouchEnd(null)
-    const startX = e.targetTouches[0].clientX
-    setTouchStart(startX)
-    
-    // Počni swipe samo ako je dodir na levoj strani ekrana
-    if (startX < 50) {
-      setIsSwiping(true)
-    }
-  }
-
-  const onTouchMove = (e) => {
-    if (!isSwiping && !sidebarOpen) return
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) {
-      setIsSwiping(false)
-      return
-    }
-    
-    const distance = touchEnd - touchStart
-    const isLeftSwipe = distance < -minSwipeDistance
-    const isRightSwipe = distance > minSwipeDistance
-    
-    // Swipe sa leve strane ekrana ka desnoj → otvori sidebar
-    if (isRightSwipe && touchStart < 50) {
-      console.log('👉 Swipe right detected - opening sidebar')
-      setSidebarOpen(true)
-      
-      // 🔥 Haptic feedback (ako je dostupno)
-      if (navigator.vibrate) {
-        navigator.vibrate(10) // 10ms vibration
-      }
-    }
-    // Ako je swipe počeo sa leve strane ali nije dovoljno jak, ne otvori
-    else if (touchStart < 50 && distance > 0 && distance < minSwipeDistance) {
-      console.log('⚠️ Weak swipe - not opening')
-      setSidebarOpen(false)
-    }
-    
-    // Swipe sa desne ka levoj (na otvorenom sidebar-u) → zatvori
-    if (isLeftSwipe && sidebarOpen) {
-      console.log('👈 Swipe left detected - closing sidebar')
-      setSidebarOpen(false)
-      
-      // 🔥 Haptic feedback
-      if (navigator.vibrate) {
-        navigator.vibrate(10)
-      }
-    }
-    // Ako je sidebar otvoren i swipe je ka levoj ali slab, ostavi otvoren
-    else if (sidebarOpen && distance < 0 && distance > -minSwipeDistance) {
-      console.log('⚠️ Weak swipe - keeping open')
-      setSidebarOpen(true)
-    }
-    
-    setIsSwiping(false)
-    setTouchStart(null)
-    setTouchEnd(null)
-  }
-
-  // Izračunaj trenutni pomak sidebar-a tokom swipe-a
-  const getSwipeOffset = () => {
-    if (!isSwiping || !touchStart || !touchEnd) return 0
-    
-    const distance = touchEnd - touchStart
-    const sidebarWidth = 256 // 16rem = 256px
-    
-    // Ako swipe-uješ sa leve strane
-    if (touchStart < 50) {
-      // Pomak od -256px (zatvoreno) do 0px (otvoreno)
-      const offset = Math.min(0, -sidebarWidth + distance)
-      return Math.max(-sidebarWidth, offset)
-    }
-    
-    return 0
-  }
-
-  useEffect(() => {
-    // Dodaj touch listeners samo na mobilnom
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      document.addEventListener('touchstart', onTouchStart, { passive: true })
-      document.addEventListener('touchmove', onTouchMove, { passive: true })
-      document.addEventListener('touchend', onTouchEnd)
-
-      return () => {
-        document.removeEventListener('touchstart', onTouchStart)
-        document.removeEventListener('touchmove', onTouchMove)
-        document.removeEventListener('touchend', onTouchEnd)
-      }
-    }
-  }, [touchStart, touchEnd, sidebarOpen, isSwiping])
 
   // 🔥 EVENT LISTENER za subscription changes
   // useEffect(() => {
@@ -1039,11 +938,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
         {/* Mobile Sidebar */}
         <div 
           className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 ${
-            isSwiping ? '' : 'transform transition-transform duration-300 ease-in-out'
-          } ${
+    
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
-          style={isSwiping ? { transform: `translateX(${getSwipeOffset()}px)` } : {}}
         >
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
