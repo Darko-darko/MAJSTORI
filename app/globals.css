@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* Ne menja logiku klika – samo uklanja ružičasti highlight na iOS-u */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mali hint za touch uređaje, ali ne agresivan */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
