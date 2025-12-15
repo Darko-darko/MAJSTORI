@@ -288,8 +288,8 @@ function DashboardPageContent() {
 
  const handlePDFView = async (document) => {
   try {
-    // ✅ UVEK regeneriši - garantuje svež PDF
-    const pdfUrl = `/api/invoices/${document.id}/pdf?forceRegenerate=true&t=${Date.now()}`
+    // ⚡ OPTIMIZED: Let API decide (serve cached if up-to-date)
+    const pdfUrl = `/api/invoices/${document.id}/pdf?t=${Date.now()}`
     
     console.log('👁️ Opening PDF:', pdfUrl)
     window.open(pdfUrl, '_blank')
