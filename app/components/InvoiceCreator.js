@@ -914,40 +914,25 @@ if (searchError) {
 
         if (result.error) throw result.error
 
-        // AUTO-REGENERATE PDF AFTER EDIT (for invoices)
-        if (type === 'invoice') {
-          console.log('📄 Invoice updated, regenerating PDF to ensure sync...')
-          
-          try {
-            const regenResponse = await fetch(
-              `/api/invoices/${editData.id}/pdf?forceRegenerate=true`,
-              {
-                method: 'GET',
-                headers: { 'Cache-Control': 'no-cache' }
-              }
-            )
-            
-            if (regenResponse.ok) {
-              console.log('✅ PDF successfully regenerated after edit')
-              console.log('🇪🇺 ZUGFeRD XML synchronized with updated invoice data')
+     
+
+        // EAGER PDF REGENERATION (fire-and-forget, non-blocking)
+        console.log('Triggering background PDF regeneration for:', result.data.id)
+        
+        // Don't await - let it run in background
+        fetch(`/api/invoices/${editData.id}/pdf?forceRegenerate=true`)
+          .then(response => {
+            if (response.ok) {
+              console.log('Background PDF regenerated successfully')
             } else {
-              console.error('❌ PDF regeneration failed:', regenResponse.statusText)
-              throw new Error('PDF regeneration failed')
+              console.warn('Background PDF regeneration failed (non-critical)')
             }
-          } catch (regenError) {
-            console.error('❌ PDF regeneration error:', regenError)
-            
-            alert(
-              '⚠️ WICHTIG: PDF/ZUGFeRD Regenerierung fehlgeschlagen!\n\n' +
-              'Die Rechnung wurde in der Datenbank aktualisiert, aber:\n' +
-              '• Das PDF ist möglicherweise veraltet\n' +
-              '• Das ZUGFeRD XML enthält alte Daten\n\n' +
-              '⛔ Bitte NICHT per E-Mail versenden!\n' +
-              '⛔ Kontaktieren Sie den Support oder regenerieren Sie das PDF manuell.\n\n' +
-              'Details: ' + regenError.message
-            )
-          }
-        }
+          })
+          .catch(error => {
+            console.warn('Background PDF regeneration error (non-critical):', error.message)
+          })
+        
+        // User can continue immediately - PDF will be ready in ~1-2s
 
      } else {
         // CREATE NEW INVOICE/QUOTE

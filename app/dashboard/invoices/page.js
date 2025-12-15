@@ -284,20 +284,69 @@ function DashboardPageContent() {
 
   // 📍 DODAJ POSLE loadInvoicesData funkcije (oko linije 230-250)
 
- 
-
- const handlePDFView = async (document) => {
+const handlePDFView = async (document) => {
   try {
-    // ⚡ OPTIMIZED: Let API decide (serve cached if up-to-date)
+    console.log('Opening PDF via API:', document.id)
+    
+    // Get invoice data
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('invoices')
+      .select('id, pdf_generated_at, updated_at')
+      .eq('id', document.id)
+      .single()
+
+    if (invoiceError || !invoice) {
+      throw new Error('Invoice not found')
+    }
+
+    // CHECK: Is PDF outdated?
+    const pdfGeneratedAt = new Date(invoice.pdf_generated_at)
+    const invoiceUpdatedAt = new Date(invoice.updated_at)
+    
+    if (invoiceUpdatedAt > pdfGeneratedAt) {
+      console.log('PDF is outdated, waiting for background regeneration...')
+      
+      let attempts = 0
+      const maxAttempts = 10
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        const { data: freshInvoice } = await supabase
+          .from('invoices')
+          .select('pdf_generated_at, updated_at')
+          .eq('id', document.id)
+          .single()
+        
+        if (freshInvoice) {
+          const freshPdfGenerated = new Date(freshInvoice.pdf_generated_at)
+          const freshInvoiceUpdated = new Date(freshInvoice.updated_at)
+          
+          if (freshPdfGenerated >= freshInvoiceUpdated) {
+            console.log('PDF regeneration complete!')
+            break
+          }
+        }
+        
+        attempts++
+      }
+      
+      if (attempts >= maxAttempts) {
+        alert('Das PDF wird gerade aktualisiert. Bitte warten Sie einen Moment und versuchen Sie es dann erneut.')
+        return
+      }
+    }
+
+    // Open via API endpoint (serves with proper headers)
     const pdfUrl = `/api/invoices/${document.id}/pdf?t=${Date.now()}`
     
-    console.log('👁️ Opening PDF:', pdfUrl)
+    console.log('Opening PDF:', pdfUrl)
     window.open(pdfUrl, '_blank')
+
   } catch (error) {
     console.error('PDF viewing error:', error)
     alert('Fehler beim Laden der PDF: ' + error.message)
   }
-
 }
 
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {

@@ -227,119 +227,29 @@ export default function PDFArchivePage() {
     setSelectedPDFs(new Set())
   }
 
-  // ✅ FIXED - Download PDF directly from Supabase Storage (like email does!)
-  const downloadPDF = async (pdfId) => {
-    try {
-      console.log('📥 Downloading PDF:', pdfId)
-      
-      // 1️⃣ Get invoice data
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('id, pdf_storage_path, invoice_number, quote_number, type')
-        .eq('id', pdfId)
-        .single()
-
-      if (invoiceError || !invoice) {
-        throw new Error('Invoice not found')
-      }
-
-      if (!invoice.pdf_storage_path) {
-        throw new Error('PDF not generated yet')
-      }
-
-      console.log('📂 PDF path:', invoice.pdf_storage_path)
-
-      // 2️⃣ Download directly from Storage (SAME AS EMAIL!)
-      const { data: pdfData, error: downloadError } = await supabase.storage
-        .from('invoice-pdfs')
-        .download(invoice.pdf_storage_path)
-
-      if (downloadError || !pdfData) {
-        throw new Error('PDF download failed: ' + downloadError?.message)
-      }
-
-      console.log('✅ PDF loaded from storage, size:', pdfData.size)
-
-      // 3️⃣ Create download link
-      const blob = new Blob([pdfData], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      
-      const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
-      const documentNumber = invoice.invoice_number || invoice.quote_number
-      const filename = `${documentType}_${documentNumber}.pdf`
-      
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      
-      URL.revokeObjectURL(url)
-      
-      console.log('✅ Download started:', filename)
-
-    } catch (err) {
-      console.error('❌ Download error:', err)
-      alert('Download fehlgeschlagen: ' + err.message)
-    }
-  }
-
+ 
   // ✅ FIXED - Open PDF directly from Supabase Storage (like email does!)
-  const openPDFInNewTab = async (pdfId) => {
-    try {
-      console.log('👁️ Opening PDF:', pdfId)
-      
-      // 1️⃣ Get invoice data
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('id, pdf_storage_path, invoice_number, quote_number, type')
-        .eq('id', pdfId)
-        .single()
-
-      if (invoiceError || !invoice) {
-        throw new Error('Invoice not found')
-      }
-
-      if (!invoice.pdf_storage_path) {
-        throw new Error('PDF not generated yet')
-      }
-
-      console.log('📂 PDF path:', invoice.pdf_storage_path)
-
-      // 2️⃣ Download directly from Storage (SAME AS EMAIL!)
-      const { data: pdfData, error: downloadError } = await supabase.storage
-        .from('invoice-pdfs')
-        .download(invoice.pdf_storage_path)
-
-      if (downloadError || !pdfData) {
-        throw new Error('PDF download failed: ' + downloadError?.message)
-      }
-
-      console.log('✅ PDF loaded from storage, size:', pdfData.size)
-
-      // 3️⃣ Open in new tab
-      const blob = new Blob([pdfData], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      
-      const newWindow = window.open(url, '_blank')
-      
-      // Cleanup after window opens
-      if (newWindow) {
-        newWindow.onload = () => {
-          URL.revokeObjectURL(url)
-        }
-      } else {
-        // Fallback if popup is blocked
-        URL.revokeObjectURL(url)
-        alert('Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite.')
-      }
-      
-      console.log('✅ PDF opened in new tab')
-
-    } catch (err) {
-      console.error('❌ Open PDF error:', err)
-      alert('PDF öffnen fehlgeschlagen: ' + err.message)
+ const openPDFInNewTab = async (pdfId) => {
+  try {
+    console.log('Opening PDF via API:', pdfId)
+    
+    // Simply open via API endpoint (serves with proper headers)
+    const pdfUrl = `/api/invoices/${pdfId}/pdf?t=${Date.now()}`
+    
+    const newWindow = window.open(pdfUrl, '_blank')
+    
+    if (!newWindow) {
+      alert('Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite.')
     }
+    
+    console.log('PDF opened in new tab')
+
+  } catch (err) {
+    console.error('Open PDF error:', err)
+    alert('PDF öffnen fehlgeschlagen: ' + err.message)
   }
+}
+  
 
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)
@@ -533,12 +443,7 @@ export default function PDFArchivePage() {
             >
               👁️ PDF öffnen
             </button>
-            <button 
-              onClick={() => onDownloadPDF(invoice.id)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              📥 Download
-            </button>
+            
           </div>
         </div>
 
@@ -1073,7 +978,7 @@ export default function PDFArchivePage() {
     // Pass functions as props to DetailView
     return <DetailView 
       invoice={selectedPDF} 
-      onDownloadPDF={downloadPDF}
+    
       onOpenPDF={openPDFInNewTab}
     />
   }

@@ -43,47 +43,7 @@ export async function POST(request, routeData) {
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
-    // ⚡ OPTIMIZED: Check if PDF exists in storage before regenerating
-    if (invoice.type === 'invoice') {
-      const pdfOutdated = invoice.pdf_generated_at && 
-                          new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
-      
-      if (pdfOutdated) {
-        console.warn('⚠️ CRITICAL: Invoice PDF is outdated!')
-        
-        // ⚡ First try to serve from cache - maybe it's good enough
-        const storagePath = generateStoragePath(invoice, { id: invoice.majstor_id })
-        const { data: testPDF, error: testError } = await supabase.storage
-          .from('invoice-pdfs')
-          .download(storagePath)
-        
-        if (testError || !testPDF) {
-          // Only regenerate if doesn't exist
-          console.log('🔄 Auto-regenerating PDF before email...')
-          
-          const host = request.headers.get('host')
-          const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
-          const siteUrl = envSiteUrl || (host?.includes('localhost') ? `http://${host}` : `https://${host}`)
-
-          const regenResponse = await fetch(`${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`, {
-            method: 'GET',
-            headers: { 'Cache-Control': 'no-cache' }
-          })
-          
-          if (!regenResponse.ok) {
-            return NextResponse.json({ 
-              error: '⚠️ Rechnung wurde aktualisiert, aber PDF/ZUGFeRD ist veraltet.\n\nBitte öffnen Sie die Rechnung zuerst.'
-            }, { status: 400 })
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 500)) // Reduced from 1000
-        } else {
-          console.log('✅ PDF exists in storage, using cached version')
-        }
-      } else {
-        console.log('✅ PDF is up-to-date, safe to send')
-      }
-    }
+   
 
     // Get majstor data
     const { data: majstor, error: majstorError } = await supabase

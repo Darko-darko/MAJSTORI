@@ -1,4 +1,4 @@
-// app/api/invoices/[id]/pdf/route.js - OPTIMIZED: Serve cached immediately
+// app/api/invoices/[id]/pdf/route.js - OPTIMIZED: Always serve from cache
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -22,7 +22,7 @@ export async function GET(request, routeData) {
     const { searchParams } = new URL(request.url)
     const forceRegenerate = searchParams.get('forceRegenerate') === 'true'
 
-    console.log('📄 PDF API called for ID:', id, { forceRegenerate })
+    console.log('PDF API called for ID:', id, { forceRegenerate })
 
     // Invoice
     const { data: invoice, error: invoiceError } = await supabase
@@ -32,20 +32,19 @@ export async function GET(request, routeData) {
       .single()
 
     if (invoiceError || !invoice) {
-      console.error('❌ Invoice not found:', invoiceError)
+      console.error('Invoice not found:', invoiceError)
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
-    // ⚡ FAST PATH: Serve cached PDF if exists and up-to-date
-    if (!forceRegenerate && invoice.pdf_storage_path && invoice.pdf_generated_at) {
-      const pdfOutdated = new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
-      
-      if (!pdfOutdated) {
-        console.log('✅ Serving cached PDF (up-to-date)')
-        return await servePDFFromArchive(invoice)
-      }
+    // FAST PATH: Serve cached PDF (ALWAYS unless force regenerate)
+    if (!forceRegenerate && invoice.pdf_storage_path) {
+      console.log('Serving cached PDF from storage')
+      return await servePDFFromArchive(invoice)
     }
 
+    // REGENERATION PATH (only on force or missing PDF)
+    console.log('Regenerating PDF...')
+    
     // Majstor (only if regeneration needed)
     const { data: majstor, error: majstorError } = await supabase
       .from('majstors')
@@ -54,16 +53,15 @@ export async function GET(request, routeData) {
       .single()
 
     if (majstorError || !majstor) {
-      console.error('❌ Majstor not found:', majstorError)
+      console.error('Majstor not found:', majstorError)
       return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
     // Generate new PDF
-    console.log('🔄 Regenerating PDF...')
     const pdfService = new InvoicePDFService()
     const pdfBuffer = await pdfService.generateInvoice(invoice, majstor)
 
-    console.log('💾 Archiving PDF...')
+    console.log('Archiving PDF...')
     await archivePDF(pdfBuffer, invoice, majstor.id)
 
     const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
@@ -71,7 +69,7 @@ export async function GET(request, routeData) {
     const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
     const filename = `${documentType}_${documentNumber}_${customerName}.pdf`
 
-    console.log('✅ Serving regenerated PDF:', filename)
+    console.log('Serving regenerated PDF:', filename)
 
     return new NextResponse(pdfBuffer, {
       status: 200,
@@ -85,7 +83,7 @@ export async function GET(request, routeData) {
       },
     })
   } catch (error) {
-    console.error('❌ PDF Generation Error:', error)
+    console.error('PDF Generation Error:', error)
     return NextResponse.json(
       {
         error: 'PDF-Generierung fehlgeschlagen',
@@ -111,7 +109,7 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
       .toString()
       .padStart(2, '0')}/${documentType}/${documentNumber}.pdf`
 
-    console.log('📤 Uploading PDF to Storage:', storagePath)
+    console.log('Uploading PDF to Storage:', storagePath)
 
     const { error: uploadError } = await supabase.storage
       .from('invoice-pdfs')
@@ -122,11 +120,11 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
       })
 
     if (uploadError) {
-      console.error('❌ Storage upload error:', uploadError)
+      console.error('Storage upload error:', uploadError)
       throw uploadError
     }
 
-    console.log('✅ PDF uploaded/replaced successfully')
+    console.log('PDF uploaded/replaced successfully')
 
     const { error: updateError } = await supabase
       .from('invoices')
@@ -139,13 +137,13 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
       .eq('id', invoiceData.id)
 
     if (updateError) {
-      console.error('❌ Metadata update error:', updateError)
+      console.error('Metadata update error:', updateError)
       throw updateError
     }
 
-    console.log('✅ Invoice metadata updated with fresh PDF timestamp')
+    console.log('Invoice metadata updated with fresh PDF timestamp')
   } catch (error) {
-    console.error('❌ PDF archiving failed:', error)
+    console.error('PDF archiving failed:', error)
     throw error
   }
 }
@@ -153,14 +151,14 @@ async function archivePDF(pdfBuffer, invoiceData, majstorId) {
 // Serve PDF from archive
 async function servePDFFromArchive(invoice) {
   try {
-    console.log('📥 Downloading PDF from Storage:', invoice.pdf_storage_path)
+    console.log('Downloading PDF from Storage:', invoice.pdf_storage_path)
 
     const { data, error: downloadError } = await supabase.storage
       .from('invoice-pdfs')
       .download(invoice.pdf_storage_path)
 
     if (downloadError) {
-      console.error('❌ Storage download error:', downloadError)
+      console.error('Storage download error:', downloadError)
       throw downloadError
     }
 
@@ -181,7 +179,7 @@ async function servePDFFromArchive(invoice) {
       },
     })
   } catch (error) {
-    console.error('❌ Archive PDF serving failed:', error)
+    console.error('Archive PDF serving failed:', error)
     throw error
   }
 }
