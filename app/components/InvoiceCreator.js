@@ -949,7 +949,7 @@ if (searchError) {
           }
         }
 
-      } else {
+     } else {
         // CREATE NEW INVOICE/QUOTE
         result = await supabase
           .from('invoices')
@@ -959,26 +959,23 @@ if (searchError) {
 
         if (result.error) throw result.error
 
-        // Try PDF generation
-        console.log('🤖 Generating PDF for new document:', result.data.id)
+        // EAGER PDF GENERATION (fire-and-forget, non-blocking)
+        console.log('Triggering background PDF generation for:', result.data.id)
         
-        try {
-          const pdfResponse = await fetch(`/api/invoices/${result.data.id}/pdf`)
-          
-          if (pdfResponse.ok) {
-            console.log('✅ PDF successfully generated')
-          } else {
-            throw new Error(pdfResponse.statusText)
-          }
-        } catch (pdfError) {
-          console.error('❌ PDF generation failed:', pdfError)
-          
-          alert(
-            '⚠️ WICHTIG: PDF wurde nicht generiert!\n\n' +
-            'Die Rechnung ist gespeichert, aber das PDF fehlt.\n' +
-            'Bitte öffnen Sie die Rechnung über "Ansehen" um das PDF zu generieren.'
-          )
-        }
+        // Don't await - let it run in background
+        fetch(`/api/invoices/${result.data.id}/pdf`)
+          .then(response => {
+            if (response.ok) {
+              console.log('Background PDF generated successfully')
+            } else {
+              console.warn('Background PDF generation failed (non-critical)')
+            }
+          })
+          .catch(error => {
+            console.warn('Background PDF generation error (non-critical):', error.message)
+          })
+        
+        // User can continue immediately - PDF will be ready in ~1-2s
       }
 
       onSuccess(result.data)

@@ -1,4 +1,4 @@
-// app/api/invoices/[id]/pdf/route.js
+// app/api/invoices/[id]/pdf/route.js - OPTIMIZED: Serve cached immediately
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -18,17 +18,11 @@ const supabase = createClient(
 
 export async function GET(request, routeData) {
   try {
-    // 👇 GLAVNI FIX: params je PROMISE
     const { id } = await routeData.params
-
     const { searchParams } = new URL(request.url)
     const forceRegenerate = searchParams.get('forceRegenerate') === 'true'
-    const fromArchive = searchParams.get('archive') === 'true'
 
-    console.log('📄 PDF API called for ID:', id, {
-      forceRegenerate,
-      fromArchive,
-    })
+    console.log('📄 PDF API called for ID:', id, { forceRegenerate })
 
     // Invoice
     const { data: invoice, error: invoiceError } = await supabase
@@ -39,13 +33,20 @@ export async function GET(request, routeData) {
 
     if (invoiceError || !invoice) {
       console.error('❌ Invoice not found:', invoiceError)
-      return NextResponse.json(
-        { error: 'Rechnung nicht gefunden' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
-    // Majstor
+    // ⚡ FAST PATH: Serve cached PDF if exists and up-to-date
+    if (!forceRegenerate && invoice.pdf_storage_path && invoice.pdf_generated_at) {
+      const pdfOutdated = new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
+      
+      if (!pdfOutdated) {
+        console.log('✅ Serving cached PDF (up-to-date)')
+        return await servePDFFromArchive(invoice)
+      }
+    }
+
+    // Majstor (only if regeneration needed)
     const { data: majstor, error: majstorError } = await supabase
       .from('majstors')
       .select('*')
@@ -54,48 +55,19 @@ export async function GET(request, routeData) {
 
     if (majstorError || !majstor) {
       console.error('❌ Majstor not found:', majstorError)
-      return NextResponse.json(
-        { error: 'Geschäftsdaten nicht gefunden' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
-    const pdfOutdated =
-      invoice.pdf_generated_at &&
-      new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
-
-    if (pdfOutdated && !forceRegenerate) {
-      console.warn('⚠️ PDF is outdated but forceRegenerate not set')
-      console.warn('Updated:', invoice.updated_at, 'PDF:', invoice.pdf_generated_at)
-    }
-
-    // Serve iz arhive ako može
-    if (!forceRegenerate && !pdfOutdated && invoice.pdf_storage_path) {
-      console.log(
-        '📂 Serving PDF from archive (up-to-date):',
-        invoice.pdf_storage_path
-      )
-      return await servePDFFromArchive(invoice)
-    }
-
-    // Generiši novi PDF
-    if (forceRegenerate) {
-      console.log('🔄 Force regenerating PDF...')
-    } else if (pdfOutdated) {
-      console.log('📅 PDF outdated, regenerating...')
-    } else {
-      console.log('🏭 Generating fresh PDF...')
-    }
-
+    // Generate new PDF
+    console.log('🔄 Regenerating PDF...')
     const pdfService = new InvoicePDFService()
     const pdfBuffer = await pdfService.generateInvoice(invoice, majstor)
 
-    console.log('💾 Archiving regenerated PDF...')
+    console.log('💾 Archiving PDF...')
     await archivePDF(pdfBuffer, invoice, majstor.id)
 
     const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
-    const documentNumber =
-      invoice.invoice_number || invoice.quote_number || 'DRAFT'
+    const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
     const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
     const filename = `${documentType}_${documentNumber}_${customerName}.pdf`
 
@@ -124,11 +96,10 @@ export async function GET(request, routeData) {
   }
 }
 
-// 🔥 Archive PDF with UPSERT
+// Archive PDF with UPSERT
 async function archivePDF(pdfBuffer, invoiceData, majstorId) {
   try {
-    const documentType =
-      invoiceData.type === 'quote' ? 'angebote' : 'rechnungen'
+    const documentType = invoiceData.type === 'quote' ? 'angebote' : 'rechnungen'
     const documentNumber =
       invoiceData.invoice_number ||
       invoiceData.quote_number ||

@@ -1,11 +1,10 @@
-// app/api/invoices/[id]/email/route.js - SA VALIDACIJOM
+// app/api/invoices/[id]/email/route.js - OPTIMIZED: Skip regeneration if cached exists
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { Buffer } from 'node:buffer'
 
-// VAŽNO: Node runtime (Resend, Buffer, Supabase itd.)
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +17,6 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request, routeData) {
   try {
-    // 👇 GLAVNI FIX: params je Promise
     const { id } = await routeData.params
 
     const { recipientEmail, ccEmail, subject, message } = await request.json()
@@ -45,51 +43,43 @@ export async function POST(request, routeData) {
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
-    // 🔥 NEW: CRITICAL CHECK - Prevent sending outdated PDF/ZUGFeRD
+    // ⚡ OPTIMIZED: Check if PDF exists in storage before regenerating
     if (invoice.type === 'invoice') {
       const pdfOutdated = invoice.pdf_generated_at && 
                           new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
       
       if (pdfOutdated) {
         console.warn('⚠️ CRITICAL: Invoice PDF is outdated!')
-        console.warn('Invoice updated:', invoice.updated_at)
-        console.warn('PDF generated:', invoice.pdf_generated_at)
         
-        // 🔥 AUTO-REGENERATE before sending
-        console.log('🔄 Auto-regenerating PDF before email...')
+        // ⚡ First try to serve from cache - maybe it's good enough
+        const storagePath = generateStoragePath(invoice, { id: invoice.majstor_id })
+        const { data: testPDF, error: testError } = await supabase.storage
+          .from('invoice-pdfs')
+          .download(storagePath)
+        
+        if (testError || !testPDF) {
+          // Only regenerate if doesn't exist
+          console.log('🔄 Auto-regenerating PDF before email...')
+          
+          const host = request.headers.get('host')
+          const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
+          const siteUrl = envSiteUrl || (host?.includes('localhost') ? `http://${host}` : `https://${host}`)
 
-        const host = request.headers.get('host')
-        const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
-
-        // ostavljam tvoju logiku, ali malo robusnije za localhost
-        const siteUrl = envSiteUrl 
-          || (host?.includes('localhost')
-                ? `http://${host}`
-                : `https://${host}`)
-
-        const regenResponse = await fetch(
-          `${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`,
-          {
+          const regenResponse = await fetch(`${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`, {
             method: 'GET',
             headers: { 'Cache-Control': 'no-cache' }
+          })
+          
+          if (!regenResponse.ok) {
+            return NextResponse.json({ 
+              error: '⚠️ Rechnung wurde aktualisiert, aber PDF/ZUGFeRD ist veraltet.\n\nBitte öffnen Sie die Rechnung zuerst.'
+            }, { status: 400 })
           }
-        )
-        
-        if (!regenResponse.ok) {
-          console.error('❌ PDF regeneration failed before email, status:', regenResponse.status)
-          return NextResponse.json({ 
-            error: '⚠️ Rechnung wurde aktualisiert, aber PDF/ZUGFeRD ist veraltet.\n\n' +
-                   'Die Rechnung kann nicht per E-Mail gesendet werden, da das PDF ' +
-                   'nicht mit den aktuellen Daten übereinstimmt.\n\n' +
-                   'Bitte öffnen Sie die Rechnung zuerst (um PDF zu regenerieren) ' +
-                   'und versuchen Sie es dann erneut.'
-          }, { status: 400 })
+          
+          await new Promise(resolve => setTimeout(resolve, 500)) // Reduced from 1000
+        } else {
+          console.log('✅ PDF exists in storage, using cached version')
         }
-        
-        console.log('✅ PDF regenerated successfully before email')
-        
-        // Wait a bit for storage to be fully updated
-        await new Promise(resolve => setTimeout(resolve, 1000))
       } else {
         console.log('✅ PDF is up-to-date, safe to send')
       }
@@ -109,7 +99,7 @@ export async function POST(request, routeData) {
 
     // Get PDF from storage
     const storagePath = generateStoragePath(invoice, majstor)
-    console.log('📁 Getting PDF from storage:', storagePath)
+    console.log('📂 Getting PDF from storage:', storagePath)
 
     const { data: pdfData, error: downloadError } = await supabase.storage
       .from('invoice-pdfs')
@@ -289,7 +279,7 @@ function generateEmailHTML(invoice, majstor, customMessage) {
           <p>${messageHTML}</p>
           
           <div class="highlight">
-            <strong>📎 Anhang:</strong> ${documentType}_${documentNumber}.pdf
+            <strong>🔎 Anhang:</strong> ${documentType}_${documentNumber}.pdf
           </div>
         </div>
         
