@@ -283,63 +283,17 @@ export default function PDFArchivePage() {
     }
   }
 
-  // ✅ FIXED - Open PDF directly from Supabase Storage (like email does!)
-  const openPDFInNewTab = async (pdfId) => {
-    try {
-      console.log('👁️ Opening PDF:', pdfId)
-      
-      // 1️⃣ Get invoice data
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('id, pdf_storage_path, invoice_number, quote_number, type')
-        .eq('id', pdfId)
-        .single()
-
-      if (invoiceError || !invoice) {
-        throw new Error('Invoice not found')
-      }
-
-      if (!invoice.pdf_storage_path) {
-        throw new Error('PDF not generated yet')
-      }
-
-      console.log('📂 PDF path:', invoice.pdf_storage_path)
-
-      // 2️⃣ Download directly from Storage (SAME AS EMAIL!)
-      const { data: pdfData, error: downloadError } = await supabase.storage
-        .from('invoice-pdfs')
-        .download(invoice.pdf_storage_path)
-
-      if (downloadError || !pdfData) {
-        throw new Error('PDF download failed: ' + downloadError?.message)
-      }
-
-      console.log('✅ PDF loaded from storage, size:', pdfData.size)
-
-      // 3️⃣ Open in new tab
-      const blob = new Blob([pdfData], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      
-      const newWindow = window.open(url, '_blank')
-      
-      // Cleanup after window opens
-      if (newWindow) {
-        newWindow.onload = () => {
-          URL.revokeObjectURL(url)
-        }
-      } else {
-        // Fallback if popup is blocked
-        URL.revokeObjectURL(url)
-        alert('Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite.')
-      }
-      
-      console.log('✅ PDF opened in new tab')
-
-    } catch (err) {
-      console.error('❌ Open PDF error:', err)
-      alert('PDF öffnen fehlgeschlagen: ' + err.message)
-    }
+  // ✅ Api, a ne blub
+const openPDFInNewTab = async (pdfId) => {
+  try {
+    const pdfUrl = `/api/invoices/${pdfId}/pdf?t=${Date.now()}`
+    console.log('👁️ Opening PDF:', pdfUrl)
+    window.open(pdfUrl, '_blank')
+  } catch (error) {
+    console.error('❌ Open PDF error:', error)
+    alert('PDF öffnen fehlgeschlagen: ' + error.message)
   }
+}
 
   const handleBulkEmail = async (emailData) => {
     setBulkEmailLoading(true)

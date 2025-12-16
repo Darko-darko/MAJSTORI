@@ -23,7 +23,7 @@ function DashboardPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createType, setCreateType] = useState('quote')
   const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({})
-
+  
   // Hard Reset states
   const [showHardResetModal, setShowHardResetModal] = useState(false)
   const [hardResetLoading, setHardResetLoading] = useState(false)
@@ -39,6 +39,9 @@ function DashboardPageContent() {
 
   // 🔥 OVERDUE FILTER
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
+
+  //početak
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const [settingsData, setSettingsData] = useState({
     is_kleinunternehmer: false,
@@ -287,17 +290,60 @@ function DashboardPageContent() {
  
 
  const handlePDFView = async (document) => {
+  setPdfLoading(true)
+  
   try {
-    // ⚡ OPTIMIZED: Let API decide (serve cached if up-to-date)
-    const pdfUrl = `/api/invoices/${document.id}/pdf?t=${Date.now()}`
+    console.log('📄 Loading PDF from storage:', document.id)
     
-    console.log('👁️ Opening PDF:', pdfUrl)
-    window.open(pdfUrl, '_blank')
-  } catch (error) {
-    console.error('PDF viewing error:', error)
-    alert('Fehler beim Laden der PDF: ' + error.message)
-  }
+    // 1️⃣ Get invoice data
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('invoices')
+      .select('id, pdf_storage_path, invoice_number, quote_number, type')
+      .eq('id', document.id)
+      .single()
 
+    if (invoiceError || !invoice) {
+      throw new Error('Invoice not found')
+    }
+
+    if (!invoice.pdf_storage_path) {
+      throw new Error('PDF not generated yet')
+    }
+
+    console.log('📂 PDF path:', invoice.pdf_storage_path)
+
+    // 2️⃣ Download from Storage (while spinner shows!)
+    const { data: pdfData, error: downloadError } = await supabase.storage
+      .from('invoice-pdfs')
+      .download(invoice.pdf_storage_path)
+
+    if (downloadError || !pdfData) {
+      throw new Error('PDF download failed: ' + downloadError?.message)
+    }
+
+    console.log('✅ PDF loaded, size:', pdfData.size)
+
+    // 3️⃣ Create blob and open (SADA tek otvara tab!)
+    const blob = new Blob([pdfData], { type: 'application/pdf' })
+    const url = URL.createObjectURL(blob)
+    
+    const newWindow = window.open(url, '_blank')
+    
+    if (newWindow) {
+      newWindow.onload = () => URL.revokeObjectURL(url)
+    } else {
+      URL.revokeObjectURL(url)
+      alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
+    }
+    
+    console.log('✅ PDF opened in new tab')
+
+  } catch (error) {
+    console.error('❌ PDF viewing error:', error)
+    alert('Fehler beim Laden der PDF: ' + error.message)
+  } finally {
+    setPdfLoading(false)
+  }
 }
 
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
@@ -538,23 +584,38 @@ function DashboardPageContent() {
         throw new Error('No invoice data returned from database')
       }
 
-      console.log('✅ Invoice successfully created:', newInvoice)
+   console.log('✅ Invoice successfully created:', newInvoice)
 
-      const { error: quoteUpdateError } = await supabase
-        .from('invoices')
-        .update({ 
-          status: 'converted',
-          updated_at: now.toISOString()
-        })
-        .eq('id', quote.id)
+// ✅ DODAJ OVDE - EAGER PDF GENERATION
+console.log('📄 Triggering background PDF generation for converted invoice:', newInvoice.id)
 
-      if (quoteUpdateError) {
-        console.warn('Could not update quote status:', quoteUpdateError.message)
-      } else {
-        console.log('🔄 Quote status updated to converted')
-      }
+fetch(`/api/invoices/${newInvoice.id}/pdf`)
+  .then(response => {
+    if (response.ok) {
+      console.log('✅ Background PDF generated successfully for converted invoice')
+    } else {
+      console.warn('⚠️ Background PDF generation failed (non-critical)')
+    }
+  })
+  .catch(error => {
+    console.warn('⚠️ Background PDF generation error (non-critical):', error.message)
+  })
 
-      console.log('🔄 Refreshing invoices data...')
+const { error: quoteUpdateError } = await supabase
+  .from('invoices')
+  .update({ 
+    status: 'converted',
+    updated_at: now.toISOString()
+  })
+  .eq('id', quote.id)
+
+if (quoteUpdateError) {
+  console.warn('Could not update quote status:', quoteUpdateError.message)
+} else {
+  console.log('🔄 Quote status updated to converted')
+}
+
+console.log('🔄 Refreshing invoices data...')
       
       if (majstor?.id) {
         await loadInvoicesData(majstor.id)
@@ -1101,6 +1162,32 @@ const HardResetModal = () => {
     </div>
   )
 }
+
+  // ✅ DODAJ OVDE (pre QuotesList komponente):
+  const PDFLoadingModal = () => {
+    if (!pdfLoading) return null
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-slate-800 rounded-lg p-8 max-w-sm">
+          <div className="flex flex-col items-center gap-4">
+            <div 
+              className="w-16 h-16 border-4 border-slate-600 border-t-blue-500 rounded-full"
+              style={{ animation: 'spin 1s linear infinite' }}
+            ></div>
+            <p className="text-white text-lg font-semibold">PDF wird geladen...</p>
+            <p className="text-slate-400 text-sm">Bitte warten Sie einen Moment</p>
+          </div>
+        </div>
+        
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
+  }
 
   const QuotesList = () => (
     <div className="space-y-4">
@@ -2091,6 +2178,7 @@ const HardResetModal = () => {
       )}
 
       <HardResetModal />
+      <PDFLoadingModal />
     </div>
   )
 }

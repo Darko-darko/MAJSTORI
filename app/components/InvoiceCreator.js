@@ -25,6 +25,7 @@ export default function InvoiceCreator({
   // Edit confirmation modal states
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false)
   const [pendingFormData, setPendingFormData] = useState(null)
+  
 
  const [formData, setFormData] = useState({
   // Customer identification
@@ -915,39 +916,36 @@ if (searchError) {
         if (result.error) throw result.error
 
         // AUTO-REGENERATE PDF AFTER EDIT (for invoices)
-        if (type === 'invoice') {
-          console.log('📄 Invoice updated, regenerating PDF to ensure sync...')
-          
-          try {
-            const regenResponse = await fetch(
-              `/api/invoices/${editData.id}/pdf?forceRegenerate=true`,
-              {
-                method: 'GET',
-                headers: { 'Cache-Control': 'no-cache' }
-              }
-            )
-            
-            if (regenResponse.ok) {
-              console.log('✅ PDF successfully regenerated after edit')
-              console.log('🇪🇺 ZUGFeRD XML synchronized with updated invoice data')
-            } else {
-              console.error('❌ PDF regeneration failed:', regenResponse.statusText)
-              throw new Error('PDF regeneration failed')
-            }
-          } catch (regenError) {
-            console.error('❌ PDF regeneration error:', regenError)
-            
-            alert(
-              '⚠️ WICHTIG: PDF/ZUGFeRD Regenerierung fehlgeschlagen!\n\n' +
-              'Die Rechnung wurde in der Datenbank aktualisiert, aber:\n' +
-              '• Das PDF ist möglicherweise veraltet\n' +
-              '• Das ZUGFeRD XML enthält alte Daten\n\n' +
-              '⛔ Bitte NICHT per E-Mail versenden!\n' +
-              '⛔ Kontaktieren Sie den Support oder regenerieren Sie das PDF manuell.\n\n' +
-              'Details: ' + regenError.message
-            )
-          }
-        }
+      // AUTO-REGENERATE PDF AFTER EDIT (for both invoice and quote)
+const docType = type === 'quote' ? 'Angebot' : 'Rechnung'
+console.log(`📄 ${docType} updated, regenerating PDF to ensure sync...`)
+
+try {
+  const regenResponse = await fetch(
+    `/api/invoices/${editData.id}/pdf?forceRegenerate=true`,
+    {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache' }
+    }
+  )
+  
+  if (regenResponse.ok) {
+    console.log(`✅ ${docType} PDF successfully regenerated after edit`)
+  } else {
+    console.error('❌ PDF regeneration failed:', regenResponse.statusText)
+    throw new Error('PDF regeneration failed')
+  }
+} catch (regenError) {
+  console.error('❌ PDF regeneration error:', regenError)
+  
+  alert(
+    `⚠️ WICHTIG: ${docType} PDF Regenerierung fehlgeschlagen!\n\n` +
+    `${docType} wurde in der Datenbank aktualisiert, aber das PDF ist möglicherweise veraltet.\n\n` +
+    '⛔ Bitte NICHT per E-Mail versenden!\n' +
+    '⛔ Regenerieren Sie das PDF manuell oder kontaktieren Sie den Support.\n\n' +
+    'Details: ' + regenError.message
+  )
+}
 
      } else {
         // CREATE NEW INVOICE/QUOTE
@@ -980,6 +978,21 @@ if (searchError) {
 
       onSuccess(result.data)
       onClose()
+
+     if (isEditMode) {
+  const docType = type === 'quote' ? 'Angebot' : 'Rechnung'
+  
+  alert(
+    '✅ Rechnung erfolgreich aktualisiert!\n\n' +
+    '⏳ PDF wird im Hintergrund regeneriert (~10-15 Sekunden).\n' +
+    'Die Seite wird automatisch aktualisiert.'
+  )
+  
+  // Auto-refresh nakon 10s
+  setTimeout(() => {
+    window.location.reload()
+  }, 12000)
+}
 
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
