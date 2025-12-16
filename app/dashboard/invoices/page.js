@@ -286,19 +286,16 @@ function DashboardPageContent() {
   }
 
   // 📍 DODAJ POSLE loadInvoicesData funkcije (oko linije 230-250)
-
- 
-
- const handlePDFView = async (document) => {
+const handlePDFView = async (document) => {
   setPdfLoading(true)
   
   try {
-    console.log('📄 Loading PDF from storage:', document.id)
+    console.log('📄 Checking PDF status for document:', document.id)
     
-    // 1️⃣ Get invoice data
+    // 1️⃣ ALWAYS fetch FRESH data from database
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, pdf_storage_path, invoice_number, quote_number, type')
+      .select('id, pdf_storage_path, pdf_generated_at, updated_at, invoice_number, quote_number, type')
       .eq('id', document.id)
       .single()
 
@@ -306,37 +303,94 @@ function DashboardPageContent() {
       throw new Error('Invoice not found')
     }
 
-    if (!invoice.pdf_storage_path) {
-      throw new Error('PDF not generated yet')
+    // 2️⃣ Check if PDF is missing or outdated
+    const pdfMissing = !invoice.pdf_storage_path || !invoice.pdf_generated_at
+    
+    let pdfOutdated = false
+    if (invoice.pdf_generated_at && invoice.updated_at) {
+      const pdfTimestamp = invoice.pdf_generated_at.endsWith('Z') || invoice.pdf_generated_at.includes('+') 
+        ? invoice.pdf_generated_at 
+        : invoice.pdf_generated_at + 'Z'
+      
+      const updateTimestamp = invoice.updated_at.endsWith('Z') || invoice.updated_at.includes('+')
+        ? invoice.updated_at
+        : invoice.updated_at + 'Z'
+      
+      const pdfDate = new Date(pdfTimestamp)
+      const updateDate = new Date(updateTimestamp)
+      
+      pdfOutdated = updateDate > pdfDate
+      
+      console.log('🔍 PDF Status Check:', {
+        pdf_generated_at: invoice.pdf_generated_at,
+        updated_at: invoice.updated_at,
+        isOutdated: pdfOutdated
+      })
     }
 
-    console.log('📂 PDF path:', invoice.pdf_storage_path)
-
-    // 2️⃣ Download from Storage (while spinner shows!)
-    const { data: pdfData, error: downloadError } = await supabase.storage
-      .from('invoice-pdfs')
-      .download(invoice.pdf_storage_path)
-
-    if (downloadError || !pdfData) {
-      throw new Error('PDF download failed: ' + downloadError?.message)
-    }
-
-    console.log('✅ PDF loaded, size:', pdfData.size)
-
-    // 3️⃣ Create blob and open (SADA tek otvara tab!)
-    const blob = new Blob([pdfData], { type: 'application/pdf' })
-    const url = URL.createObjectURL(blob)
-    
-    const newWindow = window.open(url, '_blank')
-    
-    if (newWindow) {
-      newWindow.onload = () => URL.revokeObjectURL(url)
+    // 3️⃣ If missing or outdated, regenerate NOW and USE that PDF directly!
+    if (pdfMissing || pdfOutdated) {
+      if (pdfMissing) {
+        console.log('⚠️ PDF missing - generating now...')
+      } else {
+        console.log('⚠️ PDF outdated - regenerating now...')
+      }
+      
+      // ✅ ČEKAJ DA API VRATI PDF (2-3s ili više)
+      console.log('⏳ Generating PDF... (spinner visible)')
+      const regenResponse = await fetch(`/api/invoices/${document.id}/pdf?forceRegenerate=true`, {
+        method: 'GET',
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+      
+      if (!regenResponse.ok) {
+        throw new Error('PDF generation failed')
+      }
+      
+      // ✅ API je vratio PDF - koristi ga DIREKTNO (ne download-uj iz storage!)
+      const pdfBlob = await regenResponse.blob()
+      console.log('✅ Fresh PDF received from API, size:', pdfBlob.size, 'bytes')
+      
+      const url = URL.createObjectURL(pdfBlob)
+      const newWindow = window.open(url, '_blank')
+      
+      if (newWindow) {
+        newWindow.onload = () => URL.revokeObjectURL(url)
+      } else {
+        URL.revokeObjectURL(url)
+        alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
+      }
+      
+      console.log('✅ Fresh PDF opened in new tab')
+      
     } else {
-      URL.revokeObjectURL(url)
-      alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
+      // 4️⃣ PDF is up-to-date - download from storage (FAST!)
+      console.log('✅ PDF is up-to-date, downloading from storage:', invoice.pdf_storage_path)
+      
+      const { data: pdfData, error: downloadError } = await supabase.storage
+        .from('invoice-pdfs')
+        .download(invoice.pdf_storage_path)
+
+      if (downloadError || !pdfData) {
+        throw new Error('PDF download failed: ' + downloadError?.message)
+      }
+
+      console.log('✅ PDF loaded from storage, size:', pdfData.size, 'bytes')
+
+      const blob = new Blob([pdfData], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      
+      const newWindow = window.open(url, '_blank')
+      
+      if (newWindow) {
+        newWindow.onload = () => URL.revokeObjectURL(url)
+      } else {
+        URL.revokeObjectURL(url)
+        alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
+      }
+      
+      console.log('✅ Cached PDF opened in new tab')
     }
-    
-    console.log('✅ PDF opened in new tab')
 
   } catch (error) {
     console.error('❌ PDF viewing error:', error)
@@ -584,24 +638,10 @@ function DashboardPageContent() {
         throw new Error('No invoice data returned from database')
       }
 
-   console.log('✅ Invoice successfully created:', newInvoice)
-
-// ✅ DODAJ OVDE - EAGER PDF GENERATION
-console.log('📄 Triggering background PDF generation for converted invoice:', newInvoice.id)
-
-fetch(`/api/invoices/${newInvoice.id}/pdf`)
-  .then(response => {
-    if (response.ok) {
-      console.log('✅ Background PDF generated successfully for converted invoice')
-    } else {
-      console.warn('⚠️ Background PDF generation failed (non-critical)')
-    }
-  })
-  .catch(error => {
-    console.warn('⚠️ Background PDF generation error (non-critical):', error.message)
-  })
+ console.log('✅ Invoice successfully created:', newInvoice)
 
 const { error: quoteUpdateError } = await supabase
+
   .from('invoices')
   .update({ 
     status: 'converted',
@@ -1175,8 +1215,8 @@ const HardResetModal = () => {
               className="w-16 h-16 border-4 border-slate-600 border-t-blue-500 rounded-full"
               style={{ animation: 'spin 1s linear infinite' }}
             ></div>
-            <p className="text-white text-lg font-semibold">PDF wird geladen...</p>
-            <p className="text-slate-400 text-sm">Bitte warten Sie einen Moment</p>
+        <p className="text-white text-lg font-semibold">PDF wird generiert...</p>
+        <p className="text-slate-400 text-sm">Einen Moment bitte...</p>
           </div>
         </div>
         
