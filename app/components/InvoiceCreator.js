@@ -25,6 +25,7 @@ export default function InvoiceCreator({
   // Edit confirmation modal states
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false)
   const [pendingFormData, setPendingFormData] = useState(null)
+  
 
  const [formData, setFormData] = useState({
   // Customer identification
@@ -980,6 +981,19 @@ if (searchError) {
 
       onSuccess(result.data)
       onClose()
+
+      if (isEditMode && type === 'invoice') {
+  alert(
+    '✅ Rechnung erfolgreich aktualisiert!\n\n' +
+    '⏳ PDF wird im Hintergrund regeneriert (~10-15 Sekunden).\n' +
+    'Die Seite wird automatisch aktualisiert.'
+  )
+  
+  // Auto-refresh nakon 10s
+  setTimeout(() => {
+    window.location.reload()
+  }, 12000)
+}
 
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
