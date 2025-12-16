@@ -584,23 +584,38 @@ function DashboardPageContent() {
         throw new Error('No invoice data returned from database')
       }
 
-      console.log('✅ Invoice successfully created:', newInvoice)
+   console.log('✅ Invoice successfully created:', newInvoice)
 
-      const { error: quoteUpdateError } = await supabase
-        .from('invoices')
-        .update({ 
-          status: 'converted',
-          updated_at: now.toISOString()
-        })
-        .eq('id', quote.id)
+// ✅ DODAJ OVDE - EAGER PDF GENERATION
+console.log('📄 Triggering background PDF generation for converted invoice:', newInvoice.id)
 
-      if (quoteUpdateError) {
-        console.warn('Could not update quote status:', quoteUpdateError.message)
-      } else {
-        console.log('🔄 Quote status updated to converted')
-      }
+fetch(`/api/invoices/${newInvoice.id}/pdf`)
+  .then(response => {
+    if (response.ok) {
+      console.log('✅ Background PDF generated successfully for converted invoice')
+    } else {
+      console.warn('⚠️ Background PDF generation failed (non-critical)')
+    }
+  })
+  .catch(error => {
+    console.warn('⚠️ Background PDF generation error (non-critical):', error.message)
+  })
 
-      console.log('🔄 Refreshing invoices data...')
+const { error: quoteUpdateError } = await supabase
+  .from('invoices')
+  .update({ 
+    status: 'converted',
+    updated_at: now.toISOString()
+  })
+  .eq('id', quote.id)
+
+if (quoteUpdateError) {
+  console.warn('Could not update quote status:', quoteUpdateError.message)
+} else {
+  console.log('🔄 Quote status updated to converted')
+}
+
+console.log('🔄 Refreshing invoices data...')
       
       if (majstor?.id) {
         await loadInvoicesData(majstor.id)
