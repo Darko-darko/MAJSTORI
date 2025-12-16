@@ -915,37 +915,7 @@ if (searchError) {
 
         if (result.error) throw result.error
 
-        // AUTO-REGENERATE PDF AFTER EDIT (for invoices)
-      // AUTO-REGENERATE PDF AFTER EDIT (for both invoice and quote)
-const docType = type === 'quote' ? 'Angebot' : 'Rechnung'
-console.log(`📄 ${docType} updated, regenerating PDF to ensure sync...`)
 
-try {
-  const regenResponse = await fetch(
-    `/api/invoices/${editData.id}/pdf?forceRegenerate=true`,
-    {
-      method: 'GET',
-      headers: { 'Cache-Control': 'no-cache' }
-    }
-  )
-  
-  if (regenResponse.ok) {
-    console.log(`✅ ${docType} PDF successfully regenerated after edit`)
-  } else {
-    console.error('❌ PDF regeneration failed:', regenResponse.statusText)
-    throw new Error('PDF regeneration failed')
-  }
-} catch (regenError) {
-  console.error('❌ PDF regeneration error:', regenError)
-  
-  alert(
-    `⚠️ WICHTIG: ${docType} PDF Regenerierung fehlgeschlagen!\n\n` +
-    `${docType} wurde in der Datenbank aktualisiert, aber das PDF ist möglicherweise veraltet.\n\n` +
-    '⛔ Bitte NICHT per E-Mail versenden!\n' +
-    '⛔ Regenerieren Sie das PDF manuell oder kontaktieren Sie den Support.\n\n' +
-    'Details: ' + regenError.message
-  )
-}
 
      } else {
         // CREATE NEW INVOICE/QUOTE
@@ -957,42 +927,13 @@ try {
 
         if (result.error) throw result.error
 
-        // EAGER PDF GENERATION (fire-and-forget, non-blocking)
-        console.log('Triggering background PDF generation for:', result.data.id)
-        
-        // Don't await - let it run in background
-        fetch(`/api/invoices/${result.data.id}/pdf`)
-          .then(response => {
-            if (response.ok) {
-              console.log('Background PDF generated successfully')
-            } else {
-              console.warn('Background PDF generation failed (non-critical)')
-            }
-          })
-          .catch(error => {
-            console.warn('Background PDF generation error (non-critical):', error.message)
-          })
-        
-        // User can continue immediately - PDF will be ready in ~1-2s
+       
       }
 
       onSuccess(result.data)
       onClose()
 
-     if (isEditMode) {
-  const docType = type === 'quote' ? 'Angebot' : 'Rechnung'
-  
-  alert(
-    '✅ Rechnung erfolgreich aktualisiert!\n\n' +
-    '⏳ PDF wird im Hintergrund regeneriert (~10-15 Sekunden).\n' +
-    'Die Seite wird automatisch aktualisiert.'
-  )
-  
-  // Auto-refresh nakon 10s
-  setTimeout(() => {
-    window.location.reload()
-  }, 12000)
-}
+ 
 
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
