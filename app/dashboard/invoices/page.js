@@ -304,9 +304,13 @@ pdfTab.document.write(`
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>PDF wird generiert...</title>
     <style>
-      html, body {
+      * {
         margin: 0;
         padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
         width: 100%;
         height: 100%;
         background: #0b1220;
@@ -315,115 +319,82 @@ pdfTab.document.write(`
         -webkit-font-smoothing: antialiased;
       }
 
-      .screen {
-        min-height: 100vh;
-        min-height: 100svh;
-        width: 100vw;
+      body {
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 24px;
-        box-sizing: border-box;
       }
 
       .box {
         width: 100%;
         max-width: 360px;
         background: #1e293b;
-        padding: 32px 24px;
+        padding: 40px 24px;
         border-radius: 20px;
         text-align: center;
         box-shadow: 0 20px 60px rgba(0,0,0,0.5);
       }
 
       .spinner {
-        width: 72px;
-        height: 72px;
-        border: 6px solid rgba(59, 130, 246, 0.15);
+        width: 80px;
+        height: 80px;
+        border: 7px solid rgba(59, 130, 246, 0.25);
         border-top-color: #3b82f6;
         border-right-color: #60a5fa;
         border-radius: 50%;
-        animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        margin: 0 auto 24px;
-        filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.4));
-        position: relative;
+        margin: 0 auto 28px;
+        animation: spin 0.8s linear infinite;
       }
 
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
 
-      .spinner::before {
-        content: '';
-        position: absolute;
-        inset: -12px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
-        animation: pulse 1.5s ease-in-out infinite;
-      }
-
-      @keyframes pulse {
-        0%, 100% { opacity: 0.6; transform: scale(0.95); }
-        50% { opacity: 1; transform: scale(1.05); }
-      }
-
       .title {
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 700;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         color: #f1f5f9;
-        letter-spacing: -0.01em;
       }
 
       .subtitle {
-        font-size: 14px;
+        font-size: 15px;
         color: #94a3b8;
         line-height: 1.5;
       }
 
-      @media (max-width: 480px) {
+      @media (max-width: 400px) {
         .box {
           padding: 36px 20px;
         }
         
         .spinner {
-          width: 80px;
-          height: 80px;
-          border-width: 7px;
+          width: 76px;
+          height: 76px;
+          border-width: 6px;
         }
 
         .title {
-          font-size: 19px;
+          font-size: 18px;
         }
 
         .subtitle {
-          font-size: 15px;
-        }
-      }
-
-      @media (max-width: 360px) {
-        .spinner {
-          width: 76px;
-          height: 76px;
+          font-size: 14px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="screen">
-      <div class="box">
-        <div class="spinner"></div>
-        <div class="title">PDF wird generiert…</div>
-        <div class="subtitle">Einen Moment bitte…</div>
-      </div>
+    <div class="box">
+      <div class="spinner"></div>
+      <div class="title">PDF wird generiert…</div>
+      <div class="subtitle">Einen Moment bitte…</div>
     </div>
   </body>
 </html>
 `)
 pdfTab.document.close()
-
-
-
 
   try {
     console.log('📄 Checking PDF status for document:', document.id)
