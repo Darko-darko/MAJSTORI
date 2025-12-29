@@ -1309,31 +1309,48 @@ const HardResetModal = () => {
   )
 }
 
-  // ✅ DODAJ OVDE (pre QuotesList komponente):
-  const PDFLoadingModal = () => {
-    if (!pdfLoading) return null
+ // ✅ UPDATED: VELIKI SPINNER za modal
+const PDFLoadingModal = () => {
+  if (!pdfLoading) return null
 
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-slate-800 rounded-lg p-8 max-w-sm">
-          <div className="flex flex-col items-center gap-4">
-            <div 
-              className="w-16 h-16 border-4 border-slate-600 border-t-blue-500 rounded-full"
-              style={{ animation: 'spin 1s linear infinite' }}
-            ></div>
-        <p className="text-white text-lg font-semibold">PDF wird generiert...</p>
-        <p className="text-slate-400 text-sm">Einen Moment bitte...</p>
-          </div>
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-slate-800 rounded-xl p-8 max-w-sm shadow-2xl">
+        <div className="flex flex-col items-center gap-4">
+          {/* 🔥 VELIKI SPINNER - 96px desktop, 80px mobile */}
+          <div 
+            className="rounded-full"
+            style={{
+              width: '96px',
+              height: '96px',
+              border: '8px solid rgba(59, 130, 246, 0.2)',
+              borderTopColor: '#3b82f6',
+              borderRightColor: '#60a5fa',
+              animation: 'spin 0.8s linear infinite'
+            }}
+          ></div>
+          
+          <p className="text-white text-lg font-semibold">PDF wird generiert...</p>
+          <p className="text-slate-400 text-sm">Einen Moment bitte...</p>
         </div>
-        
-        <style jsx>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
-    )
-  }
+      
+      <style jsx>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 400px) {
+          .rounded-full {
+            width: 80px !important;
+            height: 80px !important;
+            border-width: 7px !important;
+          }
+        }
+      `}</style>
+    </div>
+  )
+}
 
   const QuotesList = () => (
     <div className="space-y-4">
