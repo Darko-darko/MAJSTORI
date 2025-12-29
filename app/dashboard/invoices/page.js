@@ -316,35 +316,33 @@ pdfTab.document.write(`
         background: #0b1220;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         color: white;
-        -webkit-font-smoothing: antialiased;
       }
 
-      body {
+      /* 🔥 FULLSCREEN overlay – isto kao React modal */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
       }
 
-      .box {
-        width: 100%;
-        max-width: 360px;
-        background: #1e293b;
-        padding: 40px 24px;
-        border-radius: 20px;
+      .content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
         text-align: center;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
       }
 
       .spinner {
         width: 80px;
         height: 80px;
-        border: 7px solid rgba(59, 130, 246, 0.25);
+        border: 6px solid #334155;
         border-top-color: #3b82f6;
-        border-right-color: #60a5fa;
         border-radius: 50%;
-        margin: 0 auto 28px;
-        animation: spin 0.8s linear infinite;
+        animation: spin 1s linear infinite;
       }
 
       @keyframes spin {
@@ -352,49 +350,31 @@ pdfTab.document.write(`
       }
 
       .title {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 700;
-        margin-bottom: 10px;
-        color: #f1f5f9;
+        color: #ffffff;
       }
 
       .subtitle {
-        font-size: 15px;
+        font-size: 14px;
         color: #94a3b8;
-        line-height: 1.5;
-      }
-
-      @media (max-width: 400px) {
-        .box {
-          padding: 36px 20px;
-        }
-        
-        .spinner {
-          width: 76px;
-          height: 76px;
-          border-width: 6px;
-        }
-
-        .title {
-          font-size: 18px;
-        }
-
-        .subtitle {
-          font-size: 14px;
-        }
       }
     </style>
   </head>
   <body>
-    <div class="box">
-      <div class="spinner"></div>
-      <div class="title">PDF wird generiert…</div>
-      <div class="subtitle">Einen Moment bitte…</div>
+    <div class="overlay">
+      <div class="content">
+        <div class="spinner"></div>
+        <div class="title">PDF wird generiert…</div>
+        <div class="subtitle">Einen Moment bitte…</div>
+      </div>
     </div>
   </body>
 </html>
 `)
 pdfTab.document.close()
+
+
 
   try {
     console.log('📄 Checking PDF status for document:', document.id)
@@ -1309,48 +1289,31 @@ const HardResetModal = () => {
   )
 }
 
- // ✅ UPDATED: VELIKI SPINNER za modal
-const PDFLoadingModal = () => {
-  if (!pdfLoading) return null
+  // ✅ DODAJ OVDE (pre QuotesList komponente):
+  const PDFLoadingModal = () => {
+    if (!pdfLoading) return null
 
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-xl p-8 max-w-sm shadow-2xl">
-        <div className="flex flex-col items-center gap-4">
-          {/* 🔥 VELIKI SPINNER - 96px desktop, 80px mobile */}
-          <div 
-            className="rounded-full"
-            style={{
-              width: '96px',
-              height: '96px',
-              border: '8px solid rgba(59, 130, 246, 0.2)',
-              borderTopColor: '#3b82f6',
-              borderRightColor: '#60a5fa',
-              animation: 'spin 0.8s linear infinite'
-            }}
-          ></div>
-          
-          <p className="text-white text-lg font-semibold">PDF wird generiert...</p>
-          <p className="text-slate-400 text-sm">Einen Moment bitte...</p>
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-slate-800 rounded-lg p-8 max-w-sm">
+          <div className="flex flex-col items-center gap-4">
+            <div 
+              className="w-16 h-16 border-4 border-slate-600 border-t-blue-500 rounded-full"
+              style={{ animation: 'spin 1s linear infinite' }}
+            ></div>
+        <p className="text-white text-lg font-semibold">PDF wird generiert...</p>
+        <p className="text-slate-400 text-sm">Einen Moment bitte...</p>
+          </div>
         </div>
-      </div>
-      
-      <style jsx>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
         
-        @media (max-width: 400px) {
-          .rounded-full {
-            width: 80px !important;
-            height: 80px !important;
-            border-width: 7px !important;
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
           }
-        }
-      `}</style>
-    </div>
-  )
-}
+        `}</style>
+      </div>
+    )
+  }
 
   const QuotesList = () => (
     <div className="space-y-4">
