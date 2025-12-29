@@ -285,13 +285,78 @@ function DashboardPageContent() {
     }
   }
 
-  // 📍 DODAJ POSLE loadInvoicesData funkcije (oko linije 230-250)
+ // 📍 ZAMENI CELOM OVOM FUNKCIJOM
 const handlePDFView = async (document) => {
   setPdfLoading(true)
-  
+
+  // ✅ Open tab immediately (prevents popup blocker)
+  const pdfTab = window.open('', '_blank')
+  if (!pdfTab) {
+    alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
+    setPdfLoading(false)
+    return
+  }
+
+ pdfTab.document.title = 'PDF wird generiert...'
+pdfTab.document.body.innerHTML = `
+  <html>
+    <head>
+      <title>PDF wird generiert...</title>
+      <style>
+        body {
+          margin: 0;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #0b1220;
+          font-family: Arial, sans-serif;
+          color: white;
+        }
+        .box {
+          background: #1e293b;
+          padding: 24px 28px;
+          border-radius: 12px;
+          text-align: center;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+        .spinner {
+          width: 48px;
+          height: 48px;
+          border: 4px solid rgba(255,255,255,0.2);
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 16px;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .title {
+          font-size: 16px;
+          font-weight: 600;
+          margin-bottom: 6px;
+        }
+        .subtitle {
+          font-size: 13px;
+          opacity: 0.8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <div class="spinner"></div>
+        <div class="title">PDF wird generiert…</div>
+        <div class="subtitle">Einen Moment bitte…</div>
+      </div>
+    </body>
+  </html>
+`
+
+
   try {
     console.log('📄 Checking PDF status for document:', document.id)
-    
+
     // 1️⃣ ALWAYS fetch FRESH data from database
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
@@ -305,22 +370,24 @@ const handlePDFView = async (document) => {
 
     // 2️⃣ Check if PDF is missing or outdated
     const pdfMissing = !invoice.pdf_storage_path || !invoice.pdf_generated_at
-    
+
     let pdfOutdated = false
     if (invoice.pdf_generated_at && invoice.updated_at) {
-      const pdfTimestamp = invoice.pdf_generated_at.endsWith('Z') || invoice.pdf_generated_at.includes('+') 
-        ? invoice.pdf_generated_at 
-        : invoice.pdf_generated_at + 'Z'
-      
-      const updateTimestamp = invoice.updated_at.endsWith('Z') || invoice.updated_at.includes('+')
-        ? invoice.updated_at
-        : invoice.updated_at + 'Z'
-      
+      const pdfTimestamp =
+        invoice.pdf_generated_at.endsWith('Z') || invoice.pdf_generated_at.includes('+')
+          ? invoice.pdf_generated_at
+          : invoice.pdf_generated_at + 'Z'
+
+      const updateTimestamp =
+        invoice.updated_at.endsWith('Z') || invoice.updated_at.includes('+')
+          ? invoice.updated_at
+          : invoice.updated_at + 'Z'
+
       const pdfDate = new Date(pdfTimestamp)
       const updateDate = new Date(updateTimestamp)
-      
+
       pdfOutdated = updateDate > pdfDate
-      
+
       console.log('🔍 PDF Status Check:', {
         pdf_generated_at: invoice.pdf_generated_at,
         updated_at: invoice.updated_at,
@@ -335,38 +402,35 @@ const handlePDFView = async (document) => {
       } else {
         console.log('⚠️ PDF outdated - regenerating now...')
       }
-      
-      // ✅ ČEKAJ DA API VRATI PDF (2-3s ili više)
+
       console.log('⏳ Generating PDF... (spinner visible)')
-      const regenResponse = await fetch(`/api/invoices/${document.id}/pdf?forceRegenerate=true`, {
-        method: 'GET',
-        headers: { 'Cache-Control': 'no-cache' }
-      })
-      
+      const regenResponse = await fetch(
+        `/api/invoices/${document.id}/pdf?forceRegenerate=true`,
+        {
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache' }
+        }
+      )
+
       if (!regenResponse.ok) {
         throw new Error('PDF generation failed')
       }
-      
-      // ✅ API je vratio PDF - koristi ga DIREKTNO (ne download-uj iz storage!)
+
       const pdfBlob = await regenResponse.blob()
       console.log('✅ Fresh PDF received from API, size:', pdfBlob.size, 'bytes')
-      
+
       const url = URL.createObjectURL(pdfBlob)
-      const newWindow = window.open(url, '_blank')
-      
-      if (newWindow) {
-        newWindow.onload = () => URL.revokeObjectURL(url)
-      } else {
-        URL.revokeObjectURL(url)
-        alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
-      }
-      
-      console.log('✅ Fresh PDF opened in new tab')
-      
+
+      // ✅ Load PDF into the already opened tab
+      pdfTab.location.href = url
+
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+
+      console.log('✅ Fresh PDF opened in reserved tab')
     } else {
       // 4️⃣ PDF is up-to-date - download from storage (FAST!)
       console.log('✅ PDF is up-to-date, downloading from storage:', invoice.pdf_storage_path)
-      
+
       const { data: pdfData, error: downloadError } = await supabase.storage
         .from('invoice-pdfs')
         .download(invoice.pdf_storage_path)
@@ -379,26 +443,26 @@ const handlePDFView = async (document) => {
 
       const blob = new Blob([pdfData], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
-      
-      const newWindow = window.open(url, '_blank')
-      
-      if (newWindow) {
-        newWindow.onload = () => URL.revokeObjectURL(url)
-      } else {
-        URL.revokeObjectURL(url)
-        alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
-      }
-      
-      console.log('✅ Cached PDF opened in new tab')
-    }
 
+      // ✅ Load PDF into the already opened tab
+      pdfTab.location.href = url
+
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+
+      console.log('✅ Cached PDF opened in reserved tab')
+    }
   } catch (error) {
     console.error('❌ PDF viewing error:', error)
+
+    pdfTab.document.body.innerHTML =
+      '<p style="font-family:Arial;padding:20px;color:red;">Fehler beim Laden der PDF.</p>'
+
     alert('Fehler beim Laden der PDF: ' + error.message)
   } finally {
     setPdfLoading(false)
   }
 }
+
 
   const buildQuoteInvoiceMap = (quotesData, invoicesData) => {
     const map = {}
