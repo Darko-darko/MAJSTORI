@@ -297,61 +297,83 @@ const handlePDFView = async (document) => {
     return
   }
 
- pdfTab.document.title = 'PDF wird generiert...'
+pdfTab.document.title = 'PDF wird generiert...'
 pdfTab.document.body.innerHTML = `
-  <html>
-    <head>
-      <title>PDF wird generiert...</title>
-      <style>
-        body {
-          margin: 0;
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #0b1220;
-          font-family: Arial, sans-serif;
-          color: white;
-        }
-        .box {
-          background: #1e293b;
-          padding: 24px 28px;
-          border-radius: 12px;
-          text-align: center;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-        }
-        .spinner {
-          width: 48px;
-          height: 48px;
-          border: 4px solid rgba(255,255,255,0.2);
-          border-top-color: #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 16px;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .title {
-          font-size: 16px;
-          font-weight: 600;
-          margin-bottom: 6px;
-        }
-        .subtitle {
-          font-size: 13px;
-          opacity: 0.8;
-        }
-      </style>
-    </head>
-    <body>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PDF wird generiert...</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #0b1220;
+        font-family: Arial, sans-serif;
+        color: white;
+      }
+
+      .screen {
+        min-height: 100vh;
+        min-height: 100svh; /* mobile browsers fix */
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+
+      .box {
+        width: 100%;
+        max-width: 360px;
+        background: #1e293b;
+        padding: 26px 22px;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+      }
+
+      .spinner {
+        width: 56px;
+        height: 56px;
+        border: 4px solid rgba(255,255,255,0.18);
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .subtitle {
+        font-size: 13px;
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="screen">
       <div class="box">
         <div class="spinner"></div>
         <div class="title">PDF wird generiert…</div>
         <div class="subtitle">Einen Moment bitte…</div>
       </div>
-    </body>
-  </html>
+    </div>
+  </body>
+</html>
 `
+
 
 
   try {
