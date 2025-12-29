@@ -310,8 +310,9 @@ pdfTab.document.write(`
         width: 100%;
         height: 100%;
         background: #0b1220;
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
         color: white;
+        -webkit-font-smoothing: antialiased;
       }
 
       .screen {
@@ -329,35 +330,82 @@ pdfTab.document.write(`
         width: 100%;
         max-width: 360px;
         background: #1e293b;
-        padding: 26px 22px;
-        border-radius: 16px;
+        padding: 32px 24px;
+        border-radius: 20px;
         text-align: center;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
       }
 
       .spinner {
-        width: 56px;
-        height: 56px;
-        border: 4px solid rgba(255,255,255,0.18);
+        width: 72px;
+        height: 72px;
+        border: 6px solid rgba(59, 130, 246, 0.15);
         border-top-color: #3b82f6;
+        border-right-color: #60a5fa;
         border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 16px;
+        animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        margin: 0 auto 24px;
+        filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.4));
+        position: relative;
       }
 
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
 
+      .spinner::before {
+        content: '';
+        position: absolute;
+        inset: -12px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; transform: scale(0.95); }
+        50% { opacity: 1; transform: scale(1.05); }
+      }
+
       .title {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 700;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
+        color: #f1f5f9;
+        letter-spacing: -0.01em;
       }
 
       .subtitle {
-        font-size: 13px;
-        opacity: 0.85;
+        font-size: 14px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 480px) {
+        .box {
+          padding: 36px 20px;
+        }
+        
+        .spinner {
+          width: 80px;
+          height: 80px;
+          border-width: 7px;
+        }
+
+        .title {
+          font-size: 19px;
+        }
+
+        .subtitle {
+          font-size: 15px;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .spinner {
+          width: 76px;
+          height: 76px;
+        }
       }
     </style>
   </head>
