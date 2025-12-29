@@ -296,9 +296,8 @@ const handlePDFView = async (document) => {
     setPdfLoading(false)
     return
   }
-
-pdfTab.document.title = 'PDF wird generiert...'
-pdfTab.document.body.innerHTML = `
+pdfTab.document.open()
+pdfTab.document.write(`
 <!DOCTYPE html>
 <html>
   <head>
@@ -317,7 +316,7 @@ pdfTab.document.body.innerHTML = `
 
       .screen {
         min-height: 100vh;
-        min-height: 100svh; /* mobile browsers fix */
+        min-height: 100svh;
         width: 100vw;
         display: flex;
         align-items: center;
@@ -372,7 +371,9 @@ pdfTab.document.body.innerHTML = `
     </div>
   </body>
 </html>
-`
+`)
+pdfTab.document.close()
+
 
 
 
