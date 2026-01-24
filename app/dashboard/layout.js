@@ -399,40 +399,7 @@ useEffect(() => {
       }
     }
     
-    let isInTrial = false
-    let trialDaysLeft = 0
-    
-    if (subscription.trial_ends_at) {
-      const trialEnd = new Date(subscription.trial_ends_at)
-      if (trialEnd > now) {
-        isInTrial = true
-        trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-      }
-    } else if (subscription.trial_starts_at) {
-      const trialStart = new Date(subscription.trial_starts_at)
-      const estimatedTrialEnd = new Date(trialStart)
-      estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-      
-      if (estimatedTrialEnd > now) {
-        isInTrial = true
-        trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-      }
-    } else if (subscription.status === 'active' || subscription.status === 'trial') {
-      const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-      if (hoursSinceCreation < 48 && daysLeft <= 1) {
-        isInTrial = true
-        trialDaysLeft = daysLeft
-      }
-    }
-    
-    if (isInTrial && trialDaysLeft > 0) {
-      return {
-        text: `PRO(${formatDays(trialDaysLeft)})`,
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500',
-        multiline: true
-      }
-    }
-    
+    // ✅ FIX: Check status FIRST
     if (subscription.status === 'active') {
       return {
         text: 'PRO',
@@ -440,12 +407,35 @@ useEffect(() => {
       }
     }
     
-    // Fallback
-    return {
-      text: 'Upgrade',
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-    }
-  }
+    // ✅ Trial logic - ONLY if status='trial'
+    if (subscription.status === 'trial') {
+      let trialDaysLeft = 0
+      
+      if (subscription.trial_ends_at) {
+        const trialEnd = new Date(subscription.trial_ends_at)
+        if (trialEnd > now) {
+          trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+        }
+      } else if (subscription.trial_starts_at) {
+        const trialStart = new Date(subscription.trial_starts_at)
+        const estimatedTrialEnd = new Date(trialStart)
+        estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+        
+        if (estimatedTrialEnd > now) {
+          trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+        }
+      } else {
+        trialDaysLeft = daysLeft
+      }
+      
+      if (trialDaysLeft > 0) {
+        return {
+          text: `PRO(${formatDays(trialDaysLeft)})`,
+          color: 'bg-gradient-to-r from-green-500 to-emerald-500',
+          multiline: true
+        }
+      }
+    }}
 
 // app/dashboard/layout.js - FINALNI SA ISPRAVNIM REDOM I ORIGINAL FONT SIZE
 // Samo izmeni getNavigation() i NavigationItem
@@ -870,34 +860,35 @@ const NavigationItem = ({ item, isMobile = false }) => {
                         return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
                       }
                       
-                      let isInTrial = false
-                      let trialDaysLeft = 0
-                      
-                      if (subscription.trial_ends_at) {
-                        const trialEnd = new Date(subscription.trial_ends_at)
-                        if (trialEnd > now) {
-                          isInTrial = true
-                          trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-                        }
-                      } else if (subscription.trial_starts_at) {
-                        const trialStart = new Date(subscription.trial_starts_at)
-                        const estimatedTrialEnd = new Date(trialStart)
-                        estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-                        
-                        if (estimatedTrialEnd > now) {
-                          isInTrial = true
-                          trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-                        }
-                      } else if (subscription.status === 'active') {
-                        const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-                        if (hoursSinceCreation < 48 && daysLeft <= 1) {
-                          isInTrial = true
-                          trialDaysLeft = daysLeft
-                        }
+                    // ✅ FIX: Check status FIRST
+                      if (subscription.status === 'active') {
+                        return <span className="text-green-300">💎 PRO Mitglied</span>
                       }
                       
-                      if (isInTrial && trialDaysLeft > 0) {
-                        return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                      // ✅ Trial logic - ONLY if status='trial'
+                      if (subscription.status === 'trial') {
+                        let trialDaysLeft = 0
+                        
+                        if (subscription.trial_ends_at) {
+                          const trialEnd = new Date(subscription.trial_ends_at)
+                          if (trialEnd > now) {
+                            trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+                          }
+                        } else if (subscription.trial_starts_at) {
+                          const trialStart = new Date(subscription.trial_starts_at)
+                          const estimatedTrialEnd = new Date(trialStart)
+                          estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+                          
+                          if (estimatedTrialEnd > now) {
+                            trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+                          }
+                        } else {
+                          trialDaysLeft = daysLeft
+                        }
+                        
+                        if (trialDaysLeft > 0) {
+                          return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                        }
                       }
                       
                       if (subscription.status === 'active') {
@@ -994,34 +985,35 @@ const NavigationItem = ({ item, isMobile = false }) => {
                         return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
                       }
                       
-                      let isInTrial = false
-                      let trialDaysLeft = 0
-                      
-                      if (subscription.trial_ends_at) {
-                        const trialEnd = new Date(subscription.trial_ends_at)
-                        if (trialEnd > now) {
-                          isInTrial = true
-                          trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-                        }
-                      } else if (subscription.trial_starts_at) {
-                        const trialStart = new Date(subscription.trial_starts_at)
-                        const estimatedTrialEnd = new Date(trialStart)
-                        estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-                        
-                        if (estimatedTrialEnd > now) {
-                          isInTrial = true
-                          trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-                        }
-                      } else if (subscription.status === 'active') {
-                        const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60)
-                        if (hoursSinceCreation < 48 && daysLeft <= 1) {
-                          isInTrial = true
-                          trialDaysLeft = daysLeft
-                        }
+                   // ✅ FIX: Check status FIRST
+                      if (subscription.status === 'active') {
+                        return <span className="text-green-300">💎 PRO Mitglied</span>
                       }
                       
-                      if (isInTrial && trialDaysLeft > 0) {
-                        return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                      // ✅ Trial logic - ONLY if status='trial'
+                      if (subscription.status === 'trial') {
+                        let trialDaysLeft = 0
+                        
+                        if (subscription.trial_ends_at) {
+                          const trialEnd = new Date(subscription.trial_ends_at)
+                          if (trialEnd > now) {
+                            trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+                          }
+                        } else if (subscription.trial_starts_at) {
+                          const trialStart = new Date(subscription.trial_starts_at)
+                          const estimatedTrialEnd = new Date(trialStart)
+                          estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
+                          
+                          if (estimatedTrialEnd > now) {
+                            trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
+                          }
+                        } else {
+                          trialDaysLeft = daysLeft
+                        }
+                        
+                        if (trialDaysLeft > 0) {
+                          return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
+                        }
                       }
                       
                       if (subscription.status === 'active') {
