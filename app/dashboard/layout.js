@@ -321,121 +321,69 @@ useEffect(() => {
   }
 
   // 🔥 FIXED: Badge logic sa boljom race condition zaštitom
-  const getSubscriptionBadge = () => {
-    // 1️⃣ Ako hook još uvek učitava → prikaži loading
-    if (subscriptionLoading) {
-      return {
-        text: '...',
-        color: 'bg-gradient-to-r from-slate-500 to-slate-600'
-      }
-    }
-    if (subscription?.cancel_at_period_end === true) {
+const getSubscriptionBadge = () => {
+  // 1) loading
+  if (subscriptionLoading) {
+    return { text: '...', color: 'bg-gradient-to-r from-slate-500 to-slate-600' }
+  }
+
+  // 2) hook još nije inicijalizovan
+  if (majstor?.id && !subscription && !plan) {
+    return { text: '...', color: 'bg-gradient-to-r from-slate-500 to-slate-600' }
+  }
+
+  // 3) nema subscription => upgrade
+  if (!subscription) {
+    return { text: 'Upgrade', color: 'bg-gradient-to-r from-yellow-500 to-orange-500' }
+  }
+
+  const now = new Date()
+  const periodEnd = new Date(subscription.current_period_end)
+  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
+  const formatDays = (days) => (days === 1 ? '1 Tag' : `${days} Tage`)
+
+  // expired period => upgrade
+  if (periodEnd <= now) {
+    return { text: 'Upgrade', color: 'bg-gradient-to-r from-yellow-500 to-orange-500' }
+  }
+
+  // ✅ CANCELLED / otkazano: Gekündigt + dani do isteka perioda
+  if (subscription.cancel_at_period_end === true || subscription.status === 'cancelled' || subscription.cancelled_at) {
     return {
-      text: 'Gekündigt',
-      color: 'bg-gradient-to-r from-orange-500 to-red-500'
+      text: `Gekündigt (${formatDays(daysLeft)})`,
+      color: 'bg-gradient-to-r from-orange-500 to-red-500',
+      multiline: true
     }
   }
-    // Grace period: Trial završio ali još nije active
-  if (subscription?.status === 'trial' && subscription?.trial_ends_at) {
-    const now = new Date()
-    const trialEnd = new Date(subscription.trial_ends_at)
-    if (now > trialEnd) {
-      return { 
-        text: 'Upgrading...', 
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500 animate-pulse' 
+
+  // ✅ ACTIVE: samo PRO (bez dana)
+  if (subscription.status === 'active') {
+    return { text: 'PRO', color: 'bg-gradient-to-r from-green-500 to-emerald-500' }
+  }
+
+  // ✅ TRIAL: samo kad je status trial
+  if (subscription.status === 'trial') {
+    const trialEnd = subscription.trial_ends_at ? new Date(subscription.trial_ends_at) : periodEnd
+    const trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
+
+    // trial istekao, čeka se webhook
+    if (trialEnd <= now) {
+      return {
+        text: 'Aktivierung...',
+        color: 'bg-gradient-to-r from-yellow-500 to-orange-500 animate-pulse'
       }
+    }
+
+    return {
+      text: `PRO(${formatDays(trialDaysLeft)})`,
+      color: 'bg-gradient-to-r from-yellow-500 to-orange-500',
+      multiline: true
     }
   }
-    // 2️⃣ Ako hook nije učitan ali majstor postoji → prikaži loading
-    // ⚠️ VAŽNO: Proveri da li BILO subscription ILI plan postoji
-    //    Ako nijedno ne postoji, hook se još učitava!
-    if (majstor?.id && !subscription && !plan) {
-      console.log('🔄 Badge: Hook not initialized yet, showing loading...')
-      return {
-        text: '...',
-        color: 'bg-gradient-to-r from-slate-500 to-slate-600'
-      }
-    }
-    
-    // 3️⃣ Ako nema subscription ALI ima plan → proveri plan
-    if (!subscription) {
-      // Ako je plan freemium → "Upgrade"
-      if (plan?.name === 'freemium') {
-        return {
-          text: 'Upgrade',
-          color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-        }
-      }
-      
-      // Ako nema ni subscription ni plan (fallback) → "Upgrade"
-      if (!plan) {
-        return {
-          text: 'Upgrade',
-          color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-        }
-      }
-    }
-    
-    // 4️⃣ Normalna logika za subscription koji postoji
-    const now = new Date()
-    const periodEnd = new Date(subscription.current_period_end)
-    const createdAt = new Date(subscription.created_at)
-    const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-    
-    if (periodEnd <= now) {
-      return {
-        text: 'Upgrade',
-        color: 'bg-gradient-to-r from-yellow-500 to-orange-500'
-      }
-    }
-    
-    const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-    
-    if (subscription.cancelled_at) {
-      return {
-        text: `PRO(${formatDays(daysLeft)})`,
-        color: 'bg-gradient-to-r from-orange-500 to-red-500',
-        multiline: true
-      }
-    }
-    
-    // ✅ FIX: Check status FIRST
-    if (subscription.status === 'active') {
-      return {
-        text: 'PRO',
-        color: 'bg-gradient-to-r from-green-500 to-emerald-500'
-      }
-    }
-    
-    // ✅ Trial logic - ONLY if status='trial'
-    if (subscription.status === 'trial') {
-      let trialDaysLeft = 0
-      
-      if (subscription.trial_ends_at) {
-        const trialEnd = new Date(subscription.trial_ends_at)
-        if (trialEnd > now) {
-          trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-        }
-      } else if (subscription.trial_starts_at) {
-        const trialStart = new Date(subscription.trial_starts_at)
-        const estimatedTrialEnd = new Date(trialStart)
-        estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-        
-        if (estimatedTrialEnd > now) {
-          trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-        }
-      } else {
-        trialDaysLeft = daysLeft
-      }
-      
-      if (trialDaysLeft > 0) {
-        return {
-          text: `PRO(${formatDays(trialDaysLeft)})`,
-          color: 'bg-gradient-to-r from-green-500 to-emerald-500',
-          multiline: true
-        }
-      }
-    }}
+
+  // fallback
+  return { text: 'Upgrade', color: 'bg-gradient-to-r from-yellow-500 to-orange-500' }
+}
 
 // app/dashboard/layout.js - FINALNI SA ISPRAVNIM REDOM I ORIGINAL FONT SIZE
 // Samo izmeni getNavigation() i NavigationItem
@@ -839,64 +787,33 @@ const NavigationItem = ({ item, isMobile = false }) => {
               {subscription && (
                 <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
                   <p className="text-xs font-medium leading-tight whitespace-pre-line">
-                   {(() => {
-  const now = new Date()
-  const periodEnd = new Date(subscription.current_period_end)
-  const createdAt = new Date(subscription.created_at)
-  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-  const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-  
-  // 🔥 Grace period check
-  if (subscription.status === 'trial' && subscription.trial_ends_at) {
-    const trialEnd = new Date(subscription.trial_ends_at)
-    if (now > trialEnd) return <span className="text-yellow-300 animate-pulse">⏳ Aktivierung...</span>
-  }
-  
-  if (periodEnd <= now) {
-    return <span className="text-slate-300">📋 Freemium</span>
-  }
-                      
-                      if (subscription.cancelled_at) {
-                        return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
-                      }
-                      
-                    // ✅ FIX: Check status FIRST
-                      if (subscription.status === 'active') {
-                        return <span className="text-green-300">💎 PRO Mitglied</span>
-                      }
-                      
-                      // ✅ Trial logic - ONLY if status='trial'
-                      if (subscription.status === 'trial') {
-                        let trialDaysLeft = 0
-                        
-                        if (subscription.trial_ends_at) {
-                          const trialEnd = new Date(subscription.trial_ends_at)
-                          if (trialEnd > now) {
-                            trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-                          }
-                        } else if (subscription.trial_starts_at) {
-                          const trialStart = new Date(subscription.trial_starts_at)
-                          const estimatedTrialEnd = new Date(trialStart)
-                          estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-                          
-                          if (estimatedTrialEnd > now) {
-                            trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-                          }
-                        } else {
-                          trialDaysLeft = daysLeft
-                        }
-                        
-                        if (trialDaysLeft > 0) {
-                          return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
-                        }
-                      }
-                      
-                      if (subscription.status === 'active') {
-                        return <span className="text-green-300">💎 PRO Mitglied</span>
-                      }
-                      
-                      return <span className="text-slate-300">📋 Freemium</span>
-                    })()}
+                  {(() => {
+  const badge = getSubscriptionBadge()
+
+  // 1) Ikonica po tipu
+  const icon =
+    badge.text.startsWith('Upgrade') ? '📋' :
+    badge.text.startsWith('Gekündigt') ? '⏰' :
+    badge.text.startsWith('Aktivierung') ? '⏳' :
+    badge.text.startsWith('PRO(') ? '💎' :
+    badge.text === 'PRO' ? '💎' :
+    badge.text === '...' ? '⏳' :
+    '💎'
+
+  // 2) Boja teksta (jednostavno i stabilno)
+  const colorClass =
+    badge.color.includes('from-green') ? 'text-green-300' :
+    badge.color.includes('from-orange') ? 'text-orange-300' :
+    badge.color.includes('from-yellow') ? 'text-yellow-300' :
+    badge.color.includes('from-slate') ? 'text-slate-300' :
+    'text-slate-300'
+
+  // 3) Tekst u sidebaru: za "PRO" prikaži "PRO Mitglied"
+  const text = badge.text === 'PRO' ? 'PRO Mitglied' : badge.text
+
+  return <span className={colorClass}>{icon} {text}</span>
+})()}
+
                   </p>
                 </div>
               )}
@@ -965,63 +882,32 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
                   <p className="text-xs font-medium leading-tight whitespace-pre-line">
                     {(() => {
-  const now = new Date()
-  const periodEnd = new Date(subscription.current_period_end)
-  const createdAt = new Date(subscription.created_at)
-  const daysLeft = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24))
-  const formatDays = (days) => days === 1 ? '1 Tag' : `${days} Tage`
-  
-  // 🔥 Grace period check
-  if (subscription.status === 'trial' && subscription.trial_ends_at) {
-    const trialEnd = new Date(subscription.trial_ends_at)
-    if (now > trialEnd) return <span className="text-yellow-300 animate-pulse">⏳ Aktivierung...</span>
-  }
-  
-  if (periodEnd <= now) {
-    return <span className="text-slate-300">📋 Freemium</span>
-  }
-                      
-                      if (subscription.cancelled_at) {
-                        return <span className="text-orange-300">⏰ PRO({formatDays(daysLeft)})</span>
-                      }
-                      
-                   // ✅ FIX: Check status FIRST
-                      if (subscription.status === 'active') {
-                        return <span className="text-green-300">💎 PRO Mitglied</span>
-                      }
-                      
-                      // ✅ Trial logic - ONLY if status='trial'
-                      if (subscription.status === 'trial') {
-                        let trialDaysLeft = 0
-                        
-                        if (subscription.trial_ends_at) {
-                          const trialEnd = new Date(subscription.trial_ends_at)
-                          if (trialEnd > now) {
-                            trialDaysLeft = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24))
-                          }
-                        } else if (subscription.trial_starts_at) {
-                          const trialStart = new Date(subscription.trial_starts_at)
-                          const estimatedTrialEnd = new Date(trialStart)
-                          estimatedTrialEnd.setDate(estimatedTrialEnd.getDate() + 1)
-                          
-                          if (estimatedTrialEnd > now) {
-                            trialDaysLeft = Math.ceil((estimatedTrialEnd - now) / (1000 * 60 * 60 * 24))
-                          }
-                        } else {
-                          trialDaysLeft = daysLeft
-                        }
-                        
-                        if (trialDaysLeft > 0) {
-                          return <span className="text-green-300">💎 PRO({formatDays(trialDaysLeft)})</span>
-                        }
-                      }
-                      
-                      if (subscription.status === 'active') {
-                        return <span className="text-green-300">💎 PRO Mitglied</span>
-                      }
-                      
-                      return <span className="text-slate-300">📋 Freemium</span>
-                    })()}
+  const badge = getSubscriptionBadge()
+
+  // 1) Ikonica po tipu
+  const icon =
+    badge.text.startsWith('Upgrade') ? '📋' :
+    badge.text.startsWith('Gekündigt') ? '⏰' :
+    badge.text.startsWith('Aktivierung') ? '⏳' :
+    badge.text.startsWith('PRO(') ? '💎' :
+    badge.text === 'PRO' ? '💎' :
+    badge.text === '...' ? '⏳' :
+    '💎'
+
+  // 2) Boja teksta (jednostavno i stabilno)
+  const colorClass =
+    badge.color.includes('from-green') ? 'text-green-300' :
+    badge.color.includes('from-orange') ? 'text-orange-300' :
+    badge.color.includes('from-yellow') ? 'text-yellow-300' :
+    badge.color.includes('from-slate') ? 'text-slate-300' :
+    'text-slate-300'
+
+  // 3) Tekst u sidebaru: za "PRO" prikaži "PRO Mitglied"
+  const text = badge.text === 'PRO' ? 'PRO Mitglied' : badge.text
+
+  return <span className={colorClass}>{icon} {text}</span>
+})()}
+
                   </p>
                 </div>
               )}
