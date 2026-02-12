@@ -51,9 +51,12 @@ export default function Home() {
           </h1>
 
           {/* Subheadline */}
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 mb-8 sm:mb-10 md:mb-12 max-w-3xl mx-auto leading-relaxed px-2">
-            ZUGFeRD-Rechnungen in Sekunden erstellen. Mit QR-Visitenkarte, automatischer Nummerierung und direktem E-Mail-Versand.
-          </p>
+         <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 mb-8 sm:mb-10 md:mb-12 max-w-3xl mx-auto leading-relaxed px-2">
+  ZUGFeRD-Rechnungen in Sekunden erstellen. Mit QR-Visitenkarte, automatischer Nummerierung und direktem E-Mail-Versand.
+  <br />
+  ZUGFeRD 2.1 (EN 16931) – Rechnungen können in DATEV importiert werden.
+</p>
+
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-10 sm:mb-12 md:mb-16 px-2">
@@ -559,8 +562,13 @@ export default function Home() {
           </div>
           
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; {new Date().getFullYear()} pro-meister.de - ZUGFeRD 2.1 Rechnungslösung für Handwerker</p>
-          </div>
+  <p>&copy; {new Date().getFullYear()} pro-meister.de - ZUGFeRD 2.1 Rechnungslösung für Handwerker</p>
+  
+  <p className="text-xs opacity-60 mt-2">
+    DATEV ist eine eingetragene Marke der DATEV eG. Wir stehen in keiner geschäftlichen Verbindung zu DATEV.
+  </p>
+</div>
+
         </div>
       </footer>
     </div>
