@@ -244,56 +244,7 @@ export default function ChoosePlanPage() {
         {/* Main Plan Cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
           
-          {/* 📋 FREEMIUM */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-slate-700 rounded-2xl p-8 hover:border-slate-600 transition-all duration-300">
-            <div className="text-center mb-6">
-              <div className={`w-20 h-20 bg-gradient-to-br ${pricing.freemium.color} rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg`}>
-                <span className="text-4xl">{pricing.freemium.icon}</span>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">{pricing.freemium.name}</h3>
-              <p className="text-slate-300">Grundfunktionen kostenlos</p>
-            </div>
-
-            <div className="text-center mb-8">
-              <div className="text-5xl font-bold text-white mb-2">0€</div>
-              <div className="text-slate-400">für immer</div>
-            </div>
-
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>QR Visitenkarte</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>Kundenanfragen</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <span className="text-slate-600">❌</span>
-                <span>Kundenverwaltung</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <span className="text-slate-600">❌</span>
-                <span>Rechnungen</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleFreemiumSelect}
-              disabled={loading}
-              className="w-full bg-slate-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-lg"
-            >
-              {loading ? 'Wird eingerichtet...' : '📋 Freemium starten'}
-            </button>
-
-            <div className="text-xs text-slate-500 text-center mt-4 space-y-1">
-              <p>✓ Für immer kostenlos</p>
-              <p>✓ Keine Kreditkarte</p>
-              <p>✓ Upgrade jederzeit</p>
-            </div>
-          </div>
-
-          {/* 💎 PRO - EMPFOHLEN */}
+                    {/* 💎 PRO - EMPFOHLEN */}
           <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500 rounded-2xl p-8 hover:border-blue-400 transition-all duration-300 relative scale-105 shadow-2xl">
             
             {/* Badge */}
@@ -383,7 +334,7 @@ export default function ChoosePlanPage() {
               disabled={loading || !fastspringReady}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 shadow-xl"
             >
-              {loading ? 'Wird geladen...' : !fastspringReady ? 'Laden...' : '🚀 Jetzt starten'}
+              {loading ? 'Wird geladen...' : !fastspringReady ? 'Laden...' : '🚀 Jetzt PRO freischalten'}
             </button>
 
             <div className="text-xs text-slate-400 text-center mt-4 space-y-1">
@@ -392,6 +343,57 @@ export default function ChoosePlanPage() {
               <p>✓ 30 Tage Kündigungsfrist</p>
             </div>
           </div>
+
+          {/* 📋 FREEMIUM */}
+          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-slate-700 rounded-2xl p-8 hover:border-slate-600 transition-all duration-300">
+            <div className="text-center mb-6">
+              <div className={`w-20 h-20 bg-gradient-to-br ${pricing.freemium.color} rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg`}>
+                <span className="text-4xl">{pricing.freemium.icon}</span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">{pricing.freemium.name}</h3>
+              <p className="text-slate-300">Grundfunktionen kostenlos</p>
+            </div>
+
+            <div className="text-center mb-8">
+              <div className="text-5xl font-bold text-white mb-2">0€</div>
+              <div className="text-slate-400">für immer</div>
+            </div>
+
+            <div className="space-y-3 mb-8">
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <span className="text-green-400">✅</span>
+                <span>QR Visitenkarte</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-300">
+                <span className="text-green-400">✅</span>
+                <span>Kundenanfragen</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <span className="text-slate-600">❌</span>
+                <span>Kundenverwaltung</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <span className="text-slate-600">❌</span>
+                <span>Rechnungen</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleFreemiumSelect}
+              disabled={loading}
+              className="w-full bg-slate-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-lg"
+            >
+              {loading ? 'Wird eingerichtet...' : 'Nur QR-Visitenkarte nutzen'}
+            </button>
+
+            <div className="text-xs text-slate-500 text-center mt-4 space-y-1">
+              <p>✓ Für immer kostenlos</p>
+              <p>✓ Keine Kreditkarte</p>
+              <p>✓ Upgrade jederzeit</p>
+            </div>
+          </div>
+
+
 
           {/* 🚀 PRO+ - USKORO */}
           <div className="bg-slate-800/30 backdrop-blur-sm border-2 border-slate-700 rounded-2xl p-8 relative opacity-75">
