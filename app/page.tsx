@@ -236,47 +236,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Freemium Plan */}
-            <div className="bg-slate-800/50 border border-slate-600 rounded-2xl p-8">
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-white mb-4">FREEMIUM</h3>
-                <div className="flex items-baseline justify-center gap-2 mb-6">
-                  <span className="text-4xl font-bold text-white">0€</span>
-                  <span className="text-slate-400">/für immer</span>
-                </div>
-                <p className="text-slate-300">
-                  Digitale Visitenkarte für immer kostenlos
-                </p>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                  <span className="text-slate-300">QR-Visitenkarte</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                  <span className="text-slate-300">Kundenanfragen empfangen</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                  <span className="text-slate-300">Basis-Profil</span>
-                </div>
-              </div>
-
-              <a
-                href="/signup"
-                className="w-full bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg font-bold transition-colors block text-center"
-              >
-                Kostenlos starten
-              </a>
-            </div>
+         
 
             {/* PRO Plan */}
             <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-2 border-blue-500/50 rounded-2xl p-8 relative transform scale-105">
@@ -345,7 +305,48 @@ export default function Home() {
                 30 Tage kostenlos testen
               </a>
             </div>
+   {/* Freemium Plan */}
+            <div className="bg-slate-800/50 border border-slate-600 rounded-2xl p-8">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-white mb-4">FREEMIUM</h3>
+                <div className="flex items-baseline justify-center gap-2 mb-6">
+                  <span className="text-4xl font-bold text-white">0€</span>
+                  <span className="text-slate-400">/für immer</span>
+                </div>
+                <p className="text-slate-300">
+                  Digitale Visitenkarte für immer kostenlos
+                </p>
+              </div>
 
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-slate-300">QR-Visitenkarte</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-slate-300">Kundenanfragen empfangen</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-slate-300">Basis-Profil</span>
+                </div>
+              </div>
+
+              <a
+                href="/signup"
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg font-bold transition-colors block text-center"
+              >
+               Nur QR-Visitenkarte nutzen
+              </a>
+            </div>
+            
             {/* PRO+ Plan */}
             <div className="bg-slate-800/30 border border-slate-600/50 rounded-2xl p-8 opacity-75 relative">
   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
