@@ -1,4 +1,6 @@
 // app/privacy/page.js — Finalna pravna verzija (DE, 2025) sa FastSpring
+import { CookieSettingsButton } from '@/app/components/CookieConsentBanner'
+
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-slate-900 py-12 px-4">
@@ -133,12 +135,37 @@ export default function PrivacyPolicy() {
 
             {/* 8. Cookies */}
             <section>
-              <h2 className="text-xl font-semibold text-white mb-4">8. Cookies und vergleichbare Technologien</h2>
+              <h2 className="text-xl font-semibold text-white mb-4">8. Cookies und Tracking-Technologien</h2>
+
+              <h3 className="text-white font-semibold mb-2">8.1 Technisch notwendige Cookies</h3>
               <p>
-                Es werden ausschließlich technisch notwendige Cookies eingesetzt (Sitzung, Sicherheit, Sprache).
+                Für den Betrieb der Plattform setzen wir technisch notwendige Cookies ein (Sitzung, Sicherheit).
                 Für diese ist gemäß § 25 Abs. 2 Nr. 2 TTDSG keine Einwilligung erforderlich.
-                Tracking- oder Marketing-Cookies werden nicht verwendet.
               </p>
+
+              <h3 className="text-white font-semibold mb-2 mt-4">8.2 Optionale Cookies (nur mit Ihrer Einwilligung)</h3>
+              <p>
+                Mit Ihrer Einwilligung setzen wir folgende optionale Dienste ein:
+              </p>
+              <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mt-3">
+                <p className="text-white font-medium">Google Ads Conversion Tracking</p>
+                <p className="text-sm mt-2">
+                  <strong className="text-white">Anbieter:</strong> Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland.<br/>
+                  <strong className="text-white">Zweck:</strong> Messung der Wirksamkeit unserer Google-Werbekampagnen (Conversion-Tracking).<br/>
+                  <strong className="text-white">Speicherdauer:</strong> bis zu 90 Tage.<br/>
+                  <strong className="text-white">Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung).<br/>
+                  <strong className="text-white">Drittlandübermittlung:</strong> Google LLC, USA – auf Basis von Standardvertragsklauseln (Art. 46 DSGVO).<br/>
+                  <strong className="text-white">Datenschutz Google:</strong>{' '}
+                  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer"
+                     className="text-blue-400 hover:text-blue-300">policies.google.com/privacy</a>
+                </p>
+              </div>
+
+              <p className="mt-4">
+                Sie können Ihre Einwilligung jederzeit widerrufen. Der Widerruf berührt nicht die
+                Rechtmäßigkeit der bis dahin erfolgten Verarbeitung (Art. 7 Abs. 3 DSGVO).
+              </p>
+              <CookieSettingsButton />
             </section>
 
             {/* 9. Kontakt */}
@@ -159,6 +186,7 @@ export default function PrivacyPolicy() {
               <ul className="list-disc ml-6 space-y-2">
                 <li><strong className="text-white">FastSpring:</strong> Zahlungsabwicklung (Reseller of Record)</li>
                 <li><strong className="text-white">Supabase:</strong> Hosting innerhalb der EU (DPA vorhanden)</li>
+                <li><strong className="text-white">Google Ireland Limited:</strong> Conversion-Tracking (nur mit Ihrer Einwilligung, Art. 6 Abs. 1 lit. a DSGVO)</li>
                 <li><strong className="text-white">Gesetzliche Verpflichtungen:</strong> nur bei rechtlicher Pflicht</li>
               </ul>
               <p className="mt-3 text-sm bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-200">
@@ -247,7 +275,7 @@ export default function PrivacyPolicy() {
             <div className="mt-8 pt-6 border-t border-slate-700">
               <p className="text-sm text-slate-400">
                 <strong className="text-white">Stand:</strong> {new Date().toLocaleDateString('de-DE')}<br/>
-                <strong className="text-white">Version:</strong> 2.2<br/>
+                <strong className="text-white">Version:</strong> 2.3<br/>
                 Pro-meister.de – Digitale Lösungen für Handwerker
               </p>
             </div>

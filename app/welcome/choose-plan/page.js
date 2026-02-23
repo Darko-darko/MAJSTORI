@@ -49,9 +49,34 @@ export default function ChoosePlanPage() {
     }
   }
 
+  // Google Ads conversion — okida se jednom pri dolasku na stranicu
+  useEffect(() => {
+    try {
+      // Provera 1: postoji li sačuvan consent?
+      const match = document.cookie.match(/(^|; )cookie_consent=([^;]*)/)
+      if (!match) return
+      const consent = JSON.parse(decodeURIComponent(match[2]))
+
+      // Provera 2: korisnik je eksplicitno dao ads consent?
+      if (!consent.ads) return
+
+      // Provera 3: fire-once po sesiji
+      if (sessionStorage.getItem('ads_conv_choose_plan')) return
+
+      // Provera 4: gtag definisan (guard — ne baca grešku ako nije)
+      if (typeof window.gtag !== 'function') return
+
+      // ⚠️ ZAMENI: AW-XXXXXXXXXX/YYYYYYYYYY → tvoj Google Ads Conversion ID / Label
+      window.gtag('event', 'conversion', { send_to: 'AW-XXXXXXXXXX/YYYYYYYYYY' })
+      sessionStorage.setItem('ads_conv_choose_plan', '1')
+    } catch {
+      // Silent fail — nikad ne sme da polomi stranicu
+    }
+  }, [])
+
   useEffect(() => {
     loadUserData()
-    
+
     // Initialize FastSpring
     initializeFastSpring(
       (fastspring) => {

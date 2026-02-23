@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
+import CookieConsentBanner from "./components/CookieConsentBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -85,10 +87,51 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de">
+      <head>
+        {/*
+          KORAK 1 — Consent defaults — mora biti PRVI u <head>, pre gtag.js.
+          Sve kategorije DENIED po defaultu — GDPR / TTDSG compliant.
+        */}
+        <Script id="google-consent-init" strategy="beforeInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('consent', 'default', {
+            analytics_storage:  'denied',
+            ad_storage:         'denied',
+            ad_user_data:       'denied',
+            ad_personalization: 'denied',
+            wait_for_update:    500
+          });
+        `}</Script>
+
+        {/*
+          KORAK 2 — Učitaj gtag.js (async, afterInteractive).
+          Vidi 'denied' u dataLayer-u → ne šalje podatke.
+          ⚠️ ZAMENI: AW-XXXXXXXXXX → tvoj Google Ads Conversion ID
+        */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=AW-XXXXXXXXXX"
+          strategy="afterInteractive"
+        />
+
+        {/*
+          KORAK 3 — Konfiguriši tag (afterInteractive).
+          Pozivi se queue-uju u dataLayer; gtag.js ih obradi kad se učita.
+          ⚠️ ZAMENI: AW-XXXXXXXXXX → tvoj Google Ads Conversion ID
+        */}
+        <Script id="google-gtag-config" strategy="afterInteractive">{`
+          gtag('js', new Date());
+          gtag('config', 'AW-XXXXXXXXXX');
+        `}</Script>
+      </head>
+
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+
+        {/* KORAK 4 — Banner; applyConsent() poziva gtag('consent','update',...) */}
+        <CookieConsentBanner />
       </body>
     </html>
   );
