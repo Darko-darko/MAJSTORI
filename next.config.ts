@@ -14,18 +14,18 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // ✅ SCRIPTS: Cloudflare Turnstile + Paddle + FastSpring
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://d1f8f9xcsvx3ha.cloudfront.net https://*.onfastspring.com",
+              // ✅ SCRIPTS: Cloudflare Turnstile + Paddle + FastSpring + Google Ads
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://d1f8f9xcsvx3ha.cloudfront.net https://*.onfastspring.com https://www.googletagmanager.com",
               // ✅ STYLES: Paddle + FastSpring
               "style-src 'self' 'unsafe-inline' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://*.onfastspring.com",
               // ✅ IMAGES: Allow all HTTPS (za FastSpring product images)
               "img-src 'self' data: https: blob:",
               // ✅ FONTS: Paddle + FastSpring
               "font-src 'self' data: https://cdn.paddle.com https://sandbox-cdn.paddle.com https://*.onfastspring.com",
-              // ✅ CONNECT: Cloudflare + Supabase + Paddle + FastSpring API
-              "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co wss://*.supabase.co https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout-service.paddle.com https://checkout-service.paddle.com https://api.fastspring.com https://*.onfastspring.com",
-              // ✅ FRAMES: Cloudflare + Paddle + FastSpring Popup
-              "frame-src 'self' https://challenges.cloudflare.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com https://*.onfastspring.com",
+              // ✅ CONNECT: Cloudflare + Supabase + Paddle + FastSpring API + Google Ads
+              "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co wss://*.supabase.co https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout-service.paddle.com https://checkout-service.paddle.com https://api.fastspring.com https://*.onfastspring.com https://www.googletagmanager.com https://googleads.g.doubleclick.net",
+              // ✅ FRAMES: Cloudflare + Paddle + FastSpring Popup + Google Ads
+              "frame-src 'self' https://challenges.cloudflare.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com https://*.onfastspring.com https://googleads.g.doubleclick.net",
               // ✅ CHILD: Paddle + FastSpring
               "child-src 'self' https://sandbox-buy.paddle.com https://buy.paddle.com https://*.onfastspring.com",
               // Allow localhost framing in development
