@@ -71,20 +71,23 @@ export default function CookieConsentBanner() {
   }, [])
 
   // ── Actions ──
+  const dismissBanner = () => {
+    setBannerVisible(false)
+    setModalVisible(false)
+  }
+
   const acceptAll = () => {
     const prefs: ConsentPrefs = { ads: true }
     setConsentCookie(prefs)
     applyConsent(prefs)
-    setBannerVisible(false)
-    setModalVisible(false)
+    dismissBanner()
   }
 
   const rejectAll = () => {
     const prefs: ConsentPrefs = { ads: false }
     setConsentCookie(prefs)
     applyConsent(prefs)
-    setBannerVisible(false)
-    setModalVisible(false)
+    dismissBanner()
   }
 
   const openCustomize = () => {
@@ -96,8 +99,7 @@ export default function CookieConsentBanner() {
     const prefs: ConsentPrefs = { ads: adsChecked }
     setConsentCookie(prefs)
     applyConsent(prefs)
-    setBannerVisible(false)
-    setModalVisible(false)
+    dismissBanner()
   }
 
   // Nothing to render (consent already set, no pending interaction)
@@ -181,6 +183,11 @@ export default function CookieConsentBanner() {
         </div>
       )}
 
+      {/* ── Spacer — drži prostor ispod sadržaja dok je baner vidljiv ── */}
+      {bannerVisible && !modalVisible && (
+        <div className="h-24" aria-hidden="true" />
+      )}
+
       {/* ── Bottom Banner ─────────────────────────────────────────────── */}
       {bannerVisible && !modalVisible && (
         <div className="fixed bottom-0 left-0 right-0 z-[9998] bg-slate-900 border-t border-slate-700 p-4 shadow-2xl">
@@ -193,22 +200,22 @@ export default function CookieConsentBanner() {
                 Datenschutzerklärung
               </Link>
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex gap-2">
               <button
                 onClick={acceptAll}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-colors"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors text-center"
               >
                 Alles akzeptieren
               </button>
               <button
                 onClick={rejectAll}
-                className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-colors"
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-2 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors text-center"
               >
                 Ablehnen
               </button>
               <button
                 onClick={openCustomize}
-                className="border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white px-5 py-2 rounded-lg font-semibold text-sm transition-colors bg-transparent"
+                className="flex-1 border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white px-2 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors bg-transparent text-center"
               >
                 Anpassen
               </button>
