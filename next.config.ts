@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
               // ✅ CONNECT: Cloudflare + Supabase + Paddle + FastSpring API + Google Ads
               "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co wss://*.supabase.co https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout-service.paddle.com https://checkout-service.paddle.com https://api.fastspring.com https://*.onfastspring.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.google.com https://www.googleadservices.com",
               // ✅ FRAMES: Cloudflare + Paddle + FastSpring Popup + Google Ads
-              "frame-src 'self' https://challenges.cloudflare.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com https://*.onfastspring.com https://googleads.g.doubleclick.net",
+              "frame-src 'self' https://challenges.cloudflare.com https://sandbox-buy.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com https://*.onfastspring.com https://googleads.g.doubleclick.net https://www.googletagmanager.com https://td.doubleclick.net",
               // ✅ CHILD: Paddle + FastSpring
               "child-src 'self' https://sandbox-buy.paddle.com https://buy.paddle.com https://*.onfastspring.com",
               // Allow localhost framing in development
