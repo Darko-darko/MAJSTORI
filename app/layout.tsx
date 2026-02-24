@@ -107,21 +107,18 @@ export default function RootLayout({
         {/*
           KORAK 2 — Učitaj gtag.js (async, afterInteractive).
           Vidi 'denied' u dataLayer-u → ne šalje podatke.
-          ⚠️ ZAMENI: AW-XXXXXXXXXX → tvoj Google Ads Conversion ID
         */}
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=AW-XXXXXXXXXX"
+          src="https://www.googletagmanager.com/gtag/js?id=AW-17973690084"
           strategy="afterInteractive"
         />
 
         {/*
           KORAK 3 — Konfiguriši tag (afterInteractive).
-          Pozivi se queue-uju u dataLayer; gtag.js ih obradi kad se učita.
-          ⚠️ ZAMENI: AW-XXXXXXXXXX → tvoj Google Ads Conversion ID
         */}
         <Script id="google-gtag-config" strategy="afterInteractive">{`
           gtag('js', new Date());
-          gtag('config', 'AW-XXXXXXXXXX');
+          gtag('config', 'AW-17973690084');
         `}</Script>
       </head>
 
