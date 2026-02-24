@@ -66,8 +66,7 @@ export default function ChoosePlanPage() {
       // Provera 4: gtag definisan (guard — ne baca grešku ako nije)
       if (typeof window.gtag !== 'function') return
 
-      // ⚠️ ZAMENI: AW-XXXXXXXXXX/YYYYYYYYYY → tvoj Google Ads Conversion ID / Label
-      window.gtag('event', 'conversion', { send_to: 'AW-XXXXXXXXXX/YYYYYYYYYY' })
+      window.gtag('event', 'conversion', { send_to: 'AW-17973690084/eNe6CPX_g_4bEOT9wvpC' })
       sessionStorage.setItem('ads_conv_choose_plan', '1')
     } catch {
       // Silent fail — nikad ne sme da polomi stranicu
