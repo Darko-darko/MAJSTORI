@@ -694,10 +694,27 @@ export default function InvoiceCreator({
 
   // Calculate totals
   const calculateTotals = (items) => {
-    const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0)
-    const taxAmount = formData.is_kleinunternehmer ? 0 : subtotal * (formData.tax_rate / 100)
-    const totalAmount = subtotal + taxAmount
-    
+    if (formData.is_kleinunternehmer) {
+      const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.total || 0), 0).toFixed(2))
+      setFormData(prev => ({ ...prev, subtotal, tax_amount: 0, total_amount: subtotal }))
+      return
+    }
+
+    const taxRate = parseFloat(formData.tax_rate) || 0
+    const taxMultiplier = 1 + taxRate / 100
+
+    // Sum brutto totals first — brutto is always the anchor
+    const totalBrutto = parseFloat(items.reduce((sum, item) => {
+      const brutto = item.price_source === 'brutto'
+        ? (parseFloat(item.quantity) || 0) * (parseFloat(item.price_gross) || 0)
+        : (item.total || 0) * taxMultiplier
+      return sum + brutto
+    }, 0).toFixed(2))
+
+    const subtotal = parseFloat((totalBrutto / taxMultiplier).toFixed(2))
+    const taxAmount = parseFloat((totalBrutto - subtotal).toFixed(2))
+    const totalAmount = parseFloat((subtotal + taxAmount).toFixed(2))
+
     setFormData(prev => ({
       ...prev,
       subtotal,
@@ -1522,7 +1539,11 @@ if (searchError) {
                         {formatCurrency(item.total)}
                         {!formData.is_kleinunternehmer && (
                           <span className="text-slate-400 text-xs ml-1">
-                            ({formatCurrency(parseFloat((item.total * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2)))} brutto)
+                            ({formatCurrency(
+                              item.price_source === 'brutto'
+                                ? parseFloat(((parseFloat(item.quantity) || 0) * (parseFloat(item.price_gross) || 0)).toFixed(2))
+                                : parseFloat((item.total * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2))
+                            )} brutto)
                           </span>
                         )}
                       </div>
