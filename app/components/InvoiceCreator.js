@@ -624,13 +624,26 @@ export default function InvoiceCreator({
   const handleItemChange = (index, field, value) => {
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
-    
+    const taxRate = parseFloat(formData.tax_rate) || 0
+    const taxMultiplier = 1 + taxRate / 100
+
     if (field === 'quantity' || field === 'price') {
-      const quantity = field === 'quantity' ? parseFloat(value) || 0 : newItems[index].quantity
-      const price = field === 'price' ? parseFloat(value) || 0 : newItems[index].price
+      const quantity = field === 'quantity' ? parseFloat(value) || 0 : parseFloat(newItems[index].quantity) || 0
+      const price = field === 'price' ? parseFloat(value) || 0 : parseFloat(newItems[index].price) || 0
       newItems[index].total = quantity * price
+      if (field === 'price') {
+        newItems[index].price_gross = parseFloat((price * taxMultiplier).toFixed(2))
+      }
     }
-    
+
+    if (field === 'price_gross') {
+      const gross = parseFloat(value) || 0
+      const net = parseFloat((gross / taxMultiplier).toFixed(2))
+      newItems[index].price = net
+      const quantity = parseFloat(newItems[index].quantity) || 0
+      newItems[index].total = quantity * net
+    }
+
     setFormData(prev => ({ ...prev, items: newItems }))
     calculateTotals(newItems)
 
@@ -650,7 +663,7 @@ export default function InvoiceCreator({
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { description: '', quantity: 1, price: 0, total: 0 }]
+      items: [...prev.items, { description: '', quantity: 1, price: 0, price_gross: 0, total: 0 }]
     }))
   }
 
@@ -1476,12 +1489,31 @@ if (searchError) {
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                         placeholder="100.00"
                       />
+                      {!formData.is_kleinunternehmer && (
+                        <>
+                          <label className="block text-sm text-slate-400 mb-1 mt-2">Einzelpreis (brutto)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.price_gross ?? parseFloat(((parseFloat(item.price) || 0) * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2))}
+                            onChange={(e) => handleItemChange(index, 'price_gross', e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-800 border border-blue-500/50 rounded text-white text-sm"
+                            placeholder="119.00"
+                          />
+                        </>
+                      )}
                     </div>
                     
                     <div className="md:col-span-2">
                       <label className="block text-sm text-slate-400 mb-1">Gesamt</label>
                       <div className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm">
                         {formatCurrency(item.total)}
+                        {!formData.is_kleinunternehmer && (
+                          <span className="text-slate-400 text-xs ml-1">
+                            ({formatCurrency(parseFloat((item.total * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2)))} brutto)
+                          </span>
+                        )}
                       </div>
                     </div>
                     
