@@ -53,7 +53,7 @@ export default function InvoiceCreator({
     place_of_service: '',
     
     // Invoice items and totals (existing)
-    items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+    items: [{ description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }],
     subtotal: 0,
     tax_rate: 19,
     tax_amount: 0,
@@ -469,7 +469,7 @@ export default function InvoiceCreator({
 
       const initialFormData = {
         ...initialCustomerData,
-        items: [{ description: '', quantity: 1, price: 0, total: 0 }],
+        items: [{ description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }],
         subtotal: 0,
         tax_rate: defaultSettings.tax_rate,
         tax_amount: 0,
@@ -627,20 +627,31 @@ export default function InvoiceCreator({
     const taxRate = parseFloat(formData.tax_rate) || 0
     const taxMultiplier = 1 + taxRate / 100
 
-    if (field === 'quantity' || field === 'price') {
-      const quantity = field === 'quantity' ? parseFloat(value) || 0 : parseFloat(newItems[index].quantity) || 0
-      const price = field === 'price' ? parseFloat(value) || 0 : parseFloat(newItems[index].price) || 0
-      newItems[index].total = parseFloat((quantity * price).toFixed(2))
-      if (field === 'price') {
-        newItems[index].price_gross = parseFloat((price * taxMultiplier).toFixed(2))
+    if (field === 'quantity') {
+      const quantity = parseFloat(value) || 0
+      if (newItems[index].price_source === 'brutto') {
+        const gross = parseFloat(newItems[index].price_gross) || 0
+        newItems[index].total = parseFloat((quantity * gross / taxMultiplier).toFixed(2))
+      } else {
+        const price = parseFloat(newItems[index].price) || 0
+        newItems[index].total = parseFloat((quantity * price).toFixed(2))
       }
+    }
+
+    if (field === 'price') {
+      const quantity = parseFloat(newItems[index].quantity) || 0
+      const price = parseFloat(value) || 0
+      newItems[index].price_source = 'netto'
+      newItems[index].total = parseFloat((quantity * price).toFixed(2))
+      newItems[index].price_gross = parseFloat((price * taxMultiplier).toFixed(2))
     }
 
     if (field === 'price_gross') {
       const gross = parseFloat(value) || 0
       const net = parseFloat((gross / taxMultiplier).toFixed(2))
-      newItems[index].price = net
       const quantity = parseFloat(newItems[index].quantity) || 0
+      newItems[index].price_source = 'brutto'
+      newItems[index].price = net
       newItems[index].total = parseFloat((quantity * gross / taxMultiplier).toFixed(2))
     }
 
@@ -663,7 +674,7 @@ export default function InvoiceCreator({
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { description: '', quantity: 1, price: 0, price_gross: 0, total: 0 }]
+      items: [...prev.items, { description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }]
     }))
   }
 
