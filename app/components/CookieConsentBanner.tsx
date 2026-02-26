@@ -13,7 +13,8 @@ declare global {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ConsentPrefs {
-  ads: boolean
+  ads:       boolean
+  analytics: boolean
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -38,19 +39,22 @@ function setConsentCookie(prefs: ConsentPrefs) {
 
 function applyConsent(prefs: ConsentPrefs) {
   if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+  // analytics field may be missing in old cookies saved before this field existed
+  const analyticsGranted = prefs.analytics === true
   window.gtag('consent', 'update', {
-    ad_storage:         prefs.ads ? 'granted' : 'denied',
-    ad_user_data:       prefs.ads ? 'granted' : 'denied',
-    ad_personalization: prefs.ads ? 'granted' : 'denied',
-    analytics_storage:  'denied', // GA4 not active yet
+    ad_storage:         prefs.ads        ? 'granted' : 'denied',
+    ad_user_data:       prefs.ads        ? 'granted' : 'denied',
+    ad_personalization: prefs.ads        ? 'granted' : 'denied',
+    analytics_storage:  analyticsGranted ? 'granted' : 'denied',
   })
 }
 
 // ─── CookieConsentBanner (default export) ────────────────────────────────────
 export default function CookieConsentBanner() {
-  const [bannerVisible, setBannerVisible] = useState(false)
-  const [modalVisible,  setModalVisible]  = useState(false)
-  const [adsChecked,    setAdsChecked]    = useState(false)
+  const [bannerVisible,       setBannerVisible]       = useState(false)
+  const [modalVisible,        setModalVisible]        = useState(false)
+  const [adsChecked,          setAdsChecked]          = useState(false)
+  const [analyticsChecked,    setAnalyticsChecked]    = useState(false)
 
   useEffect(() => {
     const prefs = parseCookieConsent()
@@ -63,7 +67,9 @@ export default function CookieConsentBanner() {
 
     // Allow /privacy page (and any other page) to reopen the modal
     const handleOpen = () => {
-      setAdsChecked(parseCookieConsent()?.ads ?? false)
+      const saved = parseCookieConsent()
+      setAdsChecked(saved?.ads ?? false)
+      setAnalyticsChecked(saved?.analytics ?? false)
       setModalVisible(true)
     }
     window.addEventListener('openCookieSettings', handleOpen)
@@ -77,26 +83,28 @@ export default function CookieConsentBanner() {
   }
 
   const acceptAll = () => {
-    const prefs: ConsentPrefs = { ads: true }
+    const prefs: ConsentPrefs = { ads: true, analytics: true }
     setConsentCookie(prefs)
     applyConsent(prefs)
     dismissBanner()
   }
 
   const rejectAll = () => {
-    const prefs: ConsentPrefs = { ads: false }
+    const prefs: ConsentPrefs = { ads: false, analytics: false }
     setConsentCookie(prefs)
     applyConsent(prefs)
     dismissBanner()
   }
 
   const openCustomize = () => {
-    setAdsChecked(parseCookieConsent()?.ads ?? false)
+    const saved = parseCookieConsent()
+    setAdsChecked(saved?.ads ?? false)
+    setAnalyticsChecked(saved?.analytics ?? false)
     setModalVisible(true)
   }
 
   const saveCustom = () => {
-    const prefs: ConsentPrefs = { ads: adsChecked }
+    const prefs: ConsentPrefs = { ads: adsChecked, analytics: analyticsChecked }
     setConsentCookie(prefs)
     applyConsent(prefs)
     dismissBanner()
@@ -123,6 +131,31 @@ export default function CookieConsentBanner() {
                 <p className="text-slate-400 text-xs mt-1">
                   Für Anmeldung, Sitzungsverwaltung und Sicherheit. Immer aktiv,
                   keine Einwilligung erforderlich (§&nbsp;25 Abs.&nbsp;2 TTDSG).
+                </p>
+              </div>
+            </div>
+
+            {/* Google Analytics — toggleable */}
+            <div className="flex items-start gap-3 mb-4 pb-4 border-b border-slate-700">
+              <button
+                role="switch"
+                aria-checked={analyticsChecked}
+                onClick={() => setAnalyticsChecked(!analyticsChecked)}
+                className={`mt-0.5 flex-shrink-0 w-10 h-6 rounded-full transition-colors ${
+                  analyticsChecked ? 'bg-blue-600' : 'bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`block w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    analyticsChecked ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <div>
+                <p className="text-white text-sm font-semibold">Google Analytics (Statistik)</p>
+                <p className="text-slate-400 text-xs mt-1">
+                  Anonyme Besucherstatistiken (Seitenaufrufe, Herkunft, Gerät).
+                  Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;a DSGVO.
                 </p>
               </div>
             </div>
@@ -194,8 +227,8 @@ export default function CookieConsentBanner() {
           <div className="max-w-4xl mx-auto">
             <p className="text-slate-300 text-sm mb-3 text-center">
               Wir verwenden Cookies. Notwendige Cookies sind immer aktiv. Mit Ihrer Einwilligung
-              setzen wir <strong className="text-white">Google Ads Cookies</strong> ein,
-              um die Wirksamkeit unserer Werbung zu messen.{' '}
+              setzen wir <strong className="text-white">Google Analytics & Ads Cookies</strong> ein,
+              um Besuche zu analysieren und Werbung zu messen.{' '}
               <Link href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
                 Datenschutzerklärung
               </Link>
