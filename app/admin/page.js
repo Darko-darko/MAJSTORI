@@ -158,16 +158,16 @@ export default function AdminPage() {
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm mb-4">{error}</div>
         )}
 
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-700 text-left">
                 <th className="px-4 py-3 text-slate-400 font-medium">E-Mail</th>
-                <th className="px-4 py-3 text-slate-400 font-medium hidden sm:table-cell">Firma</th>
+                <th className="px-4 py-3 text-slate-400 font-medium">Firma</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Plan</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Status</th>
-                <th className="px-4 py-3 text-slate-400 font-medium hidden md:table-cell">Läuft bis</th>
-                <th className="px-4 py-3 text-slate-400 font-medium hidden lg:table-cell">Registriert</th>
+                <th className="px-4 py-3 text-slate-400 font-medium">Läuft bis</th>
+                <th className="px-4 py-3 text-slate-400 font-medium">Registriert</th>
               </tr>
             </thead>
             <tbody>
@@ -183,11 +183,11 @@ export default function AdminPage() {
                 users.map(u => (
                   <tr key={u.id} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3 text-white">{u.email}</td>
-                    <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">{u.business_name || '—'}</td>
+                    <td className="px-4 py-3 text-slate-300">{u.business_name || '—'}</td>
                     <td className="px-4 py-3 text-slate-300">{u.sub_plan || '—'}</td>
                     <td className="px-4 py-3"><StatusBadge status={u.sub_status} /></td>
-                    <td className="px-4 py-3 text-slate-400 hidden md:table-cell">{formatDate(u.current_period_end)}</td>
-                    <td className="px-4 py-3 text-slate-400 hidden lg:table-cell">{formatDate(u.created_at)}</td>
+                    <td className="px-4 py-3 text-slate-400">{formatDate(u.current_period_end)}</td>
+                    <td className="px-4 py-3 text-slate-400">{formatDate(u.created_at)}</td>
                   </tr>
                 ))
               )}
