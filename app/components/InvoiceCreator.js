@@ -1470,7 +1470,7 @@ if (searchError) {
                       <input
                         type="number"
                         min="0"
-                        step="0.1"
+                        step="0.01"
                         value={item.price}
                         onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
