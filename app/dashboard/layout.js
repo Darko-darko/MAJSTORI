@@ -1,6 +1,8 @@
 // app/dashboard/layout.js - SA PROGRES MODALOM NA TOP LEVEL - FIXED BADGE LOGIC
 
 'use client'
+
+const ADMIN_EMAILS = ['darko.jocic.ns@gmail.com', 'novakovicdusan555@gmail.com']
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
@@ -832,6 +834,15 @@ const NavigationItem = ({ item, isMobile = false }) => {
 </nav>
 
             <div className="p-2 border-t border-slate-700">
+              {ADMIN_EMAILS.includes(majstor?.email) && (
+                <Link
+                  href="/admin"
+                  className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors mb-1"
+                >
+                  <span className="mr-3">🛡️</span>
+                  Admin Panel
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
@@ -926,6 +937,16 @@ const NavigationItem = ({ item, isMobile = false }) => {
 </nav>
 
             <div className="p-2 border-t border-slate-700">
+              {ADMIN_EMAILS.includes(majstor?.email) && (
+                <Link
+                  href="/admin"
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors mb-1"
+                >
+                  <span className="mr-3">🛡️</span>
+                  Admin Panel
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
