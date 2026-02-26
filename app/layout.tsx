@@ -119,6 +119,7 @@ export default function RootLayout({
         <Script id="google-gtag-config" strategy="afterInteractive">{`
           gtag('js', new Date());
           gtag('config', 'AW-17973690084');
+          gtag('config', 'G-YDYNE78GSB');
         `}</Script>
       </head>
 

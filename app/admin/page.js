@@ -196,6 +196,22 @@ export default function AdminPage() {
         </div>
 
         <p className="text-slate-600 text-xs mt-4 text-right">{users.length} Nutzer</p>
+
+        {/* Google Analytics link */}
+        <div className="mt-8 bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-white font-medium text-sm">Google Analytics</p>
+            <p className="text-slate-400 text-xs mt-0.5">Posjete, lokacije, uređaji — detaljni podaci</p>
+          </div>
+          <a
+            href="https://analytics.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Otvori GA →
+          </a>
+        </div>
       </div>
     </div>
   )
