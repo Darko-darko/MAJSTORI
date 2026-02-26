@@ -630,7 +630,7 @@ export default function InvoiceCreator({
     if (field === 'quantity' || field === 'price') {
       const quantity = field === 'quantity' ? parseFloat(value) || 0 : parseFloat(newItems[index].quantity) || 0
       const price = field === 'price' ? parseFloat(value) || 0 : parseFloat(newItems[index].price) || 0
-      newItems[index].total = quantity * price
+      newItems[index].total = parseFloat((quantity * price).toFixed(2))
       if (field === 'price') {
         newItems[index].price_gross = parseFloat((price * taxMultiplier).toFixed(2))
       }
@@ -641,7 +641,7 @@ export default function InvoiceCreator({
       const net = parseFloat((gross / taxMultiplier).toFixed(2))
       newItems[index].price = net
       const quantity = parseFloat(newItems[index].quantity) || 0
-      newItems[index].total = quantity * net
+      newItems[index].total = parseFloat((quantity * gross / taxMultiplier).toFixed(2))
     }
 
     setFormData(prev => ({ ...prev, items: newItems }))
