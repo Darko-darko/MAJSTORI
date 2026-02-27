@@ -15,6 +15,7 @@ export default function SubscriptionPage() {
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [reactivating, setReactivating] = useState(false)
+  const [updatingPayment, setUpdatingPayment] = useState(false)
   const [fastspringReady, setFastspringReady] = useState(false)
 
   // Processing state - za progress indicator
@@ -202,6 +203,41 @@ export default function SubscriptionPage() {
     } catch (err) {
       console.error('❌ Upgrade error:', err)
       setError('Fehler beim Öffnen des Checkouts')
+    }
+  }
+
+  const handleUpdatePaymentMethod = async () => {
+    const customerId = subscription?.provider_customer_id
+    if (!customerId) {
+      setError('Keine Kundendaten verfügbar. Bitte wenden Sie sich an den Support.')
+      return
+    }
+
+    setUpdatingPayment(true)
+    setError('')
+
+    try {
+      console.log('💳 Fetching authenticated account URL for customer:', customerId)
+
+      const response = await fetch('/.netlify/functions/fastspring-get-account-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Fehler beim Laden der Verwaltungsseite')
+      }
+
+      console.log('✅ Opening account URL:', data.url)
+      window.open(data.url, '_blank')
+    } catch (err) {
+      console.error('💥 Update payment error:', err)
+      setError('Zahlungsmethode konnte nicht geöffnet werden: ' + err.message)
+    } finally {
+      setUpdatingPayment(false)
     }
   }
 
@@ -482,10 +518,11 @@ export default function SubscriptionPage() {
         icon: '🎯',
         description: `Sie testen PRO kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
         showUpgrade: false,
-        showCancel: true
+        showCancel: true,
+        showUpdatePayment: true
       }
     }
-    
+
     if (subscription.status === 'active' && daysRemaining > 0) {
       return {
         status: 'pro',
@@ -496,7 +533,8 @@ export default function SubscriptionPage() {
         icon: '💎',
         description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
         showUpgrade: false,
-        showCancel: true
+        showCancel: true,
+        showUpdatePayment: true
       }
     }
     
@@ -591,6 +629,23 @@ export default function SubscriptionPage() {
                 </button>
               )}
               
+              {statusInfo.showUpdatePayment && (
+                <div className="flex flex-col items-start gap-1">
+                  <button
+                    onClick={handleUpdatePaymentMethod}
+                    disabled={updatingPayment || processingAction || !subscription?.provider_customer_id || subscription?.payment_provider !== 'fastspring'}
+                    className="bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updatingPayment ? '⏳ Lade...' : '💳 Zahlungsmethode ändern'}
+                  </button>
+                  {(!subscription?.provider_customer_id || subscription?.payment_provider !== 'fastspring') && (
+                    <p className="text-slate-500 text-xs pl-1">
+                      Nicht verfügbar — Support kontaktieren
+                    </p>
+                  )}
+                </div>
+              )}
+
               {statusInfo.showCancel && (
                 <button
                   onClick={handleCancelSubscription}
