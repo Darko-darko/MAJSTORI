@@ -39,6 +39,7 @@ export async function GET(request) {
       .from('majstors')
       .select(`
         id, email, full_name, business_name, city, created_at,
+        invoices(count),
         user_subscriptions (
           status, created_at, current_period_end, trial_ends_at,
           subscription_plans ( name, display_name )
@@ -70,6 +71,7 @@ export async function GET(request) {
         sub_plan:           latest?.subscription_plans?.display_name ?? latest?.subscription_plans?.name ?? null,
         current_period_end: latest?.current_period_end ?? null,
         trial_ends_at:      latest?.trial_ends_at ?? null,
+        invoice_count:      m.invoices?.[0]?.count ?? 0,
       }
     })
 
