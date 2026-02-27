@@ -258,6 +258,20 @@ useEffect(() => {
           router.push('/welcome/choose-plan')
           return
         }
+
+        const { data: subData, error: subError } = await supabase
+          .from('user_subscriptions')
+          .select('status, subscription_plans(name, display_name)')
+          .eq('majstor_id', currentUser.id)
+          .eq('status', 'active')
+          .maybeSingle()
+
+        console.log('🔑 Subscription fetch:', { subData, subError })
+
+        majstorData.sub_status = subData?.status ?? null
+        majstorData.sub_plan   = subData?.subscription_plans?.name ?? null
+        console.log('🔑 isPro data:', { sub_status: majstorData.sub_status, sub_plan: majstorData.sub_plan })
+
         setMajstor(majstorData)
       }
 

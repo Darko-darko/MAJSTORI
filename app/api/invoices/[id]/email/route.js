@@ -19,7 +19,7 @@ export async function POST(request, routeData) {
   try {
     const { id } = await routeData.params
 
-    const { recipientEmail, ccEmail, subject, message } = await request.json()
+    const { recipientEmail, ccEmail, subject, message, isReminder } = await request.json()
     
     console.log('📧 Email API called for invoice:', id)
     console.log('📨 Recipient:', recipientEmail)
@@ -149,13 +149,17 @@ export async function POST(request, routeData) {
     console.log('✅ Email sent successfully:', emailResult.id)
 
     // Save email tracking info
+    const updateData = {
+      email_sent_at: new Date().toISOString(),
+      email_sent_to: recipientEmail,
+      updated_at: new Date().toISOString()
+    }
+    if (isReminder) {
+      updateData.mahnung_sent_at = new Date().toISOString()
+    }
     await supabase
       .from('invoices')
-      .update({ 
-        email_sent_at: new Date().toISOString(),
-        email_sent_to: recipientEmail,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
 
     await logEmailActivity(invoice.id, recipientEmail, emailResult.id)
