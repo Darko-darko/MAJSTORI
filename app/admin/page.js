@@ -166,6 +166,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3 text-slate-400 font-medium">Firma</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Plan</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Status</th>
+                <th className="px-4 py-3 text-slate-400 font-medium">Rechnungen</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Läuft bis</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Registriert</th>
               </tr>
@@ -173,11 +174,11 @@ export default function AdminPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">Laden...</td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Laden...</td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">Keine Nutzer gefunden.</td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Keine Nutzer gefunden.</td>
                 </tr>
               ) : (
                 users.map(u => (
@@ -186,6 +187,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-slate-300">{u.business_name || '—'}</td>
                     <td className="px-4 py-3 text-slate-300">{u.sub_plan || '—'}</td>
                     <td className="px-4 py-3"><StatusBadge status={u.sub_status} /></td>
+                    <td className="px-4 py-3 text-slate-300 text-center">{u.invoice_count ?? 0}</td>
                     <td className="px-4 py-3 text-slate-400">{formatDate(u.current_period_end)}</td>
                     <td className="px-4 py-3 text-slate-400">{formatDate(u.created_at)}</td>
                   </tr>
