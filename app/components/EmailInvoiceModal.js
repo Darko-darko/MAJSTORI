@@ -2,12 +2,13 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-export default function EmailInvoiceModal({ 
-  isOpen, 
-  onClose, 
-  invoice, 
-  majstor, 
-  onSuccess 
+export default function EmailInvoiceModal({
+  isOpen,
+  onClose,
+  invoice,
+  majstor,
+  onSuccess,
+  isReminder = false
 }) {
   const [formData, setFormData] = useState({
     recipientEmail: invoice?.customer_email || '',
@@ -25,11 +26,20 @@ export default function EmailInvoiceModal({
     const businessName = majstor?.business_name || majstor?.full_name || 'Pro-Meister'
     const customerName = invoice.customer_name || 'Damen und Herren'
     
-    const defaultSubject = `${documentType} ${documentNumber} von ${businessName}`
-    
-    const isQuote = invoice.type === 'quote'
-   // 🔥 ISTI TEKST za Angebot i Rechnung
-const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser ${documentType} ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
+    const defaultSubject = isReminder
+      ? `Zahlungserinnerung – Rechnung ${documentNumber} von ${businessName}`
+      : `${documentType} ${documentNumber} von ${businessName}`
+
+    const dueDate = invoice.due_date
+      ? new Date(invoice.due_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : null
+    const amount = invoice.total_amount
+      ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(invoice.total_amount)
+      : null
+
+    const defaultMessage = isReminder
+      ? `Sehr geehrte/r ${customerName},\n\nwir erlauben uns, Sie freundlich daran zu erinnern, dass unsere Rechnung ${documentNumber}${amount ? ` über ${amount}` : ''}${dueDate ? ` mit Fälligkeit ${dueDate}` : ''} noch offen ist.\n\nWir bitten Sie, den Betrag baldmöglichst zu überweisen.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
+      : `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie unser ${documentType} ${documentNumber}.\n\nFür Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\nMit freundlichen Grüßen\n${businessName}`
 
     setFormData(prev => ({
       ...prev,
@@ -85,7 +95,7 @@ const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie un
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(formData)
+    body: JSON.stringify({ ...formData, isReminder })
   })
 
   const result = await response.json()
@@ -120,7 +130,7 @@ const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie un
         <div className="flex justify-between items-center p-6 border-b border-slate-700">
           <div>
             <h3 className="text-xl font-semibold text-white">
-              {documentType} per E-Mail senden
+              {isReminder ? 'Zahlungserinnerung senden' : `${documentType} per E-Mail senden`}
             </h3>
             <p className="text-slate-400 text-sm">
               {documentType} {documentNumber} an {invoice?.customer_name}
@@ -243,7 +253,7 @@ const defaultMessage = `Sehr geehrte/r ${customerName},\n\nanbei erhalten Sie un
                 </>
               ) : (
                 <>
-                  E-Mail senden
+                  {isReminder ? 'Zahlungserinnerung senden' : 'E-Mail senden'}
                 </>
               )}
             </button>

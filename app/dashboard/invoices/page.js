@@ -36,6 +36,8 @@ function DashboardPageContent() {
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
+  const [showReminderModal, setShowReminderModal] = useState(false)
+  const [reminderItem, setReminderItem] = useState(null)
 
   // 🔥 OVERDUE FILTER
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
@@ -225,6 +227,16 @@ function DashboardPageContent() {
         setError('Fehler beim Laden des Profils')
         return
       }
+
+      const { data: subData } = await supabase
+        .from('user_subscriptions')
+        .select('status, subscription_plans(name, display_name)')
+        .eq('majstor_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      majstorData.sub_status = subData?.status ?? null
+      majstorData.sub_plan   = subData?.subscription_plans?.name ?? null
 
       setMajstor(majstorData)
       
@@ -532,6 +544,13 @@ pdfTab.document.close()
     setEmailItem(item)
     setShowEmailModal(true)
   }
+
+  const handleReminderClick = (item) => {
+    setReminderItem(item)
+    setShowReminderModal(true)
+  }
+
+  const isPro = majstor?.sub_status === 'active'
 
   const handleEmailSuccess = (result) => {
     console.log('Email sent successfully:', result)
@@ -1607,6 +1626,15 @@ const HardResetModal = () => {
   </button>
 )}
                     
+                    {(invoice.status === 'sent' || invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
+                      <button
+                        onClick={() => handleReminderClick(invoice)}
+                        className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
+                      >
+                        {invoice.mahnung_sent_at ? '🔄 Mahnung erneut senden' : 'Mahnung'}
+                      </button>
+                    )}
+
                     {(invoice.status === 'draft' || invoice.status === 'sent') && (
                       <button
                         onClick={() => handleMarkAsPaid(invoice)}
@@ -2300,6 +2328,23 @@ const HardResetModal = () => {
           invoice={emailItem}
           majstor={majstor}
           onSuccess={handleEmailSuccess}
+        />
+      )}
+
+      {showReminderModal && reminderItem && (
+        <EmailInvoiceModal
+          isOpen={showReminderModal}
+          onClose={() => {
+            setShowReminderModal(false)
+            setReminderItem(null)
+          }}
+          invoice={reminderItem}
+          majstor={majstor}
+          onSuccess={() => {
+            setShowReminderModal(false)
+            setReminderItem(null)
+          }}
+          isReminder={true}
         />
       )}
 
