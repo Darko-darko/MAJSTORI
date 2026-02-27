@@ -254,6 +254,10 @@ useEffect(() => {
           setError('Profile access error: ' + majstorError.message)
         }
       } else {
+        if (!majstorData.subscription_status) {
+          router.push('/welcome/choose-plan')
+          return
+        }
         setMajstor(majstorData)
       }
 
