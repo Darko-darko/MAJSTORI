@@ -69,23 +69,31 @@ exports.handler = async (event) => {
     }
 
     const data = await fsResponse.json()
-    console.log('✅ FastSpring auth URL received')
+    console.log('✅ FastSpring auth response:', JSON.stringify(data))
 
-    // FastSpring returns: { accounts: { <id>: { token: "...", url: "..." } } }
-    // or directly { token: "...", url: "..." } - handle both shapes
+    // Try all known FastSpring response shapes
     let accountUrl = null
 
     if (data.accounts && data.accounts[customerId]) {
-      accountUrl = data.accounts[customerId].url
+      // Shape: { accounts: { <id>: { token, url } } }
+      accountUrl = data.accounts[customerId].url ||
+        (data.accounts[customerId].token
+          ? `https://promeister.onfastspring.com/account/${customerId}/${data.accounts[customerId].token}`
+          : null)
     } else if (data.url) {
+      // Shape: { url: "..." }
       accountUrl = data.url
     } else if (data.token) {
-      // Build URL manually if only token is returned
+      // Shape: { token: "..." }
       accountUrl = `https://promeister.onfastspring.com/account/${customerId}/${data.token}`
+    } else if (Array.isArray(data.accounts) && data.accounts.length > 0) {
+      // Shape: { accounts: [ { id, token, url } ] }
+      const acc = data.accounts[0]
+      accountUrl = acc.url || (acc.token ? `https://promeister.onfastspring.com/account/${customerId}/${acc.token}` : null)
     }
 
     if (!accountUrl) {
-      console.error('❌ No URL in FastSpring response:', JSON.stringify(data))
+      console.error('❌ No URL in FastSpring response. Raw:', JSON.stringify(data))
       return {
         statusCode: 500,
         headers: corsHeaders,
