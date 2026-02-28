@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useTheme } from '@/lib/context/ThemeContext'
 
 export default function SettingsPage() {
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     loadMajstorData()
@@ -84,7 +86,30 @@ export default function SettingsPage() {
 
       {/* Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
+        {/* Erscheinungsbild (Tema) */}
+        <div className="col-span-full bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Erscheinungsbild</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white font-medium">Farbschema</p>
+              <p className="text-slate-400 text-sm">
+                {theme === 'dark' ? 'Dunkles Design (Standard)' : 'Helles Design'}
+              </p>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                theme === 'light' ? 'bg-blue-600' : 'bg-slate-600'
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                theme === 'light' ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
+          </div>
+        </div>
+
         {/* Geschäftsprofil Section */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Geschäftsprofil</h3>
