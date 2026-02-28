@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "de.promeister",
+    "sha256_cert_fingerprints": ["FB:B1:D7:83:0E:13:C5:4F:E1:31:F8:C2:F0:B5:58:6F:46:74:69:58:FE:A6:06:62:29:41:58:3D:3E:FC:1B:8C"]
+  }
+}]

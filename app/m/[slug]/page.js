@@ -1035,8 +1035,11 @@ export default function PublicBusinessCardPage({ params }) {
                       setInquiryError('Sicherheitsprüfung fehlgeschlagen. Bitte laden Sie die Seite neu.')
                     }}
                     onExpire={() => {
-                      console.log('⏱️ Turnstile token expired')
+                      console.log('⏱️ Turnstile token expired, resetting...')
                       setTurnstileToken('')
+                      if (turnstileRef.current) {
+                        turnstileRef.current.reset()
+                      }
                     }}
                     size="invisible"
                     theme="light"
