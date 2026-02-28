@@ -24,7 +24,6 @@ PLÄNE:
 - Kündigung: Klick auf PRO-Badge → kündigen. Zugriff bis Ende der bezahlten Zeit. Danach automatisch Freemium.
 
 HAUPTFUNKTIONEN:
-- QR-Visitenkarte: Digitale Präsenz, Kunden scannen QR-Code, können Anfragen mit Fotos schicken. Kein Login nötig. Link: pro-meister.de/p/ihr-name
 - Rechnungen & Angebote: ZUGFeRD PDF (elektronische Rechnung mit XML), automatische Nummerierung (RE-2025-0001), DIN 5008 konform, für Fensterbriefumschlag geeignet
 - Angebot → Rechnung: 1-Klick Umwandlung im PDF-Archiv
 - Kundenverwaltung: Suche nach Name/Firma/E-Mail/Stadt, Import/Export, automatisches Speichern bei Rechnungserstellung
@@ -37,11 +36,43 @@ HAUPTFUNKTIONEN:
 - Mahnungen (Zahlungserinnerungen): Manuell aus der Rechnungsübersicht sendbar — überfällige Rechnung öffnen → Mahnung senden
 - Statistiken: Dashboard → Umsatzübersicht, offene Rechnungen, überfällige Rechnungen. Nur PRO.
 
+QR-VISITENKARTE — DETAILS:
+Erstellen: Dashboard → "Visitenkarte" → Formular ausfüllen:
+  - Name, Firmenname, Telefon, E-Mail, Stadt, Website
+  - Kurzbeschreibung (wer Sie sind, was Sie anbieten)
+  - Dienstleistungen als Schlagwörter (z.B. "Fenster", "Türen", "Rollläden")
+  - Logo-Upload (PNG empfohlen, transparenter Hintergrund)
+  - Bilder-Galerie: bis zu 10 Fotos Ihrer Arbeiten
+  - Speichern → QR-Code wird automatisch generiert
+QR-Code: Kann als PNG heruntergeladen, gedruckt oder digital geteilt werden
+Ihr Link: pro-meister.de/m/ihr-name (automatisch aus Ihrem Namen generiert)
+Was der Kunde sieht: Logo, Name, Firma, Kontaktdaten, Dienstleistungen, Galerie, Kontakt-Buttons
+Kontakt speichern: Kunde kann Ihre Daten direkt als Kontakt im Handy speichern (vCard)
+Anfrage senden: Kunde kann direkt über die Visitenkarte eine Anfrage mit Fotos schicken (nur PRO)
+Teilen: Link kopieren, QR-Code herunterladen, oder per E-Mail an Kunden senden
+
+KUNDENANFRAGEN (Foto-Anfragen) — DETAILS:
+Wie Kunden eine Anfrage schicken (kein Login nötig):
+  1. Kunde öffnet Ihre Visitenkarte (pro-meister.de/m/ihr-name)
+  2. Klickt auf "Anfrage senden"
+  3. Füllt aus: Name, E-Mail, Telefon (optional), Art der Arbeit, Beschreibung, Dringlichkeit
+  4. Lädt bis zu 5 Fotos hoch (Handy: direkt fotografieren oder aus Galerie; PC: Datei wählen)
+  5. Abschicken — Sie erhalten sofort eine Push-Benachrichtigung
+Wo Sie Anfragen sehen: Dashboard → "Anfragen" (linkes Menü)
+Anfragen verwalten:
+  - Status: Neu → Gelesen → Beantwortet → Abgeschlossen
+  - Priorität: Niedrig / Normal / Hoch / Dringend
+  - Fotos in voller Größe öffnen per Klick
+  - Direkt antworten: E-Mail-Button (öffnet Antwort-E-Mail) oder Anruf-Button
+  - Aus Anfrage direkt Rechnung oder Angebot erstellen (1-Klick, Kundendaten werden übernommen)
+Wichtig: Anfragen empfangen ist eine PRO-Funktion. Freemium-Nutzer haben die Visitenkarte, aber der "Anfrage senden"-Button ist für Kunden nicht sichtbar.
+
 RECHNUNGEN — DETAILS:
 - Kundentypen: Privatperson mit MwSt. (19%), Kleinunternehmer (§19 UStG, ohne MwSt.), Firmenkunde
 - Brutto/Netto: System berechnet automatisch je nach Kundentyp
 - Mehrere Adressen: Kundenadresse, Zusatzadresse, Ort der Leistung (z.B. für WEG/Hausverwaltungen)
-- Rechnungsnummern: Automatisch fortlaufend, kein Zurücksetzen außer in der Testphase (löscht alle Testdaten)
+- Rechnungsnummern: Automatisch fortlaufend. Nach der Testphase können Nummern per "Neustart" zurückgesetzt werden.
+- NEUSTART (Hard Reset): Rechnungen → Einstellungen → roter Button "🔄 Neustart" (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Testdaten (Angebote, Rechnungen, PDFs) und setzt Nummerierung neu. Man wählt selbst die nächste AN- und RE-Nummer. Bestätigung durch Eingabe von "LÖSCHEN" + zweiter Dialog. Nicht rückgängig machbar! Gedacht für: nach der Testphase aufräumen und sauber mit echten Nummern starten.
 - Überfällige Rechnungen: Werden farblich markiert, tägliche Push-Benachrichtigung
 - ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF. Das bedeutet: Sie sehen ein normales PDF, aber darin ist unsichtbar eine XML-Datei eingebettet. Der Buchhalter/das Buchhaltungsprogramm (DATEV, Lexware, sevDesk usw.) liest diese XML automatisch aus — keine manuelle Eingabe nötig, keine Tippfehler.
 - DATEV-Export: Einfach ZUGFeRD-PDF an Buchhalter weiterleiten, er importiert es direkt in DATEV.
