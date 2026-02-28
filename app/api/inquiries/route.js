@@ -141,8 +141,8 @@ export async function POST(request) {
 
     console.log('✅ Inquiry created successfully:', inquiry.id)
 
-    // Push notifikacija majstoru (fire-and-forget)
-    sendPushToMajstor(
+    // Push notifikacija majstoru
+    await sendPushToMajstor(
       majstor_id,
       '📬 Neue Anfrage!',
       `${customer_name}: ${subject}`,
