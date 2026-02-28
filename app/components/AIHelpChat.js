@@ -71,11 +71,12 @@ export default function AIHelpChat() {
   }, [])
 
   useEffect(() => {
-    if (open) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
+    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [open, messages])
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 1200)
+  }, [open])
 
   const btnBottom = 24 + keyboardOffset
   const chatBottom = btnBottom + 64 + 8
