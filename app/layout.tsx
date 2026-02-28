@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import CookieConsentBanner from "./components/CookieConsentBanner";
+import { ThemeProvider } from "@/lib/context/ThemeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -126,10 +127,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-900`}
       >
-        {children}
+        <ThemeProvider>
+          {children}
 
-        {/* KORAK 4 — Banner; applyConsent() poziva gtag('consent','update',...) */}
-        <CookieConsentBanner />
+          {/* KORAK 4 — Banner; applyConsent() poziva gtag('consent','update',...) */}
+          <CookieConsentBanner />
+        </ThemeProvider>
       </body>
     </html>
   );
