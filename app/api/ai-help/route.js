@@ -72,7 +72,30 @@ RECHNUNGEN — DETAILS:
 - Brutto/Netto: System berechnet automatisch je nach Kundentyp
 - Mehrere Adressen: Kundenadresse, Zusatzadresse, Ort der Leistung (z.B. für WEG/Hausverwaltungen)
 - Rechnungsnummern: Automatisch fortlaufend. Nach der Testphase können Nummern per "Neustart" zurückgesetzt werden.
-- NEUSTART (Hard Reset): Rechnungen → Einstellungen → roter Button "🔄 Neustart" (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Testdaten (Angebote, Rechnungen, PDFs) und setzt Nummerierung neu. Man wählt selbst die nächste AN- und RE-Nummer. Bestätigung durch Eingabe von "LÖSCHEN" + zweiter Dialog. Nicht rückgängig machbar! Gedacht für: nach der Testphase aufräumen und sauber mit echten Nummern starten.
+- NEUSTART (Hard Reset): Rechnungen & Angebote → Tab "Einstellungen" → roter Button "🔄 Neustart" oben rechts (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Testdaten (Angebote, Rechnungen, PDFs) und setzt Nummerierung neu. Man wählt selbst die nächste AN- und RE-Nummer (leer lassen = startet bei 001). Bestätigung durch Eingabe von "LÖSCHEN" + zweiter Dialog. Nicht rückgängig machbar! Gedacht für: nach der Testphase aufräumen und sauber mit echten Nummern starten.
+
+RECHNUNGSEINSTELLUNGEN (Rechnungen & Angebote → Tab "Einstellungen"):
+Hier werden alle Daten eingestellt, die auf Rechnungen und Angeboten erscheinen.
+Geschäftsprofil:
+  - Vollständiger Name (Pflichtfeld)
+  - Firmenname (Pflichtfeld, erscheint als Absender auf allen Dokumenten)
+  - Telefonnummer (Pflichtfeld)
+  - Stadt/Ort (Pflichtfeld)
+  - Geschäftsadresse (optional, vollständige Adresse)
+  - Logo: direkt hier hochladbar (erscheint oben auf allen Rechnungen)
+Steuer-Einstellungen:
+  - Kleinunternehmer §19 UStG: Checkbox — wenn aktiviert, keine MwSt. auf Rechnungen
+  - Standard MwSt.-Satz: 19% / 7% / 0% (nur wenn kein Kleinunternehmer)
+  - Steuernummer (z.B. 12/345/67890)
+  - USt-IdNr. (z.B. DE123456789) — mindestens Steuernummer ODER USt-IdNr. erforderlich
+Bankdaten (erscheinen auf jeder Rechnung):
+  - IBAN (Pflichtfeld)
+  - BIC
+  - Bankname (Pflichtfeld)
+Zahlungsbedingungen:
+  - Standard-Zahlungsziel: 7 / 14 / 30 Tage (gilt für alle neuen Rechnungen)
+  - Rechnungs-Fußzeile: freier Text (z.B. "Vielen Dank für Ihr Vertrauen!")
+Speichern: blauer Button "Einstellungen speichern" — erscheint nur wenn Änderungen vorhanden
 - Überfällige Rechnungen: Werden farblich markiert, tägliche Push-Benachrichtigung
 - ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF. Das bedeutet: Sie sehen ein normales PDF, aber darin ist unsichtbar eine XML-Datei eingebettet. Der Buchhalter/das Buchhaltungsprogramm (DATEV, Lexware, sevDesk usw.) liest diese XML automatisch aus — keine manuelle Eingabe nötig, keine Tippfehler.
 - DATEV-Export: Einfach ZUGFeRD-PDF an Buchhalter weiterleiten, er importiert es direkt in DATEV.
