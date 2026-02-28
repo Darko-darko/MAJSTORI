@@ -2,8 +2,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
-function RobotIcon({ small }) {
-  const size = small ? 32 : 56
+function RobotIcon({ small, tiny }) {
+  const size = tiny ? 20 : small ? 32 : 56
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Sivi krug */}
@@ -44,19 +44,43 @@ const SUGGESTED = [
 export default function AIHelpChat() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hallo! Ich bin Ihr Pro-Meister Assistent 🤖\n\nWie kann ich Ihnen helfen?' }
+    { role: 'assistant', content: 'Hallo! Ich bin Ihr Pro-Meister AI Assistent\n\nWie kann ich Ihnen helfen?' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
+  const [vvHeight, setVvHeight] = useState(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
-    if (open) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-      setTimeout(() => inputRef.current?.focus(), 100)
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardOffset(offset)
+      setVvHeight(vv.height)
     }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [open, messages])
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 1200)
+  }, [open])
+
+  const btnBottom = 24 + keyboardOffset
+  const chatBottom = btnBottom + 64 + 8
+  const chatHeight = vvHeight ? Math.min(480, vvHeight - 112) : 480
 
   const send = async (text) => {
     const msg = text || input.trim()
@@ -96,7 +120,8 @@ export default function AIHelpChat() {
       {/* Floating Button */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-white hover:bg-slate-50 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="fixed right-6 z-50 w-16 h-16 bg-white hover:bg-slate-50 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        style={{ bottom: `${btnBottom}px` }}
         title="KI-Assistent"
       >
         {open ? (
@@ -111,14 +136,16 @@ export default function AIHelpChat() {
 
       {/* Chat Window — inline stilovi da light mode ne utiče */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: '480px', backgroundColor: '#0f172a', border: '1px solid #334155' }}>
+        <div className="fixed right-6 z-50 w-80 sm:w-96" style={{ bottom: `${chatBottom}px` }}>
+
+          <div className="rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ height: `${chatHeight}px`, backgroundColor: '#0f172a', border: '1px solid #334155' }}>
 
           {/* Header */}
           <div style={{ backgroundColor: '#1d4ed8', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <RobotIcon small />
             <div>
-              <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', lineHeight: '1.2' }}>Pro-Meister Assistent</p>
+              <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', lineHeight: '1.2' }}>Pro-Meister AI Assistent</p>
               <p style={{ color: '#bfdbfe', fontSize: '12px' }}>KI-gestützte Hilfe</p>
             </div>
           </div>
@@ -126,7 +153,8 @@ export default function AIHelpChat() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {messages.map((m, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+              <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-start', gap: '6px' }}>
+                {m.role === 'assistant' && <div style={{ flexShrink: 0, marginTop: '4px' }}><RobotIcon tiny /></div>}
                 <div style={{
                   maxWidth: '85%', padding: '8px 12px', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                   fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5',
@@ -191,6 +219,7 @@ export default function AIHelpChat() {
               </button>
             </div>
             <p style={{ color: '#475569', fontSize: '11px', textAlign: 'center', marginTop: '8px' }}>KI kann Fehler machen — bei wichtigen Fragen Support kontaktieren</p>
+          </div>
           </div>
         </div>
       )}
