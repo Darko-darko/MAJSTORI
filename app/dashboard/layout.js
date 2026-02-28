@@ -9,6 +9,7 @@ import { auth, majstorsAPI, supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import { useSubscription } from '@/lib/hooks/useSubscription'
+import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import Link from 'next/link'
 import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
 
@@ -32,6 +33,9 @@ function DashboardLayoutContent({ children }) {
   
   // Subscription hook for menu badges
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
+
+  // Push notifikacije
+  const { permission, subscribed, loading: pushLoading, supported: pushSupported, subscribe } = usePushNotifications(majstor?.id)
 
   
  // 🔥 LISTEN TO CUSTOM EVENTS + FORCE BADGE RE-RENDER
@@ -1000,7 +1004,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </div>
 
               <div className="flex items-center space-x-3">
-                <button 
+                <button
                   className="relative p-2 text-slate-400 hover:text-white transition-colors"
                   onClick={loadBadgeCounts}
                   title="Refresh notifications"
@@ -1010,6 +1014,17 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                   )}
                 </button>
+
+                {pushSupported && !subscribed && permission !== 'granted' && (
+                  <button
+                    onClick={subscribe}
+                    disabled={pushLoading}
+                    title="Push-Benachrichtigungen aktivieren"
+                    className="relative p-2 text-slate-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
+                  >
+                    <span className="text-xl">{pushLoading ? '⏳' : '🔕'}</span>
+                  </button>
+                )}
                 
                 <button 
                   className="relative p-2 text-slate-400 hover:text-white transition-colors"

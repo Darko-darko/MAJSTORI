@@ -1,6 +1,7 @@
 // app/api/inquiries/route.js - WITH TURNSTILE + HONEYPOT PROTECTION
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { sendPushToMajstor } from '@/lib/sendPushNotification'
 
 // Service role client (bypasses RLS)
 const supabaseAdmin = createClient(
@@ -139,6 +140,14 @@ export async function POST(request) {
     }
 
     console.log('✅ Inquiry created successfully:', inquiry.id)
+
+    // Push notifikacija majstoru (fire-and-forget)
+    sendPushToMajstor(
+      majstor_id,
+      '📬 Neue Anfrage!',
+      `${customer_name}: ${subject}`,
+      '/dashboard/inquiries'
+    )
 
     // Handle images if any
     if (body.images && body.images.length > 0) {
