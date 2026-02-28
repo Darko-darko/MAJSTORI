@@ -100,6 +100,7 @@ export default function AIHelpChat() {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Verbindungsfehler. Bitte versuchen Sie es erneut.' }])
     } finally {
       setLoading(false)
+      inputRef.current?.focus()
     }
   }
 
