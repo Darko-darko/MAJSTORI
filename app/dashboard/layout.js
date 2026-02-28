@@ -1034,14 +1034,20 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   <span className="text-xl">📨</span>
                 </button>
 
-                <Link 
-                  href="/dashboard/settings"
-                  className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
-                >
+                {isFreemium ? (
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
                     {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
                   </div>
-                </Link>
+                ) : (
+                  <Link
+                    href="/dashboard/settings"
+                    className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                    </div>
+                  </Link>
+                )}
               </div>
             </div>
           </header>
