@@ -87,6 +87,15 @@ useEffect(() => {
   }
 }, [subscription?.status, subscription?.cancel_at_period_end, plan?.name])
 
+// Avatar real-time update
+useEffect(() => {
+  const handleAvatarUpdate = (e) => {
+    setMajstor(prev => prev ? { ...prev, avatar_url: e.detail.avatarUrl } : prev)
+  }
+  window.addEventListener('avatar-updated', handleAvatarUpdate)
+  return () => window.removeEventListener('avatar-updated', handleAvatarUpdate)
+}, [])
+
   // Upgrade Modal Hook
   const { isOpen: upgradeModalOpen, modalProps, showUpgradeModal: showFeatureModal, hideUpgradeModal } = useUpgradeModal()
   
@@ -795,9 +804,13 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             <div className="px-4 py-4 border-b border-slate-700">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                  {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-                </div>
+                {majstor?.avatar_url ? (
+                  <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                    {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">
                     {majstor?.full_name || user?.email || 'Loading...'}
@@ -898,9 +911,13 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             <div className="px-4 py-4 border-b border-slate-700">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                  {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-                </div>
+                {majstor?.avatar_url ? (
+                  <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                    {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">
                     {majstor?.full_name || user?.email || 'Loading...'}
@@ -1035,17 +1052,25 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 </button>
 
                 {isFreemium ? (
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                    {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-                  </div>
+                  majstor?.avatar_url ? (
+                    <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                    </div>
+                  )
                 ) : (
                   <Link
                     href="/dashboard/settings"
                     className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                      {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
-                    </div>
+                    {majstor?.avatar_url ? (
+                      <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                      </div>
+                    )}
                   </Link>
                 )}
               </div>

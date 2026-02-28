@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useTheme } from '@/lib/context/ThemeContext'
+import AvatarUpload from '@/app/components/AvatarUpload'
 
 export default function SettingsPage() {
   const [majstor, setMajstor] = useState(null)
@@ -86,6 +87,14 @@ export default function SettingsPage() {
 
       {/* Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Profilbild */}
+        <div className="col-span-full">
+          <AvatarUpload
+            majstor={majstor}
+            onAvatarUpdate={(url) => setMajstor(prev => ({ ...prev, avatar_url: url }))}
+          />
+        </div>
 
         {/* Erscheinungsbild (Tema) */}
         <div className="col-span-full bg-slate-800/50 border border-slate-700 rounded-lg p-6">
