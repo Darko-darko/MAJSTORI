@@ -1,8 +1,6 @@
 // app/api/ai-help/route.js
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
 const SYSTEM_PROMPT = `Du bist der Pro-Meister Assistent — ein freundlicher, kompetenter Hilfsassistent für die Handwerker-Plattform pro-meister.de.
 
 SPRACHE:
@@ -89,6 +87,7 @@ TECHNISCH:
 - Sei freundlich aber professionell — du sprichst mit Handwerkern`
 
 export async function POST(req) {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   try {
     const { messages } = await req.json()
 
