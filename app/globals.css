@@ -16,9 +16,9 @@ a,
 /* html.light-mode ima specificnost 0,1,1 — vise od :root (0,1,0) */
 html.light-mode {
   /* Invert slate backgrounds (dark → light) */
-  --color-slate-900: oklch(0.984 0.003 247.858) !important;  /* now slate-50  */
-  --color-slate-800: oklch(0.968 0.007 247.896) !important;  /* now slate-100 */
-  --color-slate-700: oklch(0.929 0.013 255.508) !important;  /* now slate-200 */
+  --color-slate-900: oklch(0.961 0.007 247.896) !important;  /* pozadina → slate-150 (sivkasta) */
+  --color-slate-800: oklch(1 0 0) !important;                /* kartice → čisto bijela */
+  --color-slate-700: oklch(0.787 0.031 254.841) !important;  /* borders → ~slate-350 */
   --color-slate-600: oklch(0.869 0.022 252.894) !important;  /* now slate-300 */
   --color-slate-500: oklch(0.554 0.046 257.417) !important;  /* mid-grey stays */
   --color-slate-400: oklch(0.446 0.043 257.281) !important;  /* muted text → darker */
@@ -26,6 +26,38 @@ html.light-mode {
 
   /* text-white → postaje tamni tekst u light modu */
   --color-white: oklch(0.208 0.042 265.755) !important;      /* slate-900 value */
+}
+
+/* Light colored text → darker variants za čitljivost na bijeloj pozadini */
+html.light-mode {
+  --color-blue-200: oklch(0.488 0.243 264.376) !important;   /* → blue-700 */
+  --color-blue-300: oklch(0.488 0.243 264.376) !important;   /* → blue-700 */
+  --color-blue-400: oklch(0.546 0.245 262.881) !important;   /* → blue-600 */
+
+  --color-green-200: oklch(0.448 0.119 151.328) !important;  /* → green-700 */
+  --color-green-300: oklch(0.448 0.119 151.328) !important;  /* → green-700 */
+  --color-green-400: oklch(0.527 0.154 150.069) !important;  /* → green-600 */
+
+  --color-red-200: oklch(0.444 0.177 26.899) !important;     /* → red-700 */
+  --color-red-300: oklch(0.444 0.177 26.899) !important;     /* → red-700 */
+  --color-red-400: oklch(0.505 0.213 27.518) !important;     /* → red-600 */
+
+  --color-orange-200: oklch(0.47 0.157 37.304) !important;   /* → orange-700 */
+  --color-orange-300: oklch(0.47 0.157 37.304) !important;   /* → orange-700 */
+  --color-orange-400: oklch(0.553 0.195 38.402) !important;  /* → orange-600 */
+
+  --color-yellow-200: oklch(0.554 0.135 66.442) !important;  /* → yellow-600 */
+  --color-yellow-300: oklch(0.554 0.135 66.442) !important;  /* → yellow-600 */
+  --color-yellow-400: oklch(0.616 0.15 59.339) !important;   /* → yellow-500 */
+
+  --color-purple-200: oklch(0.558 0.272 302.321) !important; /* → purple-600 */
+  --color-purple-300: oklch(0.558 0.272 302.321) !important; /* → purple-600 */
+  --color-purple-400: oklch(0.558 0.272 302.321) !important; /* → purple-600 */
+}
+
+/* Thicker borders za bolju vidljivost u light modu */
+html.light-mode .border {
+  border-width: 2px;
 }
 
 /* Exception: kolorirane boje dugmadi trebaju bijeli tekst i u light modu */
