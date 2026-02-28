@@ -69,3 +69,8 @@ html.light-mode [class*="bg-purple-"],
 html.light-mode [class*="bg-indigo-"] {
   --color-white: #ffffff !important;
 }
+
+/* Exception: Google dugme uvijek bijelo (branded button) */
+html.light-mode .google-btn {
+  --color-white: #ffffff !important;
+}

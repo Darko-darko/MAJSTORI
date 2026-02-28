@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useTheme } from '@/lib/context/ThemeContext'
 import AvatarUpload from '@/app/components/AvatarUpload'
+import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 
 export default function SettingsPage() {
   const [majstor, setMajstor] = useState(null)
@@ -13,6 +14,7 @@ export default function SettingsPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
+  const { supported, subscribed, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications(majstor?.id)
 
   useEffect(() => {
     loadMajstorData()
@@ -117,6 +119,28 @@ export default function SettingsPage() {
               }`} />
             </button>
           </div>
+
+          {supported && (
+            <div className="flex items-center justify-between mt-5 pt-5 border-t border-slate-700">
+              <div>
+                <p className="text-white font-medium">Push-Benachrichtigungen</p>
+                <p className="text-slate-400 text-sm">
+                  {subscribed ? 'Aktiv — neue Anfragen & überfällige Rechnungen' : 'Deaktiviert'}
+                </p>
+              </div>
+              <button
+                onClick={subscribed ? unsubscribe : subscribe}
+                disabled={pushLoading}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                  subscribed ? 'bg-blue-600' : 'bg-slate-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  subscribed ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Geschäftsprofil Section */}
