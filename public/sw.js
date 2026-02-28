@@ -1,6 +1,16 @@
 // public/sw.js
 // Service Worker za Pro-Meister push notifikacije
 
+// Odmah preuzmi kontrolu — bez čekanja da se zatvore stare kartice
+self.addEventListener('install', (event) => {
+  self.skipWaiting()
+})
+
+// Preuzmi kontrolu nad svim otvorenim karticama odmah
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim())
+})
+
 self.addEventListener('push', (event) => {
   if (!event.data) return
 
