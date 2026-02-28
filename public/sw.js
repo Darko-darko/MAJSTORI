@@ -33,12 +33,16 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  // Ukloni badge sa ikonice
-  if ('clearAppBadge' in self.navigator) {
-    self.navigator.clearAppBadge()
-  }
-
   const url = event.notification.data?.url || '/dashboard'
+
+  event.waitUntil(
+    (async () => {
+      // Ukloni badge sa ikonice
+      if ('clearAppBadge' in navigator) {
+        await navigator.clearAppBadge()
+      }
+    })()
+  )
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
