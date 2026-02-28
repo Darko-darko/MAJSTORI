@@ -1053,9 +1053,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
                 {isFreemium ? (
                   majstor?.avatar_url ? (
-                    <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                      <img src={majstor.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    </div>
                   ) : (
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
                       {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
                     </div>
                   )
@@ -1065,9 +1067,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors"
                   >
                     {majstor?.avatar_url ? (
-                      <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                        <img src={majstor.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                      </div>
                     ) : (
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
                         {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
                       </div>
                     )}
