@@ -100,7 +100,6 @@ export default function AIHelpChat() {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Verbindungsfehler. Bitte versuchen Sie es erneut.' }])
     } finally {
       setLoading(false)
-      inputRef.current?.focus()
     }
   }
 
@@ -210,6 +209,7 @@ export default function AIHelpChat() {
               />
               <button
                 onClick={() => send()}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !input.trim()}
                 style={{ backgroundColor: '#2563eb', color: 'white', padding: '8px 12px', borderRadius: '12px', fontSize: '14px', cursor: 'pointer', opacity: (loading || !input.trim()) ? 0.5 : 1 }}
               >
