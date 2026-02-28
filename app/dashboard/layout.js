@@ -1004,7 +1004,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </div>
 
               <div className="flex items-center space-x-3">
-                {pushSupported && !subscribed && permission !== 'granted' ? (
+                {pushSupported && !subscribed && permission !== 'denied' ? (
                   <button
                     onClick={subscribe}
                     disabled={pushLoading}
