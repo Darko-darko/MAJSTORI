@@ -12,6 +12,7 @@ import { useSubscription } from '@/lib/hooks/useSubscription'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import Link from 'next/link'
 import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
+import AIHelpChat from '@/app/components/AIHelpChat'
 
 
 
@@ -1094,12 +1095,14 @@ const NavigationItem = ({ item, isMobile = false }) => {
           currentPlan={modalProps.currentPlan}
         />
         
-        <SupportModal 
+        <SupportModal
           isOpen={supportOpen}
           onClose={closeSupport}
           userEmail={user?.email}
           userName={majstor?.full_name}
         />
+
+        <AIHelpChat />
       </div>
     </>
   )
