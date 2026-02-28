@@ -14,35 +14,30 @@ self.addEventListener('push', (event) => {
   const { title, message, url } = data
 
   event.waitUntil(
-    (async () => {
-      await self.registration.showNotification(title || 'Pro-Meister', {
-        body: message || '',
-        icon: '/android-chrome-192x192.png',
-        badge: '/favicon-32x32.png',
-        data: { url: url || '/dashboard' },
-        requireInteraction: false,
-      })
+    self.registration.showNotification(title || 'Pro-Meister', {
+      body: message || '',
+      icon: '/android-chrome-192x192.png',
+      badge: '/favicon-32x32.png',
+      data: { url: url || '/dashboard' },
+      requireInteraction: false,
+    }).then(() => {
       // Crvena tačka na ikonici aplikacije
-      if ('setAppBadge' in navigator) {
-        await navigator.setAppBadge(1)
+      if ('setAppBadge' in self.navigator) {
+        self.navigator.setAppBadge(1)
       }
-    })()
+    })
   )
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const url = event.notification.data?.url || '/dashboard'
+  // Ukloni badge sa ikonice
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge()
+  }
 
-  event.waitUntil(
-    (async () => {
-      // Ukloni badge sa ikonice
-      if ('clearAppBadge' in navigator) {
-        await navigator.clearAppBadge()
-      }
-    })()
-  )
+  const url = event.notification.data?.url || '/dashboard'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
