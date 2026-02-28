@@ -14,18 +14,19 @@ self.addEventListener('push', (event) => {
   const { title, message, url } = data
 
   event.waitUntil(
-    self.registration.showNotification(title || 'Pro-Meister', {
-      body: message || '',
-      icon: '/android-chrome-192x192.png',
-      badge: '/favicon-32x32.png',
-      data: { url: url || '/dashboard' },
-      requireInteraction: false,
-    }).then(() => {
+    (async () => {
+      await self.registration.showNotification(title || 'Pro-Meister', {
+        body: message || '',
+        icon: '/android-chrome-192x192.png',
+        badge: '/favicon-32x32.png',
+        data: { url: url || '/dashboard' },
+        requireInteraction: false,
+      })
       // Crvena tačka na ikonici aplikacije
-      if ('setAppBadge' in self.navigator) {
-        self.navigator.setAppBadge(1)
+      if ('setAppBadge' in navigator) {
+        await navigator.setAppBadge(1)
       }
-    })
+    })()
   )
 })
 
