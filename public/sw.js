@@ -20,12 +20,22 @@ self.addEventListener('push', (event) => {
       badge: '/favicon-32x32.png',
       data: { url: url || '/dashboard' },
       requireInteraction: false,
+    }).then(() => {
+      // Crvena tačka na ikonici aplikacije
+      if ('setAppBadge' in self.navigator) {
+        self.navigator.setAppBadge(1)
+      }
     })
   )
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+
+  // Ukloni badge sa ikonice
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge()
+  }
 
   const url = event.notification.data?.url || '/dashboard'
 

@@ -1004,18 +1004,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </div>
 
               <div className="flex items-center space-x-3">
-                <button
-                  className="relative p-2 text-slate-400 hover:text-white transition-colors"
-                  onClick={loadBadgeCounts}
-                  title="Refresh notifications"
-                >
-                  <span className="text-xl">🔔</span>
-                  {(badges.inquiries + badges.invoices ) > 0 && (
-                    <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                  )}
-                </button>
-
-                {pushSupported && !subscribed && permission !== 'granted' && (
+                {pushSupported && !subscribed && permission !== 'granted' ? (
                   <button
                     onClick={subscribe}
                     disabled={pushLoading}
@@ -1023,6 +1012,17 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     className="relative p-2 text-slate-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
                   >
                     <span className="text-xl">{pushLoading ? '⏳' : '🔕'}</span>
+                  </button>
+                ) : (
+                  <button
+                    className="relative p-2 text-slate-400 hover:text-white transition-colors"
+                    onClick={loadBadgeCounts}
+                    title="Refresh notifications"
+                  >
+                    <span className="text-xl">🔔</span>
+                    {(badges.inquiries + badges.invoices) > 0 && (
+                      <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                    )}
                   </button>
                 )}
                 
