@@ -72,6 +72,7 @@ RECHNUNGEN — DETAILS:
 - Brutto/Netto: System berechnet automatisch je nach Kundentyp
 - Mehrere Adressen: Kundenadresse, Zusatzadresse, Ort der Leistung (z.B. für WEG/Hausverwaltungen)
 - Rechnungsnummern: Automatisch fortlaufend. Nach der Testphase können Nummern per "Neustart" zurückgesetzt werden.
+- RECHNUNG/ANGEBOT LÖSCHEN: Rechnungen & Angebote → Papierkorb-Symbol bei der jeweiligen Rechnung/Angebot. Bestätigung durch Eingabe der genauen Dokumentnummer (z.B. RE-2025-001). Nicht rückgängig machbar. Sonderregel: Angebot kann nicht gelöscht werden solange eine Rechnung daraus erstellt wurde — zuerst die Rechnung löschen. Wenn eine Rechnung aus einem Angebot stammt, wird gefragt ob auch das Angebot gelöscht werden soll.
 - NEUSTART (Hard Reset): Rechnungen & Angebote → Tab "Einstellungen" → roter Button "🔄 Neustart" oben rechts (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Testdaten (Angebote, Rechnungen, PDFs) und setzt Nummerierung neu. Man wählt selbst die nächste AN- und RE-Nummer (leer lassen = startet bei 001). Bestätigung durch Eingabe von "LÖSCHEN" + zweiter Dialog. Nicht rückgängig machbar! Gedacht für: nach der Testphase aufräumen und sauber mit echten Nummern starten.
 
 RECHNUNGSEINSTELLUNGEN (Rechnungen & Angebote → Tab "Einstellungen"):
