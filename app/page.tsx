@@ -180,8 +180,8 @@ export default function Home() {
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✦ NEU</span>
               </div>
-              <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mt-2">
-                <span className="text-2xl">🤖</span>
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mt-2">
+                <img src="/robot.png" alt="KI-Assistent" className="w-10 h-10 object-contain" />
               </div>
               <h3 className="text-2xl font-bold text-white mb-4">KI-Assistent</h3>
               <p className="text-slate-300 mb-6 leading-relaxed">
