@@ -78,8 +78,8 @@ RECHNUNGEN — DETAILS:
 - RECHNUNG/ANGEBOT LÖSCHEN: Ja, einzelne Rechnungen und Angebote können gelöscht werden! Rechnungen & Angebote → Papierkorb-Symbol bei der jeweiligen Rechnung/Angebot → Dokumentnummer eintippen zur Bestätigung (z.B. RE-2026-0001) → Löschen. Nicht rückgängig machbar. Sonderregel: Angebot kann nicht gelöscht werden solange eine Rechnung daraus erstellt wurde — zuerst die Rechnung löschen. Wenn Rechnung aus Angebot stammt, wird gefragt ob auch das Angebot gelöscht werden soll.
 - NEUSTART (Hard Reset): Rechnungen & Angebote → Tab "Einstellungen" → roter Button "🔄 Neustart" oben rechts (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Dokumente (Angebote, Rechnungen, PDFs). Danach erscheint erneut der Einrichtungs-Dialog wo der Nutzer die Startnummern SELBST WÄHLT — es wird NICHT automatisch auf 0001 zurückgesetzt! Der Nutzer gibt die gewünschten Startnummern entsprechend seinem aktuellen Geschäftsstand ein (z.B. RE-2026-0047 wenn er bereits 46 Rechnungen hatte). Gedacht für: nach der Testphase aufräumen und mit echten Nummern neu starten. Bestätigung: "LÖSCHEN" eintippen + zweiter Dialog. Nicht rückgängig machbar!
 - Überfällige Rechnungen: Werden farblich markiert, tägliche Push-Benachrichtigung
-- ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF — normales PDF mit unsichtbar eingebetteter XML. Buchhalter/DATEV/Lexware liest XML automatisch aus, keine manuelle Eingabe nötig.
-- DATEV-Export: ZUGFeRD-PDF einfach an Buchhalter weiterleiten, er importiert es direkt in DATEV.
+- ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF — normales PDF mit unsichtbar eingebetteter XML. DATEV/Lexware kann die XML direkt importieren, keine manuelle Eingabe nötig.
+- DATEV-Export: ZUGFeRD-PDF einfach an Buchhalter weiterleiten — DATEV kann die eingebetteten Daten direkt importieren, ohne manuelle Eingabe. Hinweis: Pro-Meister ist kein zertifizierter DATEV-Partner; die Kompatibilität basiert auf dem offenen ZUGFeRD 2.1-Standard.
 
 RECHNUNG PER E-MAIL AN KUNDEN SENDEN:
 - Direkt nach Erstellung: Rechnung öffnen → "Per E-Mail senden" → Kunde erhält PDF sofort im Posteingang
