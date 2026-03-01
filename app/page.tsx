@@ -80,7 +80,7 @@ export default function Home() {
                     <p className="text-slate-400 text-xs">1-Klick Umwandlung</p>
                   </div>
                   <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
-                    <div className="text-xl mb-1">✦</div>
+                    <div className="text-xl mb-1 text-yellow-400">✦</div>
                     <h3 className="text-white font-semibold text-xs mb-1">KI-Assistent</h3>
                     <p className="text-slate-400 text-xs">Sofortige Antworten</p>
                   </div>
@@ -201,11 +201,11 @@ export default function Home() {
               </div>
               <h3 className="text-2xl font-bold text-white mb-4">Buchhalter-Export</h3>
               <p className="text-slate-300 mb-6 leading-relaxed">
-                Alle Rechnungen gesammelt an den Buchhalter — ein Klick, eine E-Mail, alle PDFs. DATEV liest die ZUGFeRD-Daten automatisch aus.
+                Alle Rechnungen gesammelt an den Buchhalter — ein Klick, eine E-Mail, alle PDFs. DATEV kann die eingebetteten ZUGFeRD-Daten direkt importieren.
               </p>
               <ul className="text-slate-400 space-y-2">
                 <li>✓ Massenversand per Knopfdruck</li>
-                <li>✓ <span className="text-indigo-400 font-medium">ZUGFeRD → DATEV automatisch</span></li>
+                <li>✓ <span className="text-indigo-400 font-medium">ZUGFeRD → DATEV-Import direkt</span></li>
                 <li>✓ PDF-Archiv immer verfügbar</li>
               </ul>
             </div>
@@ -639,10 +639,10 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; {new Date().getFullYear()} pro-meister.de — Der digitale Assistent für Handwerker</p>
-            <p className="text-xs opacity-60 mt-2">
+            <p className="text-xs opacity-60 mb-2">
               DATEV ist eine eingetragene Marke der DATEV eG. Wir sind kein zertifizierter DATEV-Partner und stehen in keiner geschäftlichen Verbindung zu DATEV. Die ZUGFeRD-Kompatibilität basiert auf dem offenen ZUGFeRD-Standard.
             </p>
+            <p>&copy; {new Date().getFullYear()} pro-meister.de — Der digitale Assistent für Handwerker</p>
           </div>
         </div>
       </footer>
