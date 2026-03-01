@@ -261,6 +261,17 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Mid-page CTA */}
+      <section className="py-12 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-white mb-3">30 Tage PRO kostenlos testen</h2>
+          <p className="text-slate-400 mb-8">Voller Zugriff auf alle Funktionen. Keine Abbuchung während der Testphase.</p>
+          <a href="/signup" className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25">
+            PRO jetzt testen →
+          </a>
+        </div>
+      </section>
+
       {/* PDF Screenshot Placeholder + Testimonial */}
       <section className="py-16 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
