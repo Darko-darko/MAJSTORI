@@ -115,7 +115,19 @@
 - PROBLEM SA CIFROM U KUNDEN✅
 
 - pdf archive da bude dostupna u freemiumu...
-- ne vidi se pdf u pdf arhiv (možda ukinuti dugme, a možda rešiti... i proveriti download
+- ne vidi se pdf u pdf arhiv -možda ukinuti dugme, a možda rešiti... i proveriti download 
+- sentry
+- Admin pristup ✅
+- opomena ua kašnjenje ručna ✅
+- opomena za kašnjenje automatska
+- tim
+- planer
+- kada se registruje, a ne odabere plan... popravka ✅
+- Aufmaß
+- light tema ✅
+- problem ulaska u pro funkcije iz freemiuma kroz profilni bedž ✅
+- gugle log na light temi ✅
+- obrisati sve grane na gitu, osim develop i main
 
 
 

@@ -297,7 +297,7 @@ function generateEmailHTML(invoice, majstor, customMessage) {
             ${majstor.business_name || majstor.full_name}<br>
             ${majstor.address || ''}<br>
             ${majstor.city || ''}<br>
-            E-Mail: ${majstor.email}<br>
+            E-Mail: ${majstor.business_email || majstor.email}<br>
             ${majstor.phone ? `Tel: ${majstor.phone}<br>` : ''}
             ${majstor.tax_number ? `Steuernummer: ${majstor.tax_number}` : ''}
           </p>

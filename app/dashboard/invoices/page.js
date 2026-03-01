@@ -59,7 +59,8 @@ function DashboardPageContent() {
     business_name: '',
     phone: '',
     city: '',
-    address: ''
+    address: '',
+    business_email: ''
   })
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [settingsError, setSettingsError] = useState('')
@@ -256,7 +257,8 @@ function DashboardPageContent() {
         business_name: majstorData.business_name || '',
         phone: majstorData.phone || '',
         city: majstorData.city || '',
-        address: majstorData.address || ''
+        address: majstorData.address || '',
+        business_email: majstorData.business_email || ''
       })
       
       await loadInvoicesData(majstorData.id)
@@ -1719,6 +1721,7 @@ const HardResetModal = () => {
       phone: localSettings.phone || null,
       city: localSettings.city || null,
       address: localSettings.address || null,
+      business_email: localSettings.business_email || null,
       updated_at: new Date().toISOString()
     }
 
@@ -1898,6 +1901,21 @@ const HardResetModal = () => {
                   value={localSettings.address || ''}
                   onChange={handleLocalChange}
                   placeholder="Musterstraße 123, 10115 Berlin"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Geschäfts-E-Mail (optional)
+                  <span className="text-slate-500 text-xs ml-1">(erscheint auf Rechnungen — leer = Anmelde-E-Mail wird verwendet)</span>
+                </label>
+                <input
+                  type="email"
+                  name="business_email"
+                  value={localSettings.business_email || ''}
+                  onChange={handleLocalChange}
+                  placeholder="info@meinefirma.de"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                 />
               </div>
