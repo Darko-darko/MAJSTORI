@@ -2,6 +2,16 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
+let sparkleInitialized = false
+
+function SparkleIcon({ color = '#fbbf24', size = 10 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" fill="none">
+      <path d="M5 0L5.8 4.2L10 5L5.8 5.8L5 10L4.2 5.8L0 5L4.2 4.2Z" fill={color}/>
+    </svg>
+  )
+}
+
 function RobotIcon({ small, tiny }) {
   const size = tiny ? 20 : small ? 32 : 56
   return (
@@ -50,8 +60,21 @@ export default function AIHelpChat() {
   const [loading, setLoading] = useState(false)
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [vvHeight, setVvHeight] = useState(null)
+  const [showSparkles, setShowSparkles] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (sparkleInitialized) return
+    sparkleInitialized = true
+
+    const count = parseInt(localStorage.getItem('pm-chat-opens') || '0')
+    if (count < 6) {
+      localStorage.setItem('pm-chat-opens', String(count + 1))
+      setShowSparkles(true)
+      setTimeout(() => setShowSparkles(false), 3500)
+    }
+  }, [])
 
   useEffect(() => {
     const vv = window.visualViewport
@@ -114,22 +137,45 @@ export default function AIHelpChat() {
 
   return (
     <>
-      {/* Floating Button */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="fixed right-6 z-50 w-16 h-16 bg-white hover:bg-slate-50 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-        style={{ bottom: `${btnBottom}px` }}
-        title="KI-Assistent"
-      >
-        {open ? (
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <line x1="4" y1="4" x2="16" y2="16" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
-            <line x1="16" y1="4" x2="4" y2="16" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-        ) : (
-          <RobotIcon />
+      {/* Floating Button + Sparkles */}
+      <style>{`
+        @keyframes pm-sparkle {
+          0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+          45%, 55% { opacity: 1; transform: scale(1) rotate(180deg); }
+        }
+      `}</style>
+      <div style={{ position: 'fixed', right: '24px', bottom: `${btnBottom}px`, zIndex: 50, width: '64px', height: '64px' }}>
+        {!open && showSparkles && (
+          <>
+            <div style={{ position: 'absolute', top: '-6px', right: '2px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '0s', pointerEvents: 'none' }}>
+              <SparkleIcon color="#fbbf24" size={14} />
+            </div>
+            <div style={{ position: 'absolute', top: '0px', left: '-8px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '0.8s', pointerEvents: 'none' }}>
+              <SparkleIcon color="#60a5fa" size={11} />
+            </div>
+            <div style={{ position: 'absolute', bottom: '-3px', right: '-4px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '1.6s', pointerEvents: 'none' }}>
+              <SparkleIcon color="#fbbf24" size={10} />
+            </div>
+            <div style={{ position: 'absolute', bottom: '4px', left: '-6px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '0.4s', pointerEvents: 'none' }}>
+              <SparkleIcon color="#4ecdc0" size={9} />
+            </div>
+          </>
         )}
-      </button>
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="w-16 h-16 bg-white hover:bg-slate-50 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+          title="KI-Assistent"
+        >
+          {open ? (
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <line x1="4" y1="4" x2="16" y2="16" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="16" y1="4" x2="4" y2="16" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <RobotIcon />
+          )}
+        </button>
+      </div>
 
       {/* Chat Window — inline stilovi da light mode ne utiče */}
       {open && (

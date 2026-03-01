@@ -69,6 +69,8 @@ export default function SettingsPage() {
     )
   }
 
+  if (!majstor) return null
+
   return (
     <div className="space-y-6">
       {/* Header */}
