@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /faq
+Allow: /privacy
+Allow: /terms
+Allow: /imprint
+Allow: /refund
+
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /reset-password
+Disallow: /complete-profile
+Disallow: /api/
+
+Sitemap: https://pro-meister.de/sitemap.xml

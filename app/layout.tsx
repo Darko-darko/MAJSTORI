@@ -17,10 +17,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Pro-Meister - Handwerker Dashboard",
+    default: "Pro-Meister | Rechnungen für Handwerker — Kostenlos testen",
     template: "%s | Pro-Meister"
   },
-  description: "Die moderne Plattform für Handwerker - Kundenverwaltung, Rechnungen & mehr",
+  description: "Rechnungen direkt auf der Baustelle erstellen. Angebot mit 1 Klick zur Rechnung. ZUGFeRD-PDF automatisch, DATEV-kompatibel. 30 Tage kostenlos testen.",
   
   // 🔥 PWA Manifest
   manifest: "/site.webmanifest",

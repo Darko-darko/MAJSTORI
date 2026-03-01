@@ -524,7 +524,7 @@ export default function Home() {
               },
               {
                 q: "Ist Pro-Meister wirklich DATEV-kompatibel?",
-                a: "Ja. Jede Rechnung wird im ZUGFeRD 2.1-Format erstellt — DATEV liest die eingebetteten Daten automatisch aus. Ihr Buchhalter bekommt alles per Knopfdruck, ohne manuellen Aufwand.",
+                a: "Ja. Jede Rechnung wird im ZUGFeRD 2.1-Format erstellt — DATEV kann die eingebetteten Daten direkt importieren, ohne manuelle Eingabe. Ihr Buchhalter bekommt alles per Knopfdruck.",
               },
               {
                 q: "Was kann der KI-Assistent?",
@@ -628,7 +628,7 @@ export default function Home() {
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
             <p>&copy; {new Date().getFullYear()} pro-meister.de — Der digitale Assistent für Handwerker</p>
             <p className="text-xs opacity-60 mt-2">
-              DATEV ist eine eingetragene Marke der DATEV eG. Wir stehen in keiner geschäftlichen Verbindung zu DATEV.
+              DATEV ist eine eingetragene Marke der DATEV eG. Wir sind kein zertifizierter DATEV-Partner und stehen in keiner geschäftlichen Verbindung zu DATEV. Die ZUGFeRD-Kompatibilität basiert auf dem offenen ZUGFeRD-Standard.
             </p>
           </div>
         </div>
