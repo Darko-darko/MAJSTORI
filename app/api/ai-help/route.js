@@ -18,10 +18,11 @@ STIL:
 === PRO-MEISTER PLATTFORM — WISSEN ===
 
 PLÄNE:
-- Freemium (0€): QR-Visitenkarte, Kundenanfragen empfangen, Basis-Dashboard. Kostenlos für immer. Keine Rechnungen/Angebote.
+- Freemium (0€): QR-Visitenkarte, Kundenanfragen empfangen, Basis-Dashboard. Kostenlos für immer. KEINE Kreditkarte — niemals. Keine Rechnungen/Angebote.
 - PRO (19,90€/Monat oder günstigerer Jahrestarif + MwSt.): + Kundenverwaltung, Rechnungen/Angebote, PDF-Archiv, Statistiken, Mahnungen
 - PRO+ (in Entwicklung): Erweiterter Plan mit zusätzlichen Funktionen — Details folgen in Kürze
-- 30 Tage Probezeitraum für PRO, jederzeit kündbar, keine versteckten Kosten
+- 30 Tage Probezeitraum für PRO: Kreditkarte erforderlich (FastSpring), aber KEINE Abbuchung während der Testphase. Jederzeit vor Ablauf kündbar — keine Kosten.
+- Nach 30 Tagen: Automatischer Wechsel zu Freemium wenn nicht aktiv PRO gewählt. Daten bleiben erhalten. PRO jederzeit aktivierbar.
 - Kündigung: Klick auf PRO-Badge → kündigen. Zugriff bis Ende der bezahlten Zeit. Danach automatisch Freemium.
 
 HAUPTFUNKTIONEN:
@@ -75,7 +76,7 @@ RECHNUNGEN — DETAILS:
 - Rechnungsnummern: Automatisch fortlaufend nach Jahr (RE-2026-0001). Jedes Jahr beginnt die Nummerierung automatisch neu bei 0001 — keine manuelle Aktion nötig.
 - ERSTMALIGE EINRICHTUNG: Beim ersten Erstellen einer Rechnung erscheint automatisch ein Einrichtungs-Dialog. Dort können Sie die Startnummern für Rechnungen (RE-) und Angebote (AN-) selbst festlegen — so können Sie den aktuellen Stand aus Ihrem alten System übernehmen. Einmalig, nicht rückgängig machbar.
 - RECHNUNG/ANGEBOT LÖSCHEN: Ja, einzelne Rechnungen und Angebote können gelöscht werden! Rechnungen & Angebote → Papierkorb-Symbol bei der jeweiligen Rechnung/Angebot → Dokumentnummer eintippen zur Bestätigung (z.B. RE-2026-0001) → Löschen. Nicht rückgängig machbar. Sonderregel: Angebot kann nicht gelöscht werden solange eine Rechnung daraus erstellt wurde — zuerst die Rechnung löschen. Wenn Rechnung aus Angebot stammt, wird gefragt ob auch das Angebot gelöscht werden soll.
-- NEUSTART (Hard Reset): Rechnungen & Angebote → Tab "Einstellungen" → roter Button "🔄 Neustart" oben rechts (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Dokumente (Angebote, Rechnungen, PDFs) und setzt Nummerierung neu. Gedacht für: nach der Testphase aufräumen. Bestätigung: "LÖSCHEN" eintippen + zweiter Dialog. Nicht rückgängig machbar!
+- NEUSTART (Hard Reset): Rechnungen & Angebote → Tab "Einstellungen" → roter Button "🔄 Neustart" oben rechts (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Dokumente (Angebote, Rechnungen, PDFs). Danach erscheint erneut der Einrichtungs-Dialog wo der Nutzer die Startnummern SELBST WÄHLT — es wird NICHT automatisch auf 0001 zurückgesetzt! Der Nutzer gibt die gewünschten Startnummern entsprechend seinem aktuellen Geschäftsstand ein (z.B. RE-2026-0047 wenn er bereits 46 Rechnungen hatte). Gedacht für: nach der Testphase aufräumen und mit echten Nummern neu starten. Bestätigung: "LÖSCHEN" eintippen + zweiter Dialog. Nicht rückgängig machbar!
 - Überfällige Rechnungen: Werden farblich markiert, tägliche Push-Benachrichtigung
 - ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF — normales PDF mit unsichtbar eingebetteter XML. Buchhalter/DATEV/Lexware liest XML automatisch aus, keine manuelle Eingabe nötig.
 - DATEV-Export: ZUGFeRD-PDF einfach an Buchhalter weiterleiten, er importiert es direkt in DATEV.
@@ -108,6 +109,7 @@ Geschäftsprofil:
   - Telefonnummer (Pflichtfeld)
   - Stadt/Ort (Pflichtfeld)
   - Geschäftsadresse (optional, vollständige Adresse)
+  - Geschäfts-E-Mail (optional): separate E-Mail-Adresse die auf Rechnungen und PDFs erscheint (z.B. info@meinefirma.de). Wenn leer, wird die Anmelde-E-Mail verwendet.
   - Logo: direkt hier hochladbar (erscheint oben auf allen Rechnungen)
 Steuer-Einstellungen:
   - Kleinunternehmer §19 UStG: Checkbox — wenn aktiviert, keine MwSt. auf Rechnungen
