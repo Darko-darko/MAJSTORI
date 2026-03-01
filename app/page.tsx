@@ -6,8 +6,9 @@ export default function Home() {
       <nav className="fixed top-0 w-full bg-white/10 backdrop-blur-md border-b border-white/10 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
-            <div className="text-xl sm:text-2xl font-bold text-white text-center sm:text-left">
-              Pro-meister<span className="text-blue-400">.de</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <img src="/logo.png" alt="Pro-Meister Logo" className="w-7 h-7 sm:w-8 sm:h-8" />
+              <span className="text-xl sm:text-2xl font-bold text-white">Pro-meister<span className="text-blue-400">.de</span></span>
             </div>
             <div className="flex gap-2 sm:gap-4 justify-center items-center">
               <a href="/faq" className="text-white/80 hover:text-white px-3 sm:px-4 py-2 transition-colors text-sm sm:text-base">FAQ</a>
@@ -592,8 +593,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <div className="text-2xl font-bold text-white mb-4">
-                Pro-meister<span className="text-blue-400">.de</span>
+              <div className="flex items-center gap-2 mb-4">
+                <img src="/logo.png" alt="Pro-Meister Logo" className="w-7 h-7" />
+                <span className="text-2xl font-bold text-white">Pro-meister<span className="text-blue-400">.de</span></span>
               </div>
               <p className="text-slate-400">
                 Der digitale Assistent für Handwerker. Rechnungen, Angebote und Kundenverwaltung — ohne Buchhaltungskenntnisse.
