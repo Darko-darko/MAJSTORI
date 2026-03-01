@@ -80,6 +80,12 @@ RECHNUNGEN — DETAILS:
 - ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF — normales PDF mit unsichtbar eingebetteter XML. Buchhalter/DATEV/Lexware liest XML automatisch aus, keine manuelle Eingabe nötig.
 - DATEV-Export: ZUGFeRD-PDF einfach an Buchhalter weiterleiten, er importiert es direkt in DATEV.
 
+RECHNUNG PER E-MAIL AN KUNDEN SENDEN:
+- Direkt nach Erstellung: Rechnung öffnen → "Per E-Mail senden" → Kunde erhält PDF sofort im Posteingang
+- Auch vom Handy aus dem Feld möglich — Rechnung erstellen und sofort abschicken
+- Betreff und Nachricht können angepasst werden
+- CC-Feld: Kopie an sich selbst oder Buchhalter möglich
+
 RECHNUNG AN BUCHHALTER SENDEN:
 - Empfehlung: Einmal oder zweimal im Monat alle Rechnungen gesammelt senden. PDF-Archiv → Zeitraum wählen → alle auswählen → "An Buchhalter senden" (eine E-Mail mit allen PDFs).
 - CC-Option: Beim Versand einer einzelnen Rechnung per E-Mail gibt es ein CC-Feld (vorausgefüllt mit Ihrer eigenen E-Mail). Sie können dort die E-Mail Ihres Buchhalters eintragen — dann bekommt er jede Rechnung sofort als Kopie. Buchhalter bevorzugen jedoch meistens den gesammelten Versand einmal pro Monat.
