@@ -1697,14 +1697,14 @@ if (searchError) {
                     <div className="md:col-span-2">
                       <label className="block text-sm text-slate-400 mb-1">Gesamt</label>
                       <div className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm">
-                        {formatCurrency(item.total)}
+                        {!formData.is_kleinunternehmer ? formatCurrency(
+                          item.price_source === 'brutto'
+                            ? parseFloat(((parseFloat(item.quantity) || 0) * (parseFloat(item.price_gross) || 0)).toFixed(2))
+                            : parseFloat((item.total * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2))
+                        ) : formatCurrency(item.total)}
                         {!formData.is_kleinunternehmer && (
                           <span className="text-slate-400 text-xs ml-1">
-                            ({formatCurrency(
-                              item.price_source === 'brutto'
-                                ? parseFloat(((parseFloat(item.quantity) || 0) * (parseFloat(item.price_gross) || 0)).toFixed(2))
-                                : parseFloat((item.total * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2))
-                            )} brutto)
+                            ({formatCurrency(item.total)} netto)
                           </span>
                         )}
                       </div>
