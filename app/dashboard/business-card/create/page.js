@@ -778,7 +778,7 @@ export default function CreateBusinessCardPage() {
           E-Mail *
         </label>
         <input
-          type="email"
+          type="text"
           name="card_email"
           value={formData.card_email}
           onChange={handleChange}
@@ -1155,7 +1155,7 @@ export default function CreateBusinessCardPage() {
           E-Mail *
         </label>
         <input
-          type="email"
+          type="text"
           name="card_email"
           value={formData.card_email}
           onChange={handleChange}
