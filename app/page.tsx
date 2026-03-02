@@ -80,9 +80,9 @@ export default function Home() {
                     <p className="text-slate-400 text-xs">1-Klick Umwandlung</p>
                   </div>
                   <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
-                    <div className="text-xl mb-1 text-yellow-400">✦</div>
-                    <h3 className="text-white font-semibold text-xs mb-1">KI-Assistent</h3>
-                    <p className="text-slate-400 text-xs">Sofortige Antworten</p>
+                    <div className="text-xl mb-1">🎙</div>
+                    <h3 className="text-white font-semibold text-xs mb-1">KI-Sprachdiktat</h3>
+                    <p className="text-slate-400 text-xs">Rechnung diktieren, KI füllt aus</p>
                   </div>
                   <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
                     <div className="text-xl mb-1">📱</div>
@@ -175,22 +175,23 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Feature 2 - KI Assistent */}
+            {/* Feature 2 - KI Assistent + Sprachdiktat */}
             <div className="group bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-2 border-yellow-500/30 rounded-2xl p-8 hover:border-yellow-400/50 transition-all duration-300 hover:-translate-y-2 relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✦ NEU</span>
+                <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">✦ KI-FEATURE</span>
               </div>
               <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mt-2">
-                <img src="/robot.png" alt="KI-Assistent" className="w-10 h-10 object-contain" />
+                <span className="text-3xl">🎙</span>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">KI-Assistent</h3>
+              <h3 className="text-2xl font-bold text-white mb-4">KI-Sprachdiktat</h3>
               <p className="text-slate-300 mb-6 leading-relaxed">
-                Haben Sie eine Frage zur App oder zu Ihrer Rechnung? Der KI-Assistent antwortet sofort — rund um die Uhr, auf Deutsch.
+                Rechnung diktieren statt tippen — einfach Mikrofon-Taste halten, sprechen, fertig. Die KI füllt Kunde, Leistung und Preis automatisch aus.
               </p>
               <ul className="text-slate-400 space-y-2">
-                <li>✓ Sofortige Antworten, kein Warten</li>
-                <li>✓ Kennt alle Funktionen von Pro-Meister</li>
-                <li>✓ <span className="text-yellow-400 font-medium">In jedem Plan enthalten</span></li>
+                <li>✓ <span className="text-yellow-400 font-medium">„Kunde ist Müller, Preis ist 500 Euro" — fertig</span></li>
+                <li>✓ Bekannte Kunden werden automatisch erkannt</li>
+                <li>✓ Deutsch, Serbisch & weitere Sprachen</li>
+                <li>✓ KI-Assistent für App-Fragen inklusive</li>
               </ul>
             </div>
 
