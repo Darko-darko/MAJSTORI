@@ -85,6 +85,7 @@ export default function InvoiceCreator({
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showVoiceExamples, setShowVoiceExamples] = useState(false)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
 
@@ -1193,7 +1194,7 @@ if (searchError) {
             {!isEditMode && (
               <div className="bg-slate-700/40 border border-slate-600 rounded-lg p-4">
                 <div className="flex flex-col items-center gap-1 mb-3 text-center">
-                  <span className="text-white font-medium text-sm">🎙 Schnellerfassung per Sprache</span>
+                  <span className="text-white font-medium text-sm">✨ Schnellerfassung per Sprache</span>
                   <span className="text-slate-400 text-xs">Gedrückt halten und Rechnung diktieren</span>
                 </div>
                 <button
@@ -1208,15 +1209,34 @@ if (searchError) {
                       ? 'bg-slate-600 text-slate-400 cursor-wait'
                       : isRecording
                       ? 'bg-red-500/20 border-2 border-red-500 text-red-400 animate-pulse'
-                      : 'bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/30 active:bg-blue-600/40'
+                      : 'bg-violet-600/20 border border-violet-500/50 text-violet-300 hover:bg-violet-600/30 active:bg-violet-600/40'
                   }`}
                 >
                   {isProcessing ? '⏳ Wird verarbeitet...' : isRecording ? '🔴 Aufnahme läuft — loslassen zum Beenden' : '🎙 Hier gedrückt halten & sprechen'}
                 </button>
 
-                <p className="mt-2 text-slate-500 text-xs text-center">
-                  Beispiel: <span className="text-slate-400">„Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"</span>
-                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="flex-1 text-slate-500 text-xs">
+                    Beispiel: <span className="text-slate-400">„Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowVoiceExamples(p => !p)}
+                    className="text-slate-400 hover:text-slate-200 text-base leading-none flex-shrink-0"
+                    title="Mehr Beispiele"
+                  >
+                    ℹ
+                  </button>
+                </div>
+
+                {showVoiceExamples && (
+                  <div className="mt-2 bg-slate-800 border border-slate-700 rounded p-3 text-xs text-slate-300 space-y-2">
+                    <p className="text-slate-500 italic">Nur das sprechen, was bekannt ist — fehlende Felder können danach manuell ergänzt werden.</p>
+                    <p className="text-slate-500 italic">💡 Bekannter Kunde? Nur den Namen nennen — alle Daten werden automatisch ausgefüllt.</p>
+                    <p><span className="text-slate-500">Einfach:</span> „Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"</p>
+                    <p><span className="text-slate-500">Vollständig:</span> „Kunde ist Müller, Straße: Hauptstraße 5, PLZ: 80331, München, Tel: 0176 123456, E-Mail: mueller@gmail.com, Leistung ist Rohrreparatur, Preis ist 500 Euro"</p>
+                  </div>
+                )}
               </div>
             )}
 
