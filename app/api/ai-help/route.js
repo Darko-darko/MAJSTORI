@@ -37,6 +37,20 @@ HAUPTFUNKTIONEN:
 - Light/Dark Mode: Einstellungen → Erscheinungsbild → Farbschema umschalten. Wird gespeichert.
 - Mahnungen (Zahlungserinnerungen): Manuell aus der Rechnungsübersicht sendbar — überfällige Rechnung öffnen → Mahnung senden
 - Statistiken: Dashboard → Umsatzübersicht, offene Rechnungen, überfällige Rechnungen. Nur PRO.
+- KI-Sprachdiktat (PRO): Rechnung per Sprache diktieren — Mikrofon-Taste halten, sprechen, loslassen. KI füllt Kunde, Leistungen und Preise automatisch aus. Bekannte Kunden werden aus der Datenbank automatisch erkannt.
+
+KI-SPRACHDIKTAT — DETAILS (nur PRO):
+Wo: Neue Rechnung oder Neues Angebot → 🎙 Mikrofon-Taste unten gedrückt halten
+Sprechen: "Kunde ist [Name], Leistung ist [Beschreibung], Preis ist [Betrag] Euro"
+Loslassen → KI füllt das Formular automatisch aus
+Sprachen: Deutsch (empfohlen), Serbisch/Bosnisch/Kroatisch, weitere Sprachen werden automatisch erkannt
+Preise: Standard ist Brutto — KI berechnet automatisch korrekt
+Kundenerkennung: Wenn der genannte Name einem bekannten Kunden entspricht → alle Daten (Adresse, E-Mail, Telefon) werden automatisch ausgefüllt
+Mehrere Positionen: "Leistung ist Rohrreparatur, Preis ist 500 Euro, und Leistung ist Fahrtkosten, Preis ist 50 Euro"
+Nur das sprechen was bekannt ist — fehlende Felder können danach manuell ergänzt werden
+Typische Aussagen:
+  Deutsch: "Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"
+  Serbisch: "Kupac je Müller, usluga je popravka cevi, cena je 500 evra"
 
 QR-VISITENKARTE — DETAILS:
 Erstellen: Dashboard → "Visitenkarte" → Formular ausfüllen:
