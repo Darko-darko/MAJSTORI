@@ -53,6 +53,11 @@ html.light-mode {
   --color-purple-200: oklch(0.558 0.272 302.321) !important; /* → purple-600 */
   --color-purple-300: oklch(0.558 0.272 302.321) !important; /* → purple-600 */
   --color-purple-400: oklch(0.558 0.272 302.321) !important; /* → purple-600 */
+
+  --color-violet-200: oklch(0.491 0.270 292.581) !important; /* → violet-700 */
+  --color-violet-300: oklch(0.491 0.270 292.581) !important; /* → violet-700 */
+  --color-violet-400: oklch(0.541 0.281 293.009) !important; /* → violet-600 */
+  --color-violet-500: oklch(0.541 0.281 293.009) !important; /* → violet-600 */
 }
 
 /* Thicker borders za bolju vidljivost u light modu */

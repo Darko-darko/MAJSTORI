@@ -1222,7 +1222,7 @@ if (searchError) {
                   <button
                     type="button"
                     onClick={() => setShowVoiceExamples(p => !p)}
-                    className="flex-shrink-0 text-blue-400 hover:text-blue-300 transition-colors"
+                    className="flex-shrink-0 text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
                     title="Mehr Beispiele"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
@@ -1233,10 +1233,10 @@ if (searchError) {
 
                 {showVoiceExamples && (
                   <div className="mt-2 bg-slate-800 border border-slate-700 rounded p-3 text-xs text-slate-300 space-y-2">
-                    <p className="text-slate-500 italic">Nur das sprechen, was bekannt ist — fehlende Felder können danach manuell ergänzt werden.</p>
-                    <p className="text-slate-500 italic">💡 Bekannter Kunde? Nur den Namen nennen — alle Daten werden automatisch ausgefüllt.</p>
-                    <p><span className="text-slate-500">Einfach:</span> „Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"</p>
-                    <p><span className="text-slate-500">Vollständig:</span> „Kunde ist Müller, Straße: Hauptstraße 5, PLZ: 80331, München, Tel: 0176 123456, E-Mail: mueller@gmail.com, Leistung ist Rohrreparatur, Preis ist 500 Euro"</p>
+                    <p className="text-slate-400 italic">Nur das sprechen, was bekannt ist — fehlende Felder können danach manuell ergänzt werden.</p>
+                    <p className="text-slate-400 italic">💡 Bekannter Kunde? Nur den Namen nennen — alle Daten werden automatisch ausgefüllt.</p>
+                    <p className="text-slate-300"><span className="text-slate-400 font-medium">Einfach:</span> „Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"</p>
+                    <p className="text-slate-300"><span className="text-slate-400 font-medium">Vollständig:</span> „Kunde ist Müller, Straße: Hauptstraße 5, PLZ: 80331, München, Tel: 0176 123456, E-Mail: mueller@gmail.com, Leistung ist Rohrreparatur, Preis ist 500 Euro"</p>
                   </div>
                 )}
               </div>
