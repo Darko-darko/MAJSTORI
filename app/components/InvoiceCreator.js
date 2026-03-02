@@ -82,6 +82,12 @@ export default function InvoiceCreator({
   const customerInputRef = useRef(null)
   const servicesDropdownRef = useRef(null)
 
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
+
   // Check business data completeness on mount
   useEffect(() => {
     if (isOpen && majstor?.id) {
@@ -723,6 +729,130 @@ export default function InvoiceCreator({
     }))
   }
 
+  // Voice recording functions
+  const startRecording = async (e) => {
+    e.preventDefault()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioChunksRef.current = []
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/ogg;codecs=opus'
+      const mediaRecorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorderRef.current = mediaRecorder
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch {
+      setError('Mikrofonzugriff verweigert')
+    }
+  }
+
+  const stopRecording = async (e) => {
+    e.preventDefault()
+    if (!mediaRecorderRef.current || !isRecording) return
+    setIsRecording(false)
+    setIsProcessing(true)
+
+    // onstop mora biti postavljen PRIJE stop() — izbjegavamo race condition
+    mediaRecorderRef.current.onstop = async () => {
+      try {
+        const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm'
+        const ext = mimeType.includes('ogg') ? 'ogg' : 'webm'
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        const formDataObj = new FormData()
+        formDataObj.append('audio', blob, `recording.${ext}`)
+
+        const res = await fetch('/api/voice-invoice', { method: 'POST', body: formDataObj })
+        const data = await res.json()
+
+        if (data.error) { setError(data.detail || data.error); return }
+
+        applyVoiceData(data)
+      } catch (err) {
+        console.error('Voice invoice error:', err)
+        setError('Fehler bei der Sprachverarbeitung')
+      } finally {
+        setIsProcessing(false)
+      }
+    }
+
+    mediaRecorderRef.current.stop()
+    mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop())
+  }
+
+  const applyVoiceData = async (data) => {
+    const { customer, items } = data
+
+    const newItems = (items || []).map(item => ({
+      description: item.description || '',
+      quantity: parseFloat(item.quantity) || 1,
+      price: item.price_source === 'brutto'
+        ? parseFloat((item.price / (1 + (formData.tax_rate || 19) / 100)).toFixed(2))
+        : parseFloat(item.price) || 0,
+      price_gross: item.price_source === 'brutto'
+        ? parseFloat(item.price) || 0
+        : parseFloat((item.price * (1 + (formData.tax_rate || 19) / 100)).toFixed(2)),
+      total: item.price_source === 'brutto'
+        ? parseFloat(((item.price / (1 + (formData.tax_rate || 19) / 100)) * (parseFloat(item.quantity) || 1)).toFixed(2))
+        : parseFloat((item.price * (parseFloat(item.quantity) || 1)).toFixed(2)),
+      price_source: item.price_source || 'brutto',
+    }))
+
+    const filledItems = newItems.length > 0 ? newItems : formData.items
+
+    // Try to auto-select existing customer from DB
+    let customerAutoSelected = false
+    if (customer?.name && majstor?.id) {
+      try {
+        const { data: matches } = await supabase
+          .from('customers')
+          .select('id, name, email, phone, street, postal_code, city, country, tax_number, weg_street, weg_postal_code, weg_city, weg_country, last_service_location')
+          .eq('majstor_id', majstor.id)
+          .ilike('name', customer.name)
+          .limit(5)
+
+        if (matches?.length === 1) {
+          // Exact single match — auto-select, fills all fields
+          handleCustomerSelect(matches[0])
+          customerAutoSelected = true
+        } else if (matches?.length > 1) {
+          // Multiple matches — show dropdown
+          setCustomerSearchTerm(customer.name)
+          setCustomerSuggestions(matches)
+          setShowCustomerDropdown(true)
+        }
+      } catch (err) {
+        console.error('Voice customer search error:', err)
+      }
+    }
+
+    if (!customerAutoSelected) {
+      setFormData(prev => ({
+        ...prev,
+        ...(customer?.name && { customer_name: customer.name }),
+        ...(customer?.email && { customer_email: customer.email }),
+        ...(customer?.phone && { customer_phone: customer.phone }),
+        ...(customer?.street && { customer_street: customer.street }),
+        ...(customer?.postal_code && { customer_postal_code: customer.postal_code }),
+        ...(customer?.city && { customer_city: customer.city }),
+        ...(customer?.country && { customer_country: customer.country }),
+        items: filledItems,
+      }))
+      if (customer?.name) setCustomerSearchTerm(customer.name)
+    } else {
+      // Customer auto-selected, still apply items
+      setFormData(prev => ({ ...prev, items: filledItems }))
+    }
+
+    calculateTotals(filledItems)
+
+  }
+
   // ✅ NEW: Quick-fill functions
   const copyBillingToWeg = () => {
     setFormData(prev => ({
@@ -1058,7 +1188,38 @@ if (searchError) {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            
+
+            {/* Voice Quick-Entry */}
+            {!isEditMode && (
+              <div className="bg-slate-700/40 border border-slate-600 rounded-lg p-4">
+                <div className="flex flex-col items-center gap-1 mb-3 text-center">
+                  <span className="text-white font-medium text-sm">🎙 Schnellerfassung per Sprache</span>
+                  <span className="text-slate-400 text-xs">Gedrückt halten und Rechnung diktieren</span>
+                </div>
+                <button
+                  type="button"
+                  onMouseDown={startRecording}
+                  onMouseUp={stopRecording}
+                  onTouchStart={startRecording}
+                  onTouchEnd={stopRecording}
+                  disabled={isProcessing}
+                  className={`w-full py-3 px-4 rounded-lg font-medium text-sm transition-all select-none ${
+                    isProcessing
+                      ? 'bg-slate-600 text-slate-400 cursor-wait'
+                      : isRecording
+                      ? 'bg-red-500/20 border-2 border-red-500 text-red-400 animate-pulse'
+                      : 'bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600/30 active:bg-blue-600/40'
+                  }`}
+                >
+                  {isProcessing ? '⏳ Wird verarbeitet...' : isRecording ? '🔴 Aufnahme läuft — loslassen zum Beenden' : '🎙 Hier gedrückt halten & sprechen'}
+                </button>
+
+                <p className="mt-2 text-slate-500 text-xs text-center">
+                  Beispiel: <span className="text-slate-400">„Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"</span>
+                </p>
+              </div>
+            )}
+
             {/* Business Data Warning */}
             {!businessDataComplete && (
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
