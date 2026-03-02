@@ -48,6 +48,7 @@ export default function CreateBusinessCardPage() {
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   const [copyLinkStatus, setCopyLinkStatus] = useState('')
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share
   const logoInputRef = useRef(null)
   const galleryInputRef = useRef(null)
   const router = useRouter()
@@ -195,6 +196,18 @@ export default function CreateBusinessCardPage() {
       console.error('Error copying link:', err)
       setCopyLinkStatus('error')
       setTimeout(() => setCopyLinkStatus(''), 2000)
+    }
+  }
+
+  const handleShareVia = async () => {
+    if (!majstor?.slug) return
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pro-meister.de'
+    const fullUrl = `${baseUrl}/m/${majstor.slug}`
+    const name = formData.card_name || formData.card_company || 'Visitenkarte'
+    try {
+      await navigator.share({ title: name, url: fullUrl })
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('Share error:', err)
     }
   }
 
@@ -1051,24 +1064,28 @@ export default function CreateBusinessCardPage() {
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Downloads</h3>
           <div className="space-y-3">
-            <button
-              onClick={handleCopyLink}
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg transition-colors ${
-                copyLinkStatus === 'copied' 
-                  ? 'bg-green-600 text-white' 
-                  : copyLinkStatus === 'error'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              🔗 {copyLinkStatus === 'copied' ? 'Link kopiert!' : copyLinkStatus === 'error' ? 'Fehler' : 'Link kopieren'}
-            </button>
-            <button
-              onClick={handleSendEmail}
-              className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              📧 Email senden
-            </button>
+            {!canShare && (
+              <>
+                <button
+                  onClick={handleCopyLink}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg transition-colors ${
+                    copyLinkStatus === 'copied'
+                      ? 'bg-green-600 text-white'
+                      : copyLinkStatus === 'error'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  🔗 {copyLinkStatus === 'copied' ? 'Link kopiert!' : copyLinkStatus === 'error' ? 'Fehler' : 'Link kopieren'}
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  className="w-full flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  📧 Email senden
+                </button>
+              </>
+            )}
             <button
               onClick={downloadQRCode}
               disabled={!qrCodeUrl}
@@ -1076,6 +1093,14 @@ export default function CreateBusinessCardPage() {
             >
               📱 QR Code
             </button>
+            {canShare && (
+              <button
+                onClick={handleShareVia}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                🔗 Teilen via...
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1405,12 +1430,12 @@ export default function CreateBusinessCardPage() {
           {/* Desktop Downloads */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Downloads</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className={`grid gap-4 ${canShare ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <button
                 onClick={handleCopyLink}
                 className={`flex items-center justify-center gap-2 py-3 rounded-lg transition-colors ${
-                  copyLinkStatus === 'copied' 
-                    ? 'bg-green-600 text-white' 
+                  copyLinkStatus === 'copied'
+                    ? 'bg-green-600 text-white'
                     : copyLinkStatus === 'error'
                     ? 'bg-red-600 text-white'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -1431,6 +1456,14 @@ export default function CreateBusinessCardPage() {
               >
                 📱 QR
               </button>
+              {canShare && (
+                <button
+                  onClick={handleShareVia}
+                  className="flex items-center justify-center gap-2 bg-slate-600 text-white py-3 rounded-lg hover:bg-slate-500 transition-colors"
+                >
+                  🔗 Teilen
+                </button>
+              )}
             </div>
           </div>
         </div>
