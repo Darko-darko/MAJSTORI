@@ -57,7 +57,7 @@ export default function CreateBusinessCardPage() {
   const { hasFeatureAccess, plan, isFreemium, loading: subscriptionLoading } = useSubscription(majstor?.id)
 
   const colorPresets = [
-    '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
+    '#ffffff', '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626',
     '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4338ca'
   ]
 
@@ -925,45 +925,40 @@ export default function CreateBusinessCardPage() {
             {/* Services */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Dienstleistungen</label>
-              <div className="space-y-2 mb-2">
-                <select
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setNewService(e.target.value)
-                      e.target.value = ''
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  list="service-suggestions"
+                  value={newService}
+                  onChange={(e) => setNewService(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addService() } }}
+                  className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="Dienstleistung eingeben oder auswählen..."
+                />
+                <datalist id="service-suggestions">
+                  <option value="Elektroinstallation" />
+                  <option value="Wasserinstallation" />
+                  <option value="Heizung & Klima" />
+                  <option value="Renovierung" />
+                  <option value="Malerarbeiten" />
+                  <option value="Fliesenverlegung" />
+                  <option value="Dacharbeiten" />
+                  <option value="Garten & Landschaft" />
+                  <option value="Fenster & Türen" />
+                  <option value="Sicherheitstechnik" />
+                  <option value="Sanitärinstallation" />
+                  <option value="Trockenbau" />
+                  <option value="Bodenverlegung" />
+                  <option value="Schweißarbeiten" />
+                  <option value="Kfz-Reparatur" />
+                </datalist>
+                <button
+                  type="button"
+                  onClick={addService}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
-                  <option value="">Wählen Sie eine Dienstleistung...</option>
-                  <option value="Elektroinstallation">Elektroinstallation</option>
-                  <option value="Wasserinstallation">Wasserinstallation</option>
-                  <option value="Heizung & Klima">Heizung & Klima</option>
-                  <option value="Renovierung">Renovierung</option>
-                  <option value="Malerarbeiten">Malerarbeiten</option>
-                  <option value="Fliesenverlegung">Fliesenverlegung</option>
-                  <option value="Dacharbeiten">Dacharbeiten</option>
-                  <option value="Garten & Landschaft">Garten & Landschaft</option>
-                  <option value="Fenster & Türen">Fenster & Türen</option>
-                  <option value="Sicherheitstechnik">Sicherheitstechnik</option>
-                </select>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newService}
-                    onChange={(e) => setNewService(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="Oder eigene Dienstleistung eingeben..."
-                  />
-                  <button
-                    type="button"
-                    onClick={addService}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    +
-                  </button>
-                </div>
+                  +
+                </button>
               </div>
               <div className="flex flex-wrap gap-2">
                 {formData.services.map((service, index) => (
@@ -1013,12 +1008,27 @@ export default function CreateBusinessCardPage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Text</label>
-                <input
-                  type="color"
-                  value={formData.text_color}
-                  onChange={(e) => setFormData(prev => ({...prev, text_color: e.target.value}))}
-                  className="w-full h-10 rounded border border-slate-600 bg-slate-900"
-                />
+                <div className="space-y-2">
+                  <input
+                    type="color"
+                    value={formData.text_color}
+                    onChange={(e) => setFormData(prev => ({...prev, text_color: e.target.value}))}
+                    className="w-full h-10 rounded border border-slate-600 bg-slate-900"
+                  />
+                  <div className="flex gap-1 flex-wrap">
+                    {colorPresets.map((color, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setFormData(prev => ({...prev, text_color: color}))}
+                        className={`w-6 h-6 rounded border-2 ${
+                          formData.text_color === color ? 'border-white' : 'border-slate-600'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </form>
@@ -1314,45 +1324,23 @@ export default function CreateBusinessCardPage() {
               {/* Services - Desktop */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Dienstleistungen</label>
-                <div className="space-y-2 mb-2">
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setNewService(e.target.value)
-                        e.target.value = ''
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    list="service-suggestions"
+                    value={newService}
+                    onChange={(e) => setNewService(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addService() } }}
+                    className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Dienstleistung eingeben oder auswählen..."
+                  />
+                  <button
+                    type="button"
+                    onClick={addService}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                   >
-                    <option value="">Wählen Sie eine Dienstleistung...</option>
-                    <option value="Elektroinstallation">Elektroinstallation</option>
-                    <option value="Wasserinstallation">Wasserinstallation</option>
-                    <option value="Heizung & Klima">Heizung & Klima</option>
-                    <option value="Renovierung">Renovierung</option>
-                    <option value="Malerarbeiten">Malerarbeiten</option>
-                    <option value="Fliesenverlegung">Fliesenverlegung</option>
-                    <option value="Dacharbeiten">Dacharbeiten</option>
-                    <option value="Garten & Landschaft">Garten & Landschaft</option>
-                    <option value="Fenster & Türen">Fenster & Türen</option>
-                    <option value="Sicherheitstechnik">Sicherheitstechnik</option>
-                  </select>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newService}
-                      onChange={(e) => setNewService(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      placeholder="Oder eigene Dienstleistung eingeben..."
-                    />
-                    <button
-                      type="button"
-                      onClick={addService}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                    >
-                      +
-                    </button>
-                  </div>
+                    +
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {formData.services.map((service, index) => (
@@ -1402,12 +1390,27 @@ export default function CreateBusinessCardPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Text</label>
-                  <input
-                    type="color"
-                    value={formData.text_color}
-                    onChange={(e) => setFormData(prev => ({...prev, text_color: e.target.value}))}
-                    className="w-full h-10 rounded border border-slate-600 bg-slate-900"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="color"
+                      value={formData.text_color}
+                      onChange={(e) => setFormData(prev => ({...prev, text_color: e.target.value}))}
+                      className="w-full h-10 rounded border border-slate-600 bg-slate-900"
+                    />
+                    <div className="flex gap-1 flex-wrap">
+                      {colorPresets.map((color, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setFormData(prev => ({...prev, text_color: color}))}
+                          className={`w-6 h-6 rounded border-2 ${
+                            formData.text_color === color ? 'border-white' : 'border-slate-600'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
