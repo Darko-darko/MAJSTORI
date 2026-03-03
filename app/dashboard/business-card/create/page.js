@@ -57,7 +57,7 @@ export default function CreateBusinessCardPage() {
   const { hasFeatureAccess, plan, isFreemium, loading: subscriptionLoading } = useSubscription(majstor?.id)
 
   const colorPresets = [
-    '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626', 
+    '#ffffff', '#1e293b', '#000000', '#2563eb', '#059669', '#dc2626',
     '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4338ca'
   ]
 
