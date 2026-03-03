@@ -37,14 +37,23 @@ Regeln:
 
 Deutsch Sprachmuster:
 - "Kunde ist [Name]" oder "Auftraggeber ist [Name]" → customer.name
+- "E-Mail ist [Email]" oder "Email ist [Email]" → customer.email
+- "Telefon ist [Nr]" oder "Handynummer ist [Nr]" oder "Tel [Nr]" → customer.phone
+- "Straße ist [Straße] [Nr]" oder "Adresse ist [Straße] [Nr]" → customer.street
+- "Postleitzahl ist [PLZ]" oder "PLZ [PLZ]" → customer.postal_code
+- "Stadt ist [Stadt]" oder "wohnhaft in [Stadt]" → customer.city
 - "Leistung ist [Beschreibung]" oder "Arbeit ist [Beschreibung]" oder "Position ist [Beschreibung]" → item.description
 - "Preis ist [Preis]" oder "kostet [Preis]" → Preis
 - Standardformat: "Kunde ist [Name], Leistung ist [Beschreibung], Preis ist [Preis] Euro"
-- Beispiel: "Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro" →
-  customer.name: "Müller", items[0].description: "Rohrreparatur", items[0].price: 500
+- Erweitertes Format: "Kunde ist Müller, Telefon 0176 1234567, Straße Hauptstraße 5, PLZ 80333, Stadt München, Leistung ist Rohrreparatur, Preis ist 500 Euro"
 
 Serbisch/Bosnisch/Kroatisch Sprachmuster — wichtig für korrektes Parsing:
 - "kupac je [Name]" oder "faktura za [Name]" oder "račun za [Name]" → customer.name ist NUR der Name
+- "mejl je [Email]" oder "email je [Email]" → customer.email
+- "telefon je [Nr]" oder "broj je [Nr]" → customer.phone
+- "ulica je [Ulica] [Br]" oder "adresa je [Ulica] [Br]" → customer.street
+- "poštanski broj [PLZ]" oder "PTT [PLZ]" → customer.postal_code
+- "grad je [Grad]" oder "mesto je [Grad]" → customer.city
 - "usluga je [Beschreibung]" oder "radnja je [Beschreibung]" oder "posao je [Beschreibung]" → item.description (NICHT übersetzen), NIEMALS Teil des Kundennamens
 - "cena je [Preis]" oder "cijena je [Preis]" → Preis
 - "evra" / "eura" / "€" → Euro
