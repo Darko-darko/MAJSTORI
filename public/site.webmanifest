@@ -3,7 +3,7 @@
   "short_name": "ProMeister",
   "description": "Dashboard für Handwerker - Kundenverwaltung, Rechnungen, Angebote",
   "id": "/",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f172a",
