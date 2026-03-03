@@ -36,6 +36,12 @@ export default function SignupPage() {
 
   // 🎯 Mount honeypot AFTER autofill happens (500ms delay)
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace('/dashboard')
+    })
+  }, [])
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setHoneypotMounted(true)
     }, 500)
