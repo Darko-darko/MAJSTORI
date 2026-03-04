@@ -8,6 +8,7 @@ import QRCode from 'qrcode'
 import Link from 'next/link'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import EmailBusinessCardModal from '@/app/components/EmailBusinessCardModal'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function CreateBusinessCardPage() {
   // Helper function za cache-busting
@@ -701,6 +702,7 @@ export default function CreateBusinessCardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <FirstVisitHint pageKey="visitenkarte" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

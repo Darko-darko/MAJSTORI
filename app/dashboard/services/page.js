@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 function ServicesPageContent() {
   const [services, setServices] = useState([])
@@ -461,6 +462,7 @@ const { data: invoices, error } = await supabase
 
   return (
     <div className="space-y-6">
+      <FirstVisitHint pageKey="services" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import { customersAPI } from '@/lib/customers'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 
 export default function InquiriesPage() {
@@ -446,6 +447,7 @@ const stats = {
 
   return (
     <div className="space-y-6">
+      <FirstVisitHint pageKey="anfragen" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

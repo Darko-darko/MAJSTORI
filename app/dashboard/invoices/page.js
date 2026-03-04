@@ -7,6 +7,7 @@ import Link from 'next/link'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
 import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
 import LogoUpload from '@/app/components/LogoUpload'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 
 function DashboardPageContent() {
@@ -2132,6 +2133,7 @@ const HardResetModal = () => {
 
  return (
   <div className="space-y-6">
+    <FirstVisitHint pageKey="rechnungen" />
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Rechnungen & Angebote</h1>
