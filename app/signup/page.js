@@ -247,9 +247,14 @@ export default function SignupPage() {
           })
         })
 
+        const responseData = await response.json()
+
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Fehler beim Erstellen des Profils')
+          throw new Error(responseData.error || 'Fehler beim Erstellen des Profils')
+        }
+
+        if (responseData.message === 'Profile already exists') {
+          throw new Error('Mit dieser E-Mail-Adresse existiert bereits ein Konto. Bitte melden Sie sich an.')
         }
 
         // Success redirect to WELCOME PAGE
