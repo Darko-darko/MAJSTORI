@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useTheme } from '@/lib/context/ThemeContext'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function SettingsPage() {
   const [majstor, setMajstor] = useState(null)
@@ -73,6 +74,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <FirstVisitHint pageKey="einstellungen" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -291,7 +293,7 @@ export default function SettingsPage() {
         <h3 className="text-lg font-semibold text-white mb-4">System & Sicherheit</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-slate-400">Account erstellt:</p>
+            <p className="text-slate-400">Konto erstellt:</p>
             <p className="text-white">{majstor?.created_at ? new Date(majstor.created_at).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
           </div>
           <div>
@@ -299,7 +301,7 @@ export default function SettingsPage() {
             <p className="text-white">{majstor?.updated_at ? new Date(majstor.updated_at).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
           </div>
           <div>
-            <p className="text-slate-400">Account Status:</p>
+            <p className="text-slate-400">Kontostatus::</p>
             <p className="text-green-400">Aktiv</p>
           </div>
           <div>
@@ -308,15 +310,7 @@ export default function SettingsPage() {
           </div>
         </div>
         
-        <div className="mt-4 text-slate-400 text-sm">
-          <p>Erweiterte Funktionen in Entwicklung:</p>
-          <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
-            <li>Passwort ändern</li>
-            <li>Zwei-Faktor-Authentifizierung</li>
-            <li>Datenexport</li>
-            <li>Account löschen</li>
-          </ul>
-        </div>
+       
       </div>
     </div>
   )

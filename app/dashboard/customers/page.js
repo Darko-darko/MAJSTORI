@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
 import * as XLSX from 'xlsx'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function CustomersPage() {
   const router = useRouter()
@@ -584,6 +585,7 @@ const handleToggleFavorite = async (customer) => {
   return (
     <SubscriptionGuard feature="customer_management" majstorId={majstor.id}>
       <div className="space-y-6 pb-20">
+        <FirstVisitHint pageKey="kunden" />
         {/* Header */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

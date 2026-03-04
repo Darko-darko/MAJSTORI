@@ -8,6 +8,7 @@ import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGua
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import Link from 'next/link'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 function DashboardPageContent() {
   const [majstor, setMajstor] = useState(null)
@@ -337,6 +338,7 @@ function DashboardPageContent() {
 
   return (
     <div className="space-y-8">
+      <FirstVisitHint pageKey="ubersicht" />
       <WelcomeMessage />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
