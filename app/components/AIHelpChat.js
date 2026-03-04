@@ -2,47 +2,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
-let sparkleInitialized = false
 
-function SparkleIcon({ color = '#fbbf24', size = 10 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 10 10" fill="none">
-      <path d="M5 0L5.8 4.2L10 5L5.8 5.8L5 10L4.2 5.8L0 5L4.2 4.2Z" fill={color}/>
-    </svg>
-  )
-}
-
-function RobotIcon({ small, tiny }) {
-  const size = tiny ? 20 : small ? 32 : 56
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Sivi krug */}
-      <circle cx="50" cy="50" r="47" fill="white" stroke="#b8bec8" strokeWidth="5"/>
-
-      {/* Robot tijelo - tamno plava */}
-      {/* Glava */}
-      <rect x="22" y="26" width="46" height="42" rx="13" fill="#1e3558"/>
-      {/* Lijevo uho */}
-      <rect x="13" y="40" width="11" height="12" rx="4" fill="#1e3558"/>
-      {/* Desno uho */}
-      <rect x="66" y="40" width="11" height="12" rx="4" fill="#1e3558"/>
-      {/* Vrat/brada */}
-      <rect x="39" y="66" width="16" height="9" rx="4" fill="#1e3558"/>
-
-      {/* Zupčanik - teal, gornji lijevi dio glave */}
-      <g transform="translate(37, 41)">
-        <circle r="9" fill="#4ecdc0"/>
-        <circle r="4.5" fill="#1e3558"/>
-        {[0,45,90,135,180,225,270,315].map((angle, i) => (
-          <rect key={i} x="-2.2" y="-12.5" width="4.4" height="4.5" rx="1" fill="#4ecdc0" transform={`rotate(${angle})`}/>
-        ))}
-      </g>
-
-      {/* Narančasta kvačica - velika, preko cijelog robota */}
-      <path d="M24 54 L42 72 L78 28" stroke="#f5911d" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    </svg>
-  )
-}
 
 const SUGGESTED = [
   'Wie erstelle ich eine Rechnung?',
@@ -53,6 +13,7 @@ const SUGGESTED = [
 
 export default function AIHelpChat() {
   const [open, setOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hallo! Ich bin Ihr Pro-Meister AI Assistent\n\nWie kann ich Ihnen helfen?' }
   ])
@@ -60,21 +21,9 @@ export default function AIHelpChat() {
   const [loading, setLoading] = useState(false)
   const [keyboardOffset, setKeyboardOffset] = useState(0)
   const [vvHeight, setVvHeight] = useState(null)
-  const [showSparkles, setShowSparkles] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
-  useEffect(() => {
-    if (sparkleInitialized) return
-    sparkleInitialized = true
-
-    const count = parseInt(localStorage.getItem('pm-chat-opens') || '0')
-    if (count < 6) {
-      localStorage.setItem('pm-chat-opens', String(count + 1))
-      setShowSparkles(true)
-      setTimeout(() => setShowSparkles(false), 3500)
-    }
-  }, [])
 
   useEffect(() => {
     const vv = window.visualViewport
@@ -137,44 +86,42 @@ export default function AIHelpChat() {
 
   return (
     <>
-      {/* Floating Button + Sparkles */}
+      {/* Floating Button */}
       <style>{`
-        @keyframes pm-sparkle {
-          0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
-          45%, 55% { opacity: 1; transform: scale(1) rotate(180deg); }
-        }
+        @keyframes pm-label-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+        html.light-mode #pm-float-btn { background: linear-gradient(135deg, #60a5fa, #a78bfa) !important; box-shadow: 0 4px 16px rgba(96,165,250,0.35) !important; }
+        html.light-mode #pm-label { background-color: #60a5fa !important; border-color: #93c5fd !important; }
       `}</style>
-      <div style={{ position: 'fixed', right: '24px', bottom: `${btnBottom}px`, zIndex: 50, width: '64px', height: '64px' }}>
-        {!open && showSparkles && (
-          <>
-            <div style={{ position: 'absolute', top: '-6px', right: '2px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '0s', pointerEvents: 'none' }}>
-              <SparkleIcon color="#fbbf24" size={14} />
-            </div>
-            <div style={{ position: 'absolute', top: '0px', left: '-8px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '0.8s', pointerEvents: 'none' }}>
-              <SparkleIcon color="#60a5fa" size={11} />
-            </div>
-            <div style={{ position: 'absolute', bottom: '-3px', right: '-4px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '1.6s', pointerEvents: 'none' }}>
-              <SparkleIcon color="#fbbf24" size={10} />
-            </div>
-            <div style={{ position: 'absolute', bottom: '4px', left: '-6px', animation: 'pm-sparkle 2.4s ease-in-out infinite', animationDelay: '0.4s', pointerEvents: 'none' }}>
-              <SparkleIcon color="#4ecdc0" size={9} />
-            </div>
-          </>
+      <div style={{ position: 'fixed', right: '24px', bottom: `${btnBottom}px`, zIndex: 50, display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Hilfe? label */}
+        {hovered && !open && (
+          <div id="pm-label" style={{ backgroundColor: '#1e293b', color: 'white', fontSize: '13px', fontWeight: 500, padding: '6px 12px', borderRadius: '20px', border: '1px solid #334155', whiteSpace: 'nowrap', animation: 'pm-label-in 0.15s ease-out', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+            KI-Hilfe
+          </div>
         )}
-        <button
-          onClick={() => setOpen(v => !v)}
-          className="w-16 h-16 bg-white hover:bg-slate-50 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-          title="KI-Assistent"
-        >
-          {open ? (
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <line x1="4" y1="4" x2="16" y2="16" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="16" y1="4" x2="4" y2="16" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-          ) : (
-            <RobotIcon />
-          )}
-        </button>
+        <div style={{ position: 'relative', width: '64px', height: '64px' }}>
+          <button
+            onClick={() => setOpen(v => !v)}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            id="pm-float-btn"
+            style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb, #7c3aed)', boxShadow: '0 4px 20px rgba(124,58,237,0.5)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s, box-shadow 0.2s' }}
+            onMouseOver={e => e.currentTarget.style.transform = 'scale(1.07)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+            title="KI-Assistent"
+          >
+            <div style={{ transition: 'transform 0.3s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+              {open ? (
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <line x1="4" y1="4" x2="16" y2="16" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round"/>
+                  <line x1="16" y1="4" x2="4" y2="16" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+              ) : (
+                <img src="/floatrobot.png" width={44} height={44} alt="KI-Assistent" style={{ objectFit: 'contain' }} />
+              )}
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Chat Window — inline stilovi da light mode ne utiče */}
@@ -186,7 +133,7 @@ export default function AIHelpChat() {
 
           {/* Header */}
           <div style={{ backgroundColor: '#1d4ed8', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            <RobotIcon small />
+            <img src="/floatrobot.png" width={32} height={32} alt="KI" style={{ objectFit: 'contain' }} />
             <div>
               <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', lineHeight: '1.2' }}>Pro-Meister AI Assistent</p>
               <p style={{ color: '#bfdbfe', fontSize: '12px' }}>KI-gestützte Hilfe</p>
@@ -197,7 +144,11 @@ export default function AIHelpChat() {
           <div className="flex-1 overflow-y-auto" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {messages.map((m, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-start', gap: '6px' }}>
-                {m.role === 'assistant' && <div style={{ flexShrink: 0, marginTop: '4px' }}><RobotIcon tiny /></div>}
+                {m.role === 'assistant' && (
+                  <div style={{ flexShrink: 0, marginTop: '4px', width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src="/floatrobot.png" width={22} height={22} alt="KI" style={{ objectFit: 'contain' }} />
+                  </div>
+                )}
                 <div style={{
                   maxWidth: '85%', padding: '8px 12px', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                   fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.5',
