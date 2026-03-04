@@ -91,6 +91,7 @@ export default function AIHelpChat() {
         @keyframes pm-label-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
         html.light-mode #pm-float-btn { background: linear-gradient(135deg, #60a5fa, #a78bfa) !important; box-shadow: 0 4px 16px rgba(96,165,250,0.35) !important; }
         html.light-mode #pm-label { background-color: #60a5fa !important; border-color: #93c5fd !important; }
+        @media (hover: none) { #pm-label { display: none !important; } }
       `}</style>
       <div style={{ position: 'fixed', right: '24px', bottom: `${btnBottom}px`, zIndex: 50, display: 'flex', alignItems: 'center', gap: '10px' }}>
         {/* Hilfe? label */}
