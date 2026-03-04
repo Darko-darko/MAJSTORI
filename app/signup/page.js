@@ -228,6 +228,10 @@ export default function SignupPage() {
         throw authError
       }
 
+      if (authData.user && authData.user.identities?.length === 0) {
+        throw new Error('Mit dieser E-Mail-Adresse existiert bereits ein Konto. Bitte melden Sie sich an oder verwenden Sie eine andere E-Mail-Adresse.')
+      }
+
       if (authData.user) {
         // Create MINIMAL majstor profile via API
         const response = await fetch('/api/create-profile', {
