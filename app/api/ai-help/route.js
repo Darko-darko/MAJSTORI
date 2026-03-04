@@ -1,7 +1,7 @@
 // app/api/ai-help/route.js
 import OpenAI from 'openai'
 
-const SYSTEM_PROMPT = `Du bist der Pro-Meister Assistent — ein freundlicher, kompetenter Hilfsassistent für die Handwerker-Plattform pro-meister.de.
+const SYSTEM_PROMPT = `Du bist der Pro-Meister KI-Assistent — ein freundlicher, kompetenter Hilfsassistent für die Handwerker-Plattform pro-meister.de.
 
 SPRACHE:
 - Standard: Deutsch (natürliches, klares Hochdeutsch — wie ein erfahrener Kollege, nicht wie ein Roboter)
