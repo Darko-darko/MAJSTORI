@@ -15,7 +15,7 @@ export default function AIHelpChat() {
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hallo! Ich bin Ihr Pro-Meister AI Assistent\n\nWie kann ich Ihnen helfen?' }
+    { role: 'assistant', content: 'Hallo! Ich bin Ihr Pro-Meister KI-Assistent\n\nWie kann ich Ihnen helfen?' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -136,7 +136,7 @@ export default function AIHelpChat() {
           <div style={{ backgroundColor: '#1d4ed8', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <img src="/floatrobot.png" width={32} height={32} alt="KI" style={{ objectFit: 'contain' }} />
             <div>
-              <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', lineHeight: '1.2' }}>Pro-Meister AI Assistent</p>
+              <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', lineHeight: '1.2' }}>Pro-Meister KI-Assistent</p>
               <p style={{ color: '#bfdbfe', fontSize: '12px' }}>KI-gestützte Hilfe</p>
             </div>
           </div>
