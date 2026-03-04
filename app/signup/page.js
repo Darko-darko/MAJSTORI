@@ -314,19 +314,19 @@ export default function SignupPage() {
         <div className="mb-6 space-y-2">
           <div className="flex items-center gap-3 text-sm text-slate-300">
             <span className="text-green-400">✓</span>
+            <span>Professionelle Rechnungen & Angebote per Klick</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-slate-300">
+            <span className="text-green-400">✓</span>
             <span>Digitale Visitenkarte mit QR-Code</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-300">
             <span className="text-green-400">✓</span>
-            <span>Professionelle Rechnungen & Angebote</span>
+            <span>Kundenverwaltung & Rechnungsarchiv</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-300">
             <span className="text-green-400">✓</span>
-            <span>Kundenverwaltung & Terminplanung</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-slate-300">
-            <span className="text-green-400">✓</span>
-            <span>Automatische Garantieverwaltung</span>
+            <span>KI-Sprachdiktat — Rechnung per Sprache erstellen</span>
           </div>
         </div>
 
