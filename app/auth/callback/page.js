@@ -48,9 +48,13 @@ function AuthCallbackComponent() {
 
           // 🔥 NEW: Check for welcome redirect
           const nextParam = searchParams.get('next')
-          
-          if (nextParam === 'welcome') {
-            console.log('🎯 Redirecting to welcome/choose-plan...')
+
+          if (existingProfile) {
+            // Existing user — always go to dashboard
+            console.log('📊 Existing user — redirecting to dashboard...')
+            router.push('/dashboard')
+          } else if (nextParam === 'welcome') {
+            console.log('🎯 New user — redirecting to welcome/choose-plan...')
             router.push('/welcome/choose-plan')
           } else if (existingProfile && !existingProfile.subscription_status) {
             // Existing user without subscription setup - send to welcome
