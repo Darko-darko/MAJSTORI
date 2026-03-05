@@ -1,6 +1,7 @@
 // app/components/EmailInvoiceModal.js
 'use client'
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export default function EmailInvoiceModal({
   isOpen,
@@ -12,12 +13,20 @@ export default function EmailInvoiceModal({
 }) {
   const [formData, setFormData] = useState({
     recipientEmail: invoice?.customer_email || '',
-    ccEmail: majstor?.email || '', 
+    ccEmail: '',
     subject: '',
     message: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [attachments, setAttachments] = useState([])
+
+  useEffect(() => {
+    if (invoice?.id) {
+      supabase.from('invoice_attachments').select('filename, file_size, mime_type').eq('invoice_id', invoice.id)
+        .then(({ data }) => setAttachments(data || []))
+    }
+  }, [invoice?.id])
 
   useEffect(() => {
   if (invoice && majstor) {
@@ -211,18 +220,23 @@ export default function EmailInvoiceModal({
             </p>
           </div>
 
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-blue-400 text-lg">📎</span>
-              <div>
-                <h4 className="text-blue-300 font-medium mb-1">Anhang</h4>
-                <p className="text-blue-200 text-sm">
+          <div className="border border-slate-600 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 bg-slate-700/50 border-b border-slate-600">
+              <span className="text-slate-300 text-xs font-medium uppercase tracking-wide">Anhänge</span>
+            </div>
+            <div className="divide-y divide-slate-700/50">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <span className="text-slate-400 text-base">📄</span>
+                <span className="text-slate-300 text-sm truncate">
                   {documentType}_{documentNumber}_{invoice?.customer_name?.replace(/[^a-zA-Z0-9]/g, '_')}.pdf
-                </p>
-                <p className="text-blue-300 text-xs mt-1">
-                  PDF wird automatisch generiert falls noch nicht vorhanden
-                </p>
+                </span>
               </div>
+              {attachments.map((att, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2">
+                  <span className="text-slate-400 text-base">{att.filename.startsWith('Regiebericht_') ? '📋' : '📎'}</span>
+                  <span className="text-slate-300 text-sm truncate">{att.filename}</span>
+                </div>
+              ))}
             </div>
           </div>
 

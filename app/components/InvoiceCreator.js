@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
+import RegieberichtForm from './RegieberichtForm'
 
 export default function InvoiceCreator({ 
   isOpen, 
@@ -93,6 +94,7 @@ export default function InvoiceCreator({
   // Attachments
   const [pendingAttachments, setPendingAttachments] = useState([]) // {file, localId}
   const [savedAttachments, setSavedAttachments] = useState([])     // from DB
+  const [showRegieForm, setShowRegieForm] = useState(false)
 
   // Check business data completeness on mount
   useEffect(() => {
@@ -1219,6 +1221,17 @@ if (searchError) {
     setPendingAttachments(prev => prev.filter(a => a.localId !== localId))
   }
 
+  const handlePreviewSavedAttachment = async (att) => {
+    const { data } = await supabase.storage.from('invoice-pdfs').createSignedUrl(att.storage_path, 60)
+    if (!data?.signedUrl) return
+    const a = document.createElement('a')
+    a.href = data.signedUrl
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
   const handleDeleteSavedAttachment = async (att) => {
     await supabase.storage.from('invoice-pdfs').remove([att.storage_path])
     await supabase.from('invoice_attachments').delete().eq('id', att.id)
@@ -1877,18 +1890,37 @@ if (searchError) {
                 <div className="pt-3 border-t border-slate-700/50 mt-2">
                   {savedAttachments.map(att => (
                     <div key={att.id} className="flex items-center justify-between py-1.5 px-2 bg-slate-800 rounded mb-1">
-                      <span className="text-slate-300 text-sm truncate">📎 {att.filename} <span className="text-slate-500">({formatFileSize(att.file_size)})</span></span>
+                      <button type="button" onClick={() => handlePreviewSavedAttachment(att)} className="text-slate-300 hover:text-slate-100 text-sm truncate text-left hover:underline">
+                        {att.filename.startsWith('Regiebericht_') ? '📋' : '📎'} {att.filename} <span className="text-slate-500">({formatFileSize(att.file_size)})</span>
+                      </button>
                       <button type="button" onClick={() => handleDeleteSavedAttachment(att)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
                     </div>
                   ))}
-                  {pendingAttachments.map(att => (
-                    <div key={att.localId} className="flex items-center justify-between py-1.5 px-2 bg-slate-800/60 border border-dashed border-slate-600 rounded mb-1">
-                      <span className="text-slate-400 text-sm truncate">📎 {att.file.name} <span className="text-slate-500">({formatFileSize(att.file.size)})</span></span>
-                      <button type="button" onClick={() => removePendingAttachment(att.localId)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
-                    </div>
-                  ))}
+                  {pendingAttachments.map(att => {
+                    const isRegie = att.file.name.startsWith('Regiebericht_')
+                    return (
+                      <div key={att.localId} className={`flex items-center justify-between py-1.5 px-2 rounded mb-1 ${isRegie ? 'bg-blue-900/30 border border-dashed border-blue-600/50' : 'bg-slate-800/60 border border-dashed border-slate-600'}`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = URL.createObjectURL(att.file)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.target = '_blank'
+                            document.body.appendChild(a)
+                            a.click()
+                            document.body.removeChild(a)
+                          }}
+                          className={`text-sm truncate text-left hover:underline ${isRegie ? 'text-blue-400 hover:text-blue-300' : 'text-slate-400 hover:text-slate-200'}`}
+                        >
+                          {isRegie ? '📋' : '📎'} {att.file.name} <span className="text-slate-500">({formatFileSize(att.file.size)})</span>
+                        </button>
+                        <button type="button" onClick={() => removePendingAttachment(att.localId)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
+                      </div>
+                    )
+                  })}
                   {(savedAttachments.length + pendingAttachments.length) < 20 && (
-                    <label className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 cursor-pointer mt-1">
+                    <label className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-slate-200 cursor-pointer mt-1 py-2 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors">
                       <input type="file" multiple className="hidden" onChange={handleFileSelect} />
                       📎 Anhang hinzufügen
                     </label>
@@ -1896,6 +1928,33 @@ if (searchError) {
                 </div>
               </div>
             </div>
+
+            {/* Regiebericht */}
+            {!isEditMode && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowRegieForm(p => !p)}
+                  className="w-full py-2.5 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg text-sm text-slate-400 hover:text-slate-200 transition-colors text-center"
+                >
+                  📋 Regiebericht erstellen
+                </button>
+
+                {showRegieForm && (
+                  <div className="mt-2">
+                    <RegieberichtForm
+                      majstor={majstor}
+                      invoiceFormData={formData}
+                      onGenerated={(file) => {
+                        setPendingAttachments(prev => [...prev, { file, localId: crypto.randomUUID() }])
+                        setShowRegieForm(false)
+                      }}
+                      onClose={() => setShowRegieForm(false)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Additional Information */}
             <div>
