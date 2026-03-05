@@ -708,18 +708,13 @@ export default function InvoiceCreator({
     }
 
     const taxRate = parseFloat(formData.tax_rate) || 0
-    const taxMultiplier = 1 + taxRate / 100
 
-    // Sum brutto totals first — brutto is always the anchor
-    const totalBrutto = parseFloat(items.reduce((sum, item) => {
-      const brutto = item.price_source === 'brutto'
-        ? (parseFloat(item.quantity) || 0) * (parseFloat(item.price_gross) || 0)
-        : (item.total || 0) * taxMultiplier
-      return sum + brutto
-    }, 0).toFixed(2))
-
-    const subtotal = parseFloat((totalBrutto / taxMultiplier).toFixed(2))
-    const taxAmount = parseFloat((totalBrutto - subtotal).toFixed(2))
+    // Sum per-item rounded netto totals — each item rounded first, then summed
+    const subtotal = parseFloat(items.reduce((sum, item) =>
+      sum + parseFloat((item.total || 0).toFixed(2)), 0).toFixed(2))
+    // Tax rounded per item, then summed (German accounting standard)
+    const taxAmount = parseFloat(items.reduce((sum, item) =>
+      sum + parseFloat(((item.total || 0) * taxRate / 100).toFixed(2)), 0).toFixed(2))
     const totalAmount = parseFloat((subtotal + taxAmount).toFixed(2))
 
     setFormData(prev => ({
