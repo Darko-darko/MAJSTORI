@@ -21,6 +21,12 @@ export default function PDFArchivePage() {
   const [selectedPDFs, setSelectedPDFs] = useState(new Set())
   const [bulkEmailModal, setBulkEmailModal] = useState(false)
 
+  // Attachments modal
+  const [attachmentModal, setAttachmentModal] = useState(null)
+  const [attachmentModalLoading, setAttachmentModalLoading] = useState(false)
+  const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
+  const [detailAttachments, setDetailAttachments] = useState([])
+
   // Bookkeeper settings
   const [bookkeeperSettings, setBookkeeperSettings] = useState({
     showSettings: false,
@@ -90,7 +96,7 @@ export default function PDFArchivePage() {
       let query = supabase
         .from('invoices')
         .select(`
-          id, type, invoice_number, quote_number, customer_name, 
+          id, type, invoice_number, quote_number, customer_name,
           total_amount, pdf_generated_at, pdf_storage_path, pdf_file_size,
           created_at, status, customer_email, issue_date, updated_at,
           email_sent_at, email_sent_to
@@ -132,6 +138,18 @@ export default function PDFArchivePage() {
       setArchivedPDFs(pdfsData || [])
       console.log('✅ Loaded', pdfsData?.length || 0, 'archived PDFs')
 
+      // Load attachment counts separately
+      if (pdfsData?.length > 0) {
+        const ids = pdfsData.map(p => p.id)
+        const { data: attData } = await supabase
+          .from('invoice_attachments')
+          .select('invoice_id')
+          .in('invoice_id', ids)
+        const counts = {}
+        attData?.forEach(a => { counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1 })
+        setAttachmentCounts(counts)
+      }
+
     } catch (err) {
       console.error('Archive loading error:', err)
       setError('Fehler beim Laden der PDF-Archive')
@@ -149,8 +167,16 @@ export default function PDFArchivePage() {
         .single()
 
       if (error) throw error
-      
+
       setSelectedPDF(invoice)
+
+      // Load attachments for detail view
+      const { data: atts } = await supabase
+        .from('invoice_attachments')
+        .select('*')
+        .eq('invoice_id', pdfId)
+      setDetailAttachments(atts || [])
+
       console.log('✅ Loaded full invoice details')
 
     } catch (err) {
@@ -167,6 +193,24 @@ export default function PDFArchivePage() {
 
   const backToList = () => {
     setSelectedPDF(null)
+  }
+
+  const openAttachmentModal = async (pdf) => {
+    setAttachmentModalLoading(true)
+    setAttachmentModal({ invoiceId: pdf.id, attachments: [] })
+    const { data } = await supabase
+      .from('invoice_attachments')
+      .select('*')
+      .eq('invoice_id', pdf.id)
+    setAttachmentModal({ invoiceId: pdf.id, attachments: data || [] })
+    setAttachmentModalLoading(false)
+  }
+
+  const downloadAttachment = async (att) => {
+    const { data } = await supabase.storage
+      .from('invoice-pdfs')
+      .createSignedUrl(att.storage_path, 300, { download: att.filename })
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
   const getCustomersWithCounts = () => {
@@ -341,7 +385,7 @@ const openPDFInNewTab = async (pdfId) => {
     const isQuote = invoice.type === 'quote'
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 pb-24">
         <div className="flex items-center justify-between">
           <button
             onClick={backToList}
@@ -447,6 +491,25 @@ const openPDFInNewTab = async (pdfId) => {
             </div>
           </div>
         </div>
+
+        {/* Anhänge */}
+        {detailAttachments.length > 0 && (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+            <h5 className="text-white font-medium mb-3">📎 Anhänge ({detailAttachments.length})</h5>
+            <div className="space-y-1">
+              {detailAttachments.map(att => (
+                <button
+                  key={att.id}
+                  onClick={() => downloadAttachment(att)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/60 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                >
+                  <span className="text-slate-300 text-sm truncate">{att.filename}</span>
+                  <span className="text-blue-400 text-xs ml-2 shrink-0">↓ Herunterladen</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
           <h5 className="text-white font-semibold mb-4">📋 Positionen</h5>
@@ -882,6 +945,15 @@ const openPDFInNewTab = async (pdfId) => {
                   <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(pdf.type)}`}>
                     {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
                   </span>
+                  {attachmentCounts[pdf.id] > 0 && (
+                    <button
+                      onClick={() => openAttachmentModal(pdf)}
+                      className="flex items-center gap-1 text-slate-400 hover:text-blue-400 text-xs bg-slate-700/60 hover:bg-slate-700 px-2 py-1 rounded transition-colors"
+                      title="Anhänge anzeigen"
+                    >
+                      📎 {attachmentCounts[pdf.id]}
+                    </button>
+                  )}
                 </div>
 
                 <div className="hidden sm:block text-slate-400 flex-1">
@@ -914,6 +986,36 @@ const openPDFInNewTab = async (pdfId) => {
         periodLabel={getPeriodLabel()}
       />
       <BookkeeperSettingsModal />
+
+      {/* Attachment Mini-Modal */}
+      {attachmentModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setAttachmentModal(null)}>
+          <div className="bg-slate-800 rounded-xl w-full max-w-sm border border-slate-700" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-700">
+              <h3 className="text-white font-semibold">📎 Anhänge</h3>
+              <button onClick={() => setAttachmentModal(null)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+            </div>
+            <div className="p-4 space-y-2">
+              {attachmentModalLoading ? (
+                <p className="text-slate-400 text-sm text-center py-4">Laden...</p>
+              ) : attachmentModal.attachments.length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-4">Keine Anhänge</p>
+              ) : (
+                attachmentModal.attachments.map(att => (
+                  <button
+                    key={att.id}
+                    onClick={() => downloadAttachment(att)}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/60 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                  >
+                    <span className="text-slate-300 text-sm truncate">{att.filename}</span>
+                    <span className="text-blue-400 text-xs ml-2 shrink-0">↓</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { Buffer } from 'node:buffer'
+import JSZip from 'jszip'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -43,46 +44,36 @@ export async function POST(request, routeData) {
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
 
-    // ⚡ OPTIMIZED: Check if PDF exists in storage before regenerating
-    if (invoice.type === 'invoice') {
-      const pdfOutdated = invoice.pdf_generated_at && 
-                          new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
-      
-      if (pdfOutdated) {
-        console.warn('⚠️ CRITICAL: Invoice PDF is outdated!')
-        
-        // ⚡ First try to serve from cache - maybe it's good enough
-        const storagePath = generateStoragePath(invoice, { id: invoice.majstor_id })
-        const { data: testPDF, error: testError } = await supabase.storage
-          .from('invoice-pdfs')
-          .download(storagePath)
-        
-        if (testError || !testPDF) {
-          // Only regenerate if doesn't exist
-          console.log('🔄 Auto-regenerating PDF before email...')
-          
-          const host = request.headers.get('host')
-          const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
-          const siteUrl = envSiteUrl || (host?.includes('localhost') ? `http://${host}` : `https://${host}`)
+    // ⚡ Auto-generate PDF if missing or outdated (both triggers: ansehen + email)
+    const pdfMissing = !invoice.pdf_storage_path
+    const pdfOutdated = invoice.pdf_generated_at &&
+                        new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
 
-          const regenResponse = await fetch(`${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`, {
-            method: 'GET',
-            headers: { 'Cache-Control': 'no-cache' }
-          })
-          
-          if (!regenResponse.ok) {
-            return NextResponse.json({ 
-              error: '⚠️ Rechnung wurde aktualisiert, aber PDF/ZUGFeRD ist veraltet.\n\nBitte öffnen Sie die Rechnung zuerst.'
-            }, { status: 400 })
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 500)) // Reduced from 1000
-        } else {
-          console.log('✅ PDF exists in storage, using cached version')
-        }
-      } else {
-        console.log('✅ PDF is up-to-date, safe to send')
+    if (pdfMissing || pdfOutdated) {
+      console.log(pdfMissing ? '🔄 PDF fehlt — wird vor dem Versand generiert...' : '🔄 PDF veraltet — wird neu generiert...')
+
+      const host = request.headers.get('host')
+      const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      const siteUrl = envSiteUrl || (host?.includes('localhost') ? `http://${host}` : `https://${host}`)
+
+      const regenResponse = await fetch(`${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`, {
+        method: 'GET',
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+
+      if (!regenResponse.ok) {
+        return NextResponse.json({
+          error: 'PDF konnte nicht generiert werden. Bitte versuchen Sie es erneut.'
+        }, { status: 400 })
       }
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Reload invoice to get updated pdf_storage_path
+      const { data: refreshed } = await supabase.from('invoices').select('*').eq('id', id).single()
+      if (refreshed) Object.assign(invoice, refreshed)
+    } else {
+      console.log('✅ PDF ist aktuell, wird direkt versendet')
     }
 
     // Get majstor data
@@ -116,6 +107,54 @@ export async function POST(request, routeData) {
     const pdfBuffer = Buffer.from(await pdfData.arrayBuffer())
     const filename = generateFilename(invoice)
 
+    // Load extra attachments
+    const { data: attachmentRows } = await supabase
+      .from('invoice_attachments')
+      .select('*')
+      .eq('invoice_id', id)
+
+    let extraAttachments = []
+    if (attachmentRows?.length > 0) {
+      if (attachmentRows.length <= 5) {
+        // Send each file individually
+        const downloads = await Promise.all(
+          attachmentRows.map(async (att) => {
+            const { data: attData } = await supabase.storage
+              .from('invoice-pdfs')
+              .download(att.storage_path)
+            if (!attData) return null
+            return {
+              filename: att.filename,
+              content: Buffer.from(await attData.arrayBuffer()),
+              contentType: att.mime_type || 'application/octet-stream'
+            }
+          })
+        )
+        extraAttachments = downloads.filter(Boolean)
+      } else {
+        // Auto-zip when more than 5 files
+        const zip = new JSZip()
+        await Promise.all(
+          attachmentRows.map(async (att) => {
+            const { data: attData } = await supabase.storage
+              .from('invoice-pdfs')
+              .download(att.storage_path)
+            if (attData) zip.file(att.filename, await attData.arrayBuffer())
+          })
+        )
+        const zipBuffer = await zip.generateAsync({
+          type: 'nodebuffer',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 }
+        })
+        extraAttachments = [{
+          filename: 'Anhänge.zip',
+          content: zipBuffer,
+          contentType: 'application/zip'
+        }]
+      }
+    }
+
     // Prepare email data
     const emailData = {
       from: `${majstor.business_name || majstor.full_name} <rechnungen@pro-meister.de>`,
@@ -127,7 +166,8 @@ export async function POST(request, routeData) {
           filename: filename,
           content: pdfBuffer,
           contentType: 'application/pdf'
-        }
+        },
+        ...extraAttachments
       ]
     }
 
