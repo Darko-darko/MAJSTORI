@@ -16,25 +16,15 @@ export default function PartnerPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const { data: profile } = await supabase
-        .from('majstors')
-        .select('id, full_name, ref_code, commission_rate, is_partner')
-        .eq('id', session.user.id)
-        .single()
+      const res = await fetch('/api/partner/stats', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (!res.ok) { setLoading(false); return }
+      const data = await res.json()
 
-      if (!profile?.is_partner) { setLoading(false); return }
-      setMajstor(profile)
-
-      const { data: refs } = await supabase
-        .from('majstors')
-        .select(`
-          id, full_name, email, created_at,
-          user_subscriptions ( status, created_at )
-        `)
-        .eq('referred_by', profile.ref_code)
-        .order('created_at', { ascending: false })
-
-      setReferred(refs || [])
+      if (!data.profile?.is_partner) { setLoading(false); return }
+      setMajstor(data.profile)
+      setReferred(data.referred || [])
       setLoading(false)
     }
     load()
