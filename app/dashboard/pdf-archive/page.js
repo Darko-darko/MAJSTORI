@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
+import BuchhalterSendModal from '@/app/components/BuchhalterSendModal'
 
 export default function PDFArchivePage() {
   // State management
@@ -19,7 +20,6 @@ export default function PDFArchivePage() {
   // Bulk selection state
   const [selectedPDFs, setSelectedPDFs] = useState(new Set())
   const [bulkEmailModal, setBulkEmailModal] = useState(false)
-  const [bulkEmailLoading, setBulkEmailLoading] = useState(false)
 
   // Bookkeeper settings
   const [bookkeeperSettings, setBookkeeperSettings] = useState({
@@ -36,8 +36,6 @@ export default function PDFArchivePage() {
     customMonth: new Date().getMonth() + 1,
     customYear: new Date().getFullYear()
   })
-
-  const MAX_PDFS_PER_EMAIL = 50
 
   // Load data on mount
   useEffect(() => {
@@ -186,25 +184,7 @@ export default function PDFArchivePage() {
       .sort((a, b) => b.count - a.count)
   }
 
-  const validateEmails = (emailString) => {
-    if (!emailString.trim()) return { valid: false, emails: [] }
-    
-    const emails = emailString
-      .split(',')
-      .map(email => email.trim())
-      .filter(email => email.length > 0)
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    const validEmails = emails.filter(email => emailRegex.test(email))
-    
-    return {
-      valid: validEmails.length > 0 && validEmails.length === emails.length,
-      emails: validEmails,
-      invalidEmails: emails.filter(email => !emailRegex.test(email))
-    }
-  }
-
-  const togglePDFSelection = (pdfId) => {
+const togglePDFSelection = (pdfId) => {
     setSelectedPDFs(prev => {
       const newSet = new Set(prev)
       if (newSet.has(pdfId)) {
@@ -295,117 +275,6 @@ const openPDFInNewTab = async (pdfId) => {
     alert('PDF öffnen fehlgeschlagen: ' + error.message)
   }
 }
-
-  const handleBulkEmail = async (emailData) => {
-    setBulkEmailLoading(true)
-    
-    try {
-      const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
-      const selectedIds = Array.from(selectedPDFs)
-      
-      if (selectedIds.length > MAX_PDFS_PER_EMAIL) {
-        const emailCount = Math.ceil(selectedIds.length / MAX_PDFS_PER_EMAIL)
-        const confirmed = confirm(
-          `⚠️ ${selectedIds.length} PDFs sind zu viele für eine E-Mail!\n\n` +
-          `Soll ich sie in ${emailCount} separate E-Mails aufteilen?\n\n` +
-          `📧 Max ${MAX_PDFS_PER_EMAIL} PDFs pro E-Mail\n` +
-          `📊 Das bedeutet ${emailCount} E-Mails an jeden Empfänger\n\n` +
-          `Tipp: Verwenden Sie Monatsfilter für kleinere Mengen.`
-        )
-        
-        if (!confirmed) {
-          setBulkEmailLoading(false)
-          return
-        }
-        
-        const emailValidation = validateEmails(emailData.email)
-        if (!emailValidation.valid) {
-          alert(`❌ Ungültige E-Mail-Adressen: ${emailValidation.invalidEmails.join(', ')}`)
-          setBulkEmailLoading(false)
-          return
-        }
-        
-        let successfulEmails = 0
-        let failedEmails = 0
-        
-        for (let i = 0; i < selectedIds.length; i += MAX_PDFS_PER_EMAIL) {
-          const chunk = selectedIds.slice(i, i + MAX_PDFS_PER_EMAIL)
-          const chunkNumber = Math.floor(i / MAX_PDFS_PER_EMAIL) + 1
-          
-          try {
-            const response = await fetch('/api/invoices/bulk-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                invoiceIds: chunk,
-                majstorId: majstor.id,
-                recipients: emailValidation.emails,
-                subject: `${emailData.subject} (Teil ${chunkNumber}/${emailCount})`,
-                message: emailData.message + `\n\n📦 Teil ${chunkNumber} von ${emailCount} (${chunk.length} PDFs)`
-              })
-            })
-            
-            if (response.ok) {
-              successfulEmails++
-            } else {
-              failedEmails++
-            }
-            
-            if (i + MAX_PDFS_PER_EMAIL < selectedIds.length) {
-              await new Promise(resolve => setTimeout(resolve, 1000))
-            }
-            
-          } catch (chunkError) {
-            failedEmails++
-          }
-        }
-        
-        if (successfulEmails === emailCount) {
-          alert(`✅ Erfolgreich! Alle ${emailCount} E-Mails gesendet.\n\n📧 ${selectedItems.length} PDFs an ${emailValidation.emails.length} Empfänger`)
-        } else {
-          alert(`⚠️ Teilweise erfolgreich:\n\n✅ ${successfulEmails} E-Mails gesendet\n❌ ${failedEmails} E-Mails fehlgeschlagen`)
-        }
-        
-        clearSelection()
-        setBulkEmailModal(false)
-        return
-      }
-      
-      const emailValidation = validateEmails(emailData.email)
-      if (!emailValidation.valid) {
-        alert(`❌ Ungültige E-Mail-Adressen: ${emailValidation.invalidEmails.join(', ')}`)
-        return
-      }
-      
-      const response = await fetch('/api/invoices/bulk-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoiceIds: selectedIds,
-          majstorId: majstor.id,
-          recipients: emailValidation.emails,
-          subject: emailData.subject,
-          message: emailData.message
-        })
-      })
-      
-      const result = await response.json()
-      
-      if (response.ok) {
-        alert(`✅ Erfolgreich! ${selectedItems.length} PDFs an ${emailValidation.emails.length} Empfänger gesendet.`)
-        clearSelection()
-        setBulkEmailModal(false)
-      } else {
-        throw new Error(result.error || 'Email sending failed')
-      }
-      
-    } catch (err) {
-      console.error('Bulk email error:', err)
-      alert('❌ Fehler beim E-Mail Versand: ' + err.message)
-    } finally {
-      setBulkEmailLoading(false)
-    }
-  }
 
   const handleFilterChange = (newFilters) => {
     setFilters(prev => {
@@ -763,198 +632,6 @@ const openPDFInNewTab = async (pdfId) => {
     )
   }
 
-  const BulkEmailModal = () => {
-    const [emailData, setEmailData] = useState({
-      email: bookkeeperSettings.email,
-      subject: `Rechnungen ${new Date().getMonth() + 1}/${new Date().getFullYear()} - ${majstor?.business_name || majstor?.full_name}`,
-      message: `Sehr geehrte Damen und Herren,\n\nanbei senden wir Ihnen unsere Rechnungen zur Buchführung.\n\nAnzahl Dokumente: ${selectedPDFs.size}\n\nMit freundlichen Grüßen`
-    })
-
-    const [emailValidation, setEmailValidation] = useState({ valid: true, emails: [], invalidEmails: [] })
-
-    useEffect(() => {
-      if (emailData.email) {
-        const validation = validateEmails(emailData.email)
-        setEmailValidation(validation)
-      }
-    }, [emailData.email])
-
-    if (!bulkEmailModal) return null
-
-    const selectedItems = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id))
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-slate-800 rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-          
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-semibold text-white">📧 Bulk E-Mail versenden</h3>
-            <button 
-              onClick={() => setBulkEmailModal(false)}
-              className="text-slate-400 hover:text-white text-2xl"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="mb-6">
-            <h4 className="text-white font-medium mb-3">
-              Ausgewählte Dokumente ({selectedItems.length}):
-            </h4>
-            
-            {selectedItems.length > MAX_PDFS_PER_EMAIL && (
-              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mb-4">
-                <div className="flex items-start gap-3">
-                  <span className="text-orange-400 text-xl">⚠️</span>
-                  <div>
-                    <h5 className="text-orange-300 font-medium mb-2">Zu viele PDFs!</h5>
-                    <div className="text-orange-200 text-sm space-y-1">
-                      <p>• {selectedItems.length} PDFs sind zu viele für eine E-Mail</p>
-                      <p>• Werden automatisch in {Math.ceil(selectedItems.length / MAX_PDFS_PER_EMAIL)} E-Mails aufgeteilt</p>
-                      <p>• Jede E-Mail max {MAX_PDFS_PER_EMAIL} PDFs (≈5-10MB)</p>
-                      <p><strong>💡 Tipp:</strong> Verwenden Sie Monatsfilter für kleinere Mengen</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="bg-slate-900/50 rounded-lg p-4 max-h-32 overflow-y-auto">
-              {selectedItems.map(item => (
-                <div key={item.id} className="flex justify-between items-center text-sm mb-2 last:mb-0">
-                  <span className="text-slate-300 font-medium">
-                    {item.invoice_number || item.quote_number}
-                  </span>
-                  <span className="text-white">
-                    {formatCurrency(item.total_amount)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={(e) => {
-            e.preventDefault()
-            handleBulkEmail(emailData)
-          }}>
-            
-            <div className="space-y-4">
-              
-              {bookkeeperSettings.email && (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-green-300 font-medium">{bookkeeperSettings.name}</p>
-                      <p className="text-green-200 text-sm">{bookkeeperSettings.email}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setEmailData(prev => ({ ...prev, email: bookkeeperSettings.email }))}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
-                    >
-                      Verwenden
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-slate-300">
-                    Empfänger E-Mail * 
-                    <span className="text-xs text-slate-500">(mehrere durch Komma trennen)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setBookkeeperSettings(prev => ({ ...prev, showSettings: true }))}
-                    className="text-xs text-blue-400 hover:text-blue-300"
-                  >
-                    ⚙️ Buchhalter einstellen
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={emailData.email}
-                  onChange={(e) => setEmailData({...emailData, email: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                  placeholder="email1@beispiel.de, email2@beispiel.de"
-                  required
-                />
-                
-                {emailValidation.emails.length > 0 && (
-                  <div className="mt-2 text-xs">
-                    <p className="text-green-400">✅ Gültige E-Mails ({emailValidation.emails.length}):</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {emailValidation.emails.map((email, index) => (
-                        <span key={index} className="bg-green-500/20 text-green-300 px-2 py-1 rounded text-xs">
-                          {email}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {emailValidation.invalidEmails.length > 0 && (
-                  <div className="mt-2 text-xs">
-                    <p className="text-red-400">❌ Ungültige E-Mails:</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {emailValidation.invalidEmails.map((email, index) => (
-                        <span key={index} className="bg-red-500/20 text-red-300 px-2 py-1 rounded text-xs">
-                          {email}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Betreff
-                </label>
-                <input
-                  type="text"
-                  value={emailData.subject}
-                  onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Nachricht
-                </label>
-                <textarea
-                  value={emailData.message}
-                  onChange={(e) => setEmailData({...emailData, message: e.target.value})}
-                  rows={6}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setBulkEmailModal(false)}
-                className="flex-1 bg-slate-600 text-white py-3 rounded-lg hover:bg-slate-700 transition-colors"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="submit"
-                disabled={bulkEmailLoading || !emailValidation.valid}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                {bulkEmailLoading ? 'Sende E-Mails...' : `${selectedItems.length} PDFs senden`}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )
-  }
 
   const BulkActionBar = () => {
     if (selectedPDFs.size === 0) return null
@@ -1011,6 +688,19 @@ const openPDFInNewTab = async (pdfId) => {
         </div>
       </div>
     )
+  }
+
+  const getPeriodLabel = () => {
+    const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+    if (filters.dateRange === 'thisMonth') {
+      const now = new Date()
+      return `${monthNames[now.getMonth()]} ${now.getFullYear()}`
+    }
+    if (filters.dateRange === 'lastMonth') {
+      const d = new Date(); d.setMonth(d.getMonth() - 1)
+      return `${monthNames[d.getMonth()]} ${d.getFullYear()}`
+    }
+    return `${monthNames[filters.customMonth - 1]} ${filters.customYear}`
   }
 
   if (selectedPDF) {
@@ -1215,7 +905,14 @@ const openPDFInNewTab = async (pdfId) => {
       )}
 
       <BulkActionBar />
-      <BulkEmailModal />
+      <BuchhalterSendModal
+        isOpen={bulkEmailModal}
+        onClose={() => setBulkEmailModal(false)}
+        selectedIds={Array.from(selectedPDFs)}
+        majstor={majstor}
+        invoices={archivedPDFs}
+        periodLabel={getPeriodLabel()}
+      />
       <BookkeeperSettingsModal />
     </div>
   )
