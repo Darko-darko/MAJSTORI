@@ -209,8 +209,14 @@ export default function PDFArchivePage() {
   const downloadAttachment = async (att) => {
     const { data } = await supabase.storage
       .from('invoice-pdfs')
-      .createSignedUrl(att.storage_path, 300, { download: att.filename })
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+      .createSignedUrl(att.storage_path, 300)
+    if (!data?.signedUrl) return
+    const a = document.createElement('a')
+    a.href = data.signedUrl
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   const getCustomersWithCounts = () => {
@@ -504,7 +510,7 @@ const openPDFInNewTab = async (pdfId) => {
                   className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/60 hover:bg-slate-700 rounded-lg transition-colors text-left"
                 >
                   <span className="text-slate-300 text-sm truncate">{att.filename}</span>
-                  <span className="text-blue-400 text-xs ml-2 shrink-0">↓ Herunterladen</span>
+                  <span className="text-blue-400 text-xs ml-2 shrink-0">👁 Öffnen</span>
                 </button>
               ))}
             </div>
@@ -1008,7 +1014,7 @@ const openPDFInNewTab = async (pdfId) => {
                     className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/60 hover:bg-slate-700 rounded-lg transition-colors text-left"
                   >
                     <span className="text-slate-300 text-sm truncate">{att.filename}</span>
-                    <span className="text-blue-400 text-xs ml-2 shrink-0">↓</span>
+                    <span className="text-blue-400 text-xs ml-2 shrink-0">👁</span>
                   </button>
                 ))
               )}

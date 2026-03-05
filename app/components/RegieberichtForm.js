@@ -39,21 +39,40 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     wohnungsnummer: '',
   })
 
-  const [signatureEmpty, setSignatureEmpty] = useState(true)
+  const [signatureDataUrl, setSignatureDataUrl] = useState(null)
+  const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [generatedFile, setGeneratedFile] = useState(null)
-  const canvasRef = useRef(null)
+
+  // Fullscreen canvas refs
+  const fullscreenCanvasRef = useRef(null)
   const isDrawingRef = useRef(false)
   const lastPosRef = useRef({ x: 0, y: 0 })
+  const hasDrawnRef = useRef(false)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx.strokeStyle = '#1e293b'
-    ctx.lineWidth = 2.5
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-  }, [])
+    if (!showSignatureModal) return
+    // Small delay to ensure canvas is mounted
+    const timer = setTimeout(() => {
+      const canvas = fullscreenCanvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')
+      ctx.strokeStyle = '#1e293b'
+      ctx.lineWidth = 3
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      hasDrawnRef.current = false
+      // Restore existing signature if any
+      if (signatureDataUrl) {
+        const img = new Image()
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          hasDrawnRef.current = true
+        }
+        img.src = signatureDataUrl
+      }
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [showSignatureModal])
 
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect()
@@ -74,13 +93,13 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
   const startDraw = (e) => {
     e.preventDefault()
     isDrawingRef.current = true
-    lastPosRef.current = getPos(e, canvasRef.current)
+    lastPosRef.current = getPos(e, fullscreenCanvasRef.current)
   }
 
   const draw = (e) => {
     e.preventDefault()
     if (!isDrawingRef.current) return
-    const canvas = canvasRef.current
+    const canvas = fullscreenCanvasRef.current
     const ctx = canvas.getContext('2d')
     const pos = getPos(e, canvas)
     ctx.beginPath()
@@ -88,7 +107,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     ctx.lineTo(pos.x, pos.y)
     ctx.stroke()
     lastPosRef.current = pos
-    setSignatureEmpty(false)
+    hasDrawnRef.current = true
   }
 
   const endDraw = (e) => {
@@ -96,11 +115,33 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     isDrawingRef.current = false
   }
 
-  const clearSignature = () => {
-    const canvas = canvasRef.current
+  const clearFullSignature = () => {
+    const canvas = fullscreenCanvasRef.current
+    if (!canvas) return
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    setSignatureEmpty(true)
+    hasDrawnRef.current = false
+  }
+
+  const confirmSignature = () => {
+    const canvas = fullscreenCanvasRef.current
+    if (!canvas || !hasDrawnRef.current) {
+      setSignatureDataUrl(null)
+      setShowSignatureModal(false)
+      return
+    }
+
+    // Rotate 90° clockwise: landscape drawing → portrait-friendly for PDF right-side area
+    const rotated = document.createElement('canvas')
+    rotated.width = canvas.height
+    rotated.height = canvas.width
+    const rctx = rotated.getContext('2d')
+    rctx.translate(0, canvas.width)
+    rctx.rotate(-Math.PI / 2)
+    rctx.drawImage(canvas, 0, 0)
+
+    setSignatureDataUrl(rotated.toDataURL('image/png'))
+    setShowSignatureModal(false)
   }
 
   const generatePDF = () => {
@@ -225,22 +266,20 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     doc.line(margin, y, pageW - margin, y)
     y += 7
 
-    // Signature (Mieter only — right side)
+    // Signature (right side only)
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(120, 120, 120)
     doc.text('UNTERSCHRIFT MIETER / BEWOHNER', margin + halfW + 10, y)
     y += 5
 
-    if (!signatureEmpty) {
-      const canvas = canvasRef.current
-      const sigDataUrl = canvas.toDataURL('image/png')
-      doc.addImage(sigDataUrl, 'PNG', margin + halfW + 10, y, halfW, 25)
+    if (signatureDataUrl) {
+      doc.addImage(signatureDataUrl, 'PNG', margin + halfW + 10, y, halfW, 35)
     }
 
     doc.setDrawColor(0, 0, 0)
     doc.setLineWidth(0.4)
-    doc.line(margin + halfW + 10, y + 27, pageW - margin, y + 27)
+    doc.line(margin + halfW + 10, y + 37, pageW - margin, y + 37)
 
     // Footer
     doc.setFont('helvetica', 'normal')
@@ -257,173 +296,233 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
   }
 
   return (
-    <div className="bg-slate-800/80 border border-blue-500/30 rounded-lg p-4 mt-2">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-white font-medium text-sm">📋 Regiebericht erstellen</span>
-        <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-300 text-xl leading-none px-1">×</button>
-      </div>
+    <>
+      {/* Fullscreen signature modal */}
+      {showSignatureModal && (
+        <div
+          className="fixed inset-0 z-50 bg-white flex flex-col"
+          style={{ touchAction: 'none' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-100 border-b border-slate-200 shrink-0">
+            <span className="text-slate-800 font-semibold text-base">✍️ Unterschrift</span>
+            <button
+              type="button"
+              onClick={() => setShowSignatureModal(false)}
+              className="text-slate-500 hover:text-slate-800 text-2xl leading-none w-8 h-8 flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
 
-      {generatedFile ? (
-        <div className="space-y-3 py-2">
-          <p className="text-green-400 font-medium text-sm text-center">✅ Regiebericht wurde erstellt</p>
-          <p className="text-slate-400 text-xs text-center truncate">📄 {generatedFile.name}</p>
-          <button
-            type="button"
-            onClick={() => {
-              const url = URL.createObjectURL(generatedFile)
-              const a = document.createElement('a')
-              a.href = url
-              a.target = '_blank'
-              document.body.appendChild(a)
-              a.click()
-              document.body.removeChild(a)
-            }}
-            className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            👁 Vorschau öffnen
-          </button>
-          <button
-            type="button"
-            onClick={() => { onGenerated(generatedFile) }}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            ✅ Als Anhang hinzufügen
-          </button>
-          <button
-            type="button"
-            onClick={() => setGeneratedFile(null)}
-            className="w-full text-xs text-slate-500 hover:text-slate-300 underline"
-          >
-            ✏️ Bearbeiten
-          </button>
+          {/* Hint */}
+          <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 shrink-0">
+            <p className="text-blue-600 text-xs text-center">
+              Mieter unterschreibt hier mit Finger oder Stift &nbsp;·&nbsp; Gerät quer halten für mehr Platz
+            </p>
+          </div>
+
+          {/* Canvas area */}
+          <div className="flex-1 p-4 min-h-0">
+            <canvas
+              ref={fullscreenCanvasRef}
+              width={500}
+              height={900}
+              className="w-full h-full block bg-white border-2 border-dashed border-slate-300 rounded-xl"
+              style={{ cursor: 'crosshair', touchAction: 'none' }}
+              onMouseDown={startDraw}
+              onMouseMove={draw}
+              onMouseUp={endDraw}
+              onMouseLeave={endDraw}
+              onTouchStart={startDraw}
+              onTouchMove={draw}
+              onTouchEnd={endDraw}
+            />
+          </div>
+
+          {/* Footer buttons */}
+          <div className="flex gap-3 px-4 pb-8 pt-3 bg-white border-t border-slate-100 shrink-0">
+            <button
+              type="button"
+              onClick={clearFullSignature}
+              className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-colors"
+            >
+              🗑 Löschen
+            </button>
+            <button
+              type="button"
+              onClick={confirmSignature}
+              className="flex-[2] py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition-colors"
+            >
+              ✅ Unterschrift bestätigen
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Datum + Uhrzeit */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Datum</label>
-              <input
-                type="text"
-                value={data.datum}
-                onChange={e => setData(p => ({ ...p, datum: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-              />
+      )}
+
+      {/* Main form */}
+      <div className="bg-slate-800/80 border border-blue-500/30 rounded-lg p-4 mt-2">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-white font-medium text-sm">📋 Regiebericht erstellen</span>
+          <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-300 text-xl leading-none px-1">×</button>
+        </div>
+
+        {generatedFile ? (
+          <div className="space-y-3 py-2">
+            <p className="text-green-400 font-medium text-sm text-center">✅ Regiebericht wurde erstellt</p>
+            <p className="text-slate-400 text-xs text-center truncate">📄 {generatedFile.name}</p>
+            <button
+              type="button"
+              onClick={() => {
+                const url = URL.createObjectURL(generatedFile)
+                const a = document.createElement('a')
+                a.href = url
+                a.target = '_blank'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+              }}
+              className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              👁 Vorschau öffnen
+            </button>
+            <button
+              type="button"
+              onClick={() => { onGenerated(generatedFile) }}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              ✅ Als Anhang hinzufügen
+            </button>
+            <button
+              type="button"
+              onClick={() => setGeneratedFile(null)}
+              className="w-full text-xs text-slate-500 hover:text-slate-300 underline"
+            >
+              ✏️ Bearbeiten
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Datum + Uhrzeit */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Datum</label>
+                <input
+                  type="text"
+                  value={data.datum}
+                  onChange={e => setData(p => ({ ...p, datum: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Uhrzeit</label>
+                <input
+                  type="text"
+                  value={data.uhrzeit}
+                  onChange={e => setData(p => ({ ...p, uhrzeit: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                />
+              </div>
             </div>
+
+            {/* Objekt */}
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Uhrzeit</label>
+              <label className="block text-xs text-slate-400 mb-1">Objekt / Leistungsort</label>
               <input
                 type="text"
-                value={data.uhrzeit}
-                onChange={e => setData(p => ({ ...p, uhrzeit: e.target.value }))}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Objekt */}
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Objekt / Leistungsort</label>
-            <input
-              type="text"
-              value={data.objekt}
-              onChange={e => setData(p => ({ ...p, objekt: e.target.value }))}
-              placeholder="z.B. Musterstraße 5, 80333 München"
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm placeholder-slate-500"
-            />
-          </div>
-
-          {/* Arbeiten */}
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">Durchgeführte Arbeiten</label>
-            <textarea
-              value={data.beschreibung}
-              onChange={e => setData(p => ({ ...p, beschreibung: e.target.value }))}
-              rows={3}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm resize-none"
-            />
-          </div>
-
-          {/* Mieter + Wohnung */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Mieter / Bewohner</label>
-              <input
-                type="text"
-                value={data.mieterName}
-                onChange={e => setData(p => ({ ...p, mieterName: e.target.value }))}
-                placeholder="Name des Mieters"
+                value={data.objekt}
+                onChange={e => setData(p => ({ ...p, objekt: e.target.value }))}
+                placeholder="z.B. Musterstraße 5, 80333 München"
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm placeholder-slate-500"
               />
             </div>
+
+            {/* Arbeiten */}
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Wohnung</label>
-              <input
-                type="text"
-                value={data.wohnungsnummer}
-                onChange={e => setData(p => ({ ...p, wohnungsnummer: e.target.value }))}
-                placeholder="z.B. 2. OG links"
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm placeholder-slate-500"
+              <label className="block text-xs text-slate-400 mb-1">Durchgeführte Arbeiten</label>
+              <textarea
+                value={data.beschreibung}
+                onChange={e => setData(p => ({ ...p, beschreibung: e.target.value }))}
+                rows={3}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm resize-none"
               />
             </div>
-          </div>
 
-          {/* Canvas Unterschrift */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs text-slate-400">Unterschrift Mieter</label>
-              {!signatureEmpty && (
+            {/* Mieter + Wohnung */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Mieter / Bewohner</label>
+                <input
+                  type="text"
+                  value={data.mieterName}
+                  onChange={e => setData(p => ({ ...p, mieterName: e.target.value }))}
+                  placeholder="Name des Mieters"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm placeholder-slate-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Wohnung</label>
+                <input
+                  type="text"
+                  value={data.wohnungsnummer}
+                  onChange={e => setData(p => ({ ...p, wohnungsnummer: e.target.value }))}
+                  placeholder="z.B. 2. OG links"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm placeholder-slate-500"
+                />
+              </div>
+            </div>
+
+            {/* Signature — tap to open fullscreen */}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Unterschrift Mieter</label>
+              {signatureDataUrl ? (
+                <div className="relative group">
+                  <img
+                    src={signatureDataUrl}
+                    alt="Unterschrift"
+                    className="w-full h-20 object-contain bg-white rounded-lg border border-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignatureModal(true)}
+                    className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 hover:bg-black/10 active:bg-black/20 transition-colors"
+                  >
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-slate-700 text-xs px-2 py-1 rounded shadow">
+                      ✏️ Ändern
+                    </span>
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={clearSignature}
-                  className="text-xs text-slate-500 hover:text-red-400"
+                  onClick={() => setShowSignatureModal(true)}
+                  className="w-full h-20 bg-white rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
                 >
-                  Löschen
+                  <div className="text-center pointer-events-none">
+                    <div className="text-2xl mb-0.5">✍️</div>
+                    <div className="text-slate-500 text-xs">Tippen zum Unterschreiben</div>
+                  </div>
                 </button>
               )}
             </div>
-            <div
-              className="bg-white rounded-lg overflow-hidden border border-slate-400"
-              style={{ touchAction: 'none' }}
+
+            {/* Generate */}
+            <button
+              type="button"
+              onClick={generatePDF}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              <canvas
-                ref={canvasRef}
-                width={600}
-                height={130}
-                className="w-full block"
-                style={{ cursor: 'crosshair' }}
-                onMouseDown={startDraw}
-                onMouseMove={draw}
-                onMouseUp={endDraw}
-                onMouseLeave={endDraw}
-                onTouchStart={startDraw}
-                onTouchMove={draw}
-                onTouchEnd={endDraw}
-              />
-            </div>
-            {signatureEmpty && (
-              <p className="text-xs text-slate-500 mt-1 text-center">
-                Mieter unterschreibt hier mit Finger oder Stift
+              📄 Regiebericht erstellen &amp; anhängen
+            </button>
+
+            {!signatureDataUrl && (
+              <p className="text-xs text-slate-500 text-center -mt-1">
+                Ohne Unterschrift wird das PDF trotzdem erstellt
               </p>
             )}
           </div>
-
-          {/* Generate */}
-          <button
-            type="button"
-            onClick={generatePDF}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            📄 Regiebericht erstellen &amp; anhängen
-          </button>
-
-          {signatureEmpty && (
-            <p className="text-xs text-slate-500 text-center -mt-1">
-              Ohne Unterschrift wird das PDF trotzdem erstellt
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   )
 }
