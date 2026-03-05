@@ -88,6 +88,7 @@ export default function InvoiceCreator({
   const [showVoiceExamples, setShowVoiceExamples] = useState(false)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
+  const micPermissionGrantedRef = useRef(false)
 
   // Check business data completeness on mount
   useEffect(() => {
@@ -729,6 +730,38 @@ export default function InvoiceCreator({
   const startRecording = async (e) => {
     e.preventDefault()
     try {
+      // Check mic permission before starting — avoids recording starting right after allow prompt
+      if (!micPermissionGrantedRef.current) {
+        let alreadyGranted = false
+        try {
+          const perm = await navigator.permissions.query({ name: 'microphone' })
+          if (perm.state === 'granted') {
+            alreadyGranted = true
+            micPermissionGrantedRef.current = true
+            localStorage.setItem('micPermission', 'granted')
+          } else if (perm.state === 'denied') {
+            setError('Mikrofonzugriff verweigert. Bitte in den Browser-Einstellungen erlauben.')
+            return
+          }
+          // state === 'prompt' → fall through to request permission
+        } catch {
+          // iOS Safari: permissions API not supported — check localStorage fallback
+          if (localStorage.getItem('micPermission') === 'granted') {
+            alreadyGranted = true
+            micPermissionGrantedRef.current = true
+          }
+        }
+
+        if (!alreadyGranted) {
+          // Request permission only — immediately stop stream, don't record yet
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach(t => t.stop())
+          micPermissionGrantedRef.current = true
+          localStorage.setItem('micPermission', 'granted')
+          return // User presses button again to actually record
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       audioChunksRef.current = []
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
