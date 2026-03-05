@@ -304,8 +304,8 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
           style={{ touchAction: 'none' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-100 border-b border-slate-200 shrink-0">
-            <span className="text-slate-800 font-semibold text-base">✍️ Unterschrift</span>
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 shrink-0">
+            <span className="text-slate-800 font-semibold text-sm">✍️ Unterschrift</span>
             <button
               type="button"
               onClick={() => setShowSignatureModal(false)}
@@ -322,14 +322,43 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
             </p>
           </div>
 
-          {/* Canvas area */}
-          <div className="flex-1 p-4 min-h-0">
+          {/* Buttons left (rotated 90°) + canvas right — reads correctly when phone turned landscape */}
+          <div className="flex-1 flex flex-row min-h-0 overflow-hidden p-3 gap-3">
+
+            {/* Buttons on left side, rotated 90° — readable when phone turned landscape */}
+            <div className="flex flex-col gap-3 justify-center shrink-0" style={{ width: 64 }}>
+              <button
+                type="button"
+                onClick={clearFullSignature}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-colors"
+                style={{ writingMode: 'vertical-lr', minHeight: 80 }}
+              >
+                <span style={{ display: 'inline-block', transform: 'rotate(90deg)' }}>🗑</span> Löschen
+              </button>
+              <button
+                type="button"
+                onClick={confirmSignature}
+                className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition-colors"
+                style={{ writingMode: 'vertical-lr', minHeight: 120 }}
+              >
+                <span style={{ display: 'inline-block', transform: 'rotate(90deg)' }}>✅</span> Bestätigen
+              </button>
+            </div>
+
+            {/* Canvas fills full height on the right */}
             <canvas
               ref={fullscreenCanvasRef}
               width={500}
               height={900}
-              className="w-full h-full block bg-white border-2 border-dashed border-slate-300 rounded-xl"
-              style={{ cursor: 'crosshair', touchAction: 'none' }}
+              className="bg-white border-2 border-dashed border-slate-300 rounded-xl"
+              style={{
+                cursor: 'crosshair',
+                touchAction: 'none',
+                display: 'block',
+                height: '100%',
+                width: 'auto',
+                maxWidth: 'calc(100% - 76px)',
+              }}
               onMouseDown={startDraw}
               onMouseMove={draw}
               onMouseUp={endDraw}
@@ -338,24 +367,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
               onTouchMove={draw}
               onTouchEnd={endDraw}
             />
-          </div>
 
-          {/* Footer buttons */}
-          <div className="flex gap-3 px-4 pb-8 pt-3 bg-white border-t border-slate-100 shrink-0">
-            <button
-              type="button"
-              onClick={clearFullSignature}
-              className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-colors"
-            >
-              🗑 Löschen
-            </button>
-            <button
-              type="button"
-              onClick={confirmSignature}
-              className="flex-[2] py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-sm transition-colors"
-            >
-              ✅ Unterschrift bestätigen
-            </button>
           </div>
         </div>
       )}
