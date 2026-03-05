@@ -172,10 +172,15 @@ export default function SignupPage() {
       setGoogleLoading(true)
       setError('')
       
+      const prmRef = localStorage.getItem('prm_ref') || null
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+      callbackUrl.searchParams.set('next', 'welcome')
+      if (prmRef) callbackUrl.searchParams.set('ref', prmRef)
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=welcome`,
+          redirectTo: callbackUrl.toString(),
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

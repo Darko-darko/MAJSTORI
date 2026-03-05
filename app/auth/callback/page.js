@@ -89,7 +89,8 @@ function AuthCallbackComponent() {
                          user.email?.split('@')[0] || 
                          'Handwerker'
       
-      const prmRef = localStorage.getItem('prm_ref') || null
+      const refFromUrl = searchParams.get('ref')
+      const prmRef = refFromUrl || localStorage.getItem('prm_ref') || null
 
       const profileData = {
         id: user.id,
