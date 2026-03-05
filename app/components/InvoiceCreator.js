@@ -1930,31 +1930,29 @@ if (searchError) {
             </div>
 
             {/* Regiebericht */}
-            {!isEditMode && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowRegieForm(p => !p)}
-                  className="w-full py-2.5 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg text-sm text-slate-400 hover:text-slate-200 transition-colors text-center"
-                >
-                  📋 Regiebericht erstellen
-                </button>
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowRegieForm(p => !p)}
+                className="w-full py-2.5 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg text-sm text-slate-400 hover:text-slate-200 transition-colors text-center"
+              >
+                📋 Regiebericht erstellen
+              </button>
 
-                {showRegieForm && (
-                  <div className="mt-2">
-                    <RegieberichtForm
-                      majstor={majstor}
-                      invoiceFormData={formData}
-                      onGenerated={(file) => {
-                        setPendingAttachments(prev => [...prev, { file, localId: crypto.randomUUID() }])
-                        setShowRegieForm(false)
-                      }}
-                      onClose={() => setShowRegieForm(false)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+              {showRegieForm && (
+                <div className="mt-2">
+                  <RegieberichtForm
+                    majstor={majstor}
+                    invoiceFormData={formData}
+                    onGenerated={(file) => {
+                      setPendingAttachments(prev => [...prev, { file, localId: crypto.randomUUID() }])
+                      setShowRegieForm(false)
+                    }}
+                    onClose={() => setShowRegieForm(false)}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Additional Information */}
             <div>

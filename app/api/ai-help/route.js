@@ -38,6 +38,8 @@ HAUPTFUNKTIONEN:
 - Mahnungen (Zahlungserinnerungen): Manuell aus der Rechnungsübersicht sendbar — überfällige Rechnung öffnen → Mahnung senden
 - Statistiken: Dashboard → Umsatzübersicht, offene Rechnungen, überfällige Rechnungen. Nur PRO.
 - KI-Sprachdiktat (PRO): Rechnung per Sprache diktieren — Mikrofon-Taste halten, sprechen, loslassen. KI füllt Kunde, Leistungen und Preise automatisch aus. Bekannte Kunden werden aus der Datenbank automatisch erkannt.
+- Anhänge: Beim Erstellen einer Rechnung können Dateien (PDFs, Fotos) angehängt werden — werden automatisch beim E-Mail-Versand mitgeschickt
+- Regiebericht: Spezialdokument für Arbeiten in Mietobjekten/WEG — enthält Arbeitsnachweis + digitale Unterschrift des Mieters. Wird als Anhang zur Rechnung gespeichert.
 
 KI-SPRACHDIKTAT — DETAILS (nur PRO):
 Wo: Neue Rechnung oder Neues Angebot → 🎙 Mikrofon-Taste unten gedrückt halten
@@ -51,6 +53,25 @@ Nur das sprechen was bekannt ist — fehlende Felder können danach manuell erg�
 Typische Aussagen:
   Deutsch: "Kunde ist Müller, Leistung ist Rohrreparatur, Preis ist 500 Euro"
   Serbisch: "Kupac je Müller, usluga je popravka cevi, cena je 500 evra"
+
+ANHÄNGE — DETAILS (nur PRO):
+Wo: Beim Erstellen oder Bearbeiten einer Rechnung/Angebot → Bereich "Anhang hinzufügen"
+Was anhängen: Beliebige Dateien (PDF, Fotos, Dokumente) — z.B. Fotos der Arbeit, Lieferscheine, Regiebericht
+Wie: Auf "Anhang hinzufügen" klicken → Datei vom Gerät auswählen → Datei erscheint in der Liste
+Beim E-Mail-Versand: Alle Anhänge werden automatisch zusammen mit der Rechnung/dem Angebot mitgeschickt — kein manuelles Hinzufügen nötig
+Vorschau: Auf einen Anhang tippen → öffnet sich in einem neuen Tab (auch auf iOS/Android)
+Im PDF-Archiv: Anhänge sind unter der jeweiligen Rechnung aufgelistet und können per "👁 Öffnen" angesehen werden
+
+REGIEBERICHT — DETAILS (nur PRO):
+Was ist das: Ein Arbeitsnachweis-Dokument für Handwerker die für Hausverwaltungen oder WEG (Wohnungseigentümergemeinschaft) arbeiten — bestätigt die durchgeführten Arbeit mit Mieter-Unterschrift
+Wofür: Nachweis gegenüber dem Auftraggeber (Verwaltung), dass der Mieter die Fertigstellung der Arbeit bestätigt hat
+Wo erstellen: Neue Rechnung erstellen → unten auf "📋 Regiebericht erstellen" klicken
+Felder: Datum, Uhrzeit, Objekt/Leistungsort (wird automatisch aus Rechnungsdaten übernommen), Durchgeführte Arbeiten (wird automatisch aus den Rechnungspositionen übernommen), Mieter/Bewohner-Name, Wohnungsnummer
+Unterschrift: Tippen auf das Unterschrift-Feld → vollbildschirm Unterschriften-Fenster öffnet sich → Mieter unterschreibt mit Finger oder Stift → "Unterschrift bestätigen"
+PDF: Nach Ausfüllen → "Regiebericht erstellen" → PDF wird direkt im Browser generiert → automatisch als Anhang zur Rechnung hinzugefügt
+Inhalt des PDFs: Auftragnehmer (Handwerker) und Auftraggeber (Kunde) nebeneinander, Objekt, Datum, Uhrzeit, Arbeiten, Mieter mit Unterschrift
+Versand: Regiebericht wird beim E-Mail-Versand der Rechnung automatisch als Anhang mitgeschickt — kein separater Versand nötig
+Tipp: Regiebericht direkt beim Kunden vor Ort ausfüllen lassen — Mieter unterschreibt auf dem Handy
 
 QR-VISITENKARTE — DETAILS:
 Erstellen: Dashboard → "Visitenkarte" → Formular ausfüllen:
