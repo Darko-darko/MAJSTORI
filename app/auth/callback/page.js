@@ -89,6 +89,8 @@ function AuthCallbackComponent() {
                          user.email?.split('@')[0] || 
                          'Handwerker'
       
+      const prmRef = localStorage.getItem('prm_ref') || null
+
       const profileData = {
         id: user.id,
         email: user.email,
@@ -101,7 +103,8 @@ function AuthCallbackComponent() {
         // subscription_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         is_active: true,
         profile_completed: false,
-        profile_source: user.user_metadata?.provider === 'google' ? 'google_oauth' : 'missing_profile'
+        profile_source: user.user_metadata?.provider === 'google' ? 'google_oauth' : 'missing_profile',
+        ...(prmRef && { referred_by: prmRef })
       }
 
       const response = await fetch('/api/create-profile', {
@@ -111,7 +114,7 @@ function AuthCallbackComponent() {
       })
 
       if (response.ok) {
-        const result = await response.json()
+        if (prmRef) localStorage.removeItem('prm_ref')
         console.log('✅ Missing profile created successfully')
         setError('')
       } else {

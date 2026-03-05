@@ -1,0 +1,283 @@
+'use client'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
+import QRCode from 'qrcode'
+
+export default function PartnerPage() {
+  const [majstor, setMajstor] = useState(null)
+  const [referred, setReferred] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
+  const [copiedSignup, setCopiedSignup] = useState(false)
+  const qrCanvasRef = useRef(null)
+
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const { data: profile } = await supabase
+        .from('majstors')
+        .select('id, full_name, ref_code, commission_rate, is_partner')
+        .eq('id', session.user.id)
+        .single()
+
+      if (!profile?.is_partner) { setLoading(false); return }
+      setMajstor(profile)
+
+      const { data: refs } = await supabase
+        .from('majstors')
+        .select(`
+          id, full_name, email, created_at,
+          user_subscriptions ( status, created_at )
+        `)
+        .eq('referred_by', profile.ref_code)
+        .order('created_at', { ascending: false })
+
+      setReferred(refs || [])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  useEffect(() => {
+    if (majstor?.ref_code && qrCanvasRef.current) {
+      QRCode.toCanvas(qrCanvasRef.current, `https://pro-meister.de/?ref=${majstor.ref_code}`, {
+        width: 180, margin: 1,
+        color: { dark: '#1e293b', light: '#ffffff' }
+      })
+    }
+  }, [majstor])
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-900">
+      <div className="text-slate-400">Wird geladen...</div>
+    </div>
+  )
+
+  if (!majstor?.is_partner) return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-900">
+      <div className="text-slate-400">Kein Zugriff.</div>
+    </div>
+  )
+
+  const refLink = `https://pro-meister.de/?ref=${majstor.ref_code}`
+  const signupLink = `https://pro-meister.de/signup?ref=${majstor.ref_code}`
+  const commissionRate = majstor.commission_rate || 0
+
+  // Stats
+  function getStatus(u) {
+    const subs = u.user_subscriptions || []
+    const latest = [...subs].sort((a, b) =>
+      new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    )[0]
+    return latest?.status ?? null
+  }
+
+  const total = referred.length
+  const trial = referred.filter(u => getStatus(u) === 'trial').length
+  const active = referred.filter(u => getStatus(u) === 'active').length
+  const cancelled = referred.filter(u => getStatus(u) === 'cancelled').length
+  const freemium = referred.filter(u => getStatus(u) === null).length
+  const monthlyEarning = active * commissionRate
+
+  // Mesečni pregled (zadnjih 6 meseci)
+  const months = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setMonth(d.getMonth() - i)
+    const year = d.getFullYear()
+    const month = d.getMonth()
+    const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
+    const registrations = referred.filter(u => {
+      const c = new Date(u.created_at)
+      return c.getFullYear() === year && c.getMonth() === month
+    }).length
+    const activeCount = referred.filter(u => {
+      const c = new Date(u.created_at)
+      return c.getFullYear() === year && c.getMonth() === month && getStatus(u) === 'active'
+    }).length
+    months.push({ label, registrations, activeCount, earning: activeCount * commissionRate })
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(refLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function copySignupLink() {
+    navigator.clipboard.writeText(signupLink)
+    setCopiedSignup(true)
+    setTimeout(() => setCopiedSignup(false), 2000)
+  }
+
+  function downloadQR() {
+    if (!qrCanvasRef.current) return
+    const a = document.createElement('a')
+    a.download = `qr-pro-meister-${majstor.ref_code}.png`
+    a.href = qrCanvasRef.current.toDataURL()
+    a.click()
+  }
+
+  const statusBadge = (u) => {
+    const s = getStatus(u)
+    if (s === 'active') return <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">Aktiv</span>
+    if (s === 'trial') return <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-500/20 text-yellow-400">Trial</span>
+    if (s === 'cancelled') return <span className="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400">Gekündigt</span>
+    return <span className="px-2 py-0.5 rounded-full text-xs bg-slate-600 text-slate-400">Freemium</span>
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+
+        <div>
+          <h1 className="text-white text-xl font-bold">🤝 Mein ProMeister Partner</h1>
+          <p className="text-slate-400 text-sm mt-1">Dein persönlicher Partnerbereich</p>
+        </div>
+
+        {/* Link + QR */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <h2 className="text-white font-semibold mb-4">🔗 Dein Empfehlungslink</h2>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 space-y-3">
+              <div className="space-y-2">
+                <div>
+                  <p className="text-slate-500 text-xs mb-1">Landing Page</p>
+                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2">
+                    <span className="text-blue-400 text-sm truncate flex-1">{refLink}</span>
+                    <button
+                      onClick={copyLink}
+                      className="shrink-0 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      {copied ? '✅ Kopiert!' : '📋 Kopieren'}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-slate-500 text-xs mb-1">Direkt-Registrierung</p>
+                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2">
+                    <span className="text-blue-400 text-sm truncate flex-1">{signupLink}</span>
+                    <button
+                      onClick={copySignupLink}
+                      className="shrink-0 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      {copiedSignup ? '✅ Kopiert!' : '📋 Kopieren'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-slate-400 text-xs">
+                Teile diesen Link mit potenziellen Kunden. Wenn sie sich registrieren, werden sie dir zugeordnet.
+              </p>
+              <div className="bg-slate-700/50 rounded-lg px-3 py-2 text-sm">
+                <span className="text-slate-400">Deine Provision: </span>
+                <span className="text-green-400 font-semibold">{commissionRate}€</span>
+                <span className="text-slate-400"> pro aktivem Kunden / Monat</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <canvas ref={qrCanvasRef} className="rounded-lg" />
+              <button
+                onClick={downloadQR}
+                className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+              >
+                ⬇️ QR herunterladen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats kartice */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Registrierungen', value: total, color: 'text-blue-400' },
+            { label: 'Trial', value: trial, color: 'text-yellow-400' },
+            { label: 'Aktiv', value: active, color: 'text-green-400' },
+            { label: 'Freemium', value: freemium, color: 'text-slate-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-center">
+              <div className={`text-2xl font-bold ${color}`}>{value}</div>
+              <div className="text-slate-400 text-xs mt-1">{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Finansijski pregled */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-white font-semibold">💶 Finanzübersicht</h2>
+            <div className="text-right">
+              <span className="text-slate-400 text-sm">Aktueller Monat: </span>
+              <span className="text-green-400 font-bold text-lg">{monthlyEarning.toFixed(2)}€</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-slate-400 border-b border-slate-700">
+                  <th className="text-left pb-2">Monat</th>
+                  <th className="text-center pb-2">Registrierungen</th>
+                  <th className="text-center pb-2">Aktiv</th>
+                  <th className="text-right pb-2">Betrag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {months.map(m => (
+                  <tr key={m.label} className="border-b border-slate-700/50">
+                    <td className="py-2 text-slate-300">{m.label}</td>
+                    <td className="py-2 text-center text-slate-300">{m.registrations}</td>
+                    <td className="py-2 text-center text-green-400">{m.activeCount}</td>
+                    <td className="py-2 text-right text-green-400 font-medium">{m.earning.toFixed(2)}€</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-slate-500 text-xs mt-3">* Auszahlung erfolgt außerhalb der Plattform nach Absprache.</p>
+        </div>
+
+        {/* Lista korisnika */}
+        {referred.length > 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h2 className="text-white font-semibold mb-4">👥 Deine Kunden ({total})</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-slate-400 border-b border-slate-700">
+                    <th className="text-left pb-2">Name / E-Mail</th>
+                    <th className="text-center pb-2">Status</th>
+                    <th className="text-right pb-2">Registriert</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {referred.map(u => (
+                    <tr key={u.id} className="border-b border-slate-700/50">
+                      <td className="py-2">
+                        <div className="text-white text-xs">{u.full_name || '—'}</div>
+                        <div className="text-slate-500 text-xs">{u.email}</div>
+                      </td>
+                      <td className="py-2 text-center">{statusBadge(u)}</td>
+                      <td className="py-2 text-right text-slate-400 text-xs">
+                        {new Date(u.created_at).toLocaleDateString('de-DE')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {referred.length === 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center">
+            <p className="text-slate-400 text-sm">Noch keine Registrierungen über deinen Link.</p>
+            <p className="text-slate-500 text-xs mt-1">Teile deinen Link, um Kunden zu gewinnen!</p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  )
+}

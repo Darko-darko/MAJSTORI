@@ -107,13 +107,23 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
             <p className="text-slate-400 text-sm mt-1">Read-only overview</p>
           </div>
           <Link href="/dashboard" className="text-sm text-slate-400 hover:text-white transition-colors">
             ← Dashboard
+          </Link>
+        </div>
+
+        {/* Quick links */}
+        <div className="flex gap-3 mb-8">
+          <Link
+            href="/dashboard/admin/partners"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600/30 text-blue-400 rounded-lg text-sm font-medium transition-colors"
+          >
+            🤝 Partner-Verwaltung
           </Link>
         </div>
 

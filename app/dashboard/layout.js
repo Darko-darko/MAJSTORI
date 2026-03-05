@@ -768,7 +768,16 @@ const NavigationItem = ({ item, isMobile = false }) => {
     )
   }
 
-  const navigation = getNavigation()
+  const navigation = [
+    ...getNavigation(),
+    ...(majstor?.is_partner ? [{
+      name: 'Mein ProMeister Partner',
+      href: '/dashboard/partner',
+      icon: '🤝',
+      protected: false,
+      isSeparator: true
+    }] : [])
+  ]
 
   return (
     <>
