@@ -56,8 +56,11 @@ export async function POST(request) {
       subscription_status: profileData.subscription_status || null,
       subscription_ends_at: profileData.subscription_ends_at || null,
       
+      // Referral tracking
+      referred_by: profileData.referred_by || null,
+
       // Auto-generate slug if name provided
-      slug: profileData.full_name 
+      slug: profileData.full_name
         ? profileData.full_name
             .toLowerCase()
             .replace(/\s+/g, '-')

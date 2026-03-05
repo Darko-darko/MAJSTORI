@@ -34,6 +34,12 @@ export default function SignupPage() {
   })
   const router = useRouter()
 
+  // Capture ?ref= param (also works when coming directly to /signup?ref=...)
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref')
+    if (ref) localStorage.setItem('prm_ref', ref)
+  }, [])
+
   // 🎯 Mount honeypot AFTER autofill happens (500ms delay)
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -234,6 +240,7 @@ export default function SignupPage() {
 
       if (authData.user) {
         // Create MINIMAL majstor profile via API
+        const prmRef = localStorage.getItem('prm_ref') || null
         const response = await fetch('/api/create-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -243,9 +250,11 @@ export default function SignupPage() {
             full_name: formData.email.split('@')[0],
             is_active: true,
             profile_completed: false,
-            profile_source: 'email_signup'
+            profile_source: 'email_signup',
+            ...(prmRef && { referred_by: prmRef })
           })
         })
+        if (prmRef) localStorage.removeItem('prm_ref')
 
         const responseData = await response.json()
 

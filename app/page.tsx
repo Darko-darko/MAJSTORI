@@ -1,6 +1,10 @@
+import { Suspense } from 'react'
+import RefCapture from './components/RefCapture'
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <Suspense fallback={null}><RefCapture /></Suspense>
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full bg-white/10 backdrop-blur-md border-b border-white/10 z-50">
