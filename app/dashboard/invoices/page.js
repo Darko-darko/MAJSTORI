@@ -43,6 +43,11 @@ function DashboardPageContent() {
   // 🔥 OVERDUE FILTER
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
 
+  // Attachments modal
+  const [attachmentModal, setAttachmentModal] = useState(null) // {invoiceId, attachments}
+  const [attachmentModalLoading, setAttachmentModalLoading] = useState(false)
+  const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
+
   //početak
   const [pdfLoading, setPdfLoading] = useState(false)
 
@@ -292,12 +297,40 @@ function DashboardPageContent() {
 
       if (!quotesError) setQuotes(quotesData || [])
       if (!invoicesError) setInvoices(invoicesData || [])
-      
+
+      // Load attachment counts separately
+      const allIds = [...(quotesData || []), ...(invoicesData || [])].map(i => i.id)
+      if (allIds.length > 0) {
+        const { data: attData } = await supabase
+          .from('invoice_attachments')
+          .select('invoice_id')
+          .in('invoice_id', allIds)
+        const counts = {}
+        attData?.forEach(a => { counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1 })
+        setAttachmentCounts(counts)
+      }
+
       buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
 
     } catch (err) {
       console.error('Error loading invoices:', err)
     }
+  }
+
+  const openAttachmentModal = async (invoice) => {
+    setAttachmentModalLoading(true)
+    setAttachmentModal({ invoiceId: invoice.id, attachments: [] })
+    const { data } = await supabase
+      .from('invoice_attachments')
+      .select('*')
+      .eq('invoice_id', invoice.id)
+    setAttachmentModal({ invoiceId: invoice.id, attachments: data || [] })
+    setAttachmentModalLoading(false)
+  }
+
+  const downloadAttachment = async (att) => {
+    const { data } = await supabase.storage.from('invoice-pdfs').createSignedUrl(att.storage_path, 300, { download: att.filename })
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
  // 📍 ZAMENI CELOM OVOM FUNKCIJOM
@@ -1535,9 +1568,17 @@ const HardResetModal = () => {
                     <div>
                     <div className="flex items-center gap-2 flex-wrap">
   <h4 className="text-white font-semibold text-lg">{invoice.invoice_number}</h4>
-  
-  
-  
+
+  {attachmentCounts[invoice.id] > 0 && (
+    <button
+      onClick={() => openAttachmentModal(invoice)}
+      className="flex items-center gap-1 text-slate-400 hover:text-blue-400 text-xs bg-slate-700/60 hover:bg-slate-700 px-2 py-1 rounded transition-colors"
+      title="Anhänge anzeigen"
+    >
+      📎 {attachmentCounts[invoice.id]}
+    </button>
+  )}
+
   {overdueStatus && (
     <div 
       className="flex items-center gap-1 text-red-400 text-xs cursor-help bg-red-500/10 px-2 py-1 rounded border border-red-500/20"
@@ -2370,6 +2411,36 @@ const HardResetModal = () => {
 
       <HardResetModal />
       <PDFLoadingModal />
+
+      {/* Attachment Mini-Modal */}
+      {attachmentModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setAttachmentModal(null)}>
+          <div className="bg-slate-800 rounded-xl w-full max-w-sm border border-slate-700" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-700">
+              <h3 className="text-white font-semibold">📎 Anhänge</h3>
+              <button onClick={() => setAttachmentModal(null)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+            </div>
+            <div className="p-4 space-y-2">
+              {attachmentModalLoading ? (
+                <p className="text-slate-400 text-sm text-center py-4">Laden...</p>
+              ) : attachmentModal.attachments.length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-4">Keine Anhänge</p>
+              ) : (
+                attachmentModal.attachments.map(att => (
+                  <button
+                    key={att.id}
+                    onClick={() => downloadAttachment(att)}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/60 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                  >
+                    <span className="text-slate-300 text-sm truncate">{att.filename}</span>
+                    <span className="text-blue-400 text-xs ml-2 shrink-0">↓</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

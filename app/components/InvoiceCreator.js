@@ -90,6 +90,10 @@ export default function InvoiceCreator({
   const audioChunksRef = useRef([])
   const micPermissionGrantedRef = useRef(false)
 
+  // Attachments
+  const [pendingAttachments, setPendingAttachments] = useState([]) // {file, localId}
+  const [savedAttachments, setSavedAttachments] = useState([])     // from DB
+
   // Check business data completeness on mount
   useEffect(() => {
     if (isOpen && majstor?.id) {
@@ -1130,6 +1134,28 @@ if (searchError) {
        
       }
 
+      // Upload pending attachments
+      if (pendingAttachments.length > 0) {
+        const invoiceId = result.data.id
+        await Promise.all(pendingAttachments.map(async ({ file }) => {
+          const safeName = file.name.replace(/[^a-zA-Z0-9äöüÄÖÜß._-]/g, '_')
+          const path = `attachments/${majstor.id}/${invoiceId}/${Date.now()}_${safeName}`
+          const { error: uploadErr } = await supabase.storage
+            .from('invoice-pdfs')
+            .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false })
+          if (uploadErr) throw uploadErr
+          await supabase.from('invoice_attachments').insert({
+            invoice_id: invoiceId,
+            majstor_id: majstor.id,
+            storage_path: path,
+            filename: file.name,
+            file_size: file.size,
+            mime_type: file.type || null
+          })
+        }))
+        setPendingAttachments([])
+      }
+
       onSuccess(result.data)
       onClose()
 
@@ -1156,6 +1182,47 @@ if (searchError) {
     console.log('❌ User cancelled edit - no changes saved')
     setShowEditConfirmModal(false)
     setPendingFormData(null)
+  }
+
+  // Load saved attachments when editing an existing invoice
+  useEffect(() => {
+    if (isEditMode && editData?.id) {
+      supabase
+        .from('invoice_attachments')
+        .select('*')
+        .eq('invoice_id', editData.id)
+        .then(({ data }) => setSavedAttachments(data || []))
+    } else {
+      setSavedAttachments([])
+      setPendingAttachments([])
+    }
+  }, [isEditMode, editData?.id])
+
+  // Attachment helpers
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files)
+    const total = savedAttachments.length + pendingAttachments.length + files.length
+    if (total > 20) { setError('Maximal 20 Anhänge erlaubt'); return }
+    const oversized = files.filter(f => f.size > 10 * 1024 * 1024)
+    if (oversized.length > 0) { setError(`Datei zu groß (max. 10 MB): ${oversized.map(f => f.name).join(', ')}`); return }
+    const newItems = files.map(f => ({ file: f, localId: crypto.randomUUID() }))
+    setPendingAttachments(prev => [...prev, ...newItems])
+    e.target.value = ''
+  }
+
+  const removePendingAttachment = (localId) => {
+    setPendingAttachments(prev => prev.filter(a => a.localId !== localId))
+  }
+
+  const handleDeleteSavedAttachment = async (att) => {
+    await supabase.storage.from('invoice-pdfs').remove([att.storage_path])
+    await supabase.from('invoice_attachments').delete().eq('id', att.id)
+    setSavedAttachments(prev => prev.filter(a => a.id !== att.id))
   }
 
   // Format currency
@@ -1805,6 +1872,28 @@ if (searchError) {
                   <span className="text-white font-semibold">Gesamtbetrag:</span>
                   <span className="text-white font-semibold text-lg">{formatCurrency(formData.total_amount)}</span>
                 </div>
+
+                {/* Anhänge */}
+                <div className="pt-3 border-t border-slate-700/50 mt-2">
+                  {savedAttachments.map(att => (
+                    <div key={att.id} className="flex items-center justify-between py-1.5 px-2 bg-slate-800 rounded mb-1">
+                      <span className="text-slate-300 text-sm truncate">📎 {att.filename} <span className="text-slate-500">({formatFileSize(att.file_size)})</span></span>
+                      <button type="button" onClick={() => handleDeleteSavedAttachment(att)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
+                    </div>
+                  ))}
+                  {pendingAttachments.map(att => (
+                    <div key={att.localId} className="flex items-center justify-between py-1.5 px-2 bg-slate-800/60 border border-dashed border-slate-600 rounded mb-1">
+                      <span className="text-slate-400 text-sm truncate">📎 {att.file.name} <span className="text-slate-500">({formatFileSize(att.file.size)})</span></span>
+                      <button type="button" onClick={() => removePendingAttachment(att.localId)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
+                    </div>
+                  ))}
+                  {(savedAttachments.length + pendingAttachments.length) < 20 && (
+                    <label className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 cursor-pointer mt-1">
+                      <input type="file" multiple className="hidden" onChange={handleFileSelect} />
+                      📎 Anhang hinzufügen
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1869,6 +1958,7 @@ if (searchError) {
                   Diese Informationen erscheinen am Ende des PDFs
                 </p>
               </div>
+
             </div>
 
             {/* Error */}
