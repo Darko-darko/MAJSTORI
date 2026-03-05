@@ -123,12 +123,12 @@ export default function BuchhalterSendModal({
                 <span className="text-green-300 text-sm">ZIP erstellt — {count} PDFs</span>
               </div>
 
-              {/* Buttons — immer alle anzeigen */}
+              {/* Buttons */}
               <div className="space-y-2">
                 <button
                   onClick={openGmail}
                   disabled={!bookkeeperEmail}
-                  className="w-full py-3 bg-red-600/80 hover:bg-red-600 disabled:opacity-40 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  className="hidden sm:flex w-full py-3 bg-red-600/80 hover:bg-red-600 disabled:opacity-40 text-white rounded-lg font-medium transition-colors items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>

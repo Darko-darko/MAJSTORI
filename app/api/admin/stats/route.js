@@ -20,14 +20,18 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const [totalUsers, activeSubs, trialSubs, totalInvoices] = await Promise.all([
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const [totalUsers, activeSubs, trialSubs, totalInvoices, emailsToday] = await Promise.all([
       admin.from('majstors').select('id', { count: 'exact', head: true }),
       admin.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       admin.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'trial'),
       admin.from('invoices').select('id', { count: 'exact', head: true }),
+      admin.from('invoices').select('id', { count: 'exact', head: true }).gte('email_sent_at', todayStart.toISOString()),
     ])
 
-    for (const result of [totalUsers, activeSubs, trialSubs, totalInvoices]) {
+    for (const result of [totalUsers, activeSubs, trialSubs, totalInvoices, emailsToday]) {
       if (result.error) {
         console.error('Admin stats DB error:', result.error)
         return NextResponse.json({ error: 'Database error' }, { status: 500 })
@@ -39,6 +43,7 @@ export async function GET(request) {
       activeSubs:    activeSubs.count    ?? 0,
       trialSubs:     trialSubs.count     ?? 0,
       totalInvoices: totalInvoices.count ?? 0,
+      emailsToday:   emailsToday.count   ?? 0,
     })
   } catch (err) {
     console.error('Admin stats error:', err)
