@@ -64,7 +64,7 @@ export async function POST(request, routeData) {
 
       const regenResponse = await fetch(`${siteUrl}/api/invoices/${id}/pdf?forceRegenerate=true`, {
         method: 'GET',
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache', Authorization: `Bearer ${token}` }
       })
 
       if (!regenResponse.ok) {
