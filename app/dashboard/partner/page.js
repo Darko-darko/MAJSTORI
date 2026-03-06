@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import QRCode from 'qrcode'
 
@@ -9,7 +9,12 @@ export default function PartnerPage() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [copiedSignup, setCopiedSignup] = useState(false)
-  const qrCanvasRef = useRef(null)
+  const [showQRLanding, setShowQRLanding] = useState(false)
+  const [showQRSignup, setShowQRSignup] = useState(false)
+  const [qrLanding, setQrLanding] = useState('')
+  const [qrSignup, setQrSignup] = useState('')
+
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
   useEffect(() => {
     async function load() {
@@ -31,12 +36,10 @@ export default function PartnerPage() {
   }, [])
 
   useEffect(() => {
-    if (majstor?.ref_code && qrCanvasRef.current) {
-      QRCode.toCanvas(qrCanvasRef.current, `https://pro-meister.de/?ref=${majstor.ref_code}`, {
-        width: 180, margin: 1,
-        color: { dark: '#1e293b', light: '#ffffff' }
-      })
-    }
+    if (!majstor?.ref_code) return
+    const opts = { width: 220, margin: 1, color: { dark: '#1e293b', light: '#ffffff' } }
+    QRCode.toDataURL(`https://pro-meister.de/?ref=${majstor.ref_code}`, opts).then(setQrLanding)
+    QRCode.toDataURL(`https://pro-meister.de/signup?ref=${majstor.ref_code}`, opts).then(setQrSignup)
   }, [majstor])
 
   if (loading) return (
@@ -55,7 +58,6 @@ export default function PartnerPage() {
   const signupLink = `https://pro-meister.de/signup?ref=${majstor.ref_code}`
   const commissionRate = majstor.commission_rate || 0
 
-  // Stats
   function getStatus(u) {
     const subs = u.user_subscriptions || []
     const latest = [...subs].sort((a, b) =>
@@ -67,11 +69,9 @@ export default function PartnerPage() {
   const total = referred.length
   const trial = referred.filter(u => getStatus(u) === 'trial').length
   const active = referred.filter(u => getStatus(u) === 'active').length
-  const cancelled = referred.filter(u => getStatus(u) === 'cancelled').length
   const freemium = referred.filter(u => getStatus(u) === null).length
   const monthlyEarning = active * commissionRate
 
-  // Mesečni pregled (zadnjih 6 meseci)
   const months = []
   for (let i = 5; i >= 0; i--) {
     const d = new Date()
@@ -89,6 +89,7 @@ export default function PartnerPage() {
     }).length
     months.push({ label, registrations, activeCount, earning: activeCount * commissionRate })
   }
+  months.reverse()
 
   function copyLink() {
     navigator.clipboard.writeText(refLink)
@@ -102,12 +103,21 @@ export default function PartnerPage() {
     setTimeout(() => setCopiedSignup(false), 2000)
   }
 
-  function downloadQR() {
-    if (!qrCanvasRef.current) return
-    const a = document.createElement('a')
-    a.download = `qr-pro-meister-${majstor.ref_code}.png`
-    a.href = qrCanvasRef.current.toDataURL()
-    a.click()
+  function shareVia(url, title) {
+    navigator.share({ title, url }).catch(err => {
+      if (err.name !== 'AbortError') console.error(err)
+    })
+  }
+
+  function downloadQR(dataUrl, filename) {
+    if (/iPhone|iPad/i.test(navigator.userAgent)) {
+      window.open(dataUrl) // iOS: opens in new tab → long-press → Bild sichern
+    } else {
+      const link = document.createElement('a')
+      link.download = filename
+      link.href = dataUrl
+      link.click()
+    }
   }
 
   const statusBadge = (u) => {
@@ -127,55 +137,82 @@ export default function PartnerPage() {
           <p className="text-slate-400 text-sm mt-1">Dein persönlicher Partnerbereich</p>
         </div>
 
-        {/* Link + QR */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-4">🔗 Dein Empfehlungslink</h2>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 space-y-3">
-              <div className="space-y-2">
-                <div>
-                  <p className="text-slate-500 text-xs mb-1">Landing Page</p>
-                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2">
-                    <span className="text-blue-400 text-sm truncate flex-1">{refLink}</span>
-                    <button
-                      onClick={copyLink}
-                      className="shrink-0 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                      {copied ? '✅ Kopiert!' : '📋 Kopieren'}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-slate-500 text-xs mb-1">Direkt-Registrierung</p>
-                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2">
-                    <span className="text-blue-400 text-sm truncate flex-1">{signupLink}</span>
-                    <button
-                      onClick={copySignupLink}
-                      className="shrink-0 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                      {copiedSignup ? '✅ Kopiert!' : '📋 Kopieren'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <p className="text-slate-400 text-xs">
-                Teile diesen Link mit potenziellen Kunden. Wenn sie sich registrieren, werden sie dir zugeordnet.
-              </p>
-              <div className="bg-slate-700/50 rounded-lg px-3 py-2 text-sm">
-                <span className="text-slate-400">Deine Provision: </span>
-                <span className="text-green-400 font-semibold">{commissionRate}€</span>
-                <span className="text-slate-400"> pro aktivem Kunden / Monat</span>
-              </div>
+        {/* Links */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-4">
+          <h2 className="text-white font-semibold">🔗 Dein Empfehlungslink</h2>
+
+          {/* Landing Page */}
+          <div>
+            <p className="text-slate-500 text-xs mb-1">Landing Page</p>
+            <div className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2">
+              <span className="text-blue-400 text-sm">{refLink}</span>
             </div>
-            <div className="flex flex-col items-center gap-2">
-              <canvas ref={qrCanvasRef} className="rounded-lg" />
-              <button
-                onClick={downloadQR}
-                className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
-              >
-                ⬇️ QR herunterladen
+            <div className="flex gap-1.5 mt-1.5 w-full">
+              {canShare && (
+                <button onClick={() => shareVia(refLink, 'Pro-Meister – Landing Page')} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+                  📤 Teilen
+                </button>
+              )}
+              <button onClick={copyLink} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+                {copied ? '✅ Kopiert!' : '📋 Kopieren'}
+              </button>
+              <button onClick={() => { setShowQRLanding(v => !v); setShowQRSignup(false) }} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+                {showQRLanding ? '🔼 QR Code' : '📱 QR Code'}
               </button>
             </div>
+            {showQRLanding && (
+              <div className="flex flex-col items-center gap-2 mt-3">
+                {qrLanding
+                  ? <img src={qrLanding} alt="QR Landing" className="rounded-lg w-[180px]" />
+                  : <div className="w-[180px] h-[180px] bg-slate-700 rounded-lg animate-pulse" />
+                }
+                <button onClick={() => downloadQR(qrLanding, `qr-landing-${majstor.ref_code}.png`)} disabled={!qrLanding} className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors disabled:opacity-40">
+                  ⬇️ Herunterladen
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Direkt-Registrierung */}
+          <div>
+            <p className="text-slate-500 text-xs mb-1">Direkt-Registrierung</p>
+            <div className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2">
+              <span className="text-blue-400 text-sm">{signupLink}</span>
+            </div>
+            <div className="flex gap-1.5 mt-1.5 w-full">
+              {canShare && (
+                <button onClick={() => shareVia(signupLink, 'Pro-Meister – Jetzt registrieren')} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+                  📤 Teilen
+                </button>
+              )}
+              <button onClick={copySignupLink} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+                {copiedSignup ? '✅ Kopiert!' : '📋 Kopieren'}
+              </button>
+              <button onClick={() => { setShowQRSignup(v => !v); setShowQRLanding(false) }} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+                {showQRSignup ? '🔼 QR Code' : '📱 QR Code'}
+              </button>
+            </div>
+            {showQRSignup && (
+              <div className="flex flex-col items-center gap-2 mt-3">
+                {qrSignup
+                  ? <img src={qrSignup} alt="QR Signup" className="rounded-lg w-[180px]" />
+                  : <div className="w-[180px] h-[180px] bg-slate-700 rounded-lg animate-pulse" />
+                }
+                <button onClick={() => downloadQR(qrSignup, `qr-signup-${majstor.ref_code}.png`)} disabled={!qrSignup} className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors disabled:opacity-40">
+                  ⬇️ Herunterladen
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="text-slate-400 text-xs">
+            Teile diesen Link mit potenziellen Kunden. Wenn sie sich registrieren, werden sie dir zugeordnet.
+          </p>
+
+          <div className="bg-slate-700/50 rounded-lg px-3 py-2 text-sm">
+            <span className="text-slate-400">Deine Provision: </span>
+            <span className="text-green-400 font-semibold">{commissionRate}€</span>
+            <span className="text-slate-400"> pro aktivem Kunden / Monat</span>
           </div>
         </div>
 

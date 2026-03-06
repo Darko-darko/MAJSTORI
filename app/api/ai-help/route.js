@@ -27,9 +27,10 @@ PLÄNE:
 
 HAUPTFUNKTIONEN:
 - Rechnungen & Angebote: ZUGFeRD PDF (elektronische Rechnung mit XML), automatische Nummerierung (RE-2026-0001), DIN 5008 konform, für Fensterbriefumschlag geeignet
-- Angebot → Rechnung: 1-Klick Umwandlung im PDF-Archiv
+- Angebot → Rechnung: 1-Klick Umwandlung im Buchhalter
 - Kundenverwaltung: Suche nach Name/Firma/E-Mail/Stadt, Import/Export, automatisches Speichern bei Rechnungserstellung
-- PDF-Archiv: Alle Dokumente, Zeitfilter. Massenversand an Buchhalter: PDF-Archiv öffnen → Zeitraum wählen → alle auswählen → "An Buchhalter senden" (eine E-Mail mit allen PDFs als Anhang)
+- Buchhalter: Zwei Tabs — "Rechnungen" (alle PDFs, Zeitfilter, Massenversand) und "Ausgaben" (Belege/Fotos von Einkäufen und Kosten, Massenversand als ZIP). Massenversand: Buchhalter öffnen → Tab wählen → Zeitraum wählen → alle auswählen → "An Buchhalter senden"
+- Ausgaben: Fotos oder Scans von Kassenbons, Tankquittungen, Materialkosten usw. hochladen. Werden komprimiert gespeichert, nach Monat gruppiert anzeigbar. Als ZIP gesammelt an Buchhalter senden (Tab "Ausgaben" im Buchhalter-Bereich)
 - Dienstleistungen: Import via Excel, eigene Preisliste, 1-Klick beim Rechnungen erstellen
 - Push-Benachrichtigungen: Für neue Kundenanfragen und überfällige Rechnungen. Aktivieren: Einstellungen → Erscheinungsbild → Push-Benachrichtigungen umschalten
 - Profilbild (Avatar): Upload in Einstellungen → aus Galerie wählen oder Selfie aufnehmen. Wird automatisch auf max. 400×400px verkleinert.
@@ -60,7 +61,7 @@ Was anhängen: Beliebige Dateien (PDF, Fotos, Dokumente) — z.B. Fotos der Arbe
 Wie: Auf "Anhang hinzufügen" klicken → Datei vom Gerät auswählen → Datei erscheint in der Liste
 Beim E-Mail-Versand: Alle Anhänge werden automatisch zusammen mit der Rechnung/dem Angebot mitgeschickt — kein manuelles Hinzufügen nötig
 Vorschau: Auf einen Anhang tippen → öffnet sich in einem neuen Tab (auch auf iOS/Android)
-Im PDF-Archiv: Anhänge sind unter der jeweiligen Rechnung aufgelistet und können per "👁 Öffnen" angesehen werden
+Im Buchhalter: Anhänge sind unter der jeweiligen Rechnung aufgelistet und können per "👁 Öffnen" angesehen werden
 
 REGIEBERICHT — DETAILS (nur PRO):
 Was ist das: Ein Arbeitsnachweis-Dokument für Handwerker die für Hausverwaltungen oder WEG (Wohnungseigentümergemeinschaft) arbeiten — bestätigt die durchgeführten Arbeit mit Mieter-Unterschrift
@@ -123,7 +124,7 @@ RECHNUNG PER E-MAIL AN KUNDEN SENDEN:
 - CC-Feld: Kopie an sich selbst oder Buchhalter möglich
 
 RECHNUNG AN BUCHHALTER SENDEN:
-- Empfehlung: Einmal oder zweimal im Monat alle Rechnungen gesammelt senden. PDF-Archiv → Zeitraum wählen → alle auswählen → "An Buchhalter senden" (eine E-Mail mit allen PDFs).
+- Empfehlung: Einmal oder zweimal im Monat alle Rechnungen und Ausgaben gesammelt senden. Buchhalter → Tab wählen (Rechnungen oder Ausgaben) → Zeitraum wählen → alle auswählen → "An Buchhalter senden".
 - CC-Option: Beim Versand einer einzelnen Rechnung per E-Mail gibt es ein CC-Feld (vorausgefüllt mit Ihrer eigenen E-Mail). Sie können dort die E-Mail Ihres Buchhalters eintragen — dann bekommt er jede Rechnung sofort als Kopie. Buchhalter bevorzugen jedoch meistens den gesammelten Versand einmal pro Monat.
 
 NEUEN KUNDEN HINZUFÜGEN:

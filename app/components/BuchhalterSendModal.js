@@ -10,6 +10,7 @@ export default function BuchhalterSendModal({
 }) {
   const [loading, setLoading] = useState(false)
   const [zipUrl, setZipUrl] = useState(null)
+  const [shortUrl, setShortUrl] = useState(null)
   const [count, setCount] = useState(0)
   const [error, setError] = useState('')
   const [bookkeeperEmail, setBookkeeperEmail] = useState(majstor?.bookkeeper_email || '')
@@ -40,6 +41,7 @@ export default function BuchhalterSendModal({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setZipUrl(data.zipUrl)
+      setShortUrl(data.shortUrl || null)
       setCount(data.count)
     } catch (err) {
       setError(err.message)
@@ -51,7 +53,7 @@ export default function BuchhalterSendModal({
   const getEmailContent = () => {
     const businessName = majstor?.business_name || majstor?.full_name || ''
     const subject = `Rechnungen ${periodLabel} – ${businessName}`
-    const body = `Sehr geehrte Damen und Herren,\n\nanbei finden Sie die Rechnungen für ${periodLabel} zum Download:\n\n${zipUrl}\n\n(Link gültig 7 Tage)\n\nMit freundlichen Grüßen\n${businessName}`
+    const body = `Sehr geehrte Damen und Herren,\n\nanbei finden Sie die Rechnungen für ${periodLabel} zum Download:\n\n${shortUrl || zipUrl}\n\n(Link gültig 14 Tage)\n\nMit freundlichen Grüßen\n${businessName}`
     return { subject, body }
   }
 

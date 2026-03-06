@@ -21,6 +21,19 @@ export default function PDFArchivePage() {
   const [selectedPDFs, setSelectedPDFs] = useState(new Set())
   const [bulkEmailModal, setBulkEmailModal] = useState(false)
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState('rechnungen')
+
+  // Ausgaben tab state
+  const [ausgaben, setAusgaben] = useState([])
+  const [ausgabenLoading, setAusgabenLoading] = useState(false)
+  const [ausgabenSelected, setAusgabenSelected] = useState(new Set())
+  const [ausgabenZipModal, setAusgabenZipModal] = useState(false)
+  const [ausgabenZipResult, setAusgabenZipResult] = useState(null)
+  const [ausgabenZipLoading, setAusgabenZipLoading] = useState(false)
+  const [ausgabenMonth, setAusgabenMonth] = useState(new Date().getMonth())
+  const [ausgabenYear, setAusgabenYear] = useState(new Date().getFullYear())
+
   // Attachments modal
   const [attachmentModal, setAttachmentModal] = useState(null)
   const [attachmentModalLoading, setAttachmentModalLoading] = useState(false)
@@ -326,6 +339,26 @@ const openPDFInNewTab = async (pdfId) => {
   }
 }
 
+  const loadAusgaben = async (month, year) => {
+    setAusgabenLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/ausgaben', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      const filtered = (data.ausgaben || []).filter(a => {
+        const d = new Date(a.created_at)
+        return d.getMonth() === month && d.getFullYear() === year
+      })
+      setAusgaben(filtered)
+    } finally {
+      setAusgabenLoading(false)
+    }
+  }
+
   const handleFilterChange = (newFilters) => {
     setFilters(prev => {
       if (newFilters.type && newFilters.type !== prev.type) {
@@ -345,6 +378,13 @@ const openPDFInNewTab = async (pdfId) => {
       loadArchivedPDFs(majstor.id)
     }
   }, [filters])
+
+  useEffect(() => {
+    if (activeTab === 'ausgaben') {
+      loadAusgaben(ausgabenMonth, ausgabenYear)
+      setAusgabenSelected(new Set())
+    }
+  }, [activeTab, ausgabenMonth, ausgabenYear])
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('de-DE', {
@@ -797,18 +837,51 @@ const openPDFInNewTab = async (pdfId) => {
       <FirstVisitHint pageKey="archiv" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">📂 PDF Archiv</h1>
-          <p className="text-slate-400">
-            Alle gespeicherte Rechnungen und Angebote mit Bulk E-Mail Funktion
-          </p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">🗂️ Buchhalter</h1>
+          <p className="text-slate-400">Rechnungen und Ausgaben an den Buchhalter senden</p>
         </div>
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
-        >
+        <Link href="/dashboard" className="inline-flex items-center text-slate-400 hover:text-white transition-colors">
           ← Zurück zum Dashboard
         </Link>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-800 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('rechnungen')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'rechnungen' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+        >
+          📄 Rechnungen
+        </button>
+        <button
+          onClick={() => setActiveTab('ausgaben')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'ausgaben' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+        >
+          🧾 Ausgaben
+        </button>
+      </div>
+
+      {activeTab === 'ausgaben' && <AusgabenTab
+        ausgaben={ausgaben}
+        loading={ausgabenZipLoading}
+        ausgabenLoading={ausgabenLoading}
+        selected={ausgabenSelected}
+        setSelected={setAusgabenSelected}
+        month={ausgabenMonth}
+        year={ausgabenYear}
+        setMonth={setAusgabenMonth}
+        setYear={setAusgabenYear}
+        zipModal={ausgabenZipModal}
+        setZipModal={setAusgabenZipModal}
+        zipResult={ausgabenZipResult}
+        setZipResult={setAusgabenZipResult}
+        zipLoading={ausgabenZipLoading}
+        setZipLoading={setAusgabenZipLoading}
+        majstor={majstor}
+        bookkeeperEmail={bookkeeperSettings.email}
+      />}
+
+      {activeTab === 'rechnungen' && (<>
 
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 max-w-sm">
@@ -1022,6 +1095,171 @@ const openPDFInNewTab = async (pdfId) => {
           </div>
         </div>
       )}
+    </>)}
+  </div>
+  )
+}
+
+// Ausgaben tab component
+function AusgabenTab({ ausgaben, ausgabenLoading, selected, setSelected, month, year, setMonth, setYear, zipModal, setZipModal, zipResult, setZipResult, zipLoading, setZipLoading, majstor, bookkeeperEmail: initialEmail }) {
+  const [email, setEmail] = useState(initialEmail || '')
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+
+  useEffect(() => {
+    if (zipModal) {
+      setZipResult(null)
+      generateZip()
+    }
+  }, [zipModal])
+
+  async function generateZip() {
+    setZipLoading(true)
+    setZipResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const businessSlug = (majstor?.business_name || majstor?.full_name || 'Ausgaben').replace(/\s+/g, '_').substring(0, 30)
+      const periodLabel = `${monthNames[month]}_${year}`
+      const res = await fetch('/api/ausgaben/bulk-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ ausgabenIds: [...selected], majstorId: majstor.id, zipFilename: `Ausgaben_${periodLabel}_${businessSlug}.zip` })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setZipResult(data)
+    } catch (err) {
+      alert('Fehler: ' + err.message)
+    } finally {
+      setZipLoading(false)
+    }
+  }
+
+  function getEmailBody() {
+    const businessName = majstor?.business_name || majstor?.full_name || ''
+    const link = zipResult?.shortUrl || zipResult?.zipUrl || ''
+    return `Sehr geehrte Damen und Herren,\n\nanbei finden Sie die Ausgabenbelege für ${monthNames[month]} ${year} zum Download:\n\n${link}\n\n(Link gültig 14 Tage)\n\nMit freundlichen Grüßen\n${businessName}`
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Month filter */}
+      <div className="flex gap-3 items-center flex-wrap">
+        <select value={month} onChange={e => setMonth(parseInt(e.target.value))}
+          className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm">
+          {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        <select value={year} onChange={e => setYear(parseInt(e.target.value))}
+          className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm">
+          {[year - 1, year, year + 1].map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        {ausgaben.length > 0 && (
+          <button onClick={() => setSelected(prev => prev.size === ausgaben.length ? new Set() : new Set(ausgaben.map(a => a.id)))}
+            className="text-xs text-slate-400 hover:text-white transition-colors">
+            {selected.size === ausgaben.length ? 'Alle abwählen' : 'Alle auswählen'}
+          </button>
+        )}
+      </div>
+
+      {/* Grid */}
+      {ausgabenLoading ? (
+        <div className="text-slate-400 text-sm">Wird geladen...</div>
+      ) : ausgaben.length === 0 ? (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
+          <p className="text-slate-400 text-sm">Keine Ausgaben für {monthNames[month]} {year}.</p>
+          <a href="/dashboard/ausgaben" className="text-blue-400 text-xs hover:underline mt-1 block">→ Belege hinzufügen</a>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          {ausgaben.map(item => {
+            const sel = selected.has(item.id)
+            const isPDF = item.storage_path?.endsWith('.pdf')
+            return (
+              <div key={item.id} className="relative cursor-pointer" onClick={() => setSelected(prev => { const s = new Set(prev); s.has(item.id) ? s.delete(item.id) : s.add(item.id); return s })}>
+                <div className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${sel ? 'border-blue-500' : 'border-transparent'} bg-slate-700 flex items-center justify-center`}>
+                  {isPDF ? <span className="text-3xl">📄</span> : <AusgabeThumbnail path={item.storage_path} />}
+                </div>
+                <div className={`absolute top-1 left-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs ${sel ? 'bg-blue-500 border-blue-500 text-white' : 'bg-slate-900/70 border-slate-500'}`}>
+                  {sel && '✓'}
+                </div>
+                <p className="text-slate-500 text-xs mt-1 truncate">{new Date(item.created_at).toLocaleDateString('de-DE')}</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Floating bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+          <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl px-4 py-3 flex items-center gap-4">
+            <span className="text-white text-sm"><span className="font-semibold">{selected.size}</span> Beleg{selected.size > 1 ? 'e' : ''} ausgewählt</span>
+            <button onClick={() => setZipModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+              📤 An Buchhalter senden
+            </button>
+            <button onClick={() => setSelected(new Set())} className="text-slate-400 hover:text-white text-sm px-2">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* ZIP modal */}
+      {zipModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl w-full max-w-md border border-slate-700">
+            <div className="flex justify-between items-center p-5 border-b border-slate-700">
+              <h3 className="text-white font-semibold text-lg">📤 Ausgaben senden</h3>
+              <button onClick={() => setZipModal(false)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1.5">E-Mail Buchhalter</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="buchhalter@beispiel.de"
+                  className="w-full px-3 py-2 bg-slate-900/60 border border-slate-600 rounded-lg text-white text-sm" />
+              </div>
+              {zipLoading && (
+                <div className="flex items-center gap-3 bg-slate-700/40 rounded-lg p-4">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-slate-300 text-sm">ZIP wird erstellt...</span>
+                </div>
+              )}
+              {zipResult && !zipLoading && (
+                <>
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center gap-2">
+                    <span className="text-green-400">✅</span>
+                    <span className="text-green-300 text-sm">ZIP erstellt — {zipResult.count} Belege</span>
+                  </div>
+                  <div className="space-y-2">
+                    <button onClick={() => { const sub = `Ausgaben ${monthNames[month]} ${year} – ${majstor?.business_name || majstor?.full_name || ''}`; window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(sub)}&body=${encodeURIComponent(getEmailBody())}`, '_blank') }}
+                      disabled={!email} className="hidden sm:flex w-full py-3 bg-red-600/80 hover:bg-red-600 disabled:opacity-40 text-white rounded-lg font-medium transition-colors items-center justify-center gap-2">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                      In Gmail öffnen
+                    </button>
+                    <button onClick={() => { const sub = `Ausgaben ${monthNames[month]} ${year} – ${majstor?.business_name || majstor?.full_name || ''}`; window.open(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(getEmailBody())}`, '_self') }}
+                      disabled={!email} className="w-full py-3 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                      📧 Im E-Mail-Programm öffnen
+                    </button>
+                    <button onClick={() => window.open(zipResult.zipUrl, '_blank')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg font-medium transition-colors border border-slate-600 flex items-center justify-center gap-2">
+                      📥 ZIP herunterladen
+                    </button>
+                  </div>
+                  <p className="text-slate-500 text-xs text-center">Link gültig 14 Tage · {zipResult.count} Dateien</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function AusgabeThumbnail({ path }) {
+  const [url, setUrl] = useState(null)
+  useEffect(() => {
+    supabase.storage.from('ausgaben').createSignedUrl(path, 300).then(({ data }) => {
+      if (data?.signedUrl) setUrl(data.signedUrl)
+    })
+  }, [path])
+  if (!url) return <div className="w-full h-full bg-slate-600 animate-pulse" />
+  return <img src={url} alt="Beleg" className="w-full h-full object-cover" />
 }
