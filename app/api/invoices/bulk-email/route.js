@@ -13,7 +13,13 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request) {
   try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { invoiceIds, majstorId, recipients, subject, message } = await request.json()
+    if (majstorId && user.id !== majstorId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     
     console.log('📧 Bulk email API called')
     console.log('📨 Recipients:', recipients)

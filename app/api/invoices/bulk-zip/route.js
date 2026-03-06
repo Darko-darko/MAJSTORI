@@ -10,11 +10,17 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { invoiceIds, majstorId, zipFilename } = await request.json()
 
     if (!invoiceIds?.length || !majstorId) {
       return NextResponse.json({ error: 'invoiceIds and majstorId required' }, { status: 400 })
     }
+    if (user.id !== majstorId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // Get invoices
     const { data: invoices, error: invoicesError } = await supabase

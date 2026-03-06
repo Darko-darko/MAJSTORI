@@ -474,11 +474,12 @@ pdfTab.document.close()
       }
 
       console.log('⏳ Generating PDF... (spinner visible)')
+      const { data: { session: pdfSession } } = await supabase.auth.getSession()
       const regenResponse = await fetch(
         `/api/invoices/${document.id}/pdf?forceRegenerate=true`,
         {
           method: 'GET',
-          headers: { 'Cache-Control': 'no-cache' }
+          headers: { 'Cache-Control': 'no-cache', Authorization: `Bearer ${pdfSession.access_token}` }
         }
       )
 

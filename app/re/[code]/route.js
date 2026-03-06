@@ -8,7 +8,7 @@ const supabase = createClient(
 )
 
 export async function GET(request, { params }) {
-  const { code } = params
+  const { code } = await params
 
   const { data, error } = await supabase
     .from('short_links')

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export default function BuchhalterSendModal({
   isOpen,
@@ -33,9 +34,10 @@ export default function BuchhalterSendModal({
       const businessSlug = (majstor?.business_name || majstor?.full_name || 'Rechnungen')
         .replace(/\s+/g, '_').substring(0, 30)
       const zipFilename = `Rechnungen_${periodLabel.replace(/\s+/g, '_')}_${businessSlug}.zip`
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/invoices/bulk-zip', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ invoiceIds: selectedIds, majstorId: majstor.id, zipFilename })
       })
       const data = await res.json()

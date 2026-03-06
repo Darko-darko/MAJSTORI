@@ -1,5 +1,13 @@
 // app/api/ai-help/route.js
 import OpenAI from 'openai'
+import { createClient } from '@supabase/supabase-js'
+
+const admin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
+const DAILY_LIMIT = 30
 
 const SYSTEM_PROMPT = `Du bist der Pro-Meister KI-Assistent — ein freundlicher, kompetenter Hilfsassistent für die Handwerker-Plattform pro-meister.de.
 
@@ -205,6 +213,31 @@ TECHNISCH:
 export async function POST(req) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   try {
+    // Auth check
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await admin.auth.getUser(token)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Rate limit: 30 messages per day
+    const today = new Date().toISOString().split('T')[0]
+    const { data: usage } = await admin
+      .from('ai_usage')
+      .select('count')
+      .eq('user_id', user.id)
+      .eq('date', today)
+      .single()
+
+    const currentCount = usage?.count || 0
+    if (currentCount >= DAILY_LIMIT) {
+      return Response.json({ error: 'Tageslimit erreicht (30 Nachrichten/Tag). Bitte morgen wiederkommen.' }, { status: 429 })
+    }
+
+    await admin.from('ai_usage').upsert(
+      { user_id: user.id, date: today, count: currentCount + 1 },
+      { onConflict: 'user_id,date' }
+    )
+
     const { messages } = await req.json()
 
     if (!messages || !Array.isArray(messages)) {
