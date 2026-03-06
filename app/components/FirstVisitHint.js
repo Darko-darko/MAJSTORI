@@ -42,13 +42,19 @@ const HINTS = {
   archiv: {
     icon: '📁',
     title: 'PDF-Archiv',
-    text: 'Alle Rechnungen und Angebote werden automatisch als PDF gespeichert. Filtern Sie nach Zeitraum und senden Sie alles gesammelt an Ihren Buchhalter.',
+    text: 'Hier finden Sie alle Rechnungen als PDF sowie Ihre Ausgaben-Belege. Filtern Sie nach Zeitraum und senden Sie alles gesammelt an Ihren Buchhalter.',
   },
 
   einstellungen: {
     icon: '⚙️',
     title: 'Einstellungen',
     text: 'Hier können Sie Ihr Profilbild ändern, Benachrichtigungen verwalten, zwischen Dark- und Light-Modus wechseln und Ihre Daten einsehen.',
+  },
+
+  ausgaben: {
+    icon: '🧾',
+    title: 'Ausgaben & Belege',
+    text: 'Fotografieren Sie Ihre Belege direkt mit der Kamera oder laden Sie Fotos hoch. Alle Ausgaben werden gesammelt gespeichert und stehen für die Buchhaltung bereit.',
   },
 }
 export default function FirstVisitHint({ pageKey }) {

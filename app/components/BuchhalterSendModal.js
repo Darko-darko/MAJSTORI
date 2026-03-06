@@ -63,12 +63,14 @@ export default function BuchhalterSendModal({
     const { subject, body } = getEmailContent()
     const mailto = `mailto:${encodeURIComponent(bookkeeperEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     window.open(mailto, '_self')
+    onClose()
   }
 
   const openGmail = () => {
     const { subject, body } = getEmailContent()
     const url = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(bookkeeperEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     window.open(url, '_blank')
+    onClose()
   }
 
   const downloadZip = () => {
