@@ -30,7 +30,8 @@ export default function PublicBusinessCardPage({ params }) {
     service_type: '',
     description: '',
     urgency: 'normal',
-    preferred_contact: 'email'
+    preferred_contact: 'email',
+    inquiry_type: 'anfrage'
   })
   const [inquiryLoading, setInquiryLoading] = useState(false)
   const [inquirySuccess, setInquirySuccess] = useState(false)
@@ -408,8 +409,11 @@ export default function PublicBusinessCardPage({ params }) {
         description: inquiryData.description.trim(),
         urgency: inquiryData.urgency,
         preferred_contact: inquiryData.preferred_contact,
+        inquiry_type: inquiryData.inquiry_type,
         source: 'business_card',
-        subject: inquiryData.service_type.trim() || 'Kundenanfrage',
+        subject: inquiryData.inquiry_type === 'reklamation'
+          ? `⚠️ Reklamation: ${inquiryData.service_type.trim() || 'ohne Angabe'}`
+          : (inquiryData.service_type.trim() || 'Kundenanfrage'),
         message: inquiryData.description.trim() || '-',
         images: uploadedImages.map(img => img.url),
         photo_urls: uploadedImages.map(img => img.url),
@@ -765,7 +769,21 @@ export default function PublicBusinessCardPage({ params }) {
               )}
 
               <form onSubmit={handleInquirySubmit} className="space-y-6">
-                
+
+                {/* Inquiry Type Toggle */}
+                <div className="flex rounded-lg overflow-hidden border border-slate-600">
+                  <button type="button"
+                    onClick={() => setInquiryData(p => ({ ...p, inquiry_type: 'anfrage' }))}
+                    className={`flex-1 py-2.5 text-sm font-medium transition-colors ${inquiryData.inquiry_type === 'anfrage' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                    📋 Anfrage / Angebot
+                  </button>
+                  <button type="button"
+                    onClick={() => setInquiryData(p => ({ ...p, inquiry_type: 'reklamation' }))}
+                    className={`flex-1 py-2.5 text-sm font-medium transition-colors ${inquiryData.inquiry_type === 'reklamation' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                    ⚠️ Reklamation
+                  </button>
+                </div>
+
                 {/* Basic Customer Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -814,14 +832,14 @@ export default function PublicBusinessCardPage({ params }) {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Art der Dienstleistung *
+                      {inquiryData.inquiry_type === 'reklamation' ? 'Betroffene Leistung *' : 'Art der Dienstleistung *'}
                     </label>
-                    <input 
+                    <input
                       type="text"
                       name="service_type"
                       value={inquiryData.service_type}
                       onChange={handleInquiryChange}
-                      placeholder="z.B. Badezimmerrenovierung"
+                      placeholder={inquiryData.inquiry_type === 'reklamation' ? 'z.B. Badezimmerrenovierung vom 01.03.2026' : 'z.B. Badezimmerrenovierung'}
                       className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       autoComplete="off"
                       required
