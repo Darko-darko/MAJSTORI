@@ -147,12 +147,15 @@ export default function AusgabenPage() {
   }
 
   async function openPreview(item) {
+    const { data } = await supabase.storage.from('ausgaben').createSignedUrl(item.storage_path, 300)
+    if (!data?.signedUrl) return
+    if (item.storage_path?.endsWith('.pdf')) {
+      window.open(data.signedUrl, '_blank')
+      return
+    }
     setPreviewItem(item)
-    setPreviewLoading(true)
-    setPreviewUrl(null)
-    const { data } = await supabase.storage.from('ausgaben').createSignedUrl(item.storage_path, 60)
-    setPreviewUrl(data?.signedUrl || null)
     setPreviewLoading(false)
+    setPreviewUrl(data.signedUrl)
   }
 
   function toggleSelect(id) {
@@ -172,6 +175,10 @@ export default function AusgabenPage() {
       return s
     })
   }
+
+  useEffect(() => {
+    if (zipModal) generateZip()
+  }, [zipModal])
 
   async function generateZip() {
     setZipLoading(true)
@@ -256,7 +263,7 @@ export default function AusgabenPage() {
             <>
               <div className="text-4xl mb-2">📷</div>
               <p className="text-white font-medium">Foto aufnehmen oder Datei auswählen</p>
-              <p className="text-slate-500 text-xs mt-1">JPG, PNG, PDF · max. 10 MB · wird komprimiert</p>
+              <p className="text-slate-500 text-xs mt-1">JPG, PNG · wird komprimiert · PDF möglich</p>
             </>
           )}
         </div>
@@ -296,10 +303,16 @@ export default function AusgabenPage() {
                         onClick={() => openPreview(item)}
                         className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-colors ${selected ? 'border-blue-500' : 'border-transparent'} bg-slate-700 flex items-center justify-center`}
                       >
-                        {isPDF
-                          ? <span className="text-3xl">📄</span>
-                          : <StorageThumbnail path={item.storage_path} />
-                        }
+                        {isPDF ? (
+                          <div className="flex flex-col items-center justify-center w-full h-full p-2 gap-1">
+                            <span className="text-2xl">📄</span>
+                            <span className="text-slate-400 text-xs text-center leading-tight line-clamp-2 break-all">
+                              {item.filename || 'PDF'}
+                            </span>
+                          </div>
+                        ) : (
+                          <StorageThumbnail path={item.storage_path} />
+                        )}
                       </div>
                       {/* Select checkbox */}
                       <button
@@ -335,7 +348,7 @@ export default function AusgabenPage() {
               <span className="font-semibold">{selectedIds.size}</span> Beleg{selectedIds.size > 1 ? 'e' : ''} ausgewählt
             </span>
             <button
-              onClick={() => { setZipModal(true); setZipResult(null) }}
+              onClick={() => setZipModal(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
             >
               📤 An Buchhalter senden
@@ -390,15 +403,6 @@ export default function AusgabenPage() {
                   className="w-full px-3 py-2 bg-slate-900/60 border border-slate-600 rounded-lg text-white text-sm"
                 />
               </div>
-
-              {!zipResult && !zipLoading && (
-                <button
-                  onClick={generateZip}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  📦 ZIP erstellen
-                </button>
-              )}
 
               {zipLoading && (
                 <div className="flex items-center gap-3 bg-slate-700/40 rounded-lg p-4">

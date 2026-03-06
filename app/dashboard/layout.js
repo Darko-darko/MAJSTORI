@@ -477,16 +477,16 @@ const getNavigation = () => {
       feature: 'services_management'
     },
     {
-      name: 'Buchhalter',
-      href: '/dashboard/pdf-archive',
-      icon: '🗂️',
+      name: 'Ausgaben',
+      href: '/dashboard/ausgaben',
+      icon: '🧾',
       protected: true,
       feature: 'pdf_archive'
     },
     {
-      name: 'Ausgaben',
-      href: '/dashboard/ausgaben',
-      icon: '🧾',
+      name: 'Buchhalter',
+      href: '/dashboard/pdf-archive',
+      icon: '🗂️',
       protected: true,
       feature: 'pdf_archive'
     }
