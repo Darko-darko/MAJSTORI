@@ -7,6 +7,7 @@ export default function PartnerPage() {
   const [majstor, setMajstor] = useState(null)
   const [referred, setReferred] = useState([])
   const [payouts, setPayouts] = useState([])
+  const [monthlyStats, setMonthlyStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [copiedSignup, setCopiedSignup] = useState(false)
@@ -36,6 +37,7 @@ export default function PartnerPage() {
       setMajstor(data.profile)
       setReferred(data.referred || [])
       setPayouts(data.payouts || [])
+      setMonthlyStats(data.monthlyStats || [])
       setLoading(false)
     }
     load()
@@ -91,28 +93,15 @@ export default function PartnerPage() {
   const trial = referred.filter(u => getStatus(u) === 'trial').length
   const active = referred.filter(u => getStatus(u) === 'active').length
   const freemium = referred.filter(u => getStatus(u) === null).length
-  const monthlyEarning = active * commissionRate
+  const currentMonthStats = monthlyStats[0] // newest first, isCurrent=true
+  const monthlyEarning = currentMonthStats?.amount ?? (active * commissionRate)
 
-  const allMonths = []
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(1)
-    d.setMonth(d.getMonth() - i)
-    const year = d.getFullYear()
-    const month = d.getMonth()
+  const allMonths = monthlyStats.map(m => {
+    const [year, mon] = m.month.split('-').map(Number)
+    const d = new Date(year, mon - 1, 1)
     const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
-    const key = `${year}-${String(month + 1).padStart(2, '0')}`
-    const registrations = referred.filter(u => {
-      const c = new Date(u.created_at)
-      return c.getFullYear() === year && c.getMonth() === month
-    }).length
-    const activeCount = referred.filter(u => {
-      const c = new Date(u.created_at)
-      return c.getFullYear() === year && c.getMonth() === month && getStatus(u) === 'active'
-    }).length
-    allMonths.push({ label, key, registrations, activeCount, earning: activeCount * commissionRate })
-  }
-  allMonths.reverse()
+    return { ...m, label, key: m.month }
+  })
   const months = showAllMonths ? allMonths : allMonths.slice(0, 6)
 
   function copyLink() {
@@ -283,12 +272,17 @@ export default function PartnerPage() {
                   const isConfirming = confirmingMonth === m.key
                   return (
                     <tr key={m.key} className={`border-b border-slate-700/50 ${isConfirmed ? 'bg-green-500/5' : ''}`}>
-                      <td className="py-2 text-slate-300">{m.label}</td>
+                      <td className="py-2 text-slate-300">
+                        {m.label}
+                        {m.isCurrent && <span className="text-slate-500 text-xs ml-1">(Vorschau)</span>}
+                      </td>
                       <td className="py-2 text-center text-slate-300">{m.registrations}</td>
                       <td className="py-2 text-center text-green-400">{m.activeCount}</td>
-                      <td className="py-2 text-right text-green-400 font-medium">{m.earning.toFixed(2)}€</td>
+                      <td className="py-2 text-right text-green-400 font-medium">{m.amount.toFixed(2)}€</td>
                       <td className="py-2 text-right">
-                        {isConfirmed ? (
+                        {m.isCurrent ? (
+                          <span className="text-slate-600 text-xs">—</span>
+                        ) : isConfirmed ? (
                           <span className="text-green-400 text-xs">✅ Bestätigt</span>
                         ) : isPaid ? (
                           <button

@@ -34,13 +34,66 @@ export async function GET(request) {
 
     const { data: payouts } = await admin
       .from('partner_payouts')
-      .select('month, amount, paid_at, confirmed_at')
+      .select('month, amount, active_count, paid_at, confirmed_at')
       .eq('partner_id', user.id)
 
-    return NextResponse.json({ profile, referred: referred || [], payouts: payouts || [] })
+    const referredIds = (referred || []).map(u => u.id)
+    let history = []
+    if (referredIds.length > 0) {
+      try {
+        const { data: h } = await admin
+          .from('subscription_history')
+          .select('majstor_id, status, changed_at')
+          .in('majstor_id', referredIds)
+          .order('changed_at', { ascending: true })
+        history = h || []
+      } catch { history = [] }
+    }
+
+    const monthlyStats = computeMonthlyStats(referred || [], history, profile.commission_rate || 0)
+
+    return NextResponse.json({ profile, referred: referred || [], payouts: payouts || [], monthlyStats })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
+}
+
+function computeMonthlyStats(referred, history, commissionRate) {
+  const months = []
+  const now = new Date()
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const year = d.getFullYear()
+    const month = d.getMonth()
+    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
+    const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999)
+    const isCurrent = i === 0
+
+    const registrations = referred.filter(u => {
+      const c = new Date(u.created_at)
+      return c.getFullYear() === year && c.getMonth() === month
+    }).length
+
+    let activeCount
+    if (isCurrent) {
+      activeCount = referred.filter(u => {
+        const subs = u.user_subscriptions || []
+        const latest = [...subs].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]
+        return latest?.status === 'active'
+      }).length
+    } else {
+      activeCount = referred.filter(u => {
+        const userHistory = history
+          .filter(h => h.majstor_id === u.id && new Date(h.changed_at) <= lastDay)
+          .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at))
+        if (userHistory.length === 0) return false
+        return userHistory[0].status === 'active'
+      }).length
+    }
+
+    months.push({ month: monthKey, activeCount, amount: activeCount * commissionRate, registrations, isCurrent })
+  }
+  return months
 }
 
 // PATCH { month } — partner confirms receipt of payment
