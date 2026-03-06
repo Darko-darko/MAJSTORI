@@ -156,7 +156,7 @@ export default function PartnerPage() {
               <button onClick={copyLink} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
                 {copied ? '✅ Kopiert!' : '📋 Kopieren'}
               </button>
-              <button onClick={() => setShowQRLanding(v => !v)} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+              <button onClick={() => { setShowQRLanding(v => !v); setShowQRSignup(false) }} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
                 {showQRLanding ? '🔼 QR Code' : '📱 QR Code'}
               </button>
             </div>
@@ -188,7 +188,7 @@ export default function PartnerPage() {
               <button onClick={copySignupLink} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
                 {copiedSignup ? '✅ Kopiert!' : '📋 Kopieren'}
               </button>
-              <button onClick={() => setShowQRSignup(v => !v)} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
+              <button onClick={() => { setShowQRSignup(v => !v); setShowQRLanding(false) }} className="flex-1 text-xs py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors whitespace-nowrap">
                 {showQRSignup ? '🔼 QR Code' : '📱 QR Code'}
               </button>
             </div>
