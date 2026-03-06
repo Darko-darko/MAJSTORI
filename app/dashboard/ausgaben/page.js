@@ -238,6 +238,7 @@ export default function AusgabenPage() {
 
         {/* Header */}
         <div>
+          <a href="/dashboard" className="text-slate-400 hover:text-white text-sm mb-2 inline-block">← Zurück zum Dashboard</a>
           <h1 className="text-white text-xl font-bold">🧾 Ausgaben</h1>
           <p className="text-slate-400 text-sm mt-1">Belege fotografieren und archivieren</p>
         </div>
