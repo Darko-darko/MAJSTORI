@@ -477,16 +477,16 @@ const getNavigation = () => {
       feature: 'services_management'
     },
     {
-      name: 'Buchhalter',
-      href: '/dashboard/pdf-archive',
-      icon: '🗂️',
+      name: 'Ausgaben',
+      href: '/dashboard/ausgaben',
+      icon: '🧾',
       protected: true,
       feature: 'pdf_archive'
     },
     {
-      name: 'Ausgaben',
-      href: '/dashboard/ausgaben',
-      icon: '🧾',
+      name: 'Buchhalter',
+      href: '/dashboard/pdf-archive',
+      icon: '🗂️',
       protected: true,
       feature: 'pdf_archive'
     }
@@ -1098,7 +1098,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
+          <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6 pb-28">
             {children}
           </main>
         </div>

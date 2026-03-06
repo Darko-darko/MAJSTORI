@@ -89,7 +89,7 @@ export default function AIHelpChat() {
       {/* Floating Button */}
       <style>{`
         @keyframes pm-label-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
-        html.light-mode #pm-float-btn { background: linear-gradient(135deg, #60a5fa, #a78bfa) !important; box-shadow: 0 4px 16px rgba(96,165,250,0.35) !important; }
+        html.light-mode #pm-float-btn { background: #e2e8f0 !important; border-color: #cbd5e1 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; }
         html.light-mode #pm-label { background-color: #60a5fa !important; border-color: #93c5fd !important; }
         @media (hover: none) { #pm-label { display: none !important; } }
       `}</style>
@@ -106,7 +106,7 @@ export default function AIHelpChat() {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             id="pm-float-btn"
-            style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb, #7c3aed)', boxShadow: '0 4px 20px rgba(124,58,237,0.5)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s, box-shadow 0.2s' }}
+            style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#64748b', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', border: '1px solid #94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s, box-shadow 0.2s' }}
             onMouseOver={e => e.currentTarget.style.transform = 'scale(1.07)'}
             onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
             title="KI-Assistent"
