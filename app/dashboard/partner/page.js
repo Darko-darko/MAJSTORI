@@ -6,6 +6,7 @@ import QRCode from 'qrcode'
 export default function PartnerPage() {
   const [majstor, setMajstor] = useState(null)
   const [referred, setReferred] = useState([])
+  const [payouts, setPayouts] = useState([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [copiedSignup, setCopiedSignup] = useState(false)
@@ -13,6 +14,9 @@ export default function PartnerPage() {
   const [showQRSignup, setShowQRSignup] = useState(false)
   const [qrLanding, setQrLanding] = useState('')
   const [qrSignup, setQrSignup] = useState('')
+  const [showAllMonths, setShowAllMonths] = useState(false)
+  const [confirmingMonth, setConfirmingMonth] = useState(null)
+  const [sessionToken, setSessionToken] = useState(null)
 
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
@@ -20,6 +24,7 @@ export default function PartnerPage() {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
+      setSessionToken(session.access_token)
 
       const res = await fetch('/api/partner/stats', {
         headers: { Authorization: `Bearer ${session.access_token}` }
@@ -30,10 +35,26 @@ export default function PartnerPage() {
       if (!data.profile?.is_partner) { setLoading(false); return }
       setMajstor(data.profile)
       setReferred(data.referred || [])
+      setPayouts(data.payouts || [])
       setLoading(false)
     }
     load()
   }, [])
+
+  async function handleConfirm(month) {
+    if (!confirm('Zahlungsempfang bestätigen? Diese Aktion kann nicht rückgängig gemacht werden.')) return
+    setConfirmingMonth(month)
+    await fetch('/api/partner/stats', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month })
+    })
+    // Refresh payouts
+    const res = await fetch('/api/partner/stats', { headers: { Authorization: `Bearer ${sessionToken}` } })
+    const data = await res.json()
+    setPayouts(data.payouts || [])
+    setConfirmingMonth(null)
+  }
 
   useEffect(() => {
     if (!majstor?.ref_code) return
@@ -72,13 +93,15 @@ export default function PartnerPage() {
   const freemium = referred.filter(u => getStatus(u) === null).length
   const monthlyEarning = active * commissionRate
 
-  const months = []
-  for (let i = 5; i >= 0; i--) {
+  const allMonths = []
+  for (let i = 11; i >= 0; i--) {
     const d = new Date()
+    d.setDate(1)
     d.setMonth(d.getMonth() - i)
     const year = d.getFullYear()
     const month = d.getMonth()
     const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
+    const key = `${year}-${String(month + 1).padStart(2, '0')}`
     const registrations = referred.filter(u => {
       const c = new Date(u.created_at)
       return c.getFullYear() === year && c.getMonth() === month
@@ -87,9 +110,10 @@ export default function PartnerPage() {
       const c = new Date(u.created_at)
       return c.getFullYear() === year && c.getMonth() === month && getStatus(u) === 'active'
     }).length
-    months.push({ label, registrations, activeCount, earning: activeCount * commissionRate })
+    allMonths.push({ label, key, registrations, activeCount, earning: activeCount * commissionRate })
   }
-  months.reverse()
+  allMonths.reverse()
+  const months = showAllMonths ? allMonths : allMonths.slice(0, 6)
 
   function copyLink() {
     navigator.clipboard.writeText(refLink)
@@ -245,23 +269,53 @@ export default function PartnerPage() {
               <thead>
                 <tr className="text-slate-400 border-b border-slate-700">
                   <th className="text-left pb-2">Monat</th>
-                  <th className="text-center pb-2">Registrierungen</th>
+                  <th className="text-center pb-2">Reg.</th>
                   <th className="text-center pb-2">Aktiv</th>
                   <th className="text-right pb-2">Betrag</th>
+                  <th className="text-right pb-2">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {months.map(m => (
-                  <tr key={m.label} className="border-b border-slate-700/50">
-                    <td className="py-2 text-slate-300">{m.label}</td>
-                    <td className="py-2 text-center text-slate-300">{m.registrations}</td>
-                    <td className="py-2 text-center text-green-400">{m.activeCount}</td>
-                    <td className="py-2 text-right text-green-400 font-medium">{m.earning.toFixed(2)}€</td>
-                  </tr>
-                ))}
+                {months.map(m => {
+                  const payout = payouts.find(p => p.month === m.key)
+                  const isPaid = !!payout?.paid_at
+                  const isConfirmed = !!payout?.confirmed_at
+                  const isConfirming = confirmingMonth === m.key
+                  return (
+                    <tr key={m.key} className={`border-b border-slate-700/50 ${isConfirmed ? 'bg-green-500/5' : ''}`}>
+                      <td className="py-2 text-slate-300">{m.label}</td>
+                      <td className="py-2 text-center text-slate-300">{m.registrations}</td>
+                      <td className="py-2 text-center text-green-400">{m.activeCount}</td>
+                      <td className="py-2 text-right text-green-400 font-medium">{m.earning.toFixed(2)}€</td>
+                      <td className="py-2 text-right">
+                        {isConfirmed ? (
+                          <span className="text-green-400 text-xs">✅ Bestätigt</span>
+                        ) : isPaid ? (
+                          <button
+                            onClick={() => handleConfirm(m.key)}
+                            disabled={isConfirming}
+                            className="text-xs px-2 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg disabled:opacity-50 transition-colors"
+                          >
+                            {isConfirming ? '...' : '💰 Bestätigen'}
+                          </button>
+                        ) : (
+                          <span className="text-slate-700 text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
+          {!showAllMonths && (
+            <button
+              onClick={() => setShowAllMonths(true)}
+              className="text-slate-500 hover:text-slate-300 text-xs mt-3 w-full text-center transition-colors"
+            >
+              ▼ Alle 12 Monate anzeigen
+            </button>
+          )}
           <p className="text-slate-500 text-xs mt-3">* Auszahlung erfolgt außerhalb der Plattform nach Absprache.</p>
         </div>
 

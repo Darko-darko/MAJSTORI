@@ -14,11 +14,40 @@ function slugify(name) {
     .substring(0, 20)
 }
 
+function getStatus(u) {
+  const subs = u.user_subscriptions || []
+  const latest = [...subs].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]
+  return latest?.status ?? null
+}
+
+function computeMonths(referred, commissionRate, count = 12) {
+  const months = []
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(1)
+    d.setMonth(d.getMonth() - i)
+    const year = d.getFullYear()
+    const month = d.getMonth()
+    const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
+    const key = `${year}-${String(month + 1).padStart(2, '0')}`
+    const registrations = referred.filter(u => {
+      const c = new Date(u.created_at)
+      return c.getFullYear() === year && c.getMonth() === month
+    }).length
+    const activeCount = referred.filter(u => {
+      const c = new Date(u.created_at)
+      return c.getFullYear() === year && c.getMonth() === month && getStatus(u) === 'active'
+    }).length
+    months.push({ label, key, registrations, activeCount, earning: activeCount * commissionRate })
+  }
+  return months.reverse()
+}
+
 export default function AdminPartnersPage() {
   const router = useRouter()
   const [token, setToken] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [tab, setTab] = useState('active') // 'active' | 'add'
+  const [tab, setTab] = useState('active')
   const [partners, setPartners] = useState([])
   const [loadingPartners, setLoadingPartners] = useState(true)
 
@@ -28,13 +57,19 @@ export default function AdminPartnersPage() {
   const [searching, setSearching] = useState(false)
 
   // Modals
-  const [addModal, setAddModal] = useState(null) // majstor object
+  const [addModal, setAddModal] = useState(null)
   const [addRefCode, setAddRefCode] = useState('')
   const [addCommission, setAddCommission] = useState('6')
-  const [editModal, setEditModal] = useState(null) // partner object
+  const [editModal, setEditModal] = useState(null)
   const [editCommission, setEditCommission] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Detail panel
+  const [detailData, setDetailData] = useState(null) // { partner, referred, payouts }
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [showAllMonths, setShowAllMonths] = useState(false)
+  const [markingPaid, setMarkingPaid] = useState(null)
 
   // Auth
   useEffect(() => {
@@ -62,7 +97,50 @@ export default function AdminPartnersPage() {
     setLoadingPartners(false)
   }
 
-  // Live search majstora
+  async function fetchPartnerDetail(partner) {
+    setDetailData({ partner, referred: [], payouts: [] })
+    setDetailLoading(true)
+    setShowAllMonths(false)
+    const res = await fetch(`/api/admin/partner-detail?partner_id=${partner.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data = await res.json()
+    setDetailData(data)
+    setDetailLoading(false)
+  }
+
+  async function refreshDetail() {
+    if (!detailData?.partner) return
+    const res = await fetch(`/api/admin/partner-detail?partner_id=${detailData.partner.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data = await res.json()
+    setDetailData(data)
+  }
+
+  async function handleMarkPaid(month, amount) {
+    setMarkingPaid(month)
+    await fetch('/api/admin/partner-detail', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner_id: detailData.partner.id, month, amount })
+    })
+    await refreshDetail()
+    setMarkingPaid(null)
+  }
+
+  async function handleUnmarkPaid(month) {
+    setMarkingPaid(month)
+    await fetch('/api/admin/partner-detail', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner_id: detailData.partner.id, month })
+    })
+    await refreshDetail()
+    setMarkingPaid(null)
+  }
+
+  // Live search
   useEffect(() => {
     if (!search.trim() || search.length < 2) { setSearchResults([]); return }
     const t = setTimeout(async () => {
@@ -115,6 +193,7 @@ export default function AdminPartnersPage() {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ majstor_id: id })
     })
+    if (detailData?.partner?.id === id) setDetailData(null)
     await fetchPartners()
   }
 
@@ -127,6 +206,16 @@ export default function AdminPartnersPage() {
       <div className="text-slate-400">Wird geladen...</div>
     </div>
   )
+
+  const detailPartner = detailData?.partner
+  const detailReferred = detailData?.referred || []
+  const detailPayouts = detailData?.payouts || []
+  const totalCount = detailReferred.length
+  const trialCount = detailReferred.filter(u => getStatus(u) === 'trial').length
+  const activeCount = detailReferred.filter(u => getStatus(u) === 'active').length
+  const inactiveCount = detailReferred.filter(u => !getStatus(u) || getStatus(u) === 'cancelled').length
+  const allMonths = detailPartner ? computeMonths(detailReferred, detailPartner.commission_rate, 12) : []
+  const displayMonths = showAllMonths ? allMonths : allMonths.slice(0, 6)
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 sm:p-6">
@@ -181,8 +270,15 @@ export default function AdminPartnersPage() {
                     {partners.map(p => (
                       <tr key={p.id} className="border-t border-slate-700/50 hover:bg-slate-700/20">
                         <td className="px-4 py-3">
-                          <div className="text-white text-xs font-medium">{p.full_name || '—'}</div>
-                          <div className="text-slate-500 text-xs">{p.email}</div>
+                          <button
+                            onClick={() => fetchPartnerDetail(p)}
+                            className="text-left group"
+                          >
+                            <div className="text-white text-xs font-medium group-hover:text-blue-400 transition-colors underline-offset-2 group-hover:underline">
+                              {p.full_name || '—'}
+                            </div>
+                            <div className="text-slate-500 text-xs">{p.email}</div>
+                          </button>
                         </td>
                         <td className="px-4 py-3">
                           <button
@@ -269,6 +365,165 @@ export default function AdminPartnersPage() {
         )}
 
       </div>
+
+      {/* Detail Modal */}
+      {detailData && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl my-4 space-y-5 p-5">
+
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-white font-bold text-lg">{detailPartner?.full_name || '—'}</h2>
+                <div className="text-slate-400 text-sm">{detailPartner?.email}</div>
+                <div className="text-slate-500 text-xs font-mono mt-1">
+                  ref: {detailPartner?.ref_code} · {detailPartner?.commission_rate}€/Aktiv
+                </div>
+              </div>
+              <button
+                onClick={() => setDetailData(null)}
+                className="text-slate-400 hover:text-white text-2xl leading-none px-2"
+              >
+                ×
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="text-center text-slate-400 py-12">Wird geladen...</div>
+            ) : (
+              <>
+                {/* Stat cards */}
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    { label: 'Gesamt', value: totalCount, color: 'text-slate-300' },
+                    { label: 'Trial', value: trialCount, color: 'text-yellow-400' },
+                    { label: 'Aktiv', value: activeCount, color: 'text-green-400' },
+                    { label: 'Inaktiv', value: inactiveCount, color: 'text-slate-500' },
+                  ].map(c => (
+                    <div key={c.label} className="bg-slate-700/50 rounded-lg p-3 text-center">
+                      <div className={`text-2xl font-bold ${c.color}`}>{c.value}</div>
+                      <div className="text-slate-400 text-xs mt-1">{c.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Finanzübersicht */}
+                <div className="bg-slate-900/50 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold text-sm">💶 Finanzübersicht</h3>
+                    <span className="text-green-400 font-bold text-sm">
+                      {(activeCount * (detailPartner?.commission_rate || 0)).toFixed(2)}€ akt. Monat
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-slate-400 border-b border-slate-700">
+                          <th className="text-left pb-2">Monat</th>
+                          <th className="text-center pb-2">Reg.</th>
+                          <th className="text-center pb-2">Aktiv</th>
+                          <th className="text-right pb-2">Betrag</th>
+                          <th className="text-right pb-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayMonths.map(m => {
+                          const payout = detailPayouts.find(p => p.month === m.key)
+                          const isPaid = !!payout?.paid_at
+                          const isMarking = markingPaid === m.key
+                          return (
+                            <tr key={m.key} className={`border-b border-slate-700/30 ${isPaid ? 'bg-green-500/5' : ''}`}>
+                              <td className="py-2 text-slate-300">{m.label}</td>
+                              <td className="py-2 text-center text-slate-400">{m.registrations}</td>
+                              <td className="py-2 text-center text-slate-300">{m.activeCount}</td>
+                              <td className={`py-2 text-right font-medium ${m.earning > 0 ? 'text-green-400' : 'text-slate-600'}`}>
+                                {m.earning.toFixed(2)}€
+                              </td>
+                              <td className="py-2 text-right">
+                                {isPaid ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <span className="text-green-400 font-medium">✅ Bezahlt</span>
+                                    <button
+                                      onClick={() => handleUnmarkPaid(m.key)}
+                                      disabled={isMarking}
+                                      className="text-slate-500 hover:text-red-400 text-xs px-1 disabled:opacity-50"
+                                      title="Rückgängig"
+                                    >
+                                      ↩
+                                    </button>
+                                  </div>
+                                ) : m.earning > 0 ? (
+                                  <button
+                                    onClick={() => handleMarkPaid(m.key, m.earning)}
+                                    disabled={isMarking}
+                                    className="text-xs px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-400 hover:text-blue-300 rounded-lg disabled:opacity-50 transition-colors"
+                                  >
+                                    {isMarking ? '...' : 'Als bezahlt'}
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-700">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!showAllMonths && (
+                    <button
+                      onClick={() => setShowAllMonths(true)}
+                      className="text-slate-500 hover:text-slate-300 text-xs mt-3 w-full text-center transition-colors"
+                    >
+                      ▼ Alle 12 Monate anzeigen
+                    </button>
+                  )}
+                </div>
+
+                {/* Users list */}
+                {detailReferred.length > 0 && (
+                  <div>
+                    <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                      Registrierte Nutzer ({detailReferred.length})
+                    </h3>
+                    <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                      {detailReferred.map(u => {
+                        const s = getStatus(u)
+                        return (
+                          <div key={u.id} className="flex items-center justify-between px-3 py-2 bg-slate-900/50 rounded-lg">
+                            <div>
+                              <div className="text-white text-xs">{u.full_name || '—'}</div>
+                              <div className="text-slate-500 text-xs">{u.email}</div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                s === 'active' ? 'bg-green-500/20 text-green-400' :
+                                s === 'trial' ? 'bg-yellow-500/20 text-yellow-400' :
+                                'bg-slate-700 text-slate-400'
+                              }`}>
+                                {s || 'Freemium'}
+                              </span>
+                              <span className="text-slate-600 text-xs">
+                                {new Date(u.created_at).toLocaleDateString('de-DE')}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {detailReferred.length === 0 && (
+                  <div className="text-center text-slate-500 text-sm py-4">
+                    Noch keine Registrierungen über diesen Partner.
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal: Partner hinzufügen */}
       {addModal && (
