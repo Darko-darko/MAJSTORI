@@ -1098,7 +1098,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6">
+          <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6 pb-28">
             {children}
           </main>
         </div>
