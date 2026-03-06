@@ -18,6 +18,11 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request, routeData) {
   try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { id } = await routeData.params
 
     const { recipientEmail, ccEmail, subject, message, isReminder } = await request.json()
@@ -43,6 +48,7 @@ export async function POST(request, routeData) {
       console.error('❌ Invoice not found:', invoiceError)
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
+    if (invoice.majstor_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // ⚡ Auto-generate PDF if missing or outdated (both triggers: ansehen + email)
     const pdfMissing = !invoice.pdf_storage_path

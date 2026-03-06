@@ -18,6 +18,11 @@ const supabase = createClient(
 
 export async function GET(request, routeData) {
   try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { id } = await routeData.params
     const { searchParams } = new URL(request.url)
     const forceRegenerate = searchParams.get('forceRegenerate') === 'true'
@@ -35,6 +40,7 @@ export async function GET(request, routeData) {
       console.error('❌ Invoice not found:', invoiceError)
       return NextResponse.json({ error: 'Rechnung nicht gefunden' }, { status: 404 })
     }
+    if (invoice.majstor_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     // ⚡ FAST PATH: Serve cached PDF if exists and up-to-date
     if (!forceRegenerate && invoice.pdf_storage_path && invoice.pdf_generated_at) {

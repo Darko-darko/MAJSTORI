@@ -75,20 +75,23 @@ export default function EmailInvoiceModal({
     setError('')
 
     try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const authHeader = { Authorization: `Bearer ${session.access_token}` }
+
   // PDF generation logic ako treba
   if (!invoice.pdf_storage_path || !invoice.pdf_generated_at) {
     console.log('PDF ne postoji, generišem automatski...')
-    
+
     try {
-      const pdfGenResponse = await fetch(`/api/invoices/${invoice.id}/pdf`)
-      
+      const pdfGenResponse = await fetch(`/api/invoices/${invoice.id}/pdf`, { headers: authHeader })
+
       if (!pdfGenResponse.ok) {
         throw new Error('PDF generisanje nije uspelo')
       }
-      
+
       console.log('PDF automatski generisan')
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
     } catch (pdfGenError) {
       console.error('PDF generation error:', pdfGenError)
       setError('PDF generisanje nije uspelo. Molimo pokušajte ponovo.')
@@ -96,13 +99,14 @@ export default function EmailInvoiceModal({
       return
     }
   }
-  
+
   console.log('Sending email for invoice:', invoice.id)
-  
+
   const response = await fetch(`/api/invoices/${invoice.id}/email`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...authHeader
     },
     body: JSON.stringify({ ...formData, isReminder })
   })

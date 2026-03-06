@@ -1,6 +1,7 @@
 // app/components/AIHelpChat.js
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 
 
@@ -61,9 +62,13 @@ export default function AIHelpChat() {
     setLoading(true)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/ai-help', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({ messages: newMessages.slice(1) }) // bez uvodne poruke
       })
       const data = await res.json()
