@@ -310,7 +310,11 @@ export default function PartnerPage() {
               ▼ Alle 12 Monate anzeigen
             </button>
           )}
-          <p className="text-slate-500 text-xs mt-3">* Auszahlung erfolgt außerhalb der Plattform nach Absprache.</p>
+          <div className="mt-4 p-3 bg-slate-700/30 border border-slate-600/50 rounded-lg text-xs text-slate-400 space-y-1">
+            <p>ℹ️ <strong className="text-slate-300">So wird deine Provision berechnet:</strong></p>
+            <p>Deine monatliche Provision ergibt sich aus der Anzahl deiner aktiven Kunden <strong className="text-slate-300">am letzten Tag des jeweiligen Monats</strong> multipliziert mit deiner vereinbarten Provision pro Kunde.</p>
+            <p>Der aktuelle Monat wird als <em>Vorschau</em> angezeigt und kann sich täglich ändern. Der endgültige Betrag wird am letzten Tag des Monats festgesetzt.</p>
+          </div>
         </div>
 
         {/* Lista korisnika */}
