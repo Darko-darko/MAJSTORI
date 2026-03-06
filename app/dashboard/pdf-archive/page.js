@@ -1103,6 +1103,20 @@ const openPDFInNewTab = async (pdfId) => {
 // Ausgaben tab component
 function AusgabenTab({ ausgaben, ausgabenLoading, selected, setSelected, month, year, setMonth, setYear, zipModal, setZipModal, zipResult, setZipResult, zipLoading, setZipLoading, majstor, bookkeeperEmail: initialEmail }) {
   const [email, setEmail] = useState(initialEmail || '')
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [previewIsPDF, setPreviewIsPDF] = useState(false)
+
+  async function openPreview(item) {
+    const isPDF = item.storage_path?.endsWith('.pdf')
+    const { data } = await supabase.storage.from('ausgaben').createSignedUrl(item.storage_path, 300)
+    if (!data?.signedUrl) return
+    if (isPDF) {
+      window.open(data.signedUrl, '_blank')
+    } else {
+      setPreviewIsPDF(false)
+      setPreviewUrl(data.signedUrl)
+    }
+  }
   const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
 
   useEffect(() => {
@@ -1174,13 +1188,20 @@ function AusgabenTab({ ausgaben, ausgabenLoading, selected, setSelected, month, 
             const sel = selected.has(item.id)
             const isPDF = item.storage_path?.endsWith('.pdf')
             return (
-              <div key={item.id} className="relative cursor-pointer" onClick={() => setSelected(prev => { const s = new Set(prev); s.has(item.id) ? s.delete(item.id) : s.add(item.id); return s })}>
-                <div className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${sel ? 'border-blue-500' : 'border-transparent'} bg-slate-700 flex items-center justify-center`}>
-                  {isPDF ? <span className="text-3xl">📄</span> : <AusgabeThumbnail path={item.storage_path} />}
+              <div key={item.id} className="relative cursor-pointer">
+                <div onClick={() => openPreview(item)} className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${sel ? 'border-blue-500' : 'border-transparent'} bg-slate-700 flex items-center justify-center`}>
+                  {isPDF ? (
+                    <div className="flex flex-col items-center justify-center w-full h-full p-2 gap-1">
+                      <span className="text-2xl">📄</span>
+                      <span className="text-slate-400 text-xs text-center leading-tight line-clamp-2 break-all">{item.filename || 'PDF'}</span>
+                    </div>
+                  ) : <AusgabeThumbnail path={item.storage_path} />}
                 </div>
-                <div className={`absolute top-1 left-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs ${sel ? 'bg-blue-500 border-blue-500 text-white' : 'bg-slate-900/70 border-slate-500'}`}>
+                <button
+                  onClick={e => { e.stopPropagation(); setSelected(prev => { const s = new Set(prev); s.has(item.id) ? s.delete(item.id) : s.add(item.id); return s }) }}
+                  className={`absolute top-1 left-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs ${sel ? 'bg-blue-500 border-blue-500 text-white' : 'bg-slate-900/70 border-slate-500'}`}>
                   {sel && '✓'}
-                </div>
+                </button>
                 <p className="text-slate-500 text-xs mt-1 truncate">{new Date(item.created_at).toLocaleDateString('de-DE')}</p>
               </div>
             )
@@ -1229,12 +1250,12 @@ function AusgabenTab({ ausgaben, ausgabenLoading, selected, setSelected, month, 
                     <span className="text-green-300 text-sm">ZIP erstellt — {zipResult.count} Belege</span>
                   </div>
                   <div className="space-y-2">
-                    <button onClick={() => { const sub = `Ausgaben ${monthNames[month]} ${year} – ${majstor?.business_name || majstor?.full_name || ''}`; window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(sub)}&body=${encodeURIComponent(getEmailBody())}`, '_blank') }}
+                    <button onClick={() => { const sub = `Ausgaben ${monthNames[month]} ${year} – ${majstor?.business_name || majstor?.full_name || ''}`; setZipModal(false); window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(sub)}&body=${encodeURIComponent(getEmailBody())}`, '_blank') }}
                       disabled={!email} className="hidden sm:flex w-full py-3 bg-red-600/80 hover:bg-red-600 disabled:opacity-40 text-white rounded-lg font-medium transition-colors items-center justify-center gap-2">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
                       In Gmail öffnen
                     </button>
-                    <button onClick={() => { const sub = `Ausgaben ${monthNames[month]} ${year} – ${majstor?.business_name || majstor?.full_name || ''}`; window.open(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(getEmailBody())}`, '_self') }}
+                    <button onClick={() => { const sub = `Ausgaben ${monthNames[month]} ${year} – ${majstor?.business_name || majstor?.full_name || ''}`; setZipModal(false); window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(getEmailBody())}` }}
                       disabled={!email} className="w-full py-3 bg-slate-600 hover:bg-slate-500 disabled:opacity-40 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                       📧 Im E-Mail-Programm öffnen
                     </button>
@@ -1247,6 +1268,14 @@ function AusgabenTab({ ausgaben, ausgabenLoading, selected, setSelected, month, 
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image preview modal */}
+      {previewUrl && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setPreviewUrl(null)}>
+          <button className="absolute top-4 right-4 text-white text-3xl leading-none">×</button>
+          <img src={previewUrl} alt="Beleg" className="max-w-full max-h-[90vh] rounded-xl object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
     </div>
