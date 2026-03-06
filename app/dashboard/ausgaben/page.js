@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 // Client-side image compression (same pattern as AvatarUpload)
 function compressImage(file, maxWidth = 1600) {
@@ -232,6 +233,8 @@ export default function AusgabenPage() {
   return (
     <div className="min-h-screen bg-slate-900 p-4 sm:p-6">
       <div className="max-w-3xl mx-auto space-y-6">
+
+        <FirstVisitHint pageKey="ausgaben" />
 
         {/* Header */}
         <div>
