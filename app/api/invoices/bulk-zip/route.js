@@ -96,9 +96,28 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Signed URL failed: ' + signedUrlError.message }, { status: 500 })
     }
 
+    // Create short link (valid 14 days, same as signed URL)
+    let shortUrl = null
+    try {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+      let code = ''
+      for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
+      const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 14 * 1000).toISOString()
+      const { error: insertError } = await supabase
+        .from('short_links')
+        .insert({ code, url: signedUrlData.signedUrl, type: 're', expires_at: expiresAt })
+      if (!insertError) {
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://pro-meister.de'
+        shortUrl = `${baseUrl}/re/${code}`
+      }
+    } catch {
+      // shortUrl remains null — not critical
+    }
+
     return NextResponse.json({
       success: true,
       zipUrl: signedUrlData.signedUrl,
+      shortUrl,
       count: validPDFs.length,
       skipped: invoices.length - validPDFs.length
     })
