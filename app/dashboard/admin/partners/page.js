@@ -20,28 +20,6 @@ function getStatus(u) {
   return latest?.status ?? null
 }
 
-function computeMonths(referred, commissionRate, count = 12) {
-  const months = []
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(1)
-    d.setMonth(d.getMonth() - i)
-    const year = d.getFullYear()
-    const month = d.getMonth()
-    const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
-    const key = `${year}-${String(month + 1).padStart(2, '0')}`
-    const registrations = referred.filter(u => {
-      const c = new Date(u.created_at)
-      return c.getFullYear() === year && c.getMonth() === month
-    }).length
-    const activeCount = referred.filter(u => {
-      const c = new Date(u.created_at)
-      return c.getFullYear() === year && c.getMonth() === month && getStatus(u) === 'active'
-    }).length
-    months.push({ label, key, registrations, activeCount, earning: activeCount * commissionRate })
-  }
-  return months.reverse()
-}
 
 export default function AdminPartnersPage() {
   const router = useRouter()
@@ -214,7 +192,12 @@ export default function AdminPartnersPage() {
   const trialCount = detailReferred.filter(u => getStatus(u) === 'trial').length
   const activeCount = detailReferred.filter(u => getStatus(u) === 'active').length
   const inactiveCount = detailReferred.filter(u => !getStatus(u) || getStatus(u) === 'cancelled').length
-  const allMonths = detailPartner ? computeMonths(detailReferred, detailPartner.commission_rate, 12) : []
+  const allMonths = (detailData?.monthlyStats || []).map(m => {
+    const [year, mon] = m.month.split('-').map(Number)
+    const d = new Date(year, mon - 1, 1)
+    const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
+    return { ...m, label, key: m.month, earning: m.amount }
+  })
   const displayMonths = showAllMonths ? allMonths : allMonths.slice(0, 6)
 
   return (
@@ -412,7 +395,7 @@ export default function AdminPartnersPage() {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-white font-semibold text-sm">💶 Finanzübersicht</h3>
                     <span className="text-green-400 font-bold text-sm">
-                      {(activeCount * (detailPartner?.commission_rate || 0)).toFixed(2)}€ akt. Monat
+                      {(allMonths[0]?.amount ?? 0).toFixed(2)}€ akt. Monat
                     </span>
                   </div>
                   <div className="overflow-x-auto">
@@ -433,14 +416,19 @@ export default function AdminPartnersPage() {
                           const isMarking = markingPaid === m.key
                           return (
                             <tr key={m.key} className={`border-b border-slate-700/30 ${isPaid ? 'bg-green-500/5' : ''}`}>
-                              <td className="py-2 text-slate-300">{m.label}</td>
+                              <td className="py-2 text-slate-300">
+                                {m.label}
+                                {m.isCurrent && <span className="text-slate-500 text-xs ml-1">(Vorschau)</span>}
+                              </td>
                               <td className="py-2 text-center text-slate-400">{m.registrations}</td>
                               <td className="py-2 text-center text-slate-300">{m.activeCount}</td>
-                              <td className={`py-2 text-right font-medium ${m.earning > 0 ? 'text-green-400' : 'text-slate-600'}`}>
-                                {m.earning.toFixed(2)}€
+                              <td className={`py-2 text-right font-medium ${m.amount > 0 ? 'text-green-400' : 'text-slate-600'}`}>
+                                {m.amount.toFixed(2)}€
                               </td>
                               <td className="py-2 text-right">
-                                {isPaid ? (
+                                {m.isCurrent ? (
+                                  <span className="text-slate-600 text-xs">—</span>
+                                ) : isPaid ? (
                                   <div className="flex items-center justify-end gap-2">
                                     <span className="text-green-400 font-medium">✅ Bezahlt</span>
                                     <button
@@ -452,9 +440,9 @@ export default function AdminPartnersPage() {
                                       ↩
                                     </button>
                                   </div>
-                                ) : m.earning > 0 ? (
+                                ) : m.amount > 0 ? (
                                   <button
-                                    onClick={() => handleMarkPaid(m.key, m.earning)}
+                                    onClick={() => handleMarkPaid(m.key, m.amount)}
                                     disabled={isMarking}
                                     className="text-xs px-2 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-400 hover:text-blue-300 rounded-lg disabled:opacity-50 transition-colors"
                                   >
