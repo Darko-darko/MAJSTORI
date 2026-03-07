@@ -990,7 +990,8 @@ export default function AufmassPage() {
       if (idx >= 0) { const n = [...prev]; n[idx] = saved; return n }
       return [saved, ...prev]
     })
-    // Ne zatvara modal — korisnik sam klikne Schließen kad završi
+    // Prebaci editor na pravi objekat (ne 'new') da sljedeći save koristi PATCH
+    setEditor(saved)
   }
 
   const handleDelete = async (id) => {
