@@ -82,6 +82,32 @@ Inhalt des PDFs: Auftragnehmer (Handwerker) und Auftraggeber (Kunde) nebeneinand
 Versand: Regiebericht wird beim E-Mail-Versand der Rechnung automatisch als Anhang mitgeschickt — kein separater Versand nötig
 Tipp: Regiebericht direkt beim Kunden vor Ort ausfüllen lassen — Mieter unterschreibt auf dem Handy
 
+AUFMASS — DETAILS (PRO+):
+Was ist das: Ein digitales Aufmaß-Dokument für die Baustelle — Maße direkt vor Ort erfassen, PDF generieren, Unterschrift einholen und Positionen in ein Angebot übernehmen.
+Wo: Dashboard → "📐 Aufmaß" (linkes Menü)
+Neues Aufmaß erstellen: "📐 Neues Aufmaß" → Titel (Pflichtfeld), Datum, Kundenname eingeben → Bereiche und Positionen erfassen → Speichern
+Bereiche (Räume/Zonen): Beliebig viele Bereiche anlegen (z.B. "Wohnzimmer", "Fassade Nord", "Dach") — jeder Bereich hat eigene Positionen
+Positionen erfassen (Einheiten):
+  - m² (Fläche): Länge × Breite eingeben → Ergebnis wird automatisch berechnet
+  - lm (Laufmeter): Nur Länge eingeben
+  - m³ (Volumen): Länge × Breite × Höhe eingeben
+  - Stk (Stückzahl): Anzahl eingeben
+  - Wand: Umfang × Höhe (2×(L+B)×H) — für Wandflächen
+  - Trapez: Fläche eines Trapezes (a+b)/2 × h
+Abzüge (Öffnungen): Pro Bereich können Öffnungen (Türen, Fenster) als Abzüge erfasst werden — werden automatisch vom Brutto abgezogen. Formen: Rechteck, Dreieck, Halbelipse.
+Ergänzungen (Formen): Additive Flächen die zum Brutto hinzugezählt werden — z.B. Erker, Nischen. Formen: Rechteck, Dreieck, Halbelipse.
+Netto-Berechnung: Brutto − Abzüge + Ergänzungen = Netto (wird automatisch berechnet und angezeigt)
+PDF generieren: "📄 PDF" → PDF mit allen Bereichen, Berechnungen, Skizzen und Zusammenfassung wird erstellt → direkter Download
+PDF-Inhalt: Firmenangaben, Aufmaß-Titel, Datum, Kundenname, Tabelle mit allen Positionen (Bezeichnung, Berechnung, Einheit, Ergebnis), Skizzen mit Maßangaben, Netto pro Einheit, Zusammenfassung, optionale Unterschrift
+Unterschrift: Im Editor unten → Unterschriftsfeld → Vollbild-Canvas öffnet sich → Kunde unterschreibt mit Finger/Stift → Unterschrift erscheint im PDF
+In Angebot übernehmen: "📋 In Angebot übernehmen" → alle Netto-Positionen werden automatisch in den Angebots-Editor übertragen — Preise können dann ergänzt werden
+Tipps:
+  - Mehrere Bereiche für verschiedene Räume oder Zonen verwenden
+  - Beschreibung für jede Position eingeben (z.B. "Boden Fliesen", "Wand Putz")
+  - Abzüge für Türen und Fenster nicht vergessen
+  - PDF vor Ort mit Kunden unterschreiben lassen
+  - Aus Aufmaß direkt Angebot erstellen — spart Zeit beim Übertragen
+
 QR-VISITENKARTE — DETAILS:
 Erstellen: Dashboard → "Visitenkarte" → Formular ausfüllen:
   - Name, Firmenname, Telefon, E-Mail, Stadt, Website

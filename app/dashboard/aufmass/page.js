@@ -836,25 +836,27 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     await generateAufmassPDF(form, majstor, signature)
   }
 
-  const transferToInvoice = async () => {
-    // Spremi prvo ako je novo
+  const transferTo = async (docType) => {
     if (isNew && form.title.trim()) await save()
     const flatItems = []
     for (const room of form.rooms) {
       for (const item of room.items) {
-        flatItems.push({
-          description: `${room.name ? room.name + ': ' : ''}${item.description}`,
-          quantity: item.result || 1,
-          unit: item.unit || '',
-          unit_price: 0,
-          total_price: 0,
-        })
+        if (!item.subtract) {
+          flatItems.push({
+            description: `${room.name ? room.name + ': ' : ''}${item.description || ''}`,
+            quantity: item.result || 1,
+            unit: item.unit || '',
+            unit_price: 0,
+            total_price: 0,
+          })
+        }
       }
     }
     sessionStorage.setItem('prm_aufmass_import', JSON.stringify({
       title: form.title,
       items: flatItems,
       aufmass_id: aufmass?.id || null,
+      docType,
     }))
     router.push('/dashboard/invoices?from=aufmass')
   }
@@ -869,6 +871,13 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               {isNew ? '📐 Neues Aufmaß' : '📐 Aufmaß bearbeiten'}
             </h2>
             <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+          </div>
+
+          {/* Hint */}
+          <div className="px-5 pt-3 pb-0">
+            <div className="bg-blue-950/40 border border-blue-800/40 rounded-lg px-3 py-2 text-xs text-blue-300/80 leading-relaxed">
+              💡 <strong>Tipp:</strong> Bereiche anlegen (z.B. "Wohnzimmer") → Positionen erfassen (m², lm, m³, Stk) → Abzüge für Öffnungen → PDF generieren oder direkt in Angebot / Rechnung übernehmen.
+            </div>
           </div>
 
           <div className="p-5 space-y-4">
@@ -1009,10 +1018,16 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               📄 PDF
             </button>
             <button
-              onClick={transferToInvoice}
+              onClick={() => transferTo('quote')}
               className="flex-1 py-2.5 bg-green-700 hover:bg-green-600 text-white font-semibold rounded-lg text-sm transition-colors"
             >
-              📋 In Angebot
+              📋 Angebot
+            </button>
+            <button
+              onClick={() => transferTo('invoice')}
+              className="flex-1 py-2.5 bg-orange-700 hover:bg-orange-600 text-white font-semibold rounded-lg text-sm transition-colors"
+            >
+              🧾 Rechnung
             </button>
             <button
               onClick={onClose}
