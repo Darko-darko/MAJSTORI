@@ -218,7 +218,7 @@ function ItemRow({ item, onChange, onRemove }) {
 
       {/* Unit selector + Mjere */}
       <div className="flex gap-1 items-center flex-wrap">
-        <div className="flex gap-0.5 shrink-0">
+        <div className="flex gap-0.5 flex-wrap">
           {UNITS.map(u => (
             <button
               key={u}
