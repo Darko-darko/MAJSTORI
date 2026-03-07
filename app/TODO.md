@@ -129,8 +129,18 @@
 - gugle log na light temi ✅
 - obrisati sve grane na gitu, osim develop i main ✅
 - promt za help za ai funkciju glasovnog rehtunga ✅
-- catbot lepši možda
+- catbot lepši možda ✅
 - nemogućnost duple registracije✅
+- uradio onboard hintove ✅
+- računanje pdv po stavkama ✅
+- resend alert ✅
+- dugme za reklamaciju na vizit karti
+- sistem da stavlja svoje poslovne račune troškova, materijal, horivo i sl. ✅
+- promoteri komercijalsta
+- download qr referal koda nije donar, a tebalo bi da ih ima dva! ✅
+- short kode za linkove bulk maila ✅
 
-
+- bag kad na mobilnom prvi put koristim voice kreator faktura!! ✅
+- zipovanje pdf i povezivanje sa knjigovođom... dugme export ✅
+- resend upozorenje ✅
 
