@@ -841,7 +841,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     const flatItems = []
     for (const room of form.rooms) {
       for (const item of room.items) {
-        if (!item.subtract) {
+        if (!item.subtract && !item.isForm) {
           flatItems.push({
             description: `${room.name ? room.name + ': ' : ''}${item.description || ''}`,
             quantity: item.result || 1,
