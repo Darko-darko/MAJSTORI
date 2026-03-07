@@ -56,7 +56,7 @@ export default function InvoiceCreator({
     place_of_service: '',
     
     // Invoice items and totals (existing)
-    items: [{ description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }],
+    items: [{ description: '', quantity: 1, unit: '', price: 0, price_gross: 0, total: 0, price_source: 'netto' }],
     subtotal: 0,
     tax_rate: 19,
     tax_amount: 0,
@@ -707,7 +707,7 @@ export default function InvoiceCreator({
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }]
+      items: [...prev.items, { description: '', quantity: 1, unit: '', price: 0, price_gross: 0, total: 0, price_source: 'netto' }]
     }))
   }
 
@@ -1818,16 +1818,31 @@ if (searchError) {
                     
                     <div className="md:col-span-2">
                       <label className="block text-sm text-slate-400 mb-1">Menge *</label>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                        placeholder="1"
-                        required
-                      />
+                      <div className="flex gap-1">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                          placeholder="1"
+                          required
+                        />
+                        <select
+                          value={item.unit || ''}
+                          onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                          className="px-2 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm w-24 shrink-0"
+                        >
+                          <option value="">–</option>
+                          <option value="m²">m²</option>
+                          <option value="lm">lm</option>
+                          <option value="m³">m³</option>
+                          <option value="Stk">Stk</option>
+                          <option value="Std">Std</option>
+                          <option value="pausch">pausch</option>
+                        </select>
+                      </div>
                     </div>
                     
                     <div className="md:col-span-2">
