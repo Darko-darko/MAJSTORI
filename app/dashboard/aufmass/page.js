@@ -176,7 +176,8 @@ function computeTotals(rooms) {
     for (const i of r.items || []) {
       if (i.result == null) continue
       const unit = (i.unit === 'Wand' || i.unit === 'Bogen' || i.unit === 'Trap') ? 'm²' : i.unit
-      if (unit) t[unit] = (t[unit] || 0) + i.result
+      const sign = i.subtract ? -1 : 1
+      if (unit) t[unit] = (t[unit] || 0) + i.result * sign
     }
   }
   return t
@@ -216,7 +217,7 @@ function ItemRow({ item, onChange, onRemove }) {
         <button onClick={onRemove} className="shrink-0 self-end mb-0.5 w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded transition-colors">✕</button>
       </div>
 
-      {/* Unit selector + Mjere */}
+      {/* Unit selector */}
       <div className="flex gap-1 items-center flex-wrap">
         <div className="flex gap-0.5 flex-wrap">
           {UNITS.map(u => (
@@ -337,7 +338,7 @@ function ItemRow({ item, onChange, onRemove }) {
         {/* Ergebnis */}
         <div className="ml-auto flex items-center gap-1 bg-slate-900 px-3 py-1 rounded border border-slate-700">
           <span className="text-white font-semibold text-sm">{formatNum(item.result || 0)}</span>
-          <span className="text-slate-400 text-xs">{item.unit}</span>
+          <span className="text-slate-400 text-xs">{(item.unit === 'Wand' || item.unit === 'Bogen' || item.unit === 'Trap') ? 'm²' : item.unit}</span>
         </div>
       </div>
 
@@ -357,22 +358,172 @@ function ItemRow({ item, onChange, onRemove }) {
   )
 }
 
+// ─── Öffnung row (compact) ────────────────────────────────────────────────────
+function ÖffnungRow({ item, onChange, onRemove }) {
+  const update = (field, val) => {
+    const updated = { ...item, [field]: val }
+    const s = (updated.dim_unit || 'm') === 'cm' ? 0.01 : 1
+    const l = (parseFloat(updated.length) || 0) * s
+    const b = (parseFloat(updated.width) || 0) * s
+    const c = parseFloat(updated.count) || 1
+    const u = (updated.dim_unit || 'm') === 'cm' ? 'cm' : 'm'
+    updated.result = Math.round(l * b * c * 100) / 100
+    updated.calculation = c > 1 ? `${updated.length || 0}${u}×${updated.width || 0}${u}×${c}` : `${updated.length || 0}${u}×${updated.width || 0}${u}`
+    onChange(updated)
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center py-1.5 px-2 bg-red-950/20 rounded-lg border border-red-900/30 text-sm">
+      <input
+        type="text"
+        value={item.description}
+        onChange={e => update('description', e.target.value)}
+        placeholder="Fenster / Tür..."
+        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs"
+      />
+      <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
+        {['m', 'cm'].map(du => (
+          <button key={du} onClick={() => update('dim_unit', du)}
+            className={`px-2 py-0.5 text-xs font-medium transition-colors ${(item.dim_unit || 'm') === du ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+          >{du}</button>
+        ))}
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-slate-500 text-xs">B</span>
+        <input type="number" value={item.length || ''} onChange={e => update('length', e.target.value)}
+          placeholder="0.00" step="0.01" inputMode="decimal"
+          className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
+      </div>
+      <span className="text-slate-500 text-xs">×</span>
+      <div className="flex items-center gap-1">
+        <span className="text-slate-500 text-xs">H</span>
+        <input type="number" value={item.width || ''} onChange={e => update('width', e.target.value)}
+          placeholder="0.00" step="0.01" inputMode="decimal"
+          className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-slate-500 text-xs">×</span>
+        <input type="number" value={item.count || ''} onChange={e => update('count', e.target.value)}
+          placeholder="1" step="1" min="1" inputMode="numeric"
+          className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
+      </div>
+      <div className="ml-auto flex items-center gap-1 bg-red-900/30 px-2 py-1 rounded border border-red-500/30">
+        <span className="text-red-400 text-xs font-bold">−</span>
+        <span className="text-red-300 font-semibold text-xs">{formatNum(item.result || 0)}</span>
+        <span className="text-slate-400 text-xs">m²</span>
+      </div>
+      <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
+    </div>
+  )
+}
+
+// ─── Öffnungen section ────────────────────────────────────────────────────────
+function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
+  const [open, setOpen] = useState(false)
+
+  const totalAbzug = openings.reduce((s, i) => s + (i.result || 0), 0)
+  const netto = bruttoM2 - totalAbzug
+
+  const addOpening = () => {
+    onChange([...openings, { id: newId(), description: '', unit: 'm²', dim_unit: 'm', length: '', width: '', count: '', result: 0, calculation: '', subtract: true }])
+    setOpen(true)
+  }
+  const updateOpening = (idx, item) => {
+    const updated = [...openings]; updated[idx] = item; onChange(updated)
+  }
+  const removeOpening = (idx) => onChange(openings.filter((_, i) => i !== idx))
+
+  return (
+    <div className="border border-red-900/40 rounded-lg overflow-hidden">
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 bg-red-950/30 cursor-pointer"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="text-red-400 text-sm">🪟</span>
+        <span className="text-red-300 text-sm font-medium flex-1">Öffnungen & Abzüge</span>
+        {openings.length > 0 && !open && (
+          <div className="flex flex-col items-end">
+            <span className="text-red-300 text-xs font-medium">− {formatNum(totalAbzug)} m²</span>
+            <span className="text-white text-xs font-semibold">= {formatNum(netto)} m²</span>
+          </div>
+        )}
+        <span className="text-red-400/60 text-xs">{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div className="p-3 space-y-2 bg-red-950/10">
+          {openings.length === 0 && (
+            <p className="text-xs text-slate-500 italic text-center py-1">Noch keine Öffnungen</p>
+          )}
+          {openings.map((item, idx) => (
+            <ÖffnungRow key={item.id} item={item}
+              onChange={newItem => updateOpening(idx, newItem)}
+              onRemove={() => removeOpening(idx)}
+            />
+          ))}
+          <button onClick={addOpening}
+            className="w-full py-1.5 border border-dashed border-red-900/50 hover:border-red-700 text-red-400/70 hover:text-red-300 text-sm rounded-lg transition-colors">
+            + Öffnung hinzufügen
+          </button>
+
+          {/* Berechnung summary */}
+          {openings.length > 0 && (
+            <div className="px-3 py-2 bg-slate-900/60 rounded border border-slate-700 text-xs space-y-1">
+              <div className="flex justify-between text-slate-400">
+                <span>Fläche (brutto)</span>
+                <span>{formatNum(bruttoM2)} m²</span>
+              </div>
+              {openings.map((op, i) => op.result > 0 && (
+                <div key={i} className="flex justify-between text-red-400">
+                  <span>− {op.description || `Öffnung ${i + 1}`}{(parseFloat(op.count) || 1) > 1 ? ` ×${op.count}` : ''}</span>
+                  <span>− {formatNum(op.result)} m²</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-white font-semibold border-t border-slate-700 pt-1">
+                <span>Netto</span>
+                <span>{formatNum(netto)} m²</span>
+              </div>
+            </div>
+          )}
+
+          <button onClick={() => setOpen(false)}
+            className="w-full py-2 bg-red-800/30 hover:bg-red-700/40 text-red-200 text-sm font-medium rounded-lg transition-colors">
+            ✓ Fertig
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Room section ─────────────────────────────────────────────────────────────
 function RoomSection({ room, onChange, onRemove }) {
-  const updateItem = (idx, newItem) => {
-    const items = [...room.items]
-    items[idx] = newItem
-    onChange({ ...room, items })
+  const regularItems = room.items.filter(i => !i.subtract)
+  const openings = room.items.filter(i => i.subtract)
+
+  const updateRegularItem = (idx, newItem) => {
+    const updated = [...regularItems]; updated[idx] = newItem
+    onChange({ ...room, items: [...updated, ...openings] })
   }
-  const removeItem = (idx) => {
-    onChange({ ...room, items: room.items.filter((_, i) => i !== idx) })
+  const removeRegularItem = (idx) => {
+    onChange({ ...room, items: [...regularItems.filter((_, i) => i !== idx), ...openings] })
   }
   const addItem = () => {
-    onChange({
-      ...room,
-      items: [...room.items, { id: newId(), description: '', unit: 'm²', dim_unit: 'm', length: '', width: '', height: '', count: '', result: 0, calculation: '' }]
-    })
+    const newItem = { id: newId(), description: '', unit: 'm²', dim_unit: 'm', length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: false }
+    onChange({ ...room, items: [...regularItems, newItem, ...openings] })
   }
+  const updateOpenings = (newOpenings) => {
+    onChange({ ...room, items: [...regularItems, ...newOpenings] })
+  }
+
+  // brutto m² for this room (sum of non-subtract area-type items)
+  const bruttoM2 = regularItems.reduce((s, i) => {
+    const u = (i.unit === 'Wand' || i.unit === 'Bogen' || i.unit === 'Trap') ? 'm²' : i.unit
+    return u === 'm²' ? s + (i.result || 0) : s
+  }, 0)
+
+  // Only show Öffnungen section if room has area-type items or already has openings
+  const hasAreaItems = regularItems.some(i => ['m²', 'Wand', 'Bogen', 'Trap'].includes(i.unit))
 
   return (
     <div className="border border-slate-600 rounded-xl overflow-hidden">
@@ -390,12 +541,12 @@ function RoomSection({ room, onChange, onRemove }) {
 
       {/* Items */}
       <div className="p-3 space-y-2 bg-slate-800/30">
-        {room.items.map((item, idx) => (
+        {regularItems.map((item, idx) => (
           <ItemRow
             key={item.id}
             item={item}
-            onChange={newItem => updateItem(idx, newItem)}
-            onRemove={() => removeItem(idx)}
+            onChange={newItem => updateRegularItem(idx, newItem)}
+            onRemove={() => removeRegularItem(idx)}
           />
         ))}
         <button
@@ -404,6 +555,13 @@ function RoomSection({ room, onChange, onRemove }) {
         >
           + Position hinzufügen
         </button>
+        {(hasAreaItems || openings.length > 0) && (
+          <ÖffnungenSection
+            openings={openings}
+            onChange={updateOpenings}
+            bruttoM2={bruttoM2}
+          />
+        )}
       </div>
     </div>
   )
