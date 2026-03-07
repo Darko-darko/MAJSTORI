@@ -283,6 +283,7 @@ function DashboardPageContent() {
         phone: majstorData.phone || '',
         city: majstorData.city || '',
         address: majstorData.address || '',
+        postal_code: majstorData.postal_code || '',
         business_email: majstorData.business_email || ''
       })
       
@@ -1813,6 +1814,7 @@ const HardResetModal = () => {
       phone: localSettings.phone || null,
       city: localSettings.city || null,
       address: localSettings.address || null,
+      postal_code: localSettings.postal_code || null,
       business_email: localSettings.business_email || null,
       updated_at: new Date().toISOString()
     }
@@ -1966,6 +1968,35 @@ const HardResetModal = () => {
                 />
               </div>
               
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Straße &amp; Hausnummer (optional)
+                  <span className="text-slate-500 text-xs ml-1">(erscheint auf Rechnungen)</span>
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={localSettings.address || ''}
+                  onChange={handleLocalChange}
+                  placeholder="Musterstraße 123"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Postleitzahl
+                </label>
+                <input
+                  type="text"
+                  name="postal_code"
+                  value={localSettings.postal_code || ''}
+                  onChange={handleLocalChange}
+                  placeholder="10115"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Stadt/Ort *
@@ -1979,21 +2010,6 @@ const HardResetModal = () => {
                   placeholder="Berlin"
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                   required
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Geschäftsadresse (optional)
-                  <span className="text-slate-500 text-xs ml-1">(vollständige Adresse für Rechnungen)</span>
-                </label>
-                <input
-                  type="text"
-                  name="address"
-                  value={localSettings.address || ''}
-                  onChange={handleLocalChange}
-                  placeholder="Musterstraße 123, 10115 Berlin"
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                 />
               </div>
 
