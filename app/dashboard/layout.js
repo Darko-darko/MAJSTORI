@@ -426,131 +426,38 @@ const getSubscriptionBadge = () => {
 // Samo izmeni getNavigation() i NavigationItem
 
 const getNavigation = () => {
-  const baseNavigation = [
-    { 
-      name: 'Übersicht', 
-      href: '/dashboard', 
-      icon: '📊', 
-      protected: false 
-    }
-  ]
-
-  const freeFeatures = [
-    { 
-      name: 'QR Visitenkarte', 
-      href: '/dashboard/business-card/create', 
-      icon: '📱', 
-      protected: false
-    },
-    { 
-      name: 'Kundenanfragen', 
-      href: '/dashboard/inquiries', 
-      icon: '📧', 
-      badge: formatBadgeCount(badges.inquiries),
-      badgeColor: 'bg-red-500',
-      protected: false
-    }
-  ]
-
-  const protectedFeatures = [
-    { 
-      name: 'Meine Kunden', 
-      href: '/dashboard/customers', 
-      icon: '👥', 
-      protected: true,
-      feature: 'customer_management'
-    },
-    { 
-      name: 'Rechnungen', 
-      href: '/dashboard/invoices', 
-      icon: '📄',
-      badge: formatBadgeCount(badges.invoices),
-      badgeColor: 'bg-red-500',
-      protected: true,
-      feature: 'invoicing'
-    },
-    { 
-      name: 'Meine Services', 
-      href: '/dashboard/services', 
-      icon: '🔧',
-      protected: true,
-      feature: 'services_management'
-    },
-    {
-      name: 'Ausgaben',
-      href: '/dashboard/ausgaben',
-      icon: '🧾',
-      protected: true,
-      feature: 'pdf_archive'
-    },
-    {
-      name: 'Buchhalter',
-      href: '/dashboard/pdf-archive',
-      icon: '🗂️',
-      protected: true,
-      feature: 'pdf_archive'
-    }
-  ]
-
-  // 🎯 SUBSCRIPTION - POMERENO GORE (pre Support sekcije)
-  const subscriptionItem = {
-    name: 'Meine Mitgliedschaft',
-    href: '/dashboard/subscription',
-    icon: '💎',
-    protected: false,
-    isSeparator: true,
-    badge: getSubscriptionBadge()
-  }
-
-  // 🆕 SUPPORT & HILFE SEKCIJA
-  const supportSection = [
-    {
-      name: 'Support kontaktieren',
-      icon: '💬',
-      protected: false,
-      isSeparator: true,
-      isButton: true,
-      onClick: openSupport,
-      description: 'Stellen Sie eine Frage'
-    },
-    {
-      name: 'FAQ & Hilfe',
-      href: '/dashboard/help',
-      icon: '📚',
-      protected: false,
-      //target: '_blank',
-      description: 'Häufig gestellte Fragen',
-      hasBottomBorder: true  // 🆕 DONJA LINIJA posle FAQ
-    }
-  ]
-
-  const settingsItem = { 
-    name: 'Einstellungen', 
-    href: '/dashboard/settings', 
-    icon: '⚙️', 
-    protected: true,
-    feature: 'settings'
-    // ❌ Uklonjen isSeparator - sada se koristi donja linija FAQ-a
-  }
-
-  // 🎯 NOVI REDOSLED - Subscription pre Support & FAQ
   return [
-    ...baseNavigation, 
-    ...freeFeatures, 
-    ...protectedFeatures,
-    subscriptionItem,      // 1. Subscription (sa separatorom)
-    ...supportSection,     // 2. Support & FAQ (sa separatorom)
-    settingsItem          // 3. Einstellungen
+    { name: 'Übersicht', href: '/dashboard', icon: '📊', protected: false },
+
+    { isGroupHeader: true, label: 'Finanzen', key: 'gh-finanzen' },
+    { name: 'Rechnungen', href: '/dashboard/invoices', icon: '📄', badge: formatBadgeCount(badges.invoices), badgeColor: 'bg-red-500', protected: true, feature: 'invoicing' },
+    { name: 'Ausgaben', href: '/dashboard/ausgaben', icon: '🧾', protected: true, feature: 'pdf_archive' },
+    { name: 'Buchhalter', href: '/dashboard/pdf-archive', icon: '🗂️', protected: true, feature: 'pdf_archive' },
+
+    { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
+    { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
+    { name: 'Kundenanfragen', href: '/dashboard/inquiries', icon: '📧', badge: formatBadgeCount(badges.inquiries), badgeColor: 'bg-red-500', protected: false },
+
+    { isGroupHeader: true, label: 'Stammdaten', key: 'gh-stammdaten' },
+    { name: 'Meine Kunden', href: '/dashboard/customers', icon: '👥', protected: true, feature: 'customer_management' },
+    { name: 'Meine Services', href: '/dashboard/services', icon: '🔧', protected: true, feature: 'services_management' },
   ]
 }
 
-// 🔧 NavigationItem - SA ORIGINAL FONT SIZE (text-sm)
 const NavigationItem = ({ item, isMobile = false }) => {
+  if (item.isGroupHeader) {
+    return item.label ? (
+      <p className="px-3 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        {item.label}
+      </p>
+    ) : <div className="mt-3 border-t border-slate-700/50" />
+  }
+
   const separator = item.isSeparator ? 'mt-6 pt-6 border-t border-slate-700' : ''
-  const bottomBorder = item.hasBottomBorder ? 'mb-6 pb-6 border-b border-slate-700' : ''  // 🆕
-  
+  const bottomBorder = item.hasBottomBorder ? 'mb-6 pb-6 border-b border-slate-700' : ''
+
   const baseClasses = `
-    group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all
+    group flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-all
     ${separator}
     ${bottomBorder}
   `
@@ -775,15 +682,17 @@ const NavigationItem = ({ item, isMobile = false }) => {
     )
   }
 
-  const navigation = [
-    ...getNavigation(),
-    ...(majstor?.is_partner ? [{
-      name: 'Mein ProMeister Partner',
-      href: '/dashboard/partner',
-      icon: '🤝',
-      protected: false,
-      isSeparator: true
-    }] : [])
+  const navigation = getNavigation()
+
+  const partnerItem = majstor?.is_partner
+    ? { name: 'Mein ProMeister Partner', href: '/dashboard/partner', icon: '🤝', protected: false }
+    : null
+
+  const mitgliedschaftItem = { name: 'Meine Mitgliedschaft', href: '/dashboard/subscription', icon: '💎', protected: false, badge: getSubscriptionBadge() }
+
+  const bottomNavigation = [
+    { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️', protected: true, feature: 'settings' },
+    { name: 'FAQ & Hilfe', href: '/dashboard/help', icon: '📚', protected: false },
   ]
 
   return (
@@ -838,58 +747,27 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 </div>
               </div>
 
-              {subscription && (
-                <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                  <p className="text-xs font-medium leading-tight whitespace-pre-line">
-                  {(() => {
-  const badge = getSubscriptionBadge()
-
-  // 1) Ikonica po tipu
-  const icon =
-    badge.text.startsWith('Upgrade') ? '📋' :
-    badge.text.startsWith('Gekündigt') ? '⏰' :
-    badge.text.startsWith('Aktivierung') ? '⏳' :
-    badge.text.startsWith('PRO(') ? '💎' :
-    badge.text === 'PRO' ? '💎' :
-    badge.text === '...' ? '⏳' :
-    '💎'
-
-  // 2) Boja teksta (jednostavno i stabilno)
-  const colorClass =
-    badge.color.includes('from-green') ? 'text-green-300' :
-    badge.color.includes('from-orange') ? 'text-orange-300' :
-    badge.color.includes('from-yellow') ? 'text-yellow-300' :
-    badge.color.includes('from-slate') ? 'text-slate-300' :
-    'text-slate-300'
-
-  // 3) Tekst u sidebaru: za "PRO" prikaži "PRO Mitglied"
-  const text = badge.text === 'PRO' ? 'PRO Mitglied' : badge.text
-
-  return <span className={colorClass}>{icon} {text}</span>
-})()}
-
-                  </p>
-                </div>
-              )}
-
-              {!subscription && (
-                <div className="mt-3 px-2 py-1 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
-                  <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
-                </div>
-              )}
             </div>
 
-            <nav key={badgeKey} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-  {navigation.map((item) => (
-    <NavigationItem key={item.name} item={item} />
-  ))}
-</nav>
+            <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
+              <NavigationItem item={mitgliedschaftItem} />
+            </div>
 
-            <div className="p-2 border-t border-slate-700">
+            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+              {navigation.map((item) => (
+                <NavigationItem key={item.key || item.name} item={item} />
+              ))}
+            </nav>
+
+            <div className="border-t border-slate-700 px-2 py-2">
+              {bottomNavigation.map((item) => (
+                <NavigationItem key={item.name} item={item} />
+              ))}
+              {partnerItem && <NavigationItem item={partnerItem} />}
               {ADMIN_EMAILS.includes(majstor?.email) && (
                 <Link
                   href="/admin"
-                  className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors mb-1"
+                  className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
                 >
                   <span className="mr-3">🛡️</span>
                   Admin Panel
@@ -945,59 +823,28 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 </div>
               </div>
 
-              {subscription && (
-                <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded text-center">
-                  <p className="text-xs font-medium leading-tight whitespace-pre-line">
-                    {(() => {
-  const badge = getSubscriptionBadge()
-
-  // 1) Ikonica po tipu
-  const icon =
-    badge.text.startsWith('Upgrade') ? '📋' :
-    badge.text.startsWith('Gekündigt') ? '⏰' :
-    badge.text.startsWith('Aktivierung') ? '⏳' :
-    badge.text.startsWith('PRO(') ? '💎' :
-    badge.text === 'PRO' ? '💎' :
-    badge.text === '...' ? '⏳' :
-    '💎'
-
-  // 2) Boja teksta (jednostavno i stabilno)
-  const colorClass =
-    badge.color.includes('from-green') ? 'text-green-300' :
-    badge.color.includes('from-orange') ? 'text-orange-300' :
-    badge.color.includes('from-yellow') ? 'text-yellow-300' :
-    badge.color.includes('from-slate') ? 'text-slate-300' :
-    'text-slate-300'
-
-  // 3) Tekst u sidebaru: za "PRO" prikaži "PRO Mitglied"
-  const text = badge.text === 'PRO' ? 'PRO Mitglied' : badge.text
-
-  return <span className={colorClass}>{icon} {text}</span>
-})()}
-
-                  </p>
-                </div>
-              )}
-
-              {!subscription && (
-                <div className="mt-3 px-2 py-1.5 bg-gradient-to-r from-slate-500/10 to-slate-600/10 border border-slate-500/20 rounded text-center">
-                  <p className="text-xs font-medium text-slate-300">📋 Freemium</p>
-                </div>
-              )}
             </div>
 
-            <nav key={badgeKey} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-  {navigation.map((item) => (
-    <NavigationItem key={item.name} item={item} isMobile={true} />
-  ))}
-</nav>
+            <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
+              <NavigationItem item={mitgliedschaftItem} isMobile={true} />
+            </div>
 
-            <div className="p-2 border-t border-slate-700">
+            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+              {navigation.map((item) => (
+                <NavigationItem key={item.key || item.name} item={item} isMobile={true} />
+              ))}
+            </nav>
+
+            <div className="border-t border-slate-700 px-2 py-2">
+              {bottomNavigation.map((item) => (
+                <NavigationItem key={item.name} item={item} isMobile={true} />
+              ))}
+              {partnerItem && <NavigationItem item={partnerItem} isMobile={true} />}
               {ADMIN_EMAILS.includes(majstor?.email) && (
                 <Link
                   href="/admin"
                   onClick={() => setSidebarOpen(false)}
-                  className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors mb-1"
+                  className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
                 >
                   <span className="mr-3">🛡️</span>
                   Admin Panel
