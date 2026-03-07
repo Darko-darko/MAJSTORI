@@ -433,6 +433,7 @@ const getNavigation = () => {
     { name: 'Rechnungen', href: '/dashboard/invoices', icon: '📄', badge: formatBadgeCount(badges.invoices), badgeColor: 'bg-red-500', protected: true, feature: 'invoicing' },
     { name: 'Ausgaben', href: '/dashboard/ausgaben', icon: '🧾', protected: true, feature: 'pdf_archive' },
     { name: 'Buchhalter', href: '/dashboard/pdf-archive', icon: '🗂️', protected: true, feature: 'pdf_archive' },
+    ...(ADMIN_EMAILS.includes(majstor?.email) ? [{ name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: false }] : []),
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
@@ -753,7 +754,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               <NavigationItem item={mitgliedschaftItem} />
             </div>
 
-            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto">
               {navigation.map((item) => (
                 <NavigationItem key={item.key || item.name} item={item} />
               ))}
@@ -829,7 +830,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               <NavigationItem item={mitgliedschaftItem} isMobile={true} />
             </div>
 
-            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto">
               {navigation.map((item) => (
                 <NavigationItem key={item.key || item.name} item={item} isMobile={true} />
               ))}
