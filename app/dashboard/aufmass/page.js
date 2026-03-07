@@ -840,16 +840,31 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     if (isNew && form.title.trim()) await save()
     const flatItems = []
     for (const room of form.rooms) {
+      // Compute netto per unit: regular + forms - subtracts
+      const nettoByUnit = {}
       for (const item of room.items) {
-        if (!item.subtract && !item.isForm) {
-          flatItems.push({
-            description: `${room.name ? room.name + ': ' : ''}${item.description || ''}`,
-            quantity: item.result || 1,
-            unit: item.unit || '',
-            unit_price: 0,
-            total_price: 0,
-          })
-        }
+        if (!item.result) continue
+        const rawU = item.unit || ''
+        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
+        const sign = item.subtract ? -1 : 1
+        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+      }
+      for (const [unit, netto] of Object.entries(nettoByUnit)) {
+        if (netto <= 0) continue
+        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
+        const matchUnits = unit === 'm²' ? m2Units : [unit]
+        const descs = room.items
+          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
+          .map(i => i.description)
+          .filter(Boolean)
+          .join(', ')
+        flatItems.push({
+          description: [room.name, descs].filter(Boolean).join(': '),
+          quantity: Math.round(netto * 100) / 100,
+          unit,
+          unit_price: 0,
+          total_price: 0,
+        })
       }
     }
     sessionStorage.setItem('prm_aufmass_import', JSON.stringify({
