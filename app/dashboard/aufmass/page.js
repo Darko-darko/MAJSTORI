@@ -358,28 +358,47 @@ function ItemRow({ item, onChange, onRemove }) {
   )
 }
 
-// ─── Öffnung row (compact) ────────────────────────────────────────────────────
-function ÖffnungRow({ item, onChange, onRemove }) {
+// ─── Shape row (Öffnungen + Formen, shared) ───────────────────────────────────
+const SHAPES = [
+  { id: 'rect', label: '▭', title: 'Rechteck',   formula: (b, h) => b * h,                  calcStr: (b, h, u) => `${b}${u}×${h}${u}` },
+  { id: 'tri',  label: '△', title: 'Dreieck',    formula: (b, h) => b * h / 2,              calcStr: (b, h, u) => `${b}${u}×${h}${u}/2` },
+  { id: 'elli', label: '◖', title: 'Halbelipse', formula: (b, h) => Math.PI * b * h / 4,   calcStr: (b, h, u) => `pi x ${b}${u} x ${h}${u} / 4` },
+]
+
+function ShapeRow({ item, onChange, onRemove }) {
+  const isSubtract = !!item.subtract
   const update = (field, val) => {
     const updated = { ...item, [field]: val }
     const s = (updated.dim_unit || 'm') === 'cm' ? 0.01 : 1
-    const l = (parseFloat(updated.length) || 0) * s
-    const b = (parseFloat(updated.width) || 0) * s
+    const b = (parseFloat(updated.length) || 0) * s
+    const h = (parseFloat(updated.width) || 0) * s
     const c = parseFloat(updated.count) || 1
     const u = (updated.dim_unit || 'm') === 'cm' ? 'cm' : 'm'
-    updated.result = Math.round(l * b * c * 100) / 100
-    updated.calculation = c > 1 ? `${updated.length || 0}${u}×${updated.width || 0}${u}×${c}` : `${updated.length || 0}${u}×${updated.width || 0}${u}`
+    const sh = SHAPES.find(x => x.id === (updated.shape || 'rect')) || SHAPES[0]
+    updated.result = Math.round(sh.formula(b, h) * c * 100) / 100
+    const base = sh.calcStr(updated.length || 0, updated.width || 0, u)
+    updated.calculation = c > 1 ? `${base}×${c}` : base
     onChange(updated)
   }
+  const shape = item.shape || 'rect'
+  const accentBtn = isSubtract ? 'bg-red-700 text-white' : 'bg-teal-700 text-white'
+  const wrapCls = isSubtract ? 'bg-red-950/20 border-red-900/30' : 'bg-teal-950/20 border-teal-900/30'
+  const resCls  = isSubtract ? 'bg-red-900/30 border-red-500/30 text-red-300' : 'bg-teal-900/30 border-teal-500/30 text-teal-300'
+  const sign    = isSubtract ? '−' : '+'
+  const signCls = isSubtract ? 'text-red-400' : 'text-teal-400'
   return (
-    <div className="flex flex-wrap gap-1.5 items-center py-1.5 px-2 bg-red-950/20 rounded-lg border border-red-900/30 text-sm">
-      <input
-        type="text"
-        value={item.description}
-        onChange={e => update('description', e.target.value)}
-        placeholder="Fenster / Tür..."
-        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs"
-      />
+    <div className={`flex flex-wrap gap-1.5 items-center py-1.5 px-2 rounded-lg border text-sm ${wrapCls}`}>
+      {/* Shape selector */}
+      <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
+        {SHAPES.map(sh => (
+          <button key={sh.id} onClick={() => update('shape', sh.id)} title={sh.title}
+            className={`px-2 py-0.5 text-xs font-medium transition-colors ${shape === sh.id ? accentBtn : 'bg-slate-700 text-slate-400'}`}
+          >{sh.label}</button>
+        ))}
+      </div>
+      <input type="text" value={item.description} onChange={e => update('description', e.target.value)}
+        placeholder={isSubtract ? 'Fenster / Tür...' : 'Beschreibung...'}
+        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs" />
       <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
         {['m', 'cm'].map(du => (
           <button key={du} onClick={() => update('dim_unit', du)}
@@ -406,9 +425,9 @@ function ÖffnungRow({ item, onChange, onRemove }) {
           placeholder="1" step="1" min="1" inputMode="numeric"
           className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
       </div>
-      <div className="ml-auto flex items-center gap-1 bg-red-900/30 px-2 py-1 rounded border border-red-500/30">
-        <span className="text-red-400 text-xs font-bold">−</span>
-        <span className="text-red-300 font-semibold text-xs">{formatNum(item.result || 0)}</span>
+      <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border ${resCls}`}>
+        <span className={`text-xs font-bold ${signCls}`}>{sign}</span>
+        <span className="font-semibold text-xs">{formatNum(item.result || 0)}</span>
         <span className="text-slate-400 text-xs">m²</span>
       </div>
       <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
@@ -424,7 +443,7 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
   const netto = bruttoM2 - totalAbzug
 
   const addOpening = () => {
-    onChange([...openings, { id: newId(), description: '', unit: 'm²', dim_unit: 'm', length: '', width: '', count: '', result: 0, calculation: '', subtract: true }])
+    onChange([...openings, { id: newId(), description: '', shape: 'rect', unit: 'm²', dim_unit: 'm', length: '', width: '', count: '', result: 0, calculation: '', subtract: true }])
     setOpen(true)
   }
   const updateOpening = (idx, item) => {
@@ -434,11 +453,7 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
 
   return (
     <div className="border border-red-900/40 rounded-lg overflow-hidden">
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-2 bg-red-950/30 cursor-pointer"
-        onClick={() => setOpen(o => !o)}
-      >
+      <div className="flex items-center gap-2 px-3 py-2 bg-red-950/30 cursor-pointer" onClick={() => setOpen(o => !o)}>
         <span className="text-red-400 text-sm">🪟</span>
         <span className="text-red-300 text-sm font-medium flex-1">Öffnungen & Abzüge</span>
         {openings.length > 0 && !open && (
@@ -449,14 +464,13 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
         )}
         <span className="text-red-400/60 text-xs">{open ? '▲' : '▼'}</span>
       </div>
-
       {open && (
         <div className="p-3 space-y-2 bg-red-950/10">
           {openings.length === 0 && (
             <p className="text-xs text-slate-500 italic text-center py-1">Noch keine Öffnungen</p>
           )}
           {openings.map((item, idx) => (
-            <ÖffnungRow key={item.id} item={item}
+            <ShapeRow key={item.id} item={item}
               onChange={newItem => updateOpening(idx, newItem)}
               onRemove={() => removeOpening(idx)}
             />
@@ -465,8 +479,6 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
             className="w-full py-1.5 border border-dashed border-red-900/50 hover:border-red-700 text-red-400/70 hover:text-red-300 text-sm rounded-lg transition-colors">
             + Öffnung hinzufügen
           </button>
-
-          {/* Berechnung summary */}
           {openings.length > 0 && (
             <div className="px-3 py-2 bg-slate-900/60 rounded border border-slate-700 text-xs space-y-1">
               <div className="flex justify-between text-slate-400">
@@ -485,7 +497,6 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
               </div>
             </div>
           )}
-
           <button onClick={() => setOpen(false)}
             className="w-full py-2 bg-red-800/30 hover:bg-red-700/40 text-red-200 text-sm font-medium rounded-lg transition-colors">
             ✓ Fertig
@@ -496,33 +507,100 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
   )
 }
 
+// ─── Formen section (additive shapes) ────────────────────────────────────────
+function FormenSection({ forms, onChange, baseM2 }) {
+  const [open, setOpen] = useState(false)
+  const totalAdd = forms.reduce((s, i) => s + (i.result || 0), 0)
+  const netto = baseM2 + totalAdd
+
+  const addForm = () => {
+    onChange([...forms, { id: newId(), description: '', shape: 'elli', unit: 'm²', dim_unit: 'm', length: '', width: '', count: '', result: 0, calculation: '', subtract: false, isForm: true }])
+    setOpen(true)
+  }
+  const updateForm = (idx, item) => { const updated = [...forms]; updated[idx] = item; onChange(updated) }
+  const removeForm = (idx) => onChange(forms.filter((_, i) => i !== idx))
+
+  return (
+    <div className="border border-teal-900/40 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-teal-950/30 cursor-pointer" onClick={() => setOpen(o => !o)}>
+        <span className="text-teal-400 text-sm">◖</span>
+        <span className="text-teal-300 text-sm font-medium flex-1">Formen & Ergänzungen</span>
+        {forms.length > 0 && !open && (
+          <div className="flex flex-col items-end">
+            <span className="text-teal-300 text-xs font-medium">+ {formatNum(totalAdd)} m²</span>
+            <span className="text-white text-xs font-semibold">= {formatNum(netto)} m²</span>
+          </div>
+        )}
+        <button onClick={e => { e.stopPropagation(); addForm() }}
+          className="text-teal-400 hover:text-teal-200 text-lg font-bold px-1 leading-none">+</button>
+        <span className="text-teal-400/60 text-xs">{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div className="p-3 space-y-2 bg-teal-950/10">
+          {forms.length === 0 && (
+            <p className="text-xs text-slate-500 italic text-center py-1">Noch keine Ergänzungen</p>
+          )}
+          {forms.map((item, idx) => (
+            <ShapeRow key={item.id} item={item}
+              onChange={newItem => updateForm(idx, newItem)}
+              onRemove={() => removeForm(idx)}
+            />
+          ))}
+          <button onClick={addForm}
+            className="w-full py-1.5 border border-dashed border-teal-900/50 hover:border-teal-700 text-teal-400/70 hover:text-teal-300 text-sm rounded-lg transition-colors">
+            + Form hinzufügen
+          </button>
+          {forms.length > 0 && (
+            <div className="px-3 py-2 bg-slate-900/60 rounded border border-slate-700 text-xs">
+              <div className="flex justify-between text-teal-300 font-semibold">
+                <span>Gesamt Ergänzungen</span>
+                <span>+ {formatNum(totalAdd)} m²</span>
+              </div>
+            </div>
+          )}
+          <button onClick={() => setOpen(false)}
+            className="w-full py-2 bg-teal-800/30 hover:bg-teal-700/40 text-teal-200 text-sm font-medium rounded-lg transition-colors">
+            ✓ Fertig
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Room section ─────────────────────────────────────────────────────────────
 function RoomSection({ room, onChange, onRemove }) {
-  const regularItems = room.items.filter(i => !i.subtract)
+  const regularItems = room.items.filter(i => !i.subtract && !i.isForm)
   const openings = room.items.filter(i => i.subtract)
+  const forms = room.items.filter(i => i.isForm && !i.subtract)
 
   const updateRegularItem = (idx, newItem) => {
     const updated = [...regularItems]; updated[idx] = newItem
-    onChange({ ...room, items: [...updated, ...openings] })
+    onChange({ ...room, items: [...updated, ...forms, ...openings] })
   }
   const removeRegularItem = (idx) => {
-    onChange({ ...room, items: [...regularItems.filter((_, i) => i !== idx), ...openings] })
+    onChange({ ...room, items: [...regularItems.filter((_, i) => i !== idx), ...forms, ...openings] })
   }
   const addItem = () => {
     const newItem = { id: newId(), description: '', unit: 'm²', dim_unit: 'm', length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: false }
-    onChange({ ...room, items: [...regularItems, newItem, ...openings] })
+    onChange({ ...room, items: [...regularItems, newItem, ...forms, ...openings] })
   }
   const updateOpenings = (newOpenings) => {
-    onChange({ ...room, items: [...regularItems, ...newOpenings] })
+    onChange({ ...room, items: [...regularItems, ...forms, ...newOpenings] })
+  }
+  const updateForms = (newForms) => {
+    onChange({ ...room, items: [...regularItems, ...newForms, ...openings] })
   }
 
-  // brutto m² for this room (sum of non-subtract area-type items)
-  const bruttoM2 = regularItems.reduce((s, i) => {
+  // baseM2 = only regular items (before forms)
+  const baseM2 = regularItems.reduce((s, i) => {
     const u = (i.unit === 'Wand' || i.unit === 'Bogen' || i.unit === 'Trap') ? 'm²' : i.unit
     return u === 'm²' ? s + (i.result || 0) : s
   }, 0)
+  // brutto m² = regular items + forms (passed to Öffnungen as gross area)
+  const bruttoM2 = baseM2 + forms.reduce((s, i) => s + (i.result || 0), 0)
 
-  // Only show Öffnungen section if room has area-type items or already has openings
+  // Only show Öffnungen section if room has area-type items or already has openings/forms
   const hasAreaItems = regularItems.some(i => ['m²', 'Wand', 'Bogen', 'Trap'].includes(i.unit))
 
   return (
@@ -555,7 +633,10 @@ function RoomSection({ room, onChange, onRemove }) {
         >
           + Position hinzufügen
         </button>
-        {(hasAreaItems || openings.length > 0) && (
+        {(hasAreaItems || forms.length > 0) && (
+          <FormenSection forms={forms} onChange={updateForms} baseM2={baseM2} />
+        )}
+        {(hasAreaItems || forms.length > 0 || openings.length > 0) && (
           <ÖffnungenSection
             openings={openings}
             onChange={updateOpenings}
