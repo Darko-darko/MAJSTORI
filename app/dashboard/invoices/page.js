@@ -34,6 +34,8 @@ function DashboardPageContent() {
 
   const [pendingInvoiceCreation, setPendingInvoiceCreation] = useState(false)
   const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
+  const [aufmassImportItems, setAufmassImportItems] = useState(null)
+  const [aufmassImportId, setAufmassImportId] = useState(null)
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
@@ -83,6 +85,23 @@ function DashboardPageContent() {
     if (tabFromUrl && ['quotes', 'invoices', 'settings'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
       console.log('Setting active tab from URL:', tabFromUrl)
+    }
+
+    if (fromInvoice === 'aufmass') {
+      const raw = sessionStorage.getItem('prm_aufmass_import')
+      if (raw) {
+        const { items, aufmass_id } = JSON.parse(raw)
+        sessionStorage.removeItem('prm_aufmass_import')
+        setAufmassImportItems(items || [])
+        setAufmassImportId(aufmass_id || null)
+        setCreateType('quote')
+        setIsEditMode(false)
+        setEditingItem(null)
+        setShowCreateModal(true)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('from')
+        window.history.replaceState({}, '', url.toString())
+      }
     }
 
     if (fromInvoice === 'invoice-creation') {
@@ -574,6 +593,7 @@ pdfTab.document.close()
     setShowCreateModal(false)
     setEditingItem(null)
     setIsEditMode(false)
+    setAufmassImportItems(null)
   }
 
   const handleEmailClick = (item) => {
@@ -738,6 +758,7 @@ pdfTab.document.close()
         notes: quote.notes || null,
         is_kleinunternehmer: isKleinunternehmer,
         converted_from_quote_id: quote.id,
+        aufmass_id: quote.aufmass_id || null,
         company_name: majstor?.business_name || majstor?.full_name || null,
         company_address: majstor?.address || null,
         tax_number: settingsData?.tax_number || null,
@@ -781,6 +802,34 @@ pdfTab.document.close()
       }
 
  console.log('✅ Invoice successfully created:', newInvoice)
+
+      // Kopiraj Aufmaß attachment sa Angebota na novu Rechnung (ako postoji)
+      if (quote.aufmass_id) {
+        const { data: quoteAtts } = await supabase
+          .from('invoice_attachments')
+          .select('*')
+          .eq('invoice_id', quote.id)
+          .ilike('filename', 'Aufmass_%')
+
+        if (quoteAtts?.length > 0) {
+          for (const att of quoteAtts) {
+            const newPath = att.storage_path.replace(`/${quote.id}/`, `/${newInvoice.id}/`)
+            const { error: copyErr } = await supabase.storage
+              .from('invoice-pdfs')
+              .copy(att.storage_path, newPath)
+            if (!copyErr) {
+              await supabase.from('invoice_attachments').insert({
+                invoice_id: newInvoice.id,
+                majstor_id: majstor.id,
+                storage_path: newPath,
+                filename: att.filename,
+                file_size: att.file_size,
+                mime_type: att.mime_type,
+              })
+            }
+          }
+        }
+      }
 
 const { error: quoteUpdateError } = await supabase
 
@@ -2377,6 +2426,8 @@ const HardResetModal = () => {
           onSuccess={handleCreateSuccess}
           editData={editingItem}
           isEditMode={isEditMode}
+          prefilledItems={aufmassImportItems}
+          aufmassId={aufmassImportId}
         />
       )}
 

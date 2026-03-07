@@ -5,15 +5,17 @@ import { supabase } from '@/lib/supabase'
 import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
 import RegieberichtForm from './RegieberichtForm'
 
-export default function InvoiceCreator({ 
-  isOpen, 
-  onClose, 
-  type = 'quote', 
+export default function InvoiceCreator({
+  isOpen,
+  onClose,
+  type = 'quote',
   majstor,
   onSuccess,
   editData = null,
   isEditMode = false,
-  prefilledCustomer = null
+  prefilledCustomer = null,
+  prefilledItems = null,
+  aufmassId = null
 }) {
   // Business data completion check
   const [businessDataComplete, setBusinessDataComplete] = useState(false)
@@ -95,6 +97,9 @@ export default function InvoiceCreator({
   const [pendingAttachments, setPendingAttachments] = useState([]) // {file, localId}
   const [savedAttachments, setSavedAttachments] = useState([])     // from DB
   const [showRegieForm, setShowRegieForm] = useState(false)
+  const [aufmassAttached, setAufmassAttached] = useState(false)
+  const [aufmassAttaching, setAufmassAttaching] = useState(false)
+  const [aufmassLocalId, setAufmassLocalId] = useState(null)
 
   // Check business data completeness on mount
   useEffect(() => {
@@ -105,8 +110,9 @@ export default function InvoiceCreator({
       }
       loadServices()
       initializeFormData()
+      setAufmassAttached(false)
     }
-  }, [isOpen, majstor?.id, type, editData, isEditMode, businessDataComplete])
+  }, [isOpen, majstor?.id, type, editData, isEditMode, businessDataComplete, prefilledItems])
 
   // Monitor majstor changes
   useEffect(() => {
@@ -481,9 +487,22 @@ export default function InvoiceCreator({
         setCustomerSearchTerm(prefilledCustomer.name || '')
       }
 
+      // Aufmaß import: prefilledItems → mapirati u InvoiceCreator format
+      const importedItems = prefilledItems?.length > 0
+        ? prefilledItems.map(i => ({
+            description: i.description || '',
+            quantity: i.quantity || 1,
+            unit: i.unit || '',
+            price: 0,
+            price_gross: 0,
+            total: 0,
+            price_source: 'netto',
+          }))
+        : null
+
       const initialFormData = {
         ...initialCustomerData,
-        items: [{ description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }],
+        items: importedItems || [{ description: '', quantity: 1, price: 0, price_gross: 0, total: 0, price_source: 'netto' }],
         subtotal: 0,
         tax_rate: defaultSettings.tax_rate,
         tax_amount: 0,
@@ -1106,7 +1125,8 @@ if (searchError) {
         payment_terms_days: formData.payment_terms_days,
         valid_until: type === 'quote' ? formData.valid_until : null,
         is_kleinunternehmer: formData.is_kleinunternehmer,
-        converted_from_quote_id: editData?.converted_from_quote_id || null
+        converted_from_quote_id: editData?.converted_from_quote_id || null,
+        aufmass_id: aufmassId || editData?.aufmass_id || null
       }
 
       let result
@@ -1193,7 +1213,12 @@ if (searchError) {
         .from('invoice_attachments')
         .select('*')
         .eq('invoice_id', editData.id)
-        .then(({ data }) => setSavedAttachments(data || []))
+        .then(({ data }) => {
+          setSavedAttachments(data || [])
+          if ((data || []).some(a => a.filename?.startsWith('Aufmass_'))) {
+            setAufmassAttached(true)
+          }
+        })
     } else {
       setSavedAttachments([])
       setPendingAttachments([])
@@ -1219,6 +1244,10 @@ if (searchError) {
 
   const removePendingAttachment = (localId) => {
     setPendingAttachments(prev => prev.filter(a => a.localId !== localId))
+    if (localId === aufmassLocalId) {
+      setAufmassAttached(false)
+      setAufmassLocalId(null)
+    }
   }
 
   const handlePreviewSavedAttachment = async (att) => {
@@ -1235,7 +1264,13 @@ if (searchError) {
   const handleDeleteSavedAttachment = async (att) => {
     await supabase.storage.from('invoice-pdfs').remove([att.storage_path])
     await supabase.from('invoice_attachments').delete().eq('id', att.id)
-    setSavedAttachments(prev => prev.filter(a => a.id !== att.id))
+    setSavedAttachments(prev => {
+      const next = prev.filter(a => a.id !== att.id)
+      if (att.filename?.startsWith('Aufmass_') && !next.some(a => a.filename?.startsWith('Aufmass_'))) {
+        setAufmassAttached(false)
+      }
+      return next
+    })
   }
 
   // Format currency
@@ -1924,6 +1959,40 @@ if (searchError) {
                       <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
                       📎 Anhang hinzufügen
                     </label>
+                  )}
+                  {(aufmassId || editData?.aufmass_id) && !aufmassAttached && (
+                    <button
+                      type="button"
+                      disabled={aufmassAttaching}
+                      onClick={async () => {
+                        const id = aufmassId || editData?.aufmass_id
+                        if (!id) return
+                        setAufmassAttaching(true)
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession()
+                          const res = await fetch(`/api/aufmasse?id=${id}`, {
+                            headers: { Authorization: `Bearer ${session?.access_token}` }
+                          })
+                          const json = await res.json()
+                          if (!json.aufmass) throw new Error('Nicht gefunden')
+                          const { generateAufmassPDFBlob } = await import('@/lib/pdf/AufmassPDF')
+                          const blob = await generateAufmassPDFBlob(json.aufmass, majstor)
+                          const filename = `Aufmass_${json.aufmass.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Aufmass'}.pdf`
+                          const file = new File([blob], filename, { type: 'application/pdf' })
+                          const localId = crypto.randomUUID()
+                          setPendingAttachments(prev => [...prev, { file, localId }])
+                          setAufmassLocalId(localId)
+                          setAufmassAttached(true)
+                        } catch (e) {
+                          console.error('Aufmaß attach error:', e)
+                        } finally {
+                          setAufmassAttaching(false)
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 cursor-pointer mt-1 py-2 border border-dashed border-blue-500/50 hover:border-blue-400 rounded-lg transition-colors w-full disabled:opacity-50"
+                    >
+                      {aufmassAttaching ? '⏳ Wird generiert...' : '📐 Aufmaß als Anhang hinzufügen'}
+                    </button>
                   )}
                 </div>
               </div>
