@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# ZUGFeRD validation binaries (download locally, don't commit)
+scripts/mustang-cli.jar
+scripts/_test_invoice.pdf
+
 # debug
 npm-debug.log*
 yarn-debug.log*
