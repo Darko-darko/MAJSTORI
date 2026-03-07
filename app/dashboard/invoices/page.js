@@ -90,11 +90,11 @@ function DashboardPageContent() {
     if (fromInvoice === 'aufmass') {
       const raw = sessionStorage.getItem('prm_aufmass_import')
       if (raw) {
-        const { items, aufmass_id } = JSON.parse(raw)
+        const { items, aufmass_id, docType } = JSON.parse(raw)
         sessionStorage.removeItem('prm_aufmass_import')
         setAufmassImportItems(items || [])
         setAufmassImportId(aufmass_id || null)
-        setCreateType('quote')
+        setCreateType(docType === 'invoice' ? 'invoice' : 'quote')
         setIsEditMode(false)
         setEditingItem(null)
         setShowCreateModal(true)
