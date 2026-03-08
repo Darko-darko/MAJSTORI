@@ -123,7 +123,7 @@
 - tim
 - planer
 - kada se registruje, a ne odabere plan... popravka ✅
-- Aufmaß
+
 - light tema ✅
 - problem ulaska u pro funkcije iz freemiuma kroz profilni bedž ✅
 - gugle log na light temi ✅
@@ -143,4 +143,8 @@
 - bag kad na mobilnom prvi put koristim voice kreator faktura!! ✅
 - zipovanje pdf i povezivanje sa knjigovođom... dugme export ✅
 - resend upozorenje ✅
-
+- swipe side bar (i za iphone)
+- Aufmaß
+- pdf za Wand ✅
+- Otvori i slike
+- provera zugfreda detaljna 
