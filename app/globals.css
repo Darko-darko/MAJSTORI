@@ -79,3 +79,13 @@ html.light-mode [class*="bg-indigo-"] {
 html.light-mode .google-btn {
   --color-white: #ffffff !important;
 }
+
+/* Grace period banner — zadrzati bijeli tekst i dugme na tamnom gradientu */
+html.light-mode .grace-banner {
+  --color-white: #ffffff !important;
+}
+
+/* Hint kartice — bijela pozadina u light modu umjesto providnog blue tinta */
+html.light-mode [class~="bg-blue-500/10"] {
+  background-color: #ffffff !important;
+}

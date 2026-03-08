@@ -78,36 +78,15 @@ export default function FirstVisitHint({ pageKey }) {
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: '12px',
-      backgroundColor: '#1e3a5f',
-      border: '1px solid #2563eb',
-      borderRadius: '12px',
-      padding: '14px 16px',
-      marginBottom: '20px',
-    }}>
-      <span style={{ fontSize: '22px', lineHeight: 1, flexShrink: 0, marginTop: '2px' }}>{hint.icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ color: '#93c5fd', fontWeight: 600, fontSize: '14px', marginBottom: '3px' }}>{hint.title}</p>
-        <p style={{ color: '#cbd5e1', fontSize: '13px', lineHeight: '1.5' }}>{hint.text}</p>
+    <div className="bg-blue-500/10 border border-blue-600/40 rounded-xl p-3.5 mb-5 flex items-start gap-3">
+      <span className="text-xl leading-none shrink-0 mt-0.5">{hint.icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-blue-300 font-semibold text-sm mb-0.5">{hint.title}</p>
+        <p className="text-slate-300 text-[13px] leading-relaxed">{hint.text}</p>
       </div>
       <button
         onClick={dismiss}
-        style={{
-          flexShrink: 0,
-          backgroundColor: '#2563eb',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '5px 12px',
-          fontSize: '12px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          marginTop: '1px',
-        }}
+        className="shrink-0 bg-blue-600 text-white rounded-lg px-3 py-1 text-xs font-medium cursor-pointer whitespace-nowrap mt-0.5 hover:bg-blue-700 transition-colors"
       >
         OK ✓
       </button>

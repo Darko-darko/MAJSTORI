@@ -425,6 +425,7 @@ export default function Home() {
                   <span className="text-slate-400">/für immer</span>
                 </div>
                 <p className="text-slate-300">Digitale Visitenkarte — kostenlos für immer</p>
+                <p className="text-blue-400 text-sm mt-2 font-medium">🎁 7 Tage alle PRO-Funktionen gratis</p>
               </div>
               <div className="space-y-3 mb-8">
                 {[
