@@ -941,12 +941,6 @@ const stats = {
                 💼 Rechnung erstellen
               </button>
 
-              <button
-                onClick={() => deleteInquiry(selectedInquiry.id)}
-                className="flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-600/30 px-6 py-3 rounded-lg hover:bg-red-600/30 transition-colors ml-auto"
-              >
-                🗑️ Löschen
-              </button>
             </div>
           </div>
         </div>
