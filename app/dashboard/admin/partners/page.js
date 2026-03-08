@@ -20,6 +20,10 @@ function getStatus(u) {
   return latest?.status ?? null
 }
 
+function getLatestSub(u) {
+  const subs = u.user_subscriptions || []
+  return [...subs].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null
+}
 
 export default function AdminPartnersPage() {
   const router = useRouter()
@@ -477,6 +481,9 @@ export default function AdminPartnersPage() {
                     <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
                       {detailReferred.map(u => {
                         const s = getStatus(u)
+                        const sub = getLatestSub(u)
+                        const isCancelled = sub?.cancel_at_period_end === true || s === 'cancelled'
+                        const periodEnd = sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : null
                         return (
                           <div key={u.id} className="flex items-center justify-between px-3 py-2 bg-slate-900/50 rounded-lg">
                             <div>
@@ -485,11 +492,12 @@ export default function AdminPartnersPage() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                isCancelled ? 'bg-red-500/20 text-red-400' :
                                 s === 'active' ? 'bg-green-500/20 text-green-400' :
                                 s === 'trial' ? 'bg-yellow-500/20 text-yellow-400' :
                                 'bg-slate-700 text-slate-400'
                               }`}>
-                                {s || 'Freemium'}
+                                {isCancelled ? `Gekündigt${periodEnd ? ` (${periodEnd})` : ''}` : (s || 'Freemium')}
                               </span>
                               <span className="text-slate-600 text-xs">
                                 {new Date(u.created_at).toLocaleDateString('de-DE')}

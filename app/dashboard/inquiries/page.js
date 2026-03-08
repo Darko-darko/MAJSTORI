@@ -393,6 +393,22 @@ const loadInquiries = async () => {
     }
   }
 
+  const deleteInquiry = async (inquiryId) => {
+    if (!window.confirm('Anfrage wirklich löschen?')) return
+    try {
+      const res = await fetch('/api/inquiries', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiry_id: inquiryId, majstor_id: currentUser.id }),
+      })
+      if (!res.ok) throw new Error('Fehler beim Löschen')
+      setInquiries(prev => prev.filter(i => i.id !== inquiryId))
+      if (selectedInquiry?.id === inquiryId) closeModal()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'new': return 'bg-red-500'
@@ -649,7 +665,7 @@ const stats = {
           <option value="responded">🔵 Beantwortet</option>
           <option value="closed">🟢 Abgeschlossen</option>
         </select>
-        
+
         <select
           value={inquiry.priority}
           onClick={(e) => e.stopPropagation()}
@@ -665,6 +681,13 @@ const stats = {
           <option value="urgent">🔥 Urgent</option>
         </select>
       </div>
+
+      <button
+        onClick={(e) => { e.stopPropagation(); deleteInquiry(inquiry.id) }}
+        className="mt-2 w-full px-3 py-2 bg-red-600/10 border border-red-600/20 text-red-400 rounded text-sm hover:bg-red-600/20 transition-colors"
+      >
+        🗑️ Löschen
+      </button>
     </div>
 
     {/* DESKTOP: Postojeći kod koji funkcioniše */}
@@ -720,7 +743,7 @@ const stats = {
           <option value="responded">🔵 Beantwortet</option>
           <option value="closed">🟢 Abgeschlossen</option>
         </select>
-        
+
         <select
           value={inquiry.priority}
           onClick={(e) => e.stopPropagation()}
@@ -735,6 +758,13 @@ const stats = {
           <option value="high">⚠️ Hoch</option>
           <option value="urgent">🔥 Urgent</option>
         </select>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); deleteInquiry(inquiry.id) }}
+          className="px-2 py-1 bg-red-600/10 border border-red-600/20 text-red-400 rounded text-xs hover:bg-red-600/20 transition-colors self-start"
+        >
+          🗑️ Löschen
+        </button>
       </div>
     </div>
   </div>
@@ -909,6 +939,13 @@ const stats = {
                 className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
               >
                 💼 Rechnung erstellen
+              </button>
+
+              <button
+                onClick={() => deleteInquiry(selectedInquiry.id)}
+                className="flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-600/30 px-6 py-3 rounded-lg hover:bg-red-600/30 transition-colors ml-auto"
+              >
+                🗑️ Löschen
               </button>
             </div>
           </div>
