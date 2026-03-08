@@ -38,7 +38,7 @@ export async function GET(request) {
     let query = admin
       .from('majstors')
       .select(`
-        id, email, full_name, business_name, city, created_at,
+        id, email, full_name, business_name, city, created_at, subscription_status,
         invoices(count),
         user_subscriptions (
           status, created_at, current_period_end, trial_ends_at, cancel_at_period_end,
@@ -67,7 +67,7 @@ export async function GET(request) {
         business_name:      m.business_name,
         city:               m.city,
         created_at:         m.created_at,
-        sub_status:            latest?.status ?? null,
+        sub_status:            latest?.status ?? m.subscription_status ?? null,
         sub_plan:              latest?.subscription_plans?.display_name ?? latest?.subscription_plans?.name ?? null,
         current_period_end:    latest?.current_period_end ?? null,
         trial_ends_at:         latest?.trial_ends_at ?? null,
