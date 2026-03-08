@@ -253,10 +253,16 @@ export default function SettingsPage() {
             </div>
           </div>
           
-          <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex flex-col gap-2">
             <p className="text-blue-300 text-sm">
               💡 Geschäftsdaten können in den Rechnungseinstellungen bearbeitet werden
             </p>
+            <a
+              href="/dashboard/settings/invoice"
+              className="self-start px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Zu den Einstellungen →
+            </a>
           </div>
         </div>
 

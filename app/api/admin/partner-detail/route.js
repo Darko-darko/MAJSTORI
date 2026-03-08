@@ -57,7 +57,23 @@ export async function GET(request) {
 
     const monthlyStats = computeMonthlyStats(referred || [], history, partner.commission_rate || 0)
 
-    return NextResponse.json({ partner, referred: referred || [], payouts: payouts || [], monthlyStats })
+    const { data: clicks } = await admin
+      .from('ref_clicks')
+      .select('source')
+      .eq('ref_code', partner.ref_code)
+
+    const totalClicks = clicks?.length || 0
+    const qrClicks = clicks?.filter(c => c.source === 'qr').length || 0
+    const conversions = (referred || []).length
+    const clickStats = {
+      total: totalClicks,
+      qr: qrClicks,
+      link: totalClicks - qrClicks,
+      conversions,
+      conversionRate: totalClicks ? Math.round(conversions / totalClicks * 100) : 0,
+    }
+
+    return NextResponse.json({ partner, referred: referred || [], payouts: payouts || [], monthlyStats, clickStats })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

@@ -341,17 +341,7 @@ function DashboardPageContent() {
       <FirstVisitHint pageKey="ubersicht" />
       <WelcomeMessage />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <ProtectedStatCard
-          href="/dashboard/inquiries"
-          icon="📩"
-          iconBg="bg-blue-600"
-          title="Kundenanfragen"
-          value={stats.totalInquiries}
-          subtitle={`${stats.newInquiries} neue`}
-          badgeCount={stats.newInquiries}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <ProtectedStatCard
           href="/dashboard/invoices?tab=invoices"
@@ -364,13 +354,13 @@ function DashboardPageContent() {
         />
 
         <ProtectedStatCard
-          href="/dashboard/customers"
-          icon="👥"
-          iconBg="bg-green-600"
-          title="Kunden"
-          value={stats.totalCustomers}
-          subtitle="Registriert"
-          badgeCount={0}
+          href="/dashboard/inquiries"
+          icon="📩"
+          iconBg="bg-blue-600"
+          title="Kundenanfragen"
+          value={stats.totalInquiries}
+          subtitle={`${stats.newInquiries} neue`}
+          badgeCount={stats.newInquiries}
         />
       </div>
 
@@ -379,6 +369,18 @@ function DashboardPageContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <ProtectedNavItem
+            feature="invoicing"
+            href="/dashboard/invoices?tab=invoices"
+            icon="📄"
+            title={stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
+            description={stats.totalInvoices === 0
+              ? 'Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden'
+              : 'Erstellen Sie eine neue Rechnung oder ein Angebot'
+            }
+            buttonText="Rechnung erstellen"
+          />
+
+          <ProtectedNavItem
             isAlwaysFree={true}
             href="/dashboard/business-card/create"
             icon="📱"
@@ -386,63 +388,59 @@ function DashboardPageContent() {
             description="Erstellen Sie Ihre digitale Visitenkarte mit QR-Code für Kunden"
             buttonText="Jetzt erstellen"
           />
-
-          <ProtectedNavItem
-            feature="invoicing"
-            href="/dashboard/invoices?tab=invoices"
-            icon="📄"
-            title={stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
-            description={stats.totalInvoices === 0 
-              ? 'Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden'
-              : 'Erstellen Sie eine neue Rechnung oder ein Angebot'
-            }
-            buttonText="Rechnung erstellen"
-          />
         </div>
       </div>
 
       <div>
         <h2 className="text-2xl font-bold text-white mb-6">Dashboard Navigation</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          
-          <SubscriptionGuard
-            feature="customer_management"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-              >
-                <div className="text-2xl mb-2 opacity-60">👥</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  Meine Kunden
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
-            <Link
-              href="/dashboard/customers"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-            >
-              <div className="text-2xl mb-2">👥</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Meine Kunden
-              </div>
+
+          {/* 1. Rechnungen */}
+          <SubscriptionGuard feature="invoicing" majstorId={majstor?.id} fallback={
+            <button onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
+              <div className="text-2xl mb-2 opacity-60">📄</div>
+              <div className="text-slate-400 font-medium text-sm">Rechnungen</div>
+              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
+            </button>
+          } showUpgradePrompt={false}>
+            <Link href="/dashboard/invoices?tab=invoices" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
+              <div className="text-2xl mb-2">📄</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Rechnungen</div>
             </Link>
           </SubscriptionGuard>
 
-          <Link
-            href="/dashboard/inquiries"
-            className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group"
-          >
+          {/* 2. Ausgaben */}
+          <SubscriptionGuard feature="invoicing" majstorId={majstor?.id} fallback={
+            <button onClick={() => handleProtectedFeatureClick('invoicing', 'Ausgaben')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
+              <div className="text-2xl mb-2 opacity-60">🧾</div>
+              <div className="text-slate-400 font-medium text-sm">Ausgaben</div>
+              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
+            </button>
+          } showUpgradePrompt={false}>
+            <Link href="/dashboard/ausgaben" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
+              <div className="text-2xl mb-2">🧾</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Ausgaben</div>
+            </Link>
+          </SubscriptionGuard>
+
+          {/* 3. Buchhalter */}
+          <SubscriptionGuard feature="pdf_archive" majstorId={majstor?.id} showUpgradePrompt={false}>
+            <Link href="/dashboard/pdf-archive" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
+              <div className="text-2xl mb-2">🗂️</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Buchhalter</div>
+            </Link>
+          </SubscriptionGuard>
+
+          {/* 4. QR Visitenkarte */}
+          <Link href="/dashboard/business-card/create" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
+            <div className="text-2xl mb-2">📱</div>
+            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">QR Visitenkarte</div>
+          </Link>
+
+          {/* 5. Kundenanfragen */}
+          <Link href="/dashboard/inquiries" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group">
             <div className="text-2xl mb-2">📩</div>
-            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-              Kundenanfragen
-            </div>
+            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Kundenanfragen</div>
             {stats.newInquiries > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                 {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
@@ -450,112 +448,48 @@ function DashboardPageContent() {
             )}
           </Link>
 
-          <SubscriptionGuard
-            feature="invoicing"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-              >
-                <div className="text-2xl mb-2 opacity-60">📄</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  Rechnungen
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
-            <Link
-              href="/dashboard/invoices?tab=invoices"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-            >
-              <div className="text-2xl mb-2">📄</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Rechnungen
-              </div>
+          {/* 6. Meine Kunden */}
+          <SubscriptionGuard feature="customer_management" majstorId={majstor?.id} fallback={
+            <button onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
+              <div className="text-2xl mb-2 opacity-60">👥</div>
+              <div className="text-slate-400 font-medium text-sm">Meine Kunden</div>
+              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
+            </button>
+          } showUpgradePrompt={false}>
+            <Link href="/dashboard/customers" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
+              <div className="text-2xl mb-2">👥</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Meine Kunden</div>
             </Link>
           </SubscriptionGuard>
 
-          <SubscriptionGuard
-            feature="services_management"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-              >
-                <div className="text-2xl mb-2 opacity-60">🔧</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  Meine Services
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
-            <Link
-              href="/dashboard/services"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-            >
+          {/* 7. Meine Services */}
+          <SubscriptionGuard feature="services_management" majstorId={majstor?.id} fallback={
+            <button onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
+              <div className="text-2xl mb-2 opacity-60">🔧</div>
+              <div className="text-slate-400 font-medium text-sm">Meine Services</div>
+              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
+            </button>
+          } showUpgradePrompt={false}>
+            <Link href="/dashboard/services" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
               <div className="text-2xl mb-2">🔧</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Meine Services
-              </div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Meine Services</div>
             </Link>
           </SubscriptionGuard>
 
-    
-            <SubscriptionGuard
-  feature="pdf_archive"
-  majstorId={majstor?.id}
-  showUpgradePrompt={false}
->
-  <Link
-    href="/dashboard/pdf-archive"
-    className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-  >
-    <div className="text-2xl mb-2">🗂️</div>
-    <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-      PDF Archiv
-    </div>
-  </Link>
-</SubscriptionGuard>
-         
-          <SubscriptionGuard
-            feature="settings"
-            majstorId={majstor?.id}
-            fallback={
-              <button
-                onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')}
-                className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative"
-              >
-                <div className="text-2xl mb-2 opacity-60">⚙️</div>
-                <div className="text-slate-400 font-medium text-sm group-hover:text-slate-300 transition-colors">
-                  Einstellungen
-                </div>
-                <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">
-                  🔒 Pro
-                </span>
-              </button>
-            }
-            showUpgradePrompt={false}
-          >
-            <Link
-              href="/dashboard/settings"
-              className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group"
-            >
+          {/* 8. Einstellungen */}
+          <SubscriptionGuard feature="settings" majstorId={majstor?.id} fallback={
+            <button onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
+              <div className="text-2xl mb-2 opacity-60">⚙️</div>
+              <div className="text-slate-400 font-medium text-sm">Einstellungen</div>
+              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
+            </button>
+          } showUpgradePrompt={false}>
+            <Link href="/dashboard/settings" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
               <div className="text-2xl mb-2">⚙️</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">
-                Einstellungen
-              </div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Einstellungen</div>
             </Link>
           </SubscriptionGuard>
+
         </div>
       </div>
 

@@ -20,6 +20,9 @@ export default function PDFArchivePage() {
   // Bulk selection state
   const [selectedPDFs, setSelectedPDFs] = useState(new Set())
   const [bulkEmailModal, setBulkEmailModal] = useState(false)
+  const [bulkZipModal, setBulkZipModal] = useState(false)
+  const [bulkZipLoading, setBulkZipLoading] = useState(false)
+  const [bulkZipResult, setBulkZipResult] = useState(null)
 
   // Tabs
   const [activeTab, setActiveTab] = useState('rechnungen')
@@ -271,6 +274,32 @@ const togglePDFSelection = (pdfId) => {
     setSelectedPDFs(new Set())
   }
 
+  const handleBulkZip = async () => {
+    setBulkZipModal(true)
+    setBulkZipResult(null)
+    setBulkZipLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const businessSlug = (majstor?.business_name || majstor?.full_name || 'Rechnungen').replace(/\s+/g, '_').substring(0, 30)
+      const res = await fetch('/api/invoices/bulk-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          invoiceIds: Array.from(selectedPDFs),
+          majstorId: majstor.id,
+          zipFilename: `Rechnungen_${businessSlug}.zip`
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'ZIP fehlgeschlagen')
+      setBulkZipResult(data)
+    } catch (err) {
+      setBulkZipResult({ error: err.message })
+    } finally {
+      setBulkZipLoading(false)
+    }
+  }
+
   // ✅ FIXED - Download PDF directly from Supabase Storage (like email does!)
   const downloadPDF = async (pdfId) => {
     try {
@@ -405,11 +434,6 @@ const openPDFInNewTab = async (pdfId) => {
     return `${Math.round(kb / 1024 * 10) / 10} MB`
   }
 
-  const getDocumentTypeColor = (type) => {
-    return type === 'quote' 
-      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-      : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-  }
 
   const getStatusColor = (status) => {
     const colors = {
@@ -463,9 +487,6 @@ const openPDFInNewTab = async (pdfId) => {
                 <h4 className="text-white font-semibold text-lg">
                   {invoice.invoice_number || invoice.quote_number}
                 </h4>
-                <span className={`px-3 py-1 rounded-full text-sm border ${getDocumentTypeColor(invoice.type)}`}>
-                  {isQuote ? 'Angebot' : 'Rechnung'}
-                </span>
               </div>
               <p className="text-slate-400">{invoice.customer_name}</p>
               <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
@@ -746,29 +767,45 @@ const openPDFInNewTab = async (pdfId) => {
     if (selectedPDFs.size === 0) return null
     
     return (
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
-        <div className="bg-slate-800 border border-slate-600 rounded-lg shadow-lg p-4">
-          <div className="flex items-center gap-4">
-            <div className="text-white">
-              <span className="font-semibold">{selectedPDFs.size}</span> PDF{selectedPDFs.size > 1 ? 's' : ''} ausgewählt
-            </div>
-            
-            <button 
+      <>
+      <div className="fixed bottom-0 left-0 right-0 h-12 bg-slate-800 border-t border-slate-600 sm:hidden z-39" />
+      <div className="fixed bottom-12 left-0 right-0 z-40 sm:bottom-6 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2">
+        <div className="bg-slate-800 border-t border-slate-600 sm:border sm:rounded-lg shadow-lg px-4 pt-3 pb-4 sm:p-4">
+          <p className="text-white text-sm font-semibold mb-3 sm:hidden">
+            <span>{selectedPDFs.size}</span> PDF{selectedPDFs.size > 1 ? 's' : ''} ausgewählt
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:block text-white text-sm font-semibold shrink-0">
+              {selectedPDFs.size} PDF{selectedPDFs.size > 1 ? 's' : ''} ausgewählt
+            </span>
+            <button
               onClick={() => setBulkEmailModal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center gap-2"
+              className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
             >
               ✉️ E-Mail senden
             </button>
-            
-            <button 
+            <button
+              onClick={handleBulkZip}
+              className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
+            >
+              📥 ZIP
+            </button>
+            <button
               onClick={clearSelection}
-              className="text-slate-400 hover:text-white text-sm px-3 py-2"
+              className="hidden sm:block text-slate-400 hover:text-white text-sm px-3 py-2 shrink-0"
             >
               ✕ Auswahl aufheben
             </button>
           </div>
+          <button
+            onClick={clearSelection}
+            className="sm:hidden w-full text-center text-slate-400 hover:text-white text-xs mt-2 py-1"
+          >
+            ✕ Auswahl aufheben
+          </button>
         </div>
       </div>
+      </>
     )
   }
 
@@ -1006,7 +1043,7 @@ const openPDFInNewTab = async (pdfId) => {
           <p className="text-sm mt-2">PDFs werden automatisch gespeichert wenn Sie Rechnungen oder Angebote erstellen</p>
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className={`grid gap-3 ${selectedPDFs.size > 0 ? 'pb-36 sm:pb-0' : ''}`}>
           {archivedPDFs.map((pdf) => (
             <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
               <div className="flex items-center gap-4">
@@ -1021,9 +1058,6 @@ const openPDFInNewTab = async (pdfId) => {
                   <h4 className="text-white font-semibold">
                     {pdf.invoice_number || pdf.quote_number}
                   </h4>
-                  <span className={`px-2 py-1 rounded text-xs ${getDocumentTypeColor(pdf.type)}`}>
-                    {pdf.type === 'quote' ? 'Angebot' : 'Rechnung'}
-                  </span>
                   {attachmentCounts[pdf.id] > 0 && (
                     <button
                       onClick={() => openAttachmentModal(pdf)}
@@ -1065,6 +1099,51 @@ const openPDFInNewTab = async (pdfId) => {
         periodLabel={getPeriodLabel()}
       />
       <BookkeeperSettingsModal />
+
+      {/* ZIP Download Modal */}
+      {bulkZipModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { if (!bulkZipLoading) { setBulkZipModal(false); setBulkZipResult(null) } }}>
+          <div className="bg-slate-800 rounded-xl w-full max-w-sm border border-slate-700" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-700">
+              <h3 className="text-white font-semibold">📥 ZIP herunterladen</h3>
+              {!bulkZipLoading && (
+                <button onClick={() => { setBulkZipModal(false); setBulkZipResult(null) }} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+              )}
+            </div>
+            <div className="p-4 space-y-3">
+              {bulkZipLoading && (
+                <div className="flex items-center gap-3 bg-slate-700/40 rounded-lg p-4">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-slate-300 text-sm">ZIP wird erstellt...</span>
+                </div>
+              )}
+              {bulkZipResult && !bulkZipLoading && (
+                bulkZipResult.error ? (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                    <span className="text-red-400 text-sm">❌ {bulkZipResult.error}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center gap-2">
+                      <span className="text-green-400">✅</span>
+                      <span className="text-green-300 text-sm">ZIP erstellt — {bulkZipResult.count} PDFs</span>
+                    </div>
+                    <button
+                      onClick={() => window.open(bulkZipResult.zipUrl, '_blank')}
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      📥 ZIP herunterladen
+                    </button>
+                    {bulkZipResult.skipped > 0 && (
+                      <p className="text-slate-500 text-xs text-center">{bulkZipResult.skipped} ohne PDF übersprungen</p>
+                    )}
+                  </>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Attachment Mini-Modal */}
       {attachmentModal && (

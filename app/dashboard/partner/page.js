@@ -18,6 +18,7 @@ export default function PartnerPage() {
   const [showAllMonths, setShowAllMonths] = useState(false)
   const [confirmingMonth, setConfirmingMonth] = useState(null)
   const [sessionToken, setSessionToken] = useState(null)
+  const [clickStats, setClickStats] = useState(null)
 
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
@@ -38,6 +39,7 @@ export default function PartnerPage() {
       setReferred(data.referred || [])
       setPayouts(data.payouts || [])
       setMonthlyStats(data.monthlyStats || [])
+      setClickStats(data.clickStats || null)
       setLoading(false)
     }
     load()
@@ -61,8 +63,8 @@ export default function PartnerPage() {
   useEffect(() => {
     if (!majstor?.ref_code) return
     const opts = { width: 220, margin: 1, color: { dark: '#1e293b', light: '#ffffff' } }
-    QRCode.toDataURL(`https://pro-meister.de/?ref=${majstor.ref_code}`, opts).then(setQrLanding)
-    QRCode.toDataURL(`https://pro-meister.de/signup?ref=${majstor.ref_code}`, opts).then(setQrSignup)
+    QRCode.toDataURL(`https://pro-meister.de/?ref=${majstor.ref_code}&source=qr`, opts).then(setQrLanding)
+    QRCode.toDataURL(`https://pro-meister.de/signup?ref=${majstor.ref_code}&source=qr`, opts).then(setQrSignup)
   }, [majstor])
 
   if (loading) return (
@@ -256,6 +258,31 @@ export default function PartnerPage() {
             </div>
           ))}
         </div>
+
+        {/* Click Stats */}
+        {clickStats && (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+            <h2 className="text-white font-semibold mb-4">📊 Link-Statistik</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-white">{clickStats.total}</div>
+                <div className="text-slate-400 text-xs mt-1">Klicks gesamt</div>
+              </div>
+              <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-blue-400">{clickStats.qr}</div>
+                <div className="text-slate-400 text-xs mt-1">QR-Scans</div>
+              </div>
+              <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-purple-400">{clickStats.conversions}</div>
+                <div className="text-slate-400 text-xs mt-1">Registrierungen</div>
+              </div>
+              <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-green-400">{clickStats.conversionRate}%</div>
+                <div className="text-slate-400 text-xs mt-1">Konversionsrate</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Finansijski pregled */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">

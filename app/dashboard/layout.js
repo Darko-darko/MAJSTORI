@@ -759,7 +759,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               <NavigationItem item={mitgliedschaftItem} />
             </div>
 
-            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto">
+            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
               {navigation.map((item) => (
                 <NavigationItem key={item.key || item.name} item={item} />
               ))}
@@ -835,7 +835,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               <NavigationItem item={mitgliedschaftItem} isMobile={true} />
             </div>
 
-            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto">
+            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
               {navigation.map((item) => (
                 <NavigationItem key={item.key || item.name} item={item} isMobile={true} />
               ))}

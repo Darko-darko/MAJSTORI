@@ -268,12 +268,8 @@ export default function AdminPartnersPage() {
                           </button>
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => copyLink(p.ref_code)}
-                            className="text-blue-400 hover:text-blue-300 text-xs font-mono"
-                            title="Link kopieren"
-                          >
-                            {p.ref_code} 📋
+                          <button onClick={() => fetchPartnerDetail(p)} className="text-blue-400 hover:text-blue-300 text-xs font-mono underline underline-offset-2">
+                            {p.ref_code}
                           </button>
                         </td>
                         <td className="px-4 py-3 text-center text-green-400 font-medium">{p.commission_rate}€</td>
@@ -282,6 +278,13 @@ export default function AdminPartnersPage() {
                         <td className="px-4 py-3 text-center text-green-400 font-bold">{p.active}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => copyLink(p.ref_code)}
+                              className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg"
+                              title="Ref-Link kopieren"
+                            >
+                              🔗
+                            </button>
                             <button
                               onClick={() => { setEditModal(p); setEditCommission(String(p.commission_rate)) }}
                               className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg"
@@ -393,6 +396,23 @@ export default function AdminPartnersPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Click stats */}
+                {detailData?.clickStats && (
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { label: 'Klicks', value: detailData.clickStats.total, color: 'text-slate-300' },
+                      { label: 'QR-Scans', value: detailData.clickStats.qr, color: 'text-blue-400' },
+                      { label: 'Konversionen', value: detailData.clickStats.conversions, color: 'text-purple-400' },
+                      { label: 'Konv.-Rate', value: `${detailData.clickStats.conversionRate}%`, color: 'text-teal-400' },
+                    ].map(c => (
+                      <div key={c.label} className="bg-slate-700/50 rounded-lg p-3 text-center">
+                        <div className={`text-xl font-bold ${c.color}`}>{c.value}</div>
+                        <div className="text-slate-400 text-xs mt-1">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Finanzübersicht */}
                 <div className="bg-slate-900/50 rounded-xl p-4">
