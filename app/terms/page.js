@@ -24,7 +24,7 @@ export default function Terms() {
               <p>Die Plattform stellt insbesondere folgende Funktionen bereit:</p>
               <ul className="list-disc ml-6 mt-2 space-y-1">
                 <li>Digitale Visitenkarten mit QR-Code</li>
-                <li>Angebots- und Rechnungserstellung (ZUGFeRD 2.1 konform)</li>
+                <li>Angebots- und Rechnungserstellung (ZUGFeRD 2.4 konform)</li>
                 <li>Kundenverwaltung</li>
                 <li>Terminplanung</li>
                 <li>Garantieverwaltung</li>

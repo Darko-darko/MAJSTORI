@@ -36,7 +36,7 @@ export default function Home() {
             </div>
             <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 sm:px-4 py-2">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-blue-300 text-xs sm:text-sm font-medium">ZUGFeRD 2.1 • DIN 5008 • DATEV-kompatibel</span>
+              <span className="text-blue-300 text-xs sm:text-sm font-medium">ZUGFeRD 2.4 • DIN 5008 • DATEV-kompatibel</span>
             </div>
           </div>
 
@@ -173,7 +173,7 @@ export default function Home() {
               </p>
               <ul className="text-slate-400 space-y-2">
                 <li>✓ <span className="text-orange-400 font-medium">Angebot → Rechnung (1-Klick)</span></li>
-                <li>✓ ZUGFeRD 2.1 — DATEV-kompatibel</li>
+                <li>✓ ZUGFeRD 2.4 — DATEV-kompatibel</li>
                 <li>✓ Automatische Nummerierung</li>
                 <li>✓ Sofort per E-Mail versenden</li>
               </ul>
@@ -496,7 +496,7 @@ export default function Home() {
                 <span className="text-2xl">🇩🇪</span>
               </div>
               <h3 className="text-white font-semibold mb-2">Deutsche Standards</h3>
-              <p className="text-slate-400 text-sm">ZUGFeRD 2.1, DIN 5008 — DATEV-kompatibel</p>
+              <p className="text-slate-400 text-sm">ZUGFeRD 2.4, DIN 5008 — DATEV-kompatibel</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -542,7 +542,7 @@ export default function Home() {
               },
               {
                 q: "Ist Pro-Meister wirklich DATEV-kompatibel?",
-                a: "Ja. Jede Rechnung wird im ZUGFeRD 2.1-Format erstellt — DATEV kann die eingebetteten Daten direkt importieren, ohne manuelle Eingabe. Ihr Buchhalter bekommt alles per Knopfdruck.",
+                a: "Ja. Jede Rechnung wird im ZUGFeRD 2.4-Format erstellt — DATEV kann die eingebetteten Daten direkt importieren, ohne manuelle Eingabe. Ihr Buchhalter bekommt alles per Knopfdruck.",
               },
               {
                 q: "Was kann der KI-Assistent?",

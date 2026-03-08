@@ -697,7 +697,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
   const mitgliedschaftItem = { name: 'Meine Mitgliedschaft', href: '/dashboard/subscription', icon: '💎', protected: false, badge: getSubscriptionBadge() }
 
   const bottomNavigation = [
-    { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️', protected: true, feature: 'settings' },
+    { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️', protected: false },
     { name: 'FAQ & Hilfe', href: '/dashboard/help', icon: '📚', protected: false },
   ]
 

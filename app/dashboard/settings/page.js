@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useTheme } from '@/lib/context/ThemeContext'
 import AvatarUpload from '@/app/components/AvatarUpload'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { useSubscription } from '@/lib/hooks/useSubscription'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function SettingsPage() {
@@ -16,6 +17,14 @@ export default function SettingsPage() {
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
   const { supported, subscribed, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications(majstor?.id)
+  const { isFreemium, isInGracePeriod } = useSubscription(majstor?.id)
+  const isLocked = isFreemium && !isInGracePeriod
+
+  // Account deletion state
+  const [deleteInput, setDeleteInput] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [pendingDeletion, setPendingDeletion] = useState(null) // deletion_scheduled_at date string
 
   useEffect(() => {
     loadMajstorData()
@@ -45,12 +54,43 @@ export default function SettingsPage() {
       }
 
       setMajstor(majstorData)
-      
+      if (majstorData.pending_deletion && majstorData.deletion_scheduled_at) {
+        setPendingDeletion(majstorData.deletion_scheduled_at)
+      }
+
     } catch (err) {
       console.error('Error loading majstor data:', err)
       setError('Fehler beim Laden der Daten')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const requestDeletion = async () => {
+    setDeleteLoading(true)
+    setDeleteError('')
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler')
+      setPendingDeletion(data.deletion_scheduled_at)
+      setDeleteInput('')
+    } catch (err) {
+      setDeleteError(err.message)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const cancelDeletion = async () => {
+    setDeleteLoading(true)
+    try {
+      await fetch('/api/account/delete', { method: 'DELETE' })
+      setPendingDeletion(null)
+    } catch (err) {
+      setDeleteError(err.message)
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -225,50 +265,74 @@ export default function SettingsPage() {
           <h3 className="text-lg font-semibold text-white mb-4">Schnellzugriff</h3>
           
           <div className="space-y-3">
-            <Link
-              href="/dashboard/invoices?tab=settings"
-              className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white text-sm">
-                  💰
-                </div>
-                <div>
-                  <h4 className="text-white font-medium">Rechnungseinstellungen</h4>
-                  <p className="text-slate-400 text-xs">Steuer, Bank, Logo, Zahlungsbedingungen</p>
+            {isLocked ? (
+              <div className="block p-3 bg-slate-700/30 rounded-lg opacity-50 cursor-not-allowed">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white text-sm">💰</div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">Rechnungseinstellungen</h4>
+                    <p className="text-slate-400 text-xs">Steuer, Bank, Logo, Zahlungsbedingungen</p>
+                  </div>
+                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">🔒 Pro</span>
                 </div>
               </div>
-            </Link>
+            ) : (
+              <Link href="/dashboard/invoices?tab=settings" className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white text-sm">💰</div>
+                  <div>
+                    <h4 className="text-white font-medium">Rechnungseinstellungen</h4>
+                    <p className="text-slate-400 text-xs">Steuer, Bank, Logo, Zahlungsbedingungen</p>
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {isLocked ? (
+              <div className="block p-3 bg-slate-700/30 rounded-lg opacity-50 cursor-not-allowed">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white text-sm">🔧</div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">Meine Services</h4>
+                    <p className="text-slate-400 text-xs">Dienstleistungen verwalten</p>
+                  </div>
+                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">🔒 Pro</span>
+                </div>
+              </div>
+            ) : (
+              <Link href="/dashboard/services" className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white text-sm">🔧</div>
+                  <div>
+                    <h4 className="text-white font-medium">Meine Services</h4>
+                    <p className="text-slate-400 text-xs">Dienstleistungen verwalten</p>
+                  </div>
+                </div>
+              </Link>
+            )}
             
-            <Link
-              href="/dashboard/services"
-              className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white text-sm">
-                  🔧
-                </div>
-                <div>
-                  <h4 className="text-white font-medium">Meine Services</h4>
-                  <p className="text-slate-400 text-xs">Dienstleistungen verwalten</p>
+            {isLocked ? (
+              <div className="block p-3 bg-slate-700/30 rounded-lg opacity-50 cursor-not-allowed">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm">👥</div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">Meine Kunden</h4>
+                    <p className="text-slate-400 text-xs">Kundendatenbank verwalten</p>
+                  </div>
+                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">🔒 Pro</span>
                 </div>
               </div>
-            </Link>
-            
-            <Link
-              href="/dashboard/customers"
-              className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm">
-                  👥
+            ) : (
+              <Link href="/dashboard/customers" className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm">👥</div>
+                  <div>
+                    <h4 className="text-white font-medium">Meine Kunden</h4>
+                    <p className="text-slate-400 text-xs">Kundendatenbank verwalten</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-white font-medium">Meine Kunden</h4>
-                  <p className="text-slate-400 text-xs">Kundendatenbank verwalten</p>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            )}
 
             <Link
               href="/dashboard/business-card/create"
@@ -288,6 +352,61 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Konto löschen */}
+      <div className="bg-slate-800/50 border border-red-900/40 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-red-400 mb-2">Konto löschen</h3>
+
+        {pendingDeletion ? (
+          <div className="space-y-3">
+            <p className="text-slate-300 text-sm">
+              Ihr Konto wird am <strong className="text-white">{new Date(pendingDeletion).toLocaleDateString('de-DE')}</strong> unwiderruflich gelöscht.
+              Sie können dies jederzeit rückgängig machen.
+            </p>
+            <button
+              onClick={cancelDeletion}
+              disabled={deleteLoading}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {deleteLoading ? 'Bitte warten...' : 'Löschung abbrechen'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Alle Ihre Daten (Rechnungen, Angebote, Kundendaten) werden dauerhaft gelöscht.
+              {majstor?.subscription_status === 'active'
+                ? ' Da Sie ein aktives Pro-Abonnement haben, wird Ihr Konto nach Ablauf des Abonnements gelöscht.'
+                : ' Das Konto wird nach 30 Tagen endgültig entfernt.'}
+            </p>
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">
+                Geben Sie <strong className="text-white">LÖSCHEN</strong> ein, um fortzufahren:
+              </label>
+              <input
+                type="text"
+                value={deleteInput}
+                onChange={e => { setDeleteInput(e.target.value); setDeleteError('') }}
+                placeholder="LÖSCHEN"
+                className="w-full sm:w-64 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-red-500 transition-colors"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-red-400 text-sm">{deleteError}</p>
+            )}
+
+            <button
+              onClick={requestDeletion}
+              disabled={deleteInput !== 'LÖSCHEN' || deleteLoading}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+            >
+              {deleteLoading ? 'Bitte warten...' : 'Konto löschen'}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* System Info Section */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-white mb-4">System & Sicherheit</h3>
@@ -301,16 +420,14 @@ export default function SettingsPage() {
             <p className="text-white">{majstor?.updated_at ? new Date(majstor.updated_at).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
           </div>
           <div>
-            <p className="text-slate-400">Kontostatus::</p>
-            <p className="text-green-400">Aktiv</p>
+            <p className="text-slate-400">Kontostatus:</p>
+            <p className="text-green-400">{pendingDeletion ? `Löschung geplant: ${new Date(pendingDeletion).toLocaleDateString('de-DE')}` : 'Aktiv'}</p>
           </div>
           <div>
             <p className="text-slate-400">Rechnungsnummerierung:</p>
             <p className="text-white">{majstor?.numbers_initialized ? 'Eingerichtet' : 'Nicht eingerichtet'}</p>
           </div>
         </div>
-        
-       
       </div>
     </div>
   )
