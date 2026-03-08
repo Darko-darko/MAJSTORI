@@ -186,6 +186,33 @@ export async function POST(request) {
   }
 }
 
+// DELETE - Remove inquiry
+export async function DELETE(request) {
+  try {
+    const { inquiry_id, majstor_id } = await request.json()
+
+    if (!inquiry_id || !majstor_id) {
+      return NextResponse.json({ error: 'Missing inquiry_id or majstor_id' }, { status: 400 })
+    }
+
+    const { error } = await supabaseAdmin
+      .from('inquiries')
+      .delete()
+      .eq('id', inquiry_id)
+      .eq('majstor_id', majstor_id) // only own inquiries
+
+    if (error) {
+      console.error('❌ Error deleting inquiry:', error)
+      return NextResponse.json({ error: 'Failed to delete inquiry' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('💥 API error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 // 🔥 PATCH - Update status/priority (unchanged)
 export async function PATCH(request) {
   try {
