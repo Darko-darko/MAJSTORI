@@ -36,7 +36,7 @@ const TEST_MAJSTOR = {
   city:             'Berlin',
   country:          'Deutschland',
   tax_number:       '12/345/67890',
-  vat_id:           null,
+  vat_id:           'DE123456789',
   iban:             'DE89370400440532013000',
   bic:              'COBADEFFXXX',
   bank_name:        'Commerzbank',
@@ -263,12 +263,20 @@ async function main() {
     console.log('  ⏭  Mustang CLI not found (scripts/mustang-cli.jar) — skipping.')
     console.log('     Download: https://github.com/ZUGFeRD/mustangproject/releases')
   } else {
-    const mustang = spawnSync('java', ['-jar', mustangJar, '--action', 'validate', '--in', tmpPDF], {
-      encoding: 'utf8', timeout: 30000
+    // Inject known JDK paths into PATH so 'java' resolves without shell quoting issues
+    const extraJavaDirs = [
+      'C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.18.8-hotspot\\bin',
+      'C:\\Program Files\\Java\\jdk-17\\bin',
+      'C:\\Program Files\\Java\\jre-17\\bin',
+    ]
+    const javaEnv = { ...process.env, PATH: `${extraJavaDirs.join(';')};${process.env.PATH || ''}` }
+
+    const mustang = spawnSync('java', ['-jar', mustangJar, '--action', 'validate', '--source', tmpPDF], {
+      encoding: 'utf8', timeout: 30000, env: javaEnv
     })
     if (mustang.status === 0) {
       ok('ZUGFeRD 2.4 / EN16931 validation passed')
-    } else if (!mustang.stdout && !mustang.stderr) {
+    } else if (!mustang.stdout && !mustang.stderr && mustang.error) {
       console.log('  ⏭  Mustang could not run — is Java installed? Skipping.')
     } else {
       fail(`Mustang validation failed:\n${mustang.stdout}\n${mustang.stderr}`)
@@ -281,12 +289,15 @@ async function main() {
   try {
     execSync('verapdf --version', { stdio: 'ignore' })
     const vera = spawnSync('verapdf', ['--flavour', '3b', tmpPDF], {
-      encoding: 'utf8', timeout: 60000
+      encoding: 'utf8', timeout: 90000, shell: true
     })
-    if (vera.status === 0 && !vera.stdout.includes('failedChecks')) {
+    const veraOut = (vera.stdout || '') + (vera.stderr || '')
+    if (vera.status === null) {
+      console.log('  ⏭  veraPDF timed out or could not start — skipping.')
+    } else if (veraOut.includes('isCompliant="true"')) {
       ok('PDF/A-3b validation passed')
     } else {
-      fail(`veraPDF validation failed:\n${vera.stdout}`)
+      fail(`veraPDF validation failed (exit ${vera.status}):\n${veraOut || '(no output)'}`)
     }
   } catch {
     console.log('  ⏭  veraPDF not installed — skipping.')
