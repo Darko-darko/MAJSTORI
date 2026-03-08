@@ -52,7 +52,23 @@ export async function GET(request) {
 
     const monthlyStats = computeMonthlyStats(referred || [], history, profile.commission_rate || 0)
 
-    return NextResponse.json({ profile, referred: referred || [], payouts: payouts || [], monthlyStats })
+    // Ref click stats
+    const { data: clicks } = await admin
+      .from('ref_clicks')
+      .select('source, clicked_at')
+      .eq('ref_code', profile.ref_code)
+
+    const clickStats = {
+      total: clicks?.length || 0,
+      qr: clicks?.filter(c => c.source === 'qr').length || 0,
+      link: clicks?.filter(c => c.source === 'link').length || 0,
+      conversions: (referred || []).length,
+      conversionRate: clicks?.length
+        ? Math.round((referred || []).length / clicks.length * 100)
+        : 0,
+    }
+
+    return NextResponse.json({ profile, referred: referred || [], payouts: payouts || [], monthlyStats, clickStats })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

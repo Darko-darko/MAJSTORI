@@ -48,6 +48,16 @@ export async function GET(request) {
         `)
         .eq('referred_by', p.ref_code)
 
+      const { data: clicks } = await admin
+        .from('ref_clicks')
+        .select('source')
+        .eq('ref_code', p.ref_code)
+
+      const totalClicks = clicks?.length || 0
+      const qrClicks = clicks?.filter(c => c.source === 'qr').length || 0
+      const conversions = (referred || []).length
+      const conversionRate = totalClicks ? Math.round(conversions / totalClicks * 100) : 0
+
       const stats = computeStats(referred || [])
       return {
         id: p.id,
@@ -55,6 +65,9 @@ export async function GET(request) {
         email: p.email,
         ref_code: p.ref_code,
         commission_rate: p.commission_rate || 0,
+        clicks: totalClicks,
+        qr_clicks: qrClicks,
+        conversion_rate: conversionRate,
         ...stats
       }
     }))
