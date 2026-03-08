@@ -872,20 +872,31 @@ export default function InvoiceCreator({
   const applyVoiceData = async (data) => {
     const { customer, items } = data
 
-    const newItems = (items || []).map(item => ({
-      description: item.description || '',
-      quantity: parseFloat(item.quantity) || 1,
-      price: item.price_source === 'brutto'
-        ? parseFloat((item.price / (1 + (formData.tax_rate || 19) / 100)).toFixed(2))
-        : parseFloat(item.price) || 0,
-      price_gross: item.price_source === 'brutto'
-        ? parseFloat(item.price) || 0
-        : parseFloat((item.price * (1 + (formData.tax_rate || 19) / 100)).toFixed(2)),
-      total: item.price_source === 'brutto'
-        ? parseFloat(((item.price / (1 + (formData.tax_rate || 19) / 100)) * (parseFloat(item.quantity) || 1)).toFixed(2))
-        : parseFloat((item.price * (parseFloat(item.quantity) || 1)).toFixed(2)),
-      price_source: item.price_source || 'brutto',
-    }))
+    // Kleinunternehmer haben keine MwSt — diktierte Preise sind immer Netto
+    const isKlein = majstor?.is_kleinunternehmer || false
+    const taxRate = formData.tax_rate || 19
+
+    const newItems = (items || []).map(item => {
+      const isBrutto = !isKlein && item.price_source === 'brutto'
+      const rawPrice = parseFloat(item.price) || 0
+      const qty = parseFloat(item.quantity) || 1
+      const netPrice = isBrutto
+        ? parseFloat((rawPrice / (1 + taxRate / 100)).toFixed(2))
+        : rawPrice
+      const grossPrice = isKlein
+        ? netPrice
+        : isBrutto
+          ? rawPrice
+          : parseFloat((rawPrice * (1 + taxRate / 100)).toFixed(2))
+      return {
+        description: item.description || '',
+        quantity: qty,
+        price: netPrice,
+        price_gross: grossPrice,
+        total: parseFloat((netPrice * qty).toFixed(2)),
+        price_source: isKlein ? 'netto' : (item.price_source || 'brutto'),
+      }
+    })
 
     const filledItems = newItems.length > 0 ? newItems : formData.items
 
