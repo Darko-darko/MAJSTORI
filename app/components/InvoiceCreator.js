@@ -1,5 +1,29 @@
 // app/components/InvoiceCreator.js - WEG ADDRESS SYSTEM IMPLEMENTATION
 'use client'
+
+// Client-side image compression before upload (same pattern as ausgaben page)
+function compressImage(file, maxWidth = 1920) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width)
+        width = maxWidth
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        blob => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+        'image/jpeg', 0.82
+      )
+    }
+    img.onerror = () => resolve(file) // fallback: use original
+    img.src = URL.createObjectURL(file)
+  })
+}
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
@@ -1231,14 +1255,20 @@ if (searchError) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files)
     const total = savedAttachments.length + pendingAttachments.length + files.length
     if (total > 20) { setError('Maximal 20 Anhänge erlaubt'); return }
-    const oversized = files.filter(f => f.size > 10 * 1024 * 1024)
-    if (oversized.length > 0) { setError(`Datei zu groß (max. 10 MB): ${oversized.map(f => f.name).join(', ')}`); return }
-    const newItems = files.map(f => ({ file: f, localId: crypto.randomUUID() }))
-    setPendingAttachments(prev => [...prev, ...newItems])
+    const oversized = files.filter(f => f.size > 30 * 1024 * 1024)
+    if (oversized.length > 0) { setError(`Datei zu groß (max. 30 MB): ${oversized.map(f => f.name).join(', ')}`); return }
+
+    // Compress images client-side before upload; leave non-image files as-is
+    const processed = await Promise.all(files.map(async f => {
+      const compressed = f.type.startsWith('image/') ? await compressImage(f) : f
+      return { file: compressed, localId: crypto.randomUUID() }
+    }))
+
+    setPendingAttachments(prev => [...prev, ...processed])
     e.target.value = ''
   }
 
