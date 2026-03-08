@@ -133,11 +133,24 @@ export default function PartnerPage() {
     }
   }
 
+  function getLatestSub(u) {
+    const subs = u.user_subscriptions || []
+    return [...subs].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null
+  }
+
   const statusBadge = (u) => {
     const s = getStatus(u)
+    const sub = getLatestSub(u)
+    const isCancelled = sub?.cancel_at_period_end === true || s === 'cancelled'
+    const periodEnd = sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : null
+
+    if (isCancelled) return (
+      <span className="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400">
+        Gekündigt{periodEnd ? ` (${periodEnd})` : ''}
+      </span>
+    )
     if (s === 'active') return <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">Aktiv</span>
     if (s === 'trial') return <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-500/20 text-yellow-400">Trial</span>
-    if (s === 'cancelled') return <span className="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400">Gekündigt</span>
     return <span className="px-2 py-0.5 rounded-full text-xs bg-slate-600 text-slate-400">Freemium</span>
   }
 

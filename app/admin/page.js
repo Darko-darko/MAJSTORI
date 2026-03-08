@@ -14,11 +14,16 @@ const STATUS_COLORS = {
   expired:   'bg-slate-500/20 text-slate-400 border border-slate-500/30',
 }
 
-function StatusBadge({ status }) {
-  const cls = STATUS_COLORS[status] || 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+function StatusBadge({ status, cancelAtPeriodEnd, periodEnd }) {
+  const isCancelled = cancelAtPeriodEnd || status === 'cancelled'
+  const effectiveStatus = isCancelled ? 'cancelled' : status
+  const cls = STATUS_COLORS[effectiveStatus] || 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+  const label = isCancelled
+    ? `Gekündigt${periodEnd ? ` (${new Date(periodEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })})` : ''}`
+    : (status ?? 'Freemium')
   return (
     <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${cls}`}>
-      {status ?? 'Freemium'}
+      {label}
     </span>
   )
 }
@@ -197,7 +202,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-white">{u.email}</td>
                     <td className="px-4 py-3 text-slate-300">{u.business_name || '—'}</td>
                     <td className="px-4 py-3 text-slate-300">{u.sub_plan || '—'}</td>
-                    <td className="px-4 py-3"><StatusBadge status={u.sub_status} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={u.sub_status} cancelAtPeriodEnd={u.cancel_at_period_end} periodEnd={u.current_period_end} /></td>
                     <td className="px-4 py-3 text-slate-300 text-center">{u.invoice_count ?? 0}</td>
                     <td className="px-4 py-3 text-slate-400">{formatDate(u.current_period_end)}</td>
                     <td className="px-4 py-3 text-slate-400">{formatDate(u.created_at)}</td>

@@ -1815,7 +1815,7 @@ if (searchError) {
               <div className="space-y-3">
                 {formData.items.map((item, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 bg-slate-900/50 rounded-lg relative">
-                    <div className="md:col-span-5 relative" ref={showServicesDropdown === index ? servicesDropdownRef : null}>
+                    <div className="md:col-span-4 relative" ref={showServicesDropdown === index ? servicesDropdownRef : null}>
                       <label className="block text-sm text-slate-400 mb-1">Beschreibung *</label>
                       <input
                         type="text"
@@ -1846,7 +1846,7 @@ if (searchError) {
                       )}
                     </div>
                     
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-3">
                       <label className="block text-sm text-slate-400 mb-1">Menge *</label>
                       <div className="flex gap-1">
                         <input
