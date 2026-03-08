@@ -203,6 +203,7 @@ export default function ChoosePlanPage() {
         .update({
           subscription_status: 'freemium',
           subscription_ends_at: null,
+          grace_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)

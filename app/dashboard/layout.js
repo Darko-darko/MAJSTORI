@@ -33,7 +33,7 @@ function DashboardLayoutContent({ children }) {
   const [upgradeMessage, setUpgradeMessage] = useState('')
   
   // Subscription hook for menu badges
-  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading } = useSubscription(majstor?.id)
+  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining } = useSubscription(majstor?.id)
 
   // Push notifikacije
   const { permission, subscribed, loading: pushLoading, supported: pushSupported, subscribe } = usePushNotifications(majstor?.id)
@@ -366,7 +366,12 @@ const getSubscriptionBadge = () => {
     return { text: '...', color: 'bg-gradient-to-r from-slate-500 to-slate-600' }
   }
 
-  // 3) nema subscription => upgrade
+  // 3) grace period => poseban badge
+  if (!subscription && isInGracePeriod) {
+    return { text: `${graceDaysRemaining}T gratis`, color: 'bg-gradient-to-r from-blue-500 to-violet-500' }
+  }
+
+  // 4) nema subscription => upgrade
   if (!subscription) {
     return { text: 'Upgrade', color: 'bg-gradient-to-r from-yellow-500 to-orange-500' }
   }
@@ -522,7 +527,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
   )
 
   // 🔒 PROTECTED FEATURES - sa badge dizajnom
-  if (item.protected && isFreemium) {
+  if (item.protected && isFreemium && !isInGracePeriod) {
     return (
       <button
         onClick={() => {
@@ -945,6 +950,17 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </div>
             </div>
           </header>
+
+          {isInGracePeriod && graceDaysRemaining > 0 && (
+            <div className="grace-banner bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-white text-sm">
+                🎁 Du hast noch <strong>{graceDaysRemaining} {graceDaysRemaining === 1 ? 'Tag' : 'Tage'}</strong> vollen PRO-Zugriff kostenlos — alle Funktionen freigeschaltet!
+              </span>
+              <Link href="/dashboard/subscription" className="bg-white text-blue-700 text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap hover:bg-blue-50 transition-colors">
+                Jetzt PRO werden →
+              </Link>
+            </div>
+          )}
 
           <main className="flex-1 overflow-y-auto bg-slate-900 p-4 lg:p-6 pb-28">
             {children}
