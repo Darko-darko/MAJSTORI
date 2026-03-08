@@ -3,6 +3,9 @@
 // Sends onboarding reminder emails to users who registered but never chose a plan.
 // Day 1: friendly nudge
 // Day 7: last reminder + option to delete account
+//
+// Also: freemium grace period expiry email
+// Sent once when freemium user's 7-day grace period expires (created_at 7+ days ago)
 
 const { createClient } = require('@supabase/supabase-js')
 const { Resend } = require('resend')
@@ -160,6 +163,79 @@ function signDeleteToken(userId) {
 }
 
 // ---------------------------------------------------------------------------
+// Grace period expiry email template (freemium users, 7 days after registration)
+// ---------------------------------------------------------------------------
+
+function emailGracePeriodExpired(firstName) {
+  const name = firstName || 'dort'
+  return {
+    subject: 'Wie war Ihre Pro-Testphase?',
+    html: `
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:'Segoe UI',Arial,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
+
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <img src="${BASE_URL}/logo.png" alt="Pro-Meister" width="140" style="height:auto;" />
+    </div>
+
+    <!-- Card -->
+    <div style="background:#1e293b;border-radius:16px;padding:36px;border:1px solid #334155;">
+      <h1 style="color:#f1f5f9;font-size:22px;font-weight:700;margin:0 0 12px;">
+        Hallo${name !== 'dort' ? ` ${name}` : ''},
+      </h1>
+      <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        Ihre <strong style="color:#f1f5f9;">7-tägige Pro-Testphase</strong> ist abgelaufen.
+        Wir hoffen, Sie konnten Pro-Meister in vollen Zügen ausprobieren!
+      </p>
+
+      <!-- What they had access to -->
+      <div style="background:#0f172a;border-radius:12px;padding:20px;margin-bottom:28px;">
+        <p style="color:#64748b;font-size:13px;font-weight:600;margin:0 0 12px;text-transform:uppercase;letter-spacing:0.05em;">Das hatten Sie im Pro-Plan:</p>
+        <div style="color:#94a3b8;font-size:14px;line-height:2;">
+          <div>📄 <span>Unbegrenzte Rechnungen & Angebote</span></div>
+          <div>🤖 <span>KI-Assistent & <strong style="color:#a78bfa;">Sprachdiktat</strong></span></div>
+          <div>📊 <span>DATEV-Export & ZUGFeRD 2.4</span></div>
+          <div>👥 <span>Kundenverwaltung & Mahnwesen</span></div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="${BASE_URL}/dashboard/subscription"
+           style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:10px;text-decoration:none;">
+          Jetzt Pro testen →
+        </a>
+        <p style="color:#475569;font-size:12px;margin:12px 0 0;">
+          19,90 € / Monat · 30 Tage kostenlos testen · jederzeit kündbar
+        </p>
+      </div>
+
+      <!-- Free plan note -->
+      <div style="border-top:1px solid #1e293b;padding-top:20px;text-align:center;">
+        <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0;">
+          Möchten Sie nur die <strong style="color:#94a3b8;">QR-Visitenkarte</strong> und
+          <strong style="color:#94a3b8;">Kundenanfragen</strong> nutzen?
+          Das bleibt für immer <strong style="color:#34d399;">kostenlos</strong> —
+          kein Upgrade nötig.
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p style="color:#475569;font-size:12px;text-align:center;margin-top:24px;">
+      Pro-Meister.de · <a href="${BASE_URL}/impressum" style="color:#475569;">Impressum</a>
+    </p>
+  </div>
+</body>
+</html>`,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -167,36 +243,91 @@ exports.handler = async () => {
   try {
     const now = new Date()
 
-    // Fetch all users who never chose a plan
+    // --- 1. Onboarding reminders: users who never chose a plan ---
     const { data: candidates, error } = await supabase
       .from('majstors')
       .select('id, email, full_name, created_at, onboarding_email_1d_sent_at, onboarding_email_7d_sent_at')
       .is('subscription_status', null)
-      .is('pending_deletion', null) // skip accounts already scheduled for deletion
       .eq('pending_deletion', false)
 
     if (error) {
-      console.error('❌ Supabase fetch error:', error)
-      return { statusCode: 500 }
+      console.error('❌ Supabase fetch error (onboarding):', error)
+    } else {
+      let sent1d = 0, sent7d = 0
+
+      for (const user of (candidates || [])) {
+        const created = new Date(user.created_at)
+        const hoursAgo = (now - created) / 1000 / 60 / 60
+
+        const firstName = (user.full_name || '').split(' ')[0] || ''
+
+        // Day 7 email (check first so we don't double-send on same day)
+        if (hoursAgo >= 167 && hoursAgo < 193 && !user.onboarding_email_7d_sent_at) {
+          const deleteToken = signDeleteToken(user.id)
+          const { subject, html } = emailDay7(firstName, deleteToken)
+          try {
+            await resend.emails.send({
+              from: 'Pro-Meister <noreply@pro-meister.de>',
+              to: user.email,
+              subject,
+              html,
+            })
+            await supabase
+              .from('majstors')
+              .update({ onboarding_email_7d_sent_at: now.toISOString() })
+              .eq('id', user.id)
+            sent7d++
+            console.log(`✅ Day-7 onboarding email sent to ${user.email}`)
+          } catch (err) {
+            console.error(`❌ Day-7 email failed for ${user.email}:`, err.message)
+          }
+          continue // don't also send day-1 if 7 days have passed
+        }
+
+        // Day 1 email
+        if (hoursAgo >= 23 && hoursAgo < 49 && !user.onboarding_email_1d_sent_at) {
+          const { subject, html } = emailDay1(firstName)
+          try {
+            await resend.emails.send({
+              from: 'Pro-Meister <noreply@pro-meister.de>',
+              to: user.email,
+              subject,
+              html,
+            })
+            await supabase
+              .from('majstors')
+              .update({ onboarding_email_1d_sent_at: now.toISOString() })
+              .eq('id', user.id)
+            sent1d++
+            console.log(`✅ Day-1 onboarding email sent to ${user.email}`)
+          } catch (err) {
+            console.error(`❌ Day-1 email failed for ${user.email}:`, err.message)
+          }
+        }
+      }
+
+      console.log(`📧 Onboarding reminders — day1: ${sent1d}, day7: ${sent7d}`)
     }
 
-    if (!candidates || candidates.length === 0) {
-      console.log('ℹ️ No candidates for onboarding reminder')
-      return { statusCode: 200 }
-    }
+    // --- 2. Grace period expiry: freemium users whose 7-day grace expired ---
+    const graceCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    let sent1d = 0, sent7d = 0
+    const { data: graceCandidates, error: graceError } = await supabase
+      .from('majstors')
+      .select('id, email, full_name, created_at, grace_period_email_sent_at')
+      .eq('subscription_status', 'freemium')
+      .is('grace_period_email_sent_at', null)
+      .eq('pending_deletion', false)
+      .lte('created_at', graceCutoff)
 
-    for (const user of candidates) {
-      const created = new Date(user.created_at)
-      const hoursAgo = (now - created) / 1000 / 60 / 60
+    if (graceError) {
+      console.error('❌ Supabase fetch error (grace period):', graceError)
+    } else {
+      let sentGrace = 0
 
-      const firstName = (user.full_name || '').split(' ')[0] || ''
-
-      // Day 7 email (check first so we don't double-send on same day)
-      if (hoursAgo >= 167 && hoursAgo < 193 && !user.onboarding_email_7d_sent_at) {
-        const deleteToken = signDeleteToken(user.id)
-        const { subject, html } = emailDay7(firstName, deleteToken)
+      for (const user of (graceCandidates || [])) {
+        const firstName = (user.full_name || '').split(' ')[0] || ''
+        const { subject, html } = emailGracePeriodExpired(firstName)
         try {
           await resend.emails.send({
             from: 'Pro-Meister <noreply@pro-meister.de>',
@@ -206,39 +337,18 @@ exports.handler = async () => {
           })
           await supabase
             .from('majstors')
-            .update({ onboarding_email_7d_sent_at: now.toISOString() })
+            .update({ grace_period_email_sent_at: now.toISOString() })
             .eq('id', user.id)
-          sent7d++
-          console.log(`✅ Day-7 email sent to ${user.email}`)
+          sentGrace++
+          console.log(`✅ Grace period expiry email sent to ${user.email}`)
         } catch (err) {
-          console.error(`❌ Day-7 email failed for ${user.email}:`, err.message)
+          console.error(`❌ Grace period email failed for ${user.email}:`, err.message)
         }
-        continue // don't also send day-1 if 7 days have passed
       }
 
-      // Day 1 email
-      if (hoursAgo >= 23 && hoursAgo < 49 && !user.onboarding_email_1d_sent_at) {
-        const { subject, html } = emailDay1(firstName)
-        try {
-          await resend.emails.send({
-            from: 'Pro-Meister <noreply@pro-meister.de>',
-            to: user.email,
-            subject,
-            html,
-          })
-          await supabase
-            .from('majstors')
-            .update({ onboarding_email_1d_sent_at: now.toISOString() })
-            .eq('id', user.id)
-          sent1d++
-          console.log(`✅ Day-1 email sent to ${user.email}`)
-        } catch (err) {
-          console.error(`❌ Day-1 email failed for ${user.email}:`, err.message)
-        }
-      }
+      console.log(`📧 Grace period emails sent: ${sentGrace}`)
     }
 
-    console.log(`📧 Onboarding reminder done — day1: ${sent1d}, day7: ${sent7d}`)
     return { statusCode: 200 }
 
   } catch (err) {
