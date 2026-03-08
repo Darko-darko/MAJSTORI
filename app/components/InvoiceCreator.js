@@ -845,9 +845,15 @@ export default function InvoiceCreator({
         const formDataObj = new FormData()
         formDataObj.append('audio', blob, `recording.${ext}`)
 
-        const res = await fetch('/api/voice-invoice', { method: 'POST', body: formDataObj })
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/voice-invoice', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          body: formDataObj,
+        })
         const data = await res.json()
 
+        if (res.status === 429) { setError(`Tageslimit erreicht (${data.used}/${data.limit} Sprachdiktate heute)`); return }
         if (data.error) { setError(data.detail || data.error); return }
 
         applyVoiceData(data)

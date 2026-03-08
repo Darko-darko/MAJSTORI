@@ -1,4 +1,7 @@
 import OpenAI from 'openai'
+import { createClient } from '@supabase/supabase-js'
+
+const DAILY_LIMIT = 30
 
 const PARSE_PROMPT = `Du bist ein Rechnungsparser für Handwerker. Das Diktat kann auf Deutsch, Serbisch, Bosnisch oder Kroatisch sein.
 Extrahiere aus dem Diktat folgende Informationen und gib NUR valides JSON zurück:
@@ -66,6 +69,36 @@ Serbisch/Bosnisch/Kroatisch Sprachmuster — wichtig für korrektes Parsing:
 
 export async function POST(req) {
   try {
+    // 1. Auth check
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+
+    const { data: { user } } = await admin.auth.getUser(token)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // 2. Rate limit check
+    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+
+    const { data: usage } = await admin
+      .from('voice_usage')
+      .select('count')
+      .eq('user_id', user.id)
+      .eq('date', today)
+      .single()
+
+    const currentCount = usage?.count ?? 0
+    if (currentCount >= DAILY_LIMIT) {
+      return Response.json(
+        { error: 'Tageslimit erreicht', limit: DAILY_LIMIT, used: currentCount },
+        { status: 429 }
+      )
+    }
+
     const formData = await req.formData()
     const audioFile = formData.get('audio')
 
@@ -75,7 +108,7 @@ export async function POST(req) {
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-    // 1. Whisper: Audio → Text (auto-detect language)
+    // 3. Whisper: Audio → Text (auto-detect language)
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
@@ -87,7 +120,7 @@ export async function POST(req) {
       return Response.json({ error: 'Keine Sprache erkannt' }, { status: 400 })
     }
 
-    // 2. GPT-4o-mini: Text → strukturiertes JSON
+    // 4. GPT-4o-mini: Text → strukturiertes JSON
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -101,10 +134,19 @@ export async function POST(req) {
 
     const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}')
 
+    // 5. Increment usage counter (upsert)
+    await admin
+      .from('voice_usage')
+      .upsert(
+        { user_id: user.id, date: today, count: currentCount + 1 },
+        { onConflict: 'user_id,date' }
+      )
+
     return Response.json({
       transcript,
       customer: parsed.customer || null,
       items: parsed.items || [],
+      usage: { used: currentCount + 1, limit: DAILY_LIMIT },
     })
   } catch (err) {
     console.error('Voice invoice error:', err)
