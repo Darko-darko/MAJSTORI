@@ -44,6 +44,7 @@ HAUPTFUNKTIONEN:
 - Profilbild (Avatar): Upload in Einstellungen → aus Galerie wählen oder Selfie aufnehmen. Wird automatisch auf max. 400×400px verkleinert.
 - Geschäftslogo: Einstellungen → erscheint auf allen Rechnungen, Angeboten und der Visitenkarte. PNG empfohlen (transparenter Hintergrund).
 - Light/Dark Mode: Einstellungen → Erscheinungsbild → Farbschema umschalten. Wird gespeichert.
+- Stornierung (Stornorechnung): Wenn eine Rechnung storniert werden muss → Rechnung öffnen → "Stornieren" → automatisch wird eine Stornorechnung (STOR-RE-YYYY-XXXX) mit negativen Beträgen erstellt, ZUGFeRD-konform (Typ 381, Credit Note). Original bekommt Badge "Storniert", Stornorechnung Badge "Storno". Stornorechnung kann per E-Mail an den Kunden gesendet werden. Mit "Storno rückgängig" kann die Stornierung rückgängig gemacht werden (löscht die Stornorechnung, stellt Original wieder her).
 - Mahnungen (Zahlungserinnerungen): Manuell aus der Rechnungsübersicht sendbar — überfällige Rechnung öffnen → Mahnung senden
 - Statistiken: Dashboard → Umsatzübersicht, offene Rechnungen, überfällige Rechnungen. Nur PRO.
 - KI-Sprachdiktat (PRO): Rechnung per Sprache diktieren — Mikrofon-Taste halten, sprechen, loslassen. KI füllt Kunde, Leistungen und Preise automatisch aus. Bekannte Kunden werden aus der Datenbank automatisch erkannt.
@@ -159,6 +160,7 @@ RECHNUNG PER E-MAIL AN KUNDEN SENDEN:
 
 RECHNUNG AN BUCHHALTER SENDEN:
 - Empfehlung: Einmal oder zweimal im Monat alle Rechnungen und Ausgaben gesammelt senden. Buchhalter → Tab wählen (Rechnungen oder Ausgaben) → Zeitraum wählen → alle auswählen → "An Buchhalter senden".
+- Buchhalter E-Mail speichern: Beim ersten Versand einfach die E-Mail-Adresse des Buchhalters eingeben — wird automatisch gespeichert und beim nächsten Mal vorausgefüllt. Adresse kann jederzeit geändert werden.
 - CC-Option: Beim Versand einer einzelnen Rechnung per E-Mail gibt es ein CC-Feld (vorausgefüllt mit Ihrer eigenen E-Mail). Sie können dort die E-Mail Ihres Buchhalters eintragen — dann bekommt er jede Rechnung sofort als Kopie. Buchhalter bevorzugen jedoch meistens den gesammelten Versand einmal pro Monat.
 
 NEUEN KUNDEN HINZUFÜGEN:

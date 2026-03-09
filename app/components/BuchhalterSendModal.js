@@ -52,6 +52,13 @@ export default function BuchhalterSendModal({
     }
   }
 
+  const saveBookkeeperEmail = async (email) => {
+    if (!email || !majstor?.id) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await supabase.from('majstors').update({ bookkeeper_email: email }).eq('id', majstor.id)
+  }
+
   const getEmailContent = () => {
     const businessName = majstor?.business_name || majstor?.full_name || ''
     const subject = `Rechnungen ${periodLabel} – ${businessName}`
@@ -96,11 +103,12 @@ export default function BuchhalterSendModal({
 
           {/* Buchhalter Email */}
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">E-Mail Buchhalter</label>
+            <label className="block text-sm text-slate-400 mb-1.5">E-Mail Buchhalter <span className="text-slate-500 text-xs">(wird gespeichert)</span></label>
             <input
               type="email"
               value={bookkeeperEmail}
               onChange={e => setBookkeeperEmail(e.target.value)}
+              onBlur={e => saveBookkeeperEmail(e.target.value)}
               placeholder="buchhalter@beispiel.de"
               className="w-full px-3 py-2 bg-slate-900/60 border border-slate-600 rounded-lg text-white text-sm"
             />
