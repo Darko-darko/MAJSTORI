@@ -162,8 +162,10 @@ export async function POST(request, routeData) {
     }
 
     // Prepare email data
+    const replyTo = majstor.business_email || majstor.email || null
     const emailData = {
       from: `${majstor.business_name || majstor.full_name} <rechnungen@pro-meister.de>`,
+      ...(replyTo && { replyTo }),
       to: [recipientEmail],
       subject: subject,
       html: generateEmailHTML(invoice, majstor, message),

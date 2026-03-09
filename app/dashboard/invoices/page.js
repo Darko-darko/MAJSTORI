@@ -2274,6 +2274,14 @@ const HardResetModal = () => {
                   rows={2}
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                 />
+                <div className="flex justify-between items-center mt-1">
+                  <span className={`text-xs ${(localSettings.invoice_footer?.length || 0) > 400 ? 'text-red-400' : (localSettings.invoice_footer?.length || 0) > 300 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                    {localSettings.invoice_footer?.length || 0} / 500
+                  </span>
+                </div>
+                {(localSettings.invoice_footer?.length || 0) > 500 && (
+                  <p className="text-xs text-red-400 mt-1">⚠️ Text zu lang — wird im PDF möglicherweise abgeschnitten. Bitte kürzen Sie den Text auf max. 500 Zeichen.</p>
+                )}
               </div>
             </div>
           </div>
