@@ -1098,13 +1098,6 @@ export default function CreateBusinessCardPage() {
                 </button>
               </>
             )}
-            <button
-              onClick={downloadQRCode}
-              disabled={!qrCodeUrl}
-              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              📱 QR Code
-            </button>
             {canShare && (
               <button
                 onClick={handleShareVia}
@@ -1113,6 +1106,13 @@ export default function CreateBusinessCardPage() {
                 🔗 Teilen via...
               </button>
             )}
+            <button
+              onClick={downloadQRCode}
+              disabled={!qrCodeUrl}
+              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              📱 QR Code
+            </button>
           </div>
         </div>
       </div>

@@ -898,7 +898,14 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     title="Push-Benachrichtigungen aktivieren"
                     className="relative p-2 text-slate-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
                   >
-                    <span className="text-xl">{pushLoading ? '⏳' : '🔕'}</span>
+                    {pushLoading ? (
+                      <span className="text-xl">⏳</span>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
+                        <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/>
+                      </svg>
+                    )}
                   </button>
                 ) : (
                   <button
@@ -906,7 +913,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     onClick={loadBadgeCounts}
                     title="Refresh notifications"
                   >
-                    <span className="text-xl">🔔</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
+                      </svg>
                     {(badges.inquiries + badges.invoices) > 0 && (
                       <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                     )}

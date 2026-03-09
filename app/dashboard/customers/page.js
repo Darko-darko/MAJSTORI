@@ -588,6 +588,7 @@ const handleToggleFavorite = async (customer) => {
         <FirstVisitHint pageKey="kunden" />
         {/* Header */}
         <div className="flex flex-col gap-4">
+          <a href="/dashboard" className="text-slate-400 hover:text-white text-sm inline-block">← Zurück zum Dashboard</a>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">Meine Kunden</h1>

@@ -2301,7 +2301,7 @@ const HardResetModal = () => {
             </div>
           )}
 
-          <button 
+          <button
             type="submit"
             disabled={settingsLoading || !hasChanges}
             className={`px-6 py-3 rounded-lg font-semibold transition-colors ${

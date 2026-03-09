@@ -517,7 +517,7 @@ export default function AdminPartnersPage() {
                                 s === 'trial' ? 'bg-yellow-500/20 text-yellow-400' :
                                 'bg-slate-700 text-slate-400'
                               }`}>
-                                {isCancelled ? `Gekündigt${periodEnd ? ` (${periodEnd})` : ''}` : (s || 'Freemium')}
+                                {isCancelled ? (periodEnd || 'Gekündigt') : (s || 'Freemium')}
                               </span>
                               <span className="text-slate-600 text-xs">
                                 {new Date(u.created_at).toLocaleDateString('de-DE')}
