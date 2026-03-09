@@ -118,12 +118,13 @@ export default function EmailInvoiceModal({
   }
 
   console.log('Email sent successfully:', result)
-  
+
   setLoading(false)
-  
+
   alert(`E-Mail erfolgreich gesendet!\n\nEmpfänger: ${formData.recipientEmail}\nBetreff: ${formData.subject}`)
-  
-  onClose()
+
+  if (onSuccess) onSuccess(result)
+  else onClose()
 
 } catch (err) {
   console.error('Email sending error:', err)

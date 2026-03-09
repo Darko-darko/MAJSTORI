@@ -200,6 +200,9 @@ export async function POST(request, routeData) {
       email_sent_to: recipientEmail,
       updated_at: new Date().toISOString()
     }
+    if (!isReminder && invoice.status === 'draft') {
+      updateData.status = 'sent'
+    }
     if (isReminder) {
       updateData.mahnung_sent_at = new Date().toISOString()
     }
