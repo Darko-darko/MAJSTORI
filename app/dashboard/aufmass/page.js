@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { generateAufmassPDF } from '@/lib/pdf/AufmassPDF'
 
-const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lm', 'm³', 'Stk']
+const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
+const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
 
 const SK = '#94a3b8'
 const SF = '#1e293b'
@@ -79,7 +80,7 @@ const UnitSketch = ({ unit, isTriangle }) => {
       </svg>
     )
   }
-  if (unit === 'lm') return (
+  if (unit === 'lfm') return (
     <svg width="56" height="24" viewBox="0 0 56 24" overflow="visible">
       <line x1={4} y1={10} x2={50} y2={10} stroke={SK} strokeWidth={1.8}/>
       <Hdim x1={4} x2={50} y={15} label="L"/>
@@ -115,7 +116,7 @@ const UNIT_HINTS = {
     if (b === 0) return { text: 'Dreieck (b = 0): a × h / 2', isTriangle: true }
     return { text: 'Trapez: (a + b) / 2 × h ; b = 0 ergibt Dreieck' }
   },
-  'lm':   { text: 'Längenmaß: nur L' },
+  'lfm':   { text: 'Längenmaß: nur L' },
   'm³':   { text: 'Volumen: L × B × H' },
   'Stk':  { text: 'Stückzahl: direkte Anzahl' },
 }
@@ -148,7 +149,7 @@ function calcItem(item) {
       result = (l + b) / 2 * h * c
       calculation = c > 1 ? `(${item.length}+${item.width})${u}/2 × ${item.height}${u} × ${c}` : `(${item.length}+${item.width})${u}/2 × ${item.height}${u}`
       break
-    case 'lm':
+    case 'lfm':
       result = l * c
       calculation = c > 1 ? `${item.length}${u} × ${c}` : `${item.length}${u}`
       break
@@ -171,7 +172,7 @@ function calcItem(item) {
 }
 
 function computeTotals(rooms) {
-  const t = { 'm²': 0, 'lm': 0, 'm³': 0, 'Stk': 0 }
+  const t = { 'm²': 0, 'lfm': 0, 'm³': 0, 'Stk': 0 }
   for (const r of rooms) {
     for (const i of r.items || []) {
       if (i.result == null) continue
@@ -257,7 +258,7 @@ function ItemRow({ item, onChange, onRemove }) {
             ))}
           </div>
         )}
-        {(item.unit === 'm²' || item.unit === 'lm' || item.unit === 'm³' || item.unit === 'Wand' || item.unit === 'Trap' || item.unit === 'Bogen') && (
+        {(item.unit === 'm²' || item.unit === 'lfm' || item.unit === 'm³' || item.unit === 'Wand' || item.unit === 'Trap' || item.unit === 'Bogen') && (
           <div className="flex items-center gap-1">
             <span className="text-slate-500 text-xs">{item.unit === 'Trap' ? 'a' : 'L'}</span>
             <input
@@ -568,6 +569,94 @@ function FormenSection({ forms, onChange, baseM2 }) {
   )
 }
 
+// ─── Material row ─────────────────────────────────────────────────────────────
+function MaterialRow({ item, onChange, onRemove }) {
+  return (
+    <div className="flex gap-2 items-center py-1.5 border-b border-slate-700/50 last:border-0">
+      <input
+        value={item.description}
+        onChange={e => onChange({ ...item, description: e.target.value })}
+        placeholder="Bezeichnung"
+        className="flex-1 bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 min-w-0"
+      />
+      <input
+        type="number"
+        value={item.quantity}
+        onChange={e => onChange({ ...item, quantity: e.target.value })}
+        placeholder="Menge"
+        className="w-20 bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600 text-right"
+      />
+      <select
+        value={item.unit}
+        onChange={e => onChange({ ...item, unit: e.target.value })}
+        className="bg-slate-700 text-white text-sm rounded px-2 py-1 border border-slate-600"
+      >
+        {MATERIAL_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+      </select>
+      <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
+    </div>
+  )
+}
+
+// ─── Materialien section ───────────────────────────────────────────────────────
+function MaterialienSection({ materials, onChange }) {
+  const [open, setOpen] = useState(false)
+
+  const addMaterial = () => {
+    onChange([...materials, { id: newId(), description: '', quantity: '', unit: 'Stk' }])
+    setOpen(true)
+  }
+  const updateMaterial = (idx, item) => {
+    const updated = [...materials]; updated[idx] = item; onChange(updated)
+  }
+  const removeMaterial = (idx) => onChange(materials.filter((_, i) => i !== idx))
+
+  return (
+    <div className="border border-amber-800/40 rounded-lg overflow-hidden">
+      <div
+        className="flex items-center justify-between px-3 py-2 bg-amber-900/20 cursor-pointer"
+        onClick={() => materials.length > 0 ? setOpen(o => !o) : addMaterial()}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-amber-400 text-sm font-semibold">📦 Materialien</span>
+          {materials.length > 0 && (
+            <span className="text-amber-300/70 text-xs">({materials.length})</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!open && materials.length === 0 && (
+            <span className="text-amber-400/60 text-xs">+ hinzufügen</span>
+          )}
+          {materials.length > 0 && (
+            <span className="text-amber-400/70 text-xs">{open ? '▲' : '▼'}</span>
+          )}
+        </div>
+      </div>
+      {open && (
+        <div className="p-3 bg-slate-800/40 space-y-2">
+          <div className="flex gap-2 text-xs text-slate-400 px-1 pb-1">
+            <span className="flex-1">Bezeichnung</span>
+            <span className="w-20 text-right">Menge</span>
+            <span className="w-16 text-center">Einheit</span>
+            <span className="w-6"></span>
+          </div>
+          {materials.map((m, idx) => (
+            <MaterialRow key={m.id} item={m} onChange={item => updateMaterial(idx, item)} onRemove={() => removeMaterial(idx)} />
+          ))}
+          <button onClick={addMaterial}
+            className="w-full py-1.5 border border-dashed border-amber-900/50 hover:border-amber-700 text-amber-400/70 hover:text-amber-300 text-sm rounded-lg transition-colors">
+            + Material hinzufügen
+          </button>
+          <button onClick={() => setOpen(false)}
+            className="w-full py-2 bg-amber-800/30 hover:bg-amber-700/40 text-amber-200 text-sm font-medium rounded-lg transition-colors">
+            ✓ Fertig
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Room section ─────────────────────────────────────────────────────────────
 function RoomSection({ room, onChange, onRemove }) {
   const regularItems = room.items.filter(i => !i.subtract && !i.isForm)
@@ -790,6 +879,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     date: aufmass?.date || new Date().toISOString().split('T')[0],
     rooms: aufmass?.rooms || [],
     notes: aufmass?.notes || '',
+    materials: aufmass?.materials || [],
   })
   const [signature, setSignature] = useState(null)
   const [showSig, setShowSig] = useState(false)
@@ -866,6 +956,16 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           total_price: 0,
         })
       }
+    }
+    for (const mat of (form.materials || [])) {
+      if (!mat.description) continue
+      flatItems.push({
+        description: mat.description,
+        quantity: parseFloat(mat.quantity) || 1,
+        unit: mat.unit || 'Stk',
+        unit_price: 0,
+        total_price: 0,
+      })
     }
     sessionStorage.setItem('prm_aufmass_import', JSON.stringify({
       title: form.title,
@@ -977,6 +1077,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
+
+            {/* Materialien */}
+            <MaterialienSection
+              materials={form.materials}
+              onChange={m => setForm(f => ({ ...f, materials: m }))}
+            />
 
             {/* Potpis */}
             <div>
