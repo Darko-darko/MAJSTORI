@@ -44,6 +44,49 @@ const TEST_MAJSTOR = {
   vat_rate:         19,
 }
 
+const TEST_STORNO = {
+  id:               'test-storno-id',
+  type:             'storno',
+  invoice_number:   'STOR-RE-2026-TEST-001',
+  storno_of:        'test-invoice-id',
+  stornoOfNumber:   'RE-2026-TEST-001',
+  issue_date:       '2026-03-09',
+  due_date:         '2026-03-09',
+  payment_terms_days: 0,
+  customer_name:    'Max Mustermann GmbH',
+  customer_street:  'Kundenweg 5',
+  customer_postal_code: '10115',
+  customer_city:    'Berlin',
+  customer_country: 'Deutschland',
+  customer_email:   'kunde@example.de',
+  customer_phone:   '+49 30 123456',
+  notes:            'Stornierung von Rechnung RE-2026-TEST-001',
+  subtotal:         -1000.00,
+  tax_amount:       -190.00,
+  total_amount:     -1190.00,
+  tax_rate:         19,
+  majstor_id:       'test-majstor-id',
+  created_at:       '2026-03-09T12:00:00Z',
+  updated_at:       '2026-03-09T12:00:00Z',
+  is_kleinunternehmer: false,
+  items: JSON.stringify([
+    {
+      description: 'Fliesenlegen Badezimmer',
+      quantity:    10,
+      unit:        'm²',
+      unit_price:  60.00,
+      total_price: 600.00,
+    },
+    {
+      description: 'Material und Zubehör',
+      quantity:    1,
+      unit:        'pausch',
+      unit_price:  400.00,
+      total_price: 400.00,
+    },
+  ]),
+}
+
 const TEST_INVOICE = {
   id:               'test-invoice-id',
   type:             'invoice',
@@ -303,6 +346,103 @@ async function main() {
     console.log('  ⏭  veraPDF not installed — skipping.')
     console.log('     Download: https://verapdf.org/releases/')
   }
+
+  // ── 9. Storno (type 381) — PDF generation ─────────────────────────────────
+  section('9. Generate storno invoice (type 381)')
+
+  let stornoPdfBuffer
+  try {
+    stornoPdfBuffer = await svc.generateInvoice(TEST_STORNO, TEST_MAJSTOR)
+    ok(`Storno PDF generated (${stornoPdfBuffer.length} bytes)`)
+  } catch (err) {
+    fail(`Storno PDF generation failed: ${err.message}`)
+  }
+
+  const tmpStornoPDF = join(ROOT, 'scripts', '_test_storno.pdf')
+  if (stornoPdfBuffer) writeFileSync(tmpStornoPDF, stornoPdfBuffer)
+
+  // ── 10. Storno XML — TypeCode 381 + BT-25 ─────────────────────────────────
+  section('10. Storno XML — TypeCode 381 + BT-25 reference')
+
+  const normalizedStorno = normalizeInvoice(TEST_STORNO, TEST_MAJSTOR)
+  let stornoXmlStr
+  try {
+    stornoXmlStr = ZUGFeRDService.generateZUGFeRDXML(normalizedStorno, TEST_MAJSTOR)
+    ok(`Storno factur-x.xml generated (${stornoXmlStr.length} chars)`)
+  } catch (err) {
+    fail(`Storno XML generation failed: ${err.message}`)
+    stornoXmlStr = null
+  }
+
+  if (stornoXmlStr) {
+    let stornoXmlParsed
+    try {
+      stornoXmlParsed = await parseXML(stornoXmlStr, { explicitArray: true, ignoreAttrs: false })
+    } catch (err) {
+      fail(`Storno XML parse error: ${err.message}`)
+    }
+
+    if (stornoXmlParsed) {
+      const stornoCii = stornoXmlParsed['rsm:CrossIndustryInvoice']
+      const stornoExchDoc = stornoCii?.['rsm:ExchangedDocument']?.[0]
+
+      // TypeCode = 381
+      const typeCode = xmlGet(stornoExchDoc, 'ram:TypeCode')
+      if (typeCode === '381') {
+        ok(`TypeCode = 381 (Credit Note) ✓`)
+      } else {
+        fail(`TypeCode wrong: got "${typeCode}", expected "381"`)
+      }
+
+      // BT-25: InvoiceReferencedDocument
+      const stornoSettlement = stornoCii?.['rsm:SupplyChainTradeTransaction']?.[0]
+        ?.['ram:ApplicableHeaderTradeSettlement']?.[0]
+      const refDoc = stornoSettlement?.['ram:InvoiceReferencedDocument']?.[0]
+      const refId = xmlGet(refDoc, 'ram:IssuerAssignedID')
+      if (refId === TEST_STORNO.stornoOfNumber) {
+        ok(`BT-25 InvoiceReferencedDocument = ${refId} ✓`)
+      } else {
+        fail(`BT-25 missing or wrong: got "${refId}", expected "${TEST_STORNO.stornoOfNumber}"`)
+      }
+
+      // Amounts positive in XML (Math.abs applied)
+      const stornoMonetary = stornoSettlement?.['ram:SpecifiedTradeSettlementHeaderMonetarySummation']?.[0]
+      const xmlStornoTotal = parseFloat(xmlGet(stornoMonetary, 'ram:GrandTotalAmount'))
+      if (xmlStornoTotal > 0) {
+        ok(`XML amounts are positive (${xmlStornoTotal}) despite negative invoice ✓`)
+      } else {
+        fail(`XML amounts should be positive for type 381, got ${xmlStornoTotal}`)
+      }
+    }
+  }
+
+  // ── 11. Mustang CLI — Storno ZUGFeRD validation ───────────────────────────
+  section('11. Mustang CLI — Storno ZUGFeRD 2.4 / EN16931 validation')
+
+  const mustangJar2 = join(__dirname, 'mustang-cli.jar')
+  if (!existsSync(mustangJar2) || !stornoPdfBuffer) {
+    console.log('  ⏭  Skipping (Mustang not found or storno PDF not generated).')
+  } else {
+    const extraJavaDirs2 = [
+      'C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.18.8-hotspot\\bin',
+      'C:\\Program Files\\Java\\jdk-17\\bin',
+      'C:\\Program Files\\Java\\jre-17\\bin',
+    ]
+    const javaEnv2 = { ...process.env, PATH: `${extraJavaDirs2.join(';')};${process.env.PATH || ''}` }
+    const mustang2 = spawnSync('java', ['-jar', mustangJar2, '--action', 'validate', '--source', tmpStornoPDF], {
+      encoding: 'utf8', timeout: 30000, env: javaEnv2
+    })
+    if (mustang2.status === 0) {
+      ok('Storno ZUGFeRD 2.4 / EN16931 validation passed')
+    } else if (!mustang2.stdout && !mustang2.stderr && mustang2.error) {
+      console.log('  ⏭  Mustang could not run — skipping.')
+    } else {
+      fail(`Storno Mustang validation failed:\n${mustang2.stdout}\n${mustang2.stderr}`)
+    }
+  }
+
+  // ── Cleanup ────────────────────────────────────────────────────────────────
+  try { unlinkSync(tmpStornoPDF) } catch { /* ignore */ }
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   try { unlinkSync(tmpPDF) } catch { /* ignore */ }

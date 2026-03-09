@@ -64,15 +64,23 @@ export async function GET(request, routeData) {
       return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
+    // For storno invoices, fetch original invoice number for PDF/ZUGFeRD reference
+    let stornoOfNumber = null
+    if (invoice.type === 'storno' && invoice.storno_of) {
+      const { data: orig } = await supabase
+        .from('invoices').select('invoice_number').eq('id', invoice.storno_of).single()
+      stornoOfNumber = orig?.invoice_number || null
+    }
+
     // Generate new PDF
     console.log('🔄 Regenerating PDF...')
     const pdfService = new InvoicePDFService()
-    const pdfBuffer = await pdfService.generateInvoice(invoice, majstor)
+    const pdfBuffer = await pdfService.generateInvoice({ ...invoice, stornoOfNumber }, majstor)
 
     console.log('💾 Archiving PDF...')
     await archivePDF(pdfBuffer, invoice, majstor.id)
 
-    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+    const documentType = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Stornorechnung' : 'Rechnung'
     const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
     const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
     const filename = `${documentType}_${documentNumber}_${customerName}.pdf`
@@ -105,7 +113,7 @@ export async function GET(request, routeData) {
 // Archive PDF with UPSERT
 async function archivePDF(pdfBuffer, invoiceData, majstorId) {
   try {
-    const documentType = invoiceData.type === 'quote' ? 'angebote' : 'rechnungen'
+    const documentType = invoiceData.type === 'quote' ? 'angebote' : invoiceData.type === 'storno' ? 'stornos' : 'rechnungen'
     const documentNumber =
       invoiceData.invoice_number ||
       invoiceData.quote_number ||
@@ -172,7 +180,7 @@ async function servePDFFromArchive(invoice) {
 
     const pdfBuffer = Buffer.from(await data.arrayBuffer())
 
-    const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+    const documentType = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Stornorechnung' : 'Rechnung'
     const documentNumber = invoice.invoice_number || invoice.quote_number
     const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
     const filename = `${documentType}_${documentNumber}_${customerName}.pdf`
