@@ -165,11 +165,12 @@ export default function LogoUpload({
         <div className="mb-4">
           <p className="text-slate-300 text-sm mb-2">{previewUrl ? 'Vorschau:' : 'Aktuelles Logo:'}</p>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-lg p-2 flex items-center justify-center" style={{backgroundColor: '#ffffff', border: '1.5px solid #94a3b8'}}>
+            <div className="rounded-lg p-2 inline-flex items-center justify-center" style={{backgroundColor: '#ffffff', border: '1.5px solid #94a3b8'}}>
               <img
                 src={previewUrl || uploadedUrl || majstor.business_logo_url}
                 alt="Logo"
-                className="max-w-full max-h-full object-contain"
+                style={{maxWidth: '110px', maxHeight: '54px'}}
+                className="object-contain"
                 onError={(e) => { e.target.style.display = 'none' }}
               />
             </div>
