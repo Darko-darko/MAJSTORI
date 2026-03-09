@@ -2307,8 +2307,8 @@ const HardResetModal = () => {
             className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
               hasChanges
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-slate-600 text-slate-400 cursor-not-allowed'
-            } disabled:opacity-50`}
+                : 'bg-blue-600 text-white cursor-not-allowed opacity-40'
+            }`}
           >
             {settingsLoading ? 'Speichern...' : 'Einstellungen speichern'}
           </button>

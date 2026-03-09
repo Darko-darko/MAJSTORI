@@ -12,6 +12,7 @@ export default function LogoUpload({
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [uploadedUrl, setUploadedUrl] = useState(null)
   const fileInputRef = useRef(null)
 
   const labels = {
@@ -86,18 +87,19 @@ export default function LogoUpload({
         throw uploadError
       }
 
-      // Get public URL
+      // Get public URL with cache-busting timestamp
       const { data: { publicUrl } } = supabase.storage
         .from('logos')
         .getPublicUrl(filePath)
 
-      console.log('📷 Logo uploaded, public URL:', publicUrl)
+      const publicUrlWithTs = `${publicUrl}?t=${Date.now()}`
+      console.log('📷 Logo uploaded, public URL:', publicUrlWithTs)
 
       // Update majstor record
       const { error: updateError } = await supabase
         .from('majstors')
-        .update({ 
-          business_logo_url: publicUrl,
+        .update({
+          business_logo_url: publicUrlWithTs,
           updated_at: new Date().toISOString()
         })
         .eq('id', majstor.id)
@@ -105,8 +107,9 @@ export default function LogoUpload({
       if (updateError) throw updateError
 
       console.log('✅ Majstor updated with logo URL')
+      setUploadedUrl(publicUrlWithTs)
       setPreviewUrl(null)
-      onLogoUpdate && onLogoUpdate(publicUrl)
+      onLogoUpdate && onLogoUpdate(publicUrlWithTs)
 
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -141,6 +144,7 @@ export default function LogoUpload({
       if (updateError) throw updateError
 
       console.log('✅ Logo removed from profile')
+      setUploadedUrl(null)
       onLogoUpdate && onLogoUpdate(null)
 
     } catch (err) {
@@ -157,13 +161,13 @@ export default function LogoUpload({
       <p className="text-slate-400 text-sm mb-4">{currentLabel.description}</p>
       
       {/* Current Logo Display / Preview */}
-      {(majstor.business_logo_url || previewUrl) && (
+      {(majstor.business_logo_url || uploadedUrl || previewUrl) && (
         <div className="mb-4">
           <p className="text-slate-300 text-sm mb-2">{previewUrl ? 'Vorschau:' : 'Aktuelles Logo:'}</p>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white rounded-lg p-2 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-lg p-2 flex items-center justify-center" style={{backgroundColor: '#ffffff', border: '1.5px solid #94a3b8'}}>
               <img
-                src={previewUrl || majstor.business_logo_url}
+                src={previewUrl || uploadedUrl || majstor.business_logo_url}
                 alt="Logo"
                 className="max-w-full max-h-full object-contain"
                 onError={(e) => { e.target.style.display = 'none' }}
