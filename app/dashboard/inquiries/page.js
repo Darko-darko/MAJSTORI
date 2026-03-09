@@ -421,7 +421,8 @@ const loadInquiries = async () => {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'urgent': return 'text-red-400'
+      case 'urgent':
+      case 'emergency': return 'text-red-400'
       case 'high': return 'text-orange-400'
       case 'normal': return 'text-slate-300'
       case 'low': return 'text-slate-500'
@@ -616,13 +617,13 @@ const stats = {
         <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(inquiry.status)}`}></div>
         <h3 className="text-lg font-semibold text-white truncate flex-1">{inquiry.subject}</h3>
         <span className={`text-sm font-medium whitespace-nowrap ${getPriorityColor(inquiry.priority)}`}>
-          {inquiry.priority === 'urgent' && '🔥 Urgent'}
+          {(inquiry.priority === 'urgent' || inquiry.priority === 'emergency') && '🔥 Notfall'}
           {inquiry.priority === 'high' && '⚠️ Hoch'}
           {inquiry.priority === 'normal' && '📄 Normal'}
           {inquiry.priority === 'low' && '🔋 Niedrig'}
         </span>
       </div>
-      
+
       {/* KONTEJNER 2: Kunde info */}
       <div className="text-slate-300 mb-3">
         <div>
@@ -678,7 +679,7 @@ const stats = {
           <option value="low">🔋 Niedrig</option>
           <option value="normal">📄 Normal</option>
           <option value="high">⚠️ Hoch</option>
-          <option value="urgent">🔥 Urgent</option>
+          <option value="urgent">🔥 Notfall</option>
         </select>
       </div>
 
@@ -697,7 +698,7 @@ const stats = {
           <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusColor(inquiry.status)}`}></div>
           <h3 className="text-lg font-semibold text-white truncate">{inquiry.subject}</h3>
           <span className={`text-sm font-medium whitespace-nowrap ${getPriorityColor(inquiry.priority)}`}>
-            {inquiry.priority === 'urgent' && '🔥 Urgent'}
+            {(inquiry.priority === 'urgent' || inquiry.priority === 'emergency') && '🔥 Notfall'}
             {inquiry.priority === 'high' && '⚠️ Hoch'}
             {inquiry.priority === 'normal' && '📄 Normal'}
             {inquiry.priority === 'low' && '🔋 Niedrig'}
@@ -756,7 +757,7 @@ const stats = {
           <option value="low">🔋 Niedrig</option>
           <option value="normal">📄 Normal</option>
           <option value="high">⚠️ Hoch</option>
-          <option value="urgent">🔥 Urgent</option>
+          <option value="urgent">🔥 Notfall</option>
         </select>
 
         <button

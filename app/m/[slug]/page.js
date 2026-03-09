@@ -859,10 +859,10 @@ export default function PublicBusinessCardPage({ params }) {
                       onChange={handleInquiryChange}
                       className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     >
-                      <option value="low">⬇️ Niedrig - Zeit lassen</option>
-                      <option value="normal">➡️ Normal - in den nächsten Tagen</option>
-                      <option value="high">⬆️ Hoch - schnellstmöglich</option>
-                      <option value="emergency">🚨 Notfall - sofort!</option>
+                      <option value="low">🔋 Niedrig - Zeit lassen</option>
+                      <option value="normal">📄 Normal - in den nächsten Tagen</option>
+                      <option value="high">⚠️ Hoch - schnellstmöglich</option>
+                      <option value="urgent">🔥 Notfall - sofort!</option>
                     </select>
                   </div>
 
