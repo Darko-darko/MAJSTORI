@@ -614,10 +614,9 @@ pdfTab.document.close()
     console.log('Email sent successfully:', result)
     setShowEmailModal(false)
     setEmailItem(null)
-    
-  //  if (majstor?.id) {
-   //   loadInvoicesData(majstor.id)
-   // }
+    if (majstor?.id) {
+      loadInvoicesData(majstor.id)
+    }
   }
 
   const getStatusColor = (status) => {
@@ -907,6 +906,23 @@ console.log('🔄 Refreshing invoices data...')
       alert(errorMessage)
       
       throw error
+    }
+  }
+
+  const handleCancelInvoice = async (invoice) => {
+    const confirmed = confirm(
+      `Rechnung ${invoice.invoice_number} wirklich stornieren?\n\nDie Rechnung wird als storniert markiert und kann nicht mehr bearbeitet werden.`
+    )
+    if (!confirmed) return
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', invoice.id)
+      if (error) throw error
+      await loadInvoicesData(majstor.id)
+    } catch (err) {
+      alert('Fehler: ' + err.message)
     }
   }
 
@@ -1535,7 +1551,7 @@ const HardResetModal = () => {
                   {!hasInvoice && (
                     <button 
                       onClick={() => handleDeleteInvoice(quote)}
-                      className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                      className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
                       title="Angebot löschen"
                     >
                       Löschen
@@ -1651,12 +1667,12 @@ const HardResetModal = () => {
                       )}
                     </div>
                     <div className="text-right">
-                      <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
-                        {invoice.status === 'draft' && 'Entwurf'}
-                        {invoice.status === 'sent' && 'Gesendet'}
-                        {invoice.status === 'paid' && 'Bezahlt'}
-                        {invoice.status === 'overdue' && 'Überfällig'}
-                        {invoice.status === 'cancelled' && 'Storniert'}
+                      <span className={`px-3 py-1 rounded-full text-sm border ${isInvoiceOverdue(invoice) ? getStatusColor('overdue') : getStatusColor(invoice.status)}`}>
+                        {invoice.status === 'paid' ? 'Bezahlt'
+                          : invoice.status === 'cancelled' ? 'Storniert'
+                          : isInvoiceOverdue(invoice) ? 'Überfällig'
+                          : invoice.status === 'sent' ? 'Gesendet'
+                          : 'Entwurf'}
                       </span>
                       {invoice.status === 'paid' && (
                         <div className="text-green-400 font-semibold text-sm mt-1">
@@ -1721,7 +1737,7 @@ const HardResetModal = () => {
   </button>
 )}
                     
-                    {(invoice.status === 'sent' || invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
+                    {(invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
                       <button
                         onClick={() => handleReminderClick(invoice)}
                         className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
@@ -1748,9 +1764,18 @@ const HardResetModal = () => {
                       </button>
                     )}
                     
-                    <button 
+                    {(invoice.status === 'draft' || invoice.status === 'sent' || invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'cancelled' && (
+                      <button
+                        onClick={() => handleCancelInvoice(invoice)}
+                        className="bg-slate-600/40 hover:bg-slate-600/60 text-slate-300 px-3 py-2 rounded text-sm transition-colors"
+                        title="Rechnung stornieren"
+                      >
+                        Stornieren
+                      </button>
+                    )}
+                    <button
                       onClick={() => handleDeleteInvoice(invoice)}
-                      className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                      className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
                       title="Rechnung löschen"
                     >
                       Löschen
