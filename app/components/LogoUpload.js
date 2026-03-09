@@ -11,6 +11,7 @@ export default function LogoUpload({
 }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [previewUrl, setPreviewUrl] = useState(null)
   const fileInputRef = useRef(null)
 
   const labels = {
@@ -38,6 +39,9 @@ export default function LogoUpload({
       console.log('❌ LOGO UPLOAD: No file selected')
       return
     }
+
+    // Show preview immediately
+    setPreviewUrl(URL.createObjectURL(file))
 
     console.log('🔍 LOGO UPLOAD: Majstor object:', majstor)
 
@@ -101,6 +105,7 @@ export default function LogoUpload({
       if (updateError) throw updateError
 
       console.log('✅ Majstor updated with logo URL')
+      setPreviewUrl(null)
       onLogoUpdate && onLogoUpdate(publicUrl)
 
       if (fileInputRef.current) {
@@ -151,32 +156,30 @@ export default function LogoUpload({
       <h4 className="text-white font-semibold mb-2">{currentLabel.title}</h4>
       <p className="text-slate-400 text-sm mb-4">{currentLabel.description}</p>
       
-      {/* Current Logo Display */}
-      {majstor.business_logo_url && (
+      {/* Current Logo Display / Preview */}
+      {(majstor.business_logo_url || previewUrl) && (
         <div className="mb-4">
-          <p className="text-slate-300 text-sm mb-2">Aktuelles Logo:</p>
+          <p className="text-slate-300 text-sm mb-2">{previewUrl ? 'Vorschau:' : 'Aktuelles Logo:'}</p>
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-white rounded-lg p-2 flex items-center justify-center">
-              <img 
-                src={majstor.business_logo_url} 
-                alt="Business Logo" 
+              <img
+                src={previewUrl || majstor.business_logo_url}
+                alt="Logo"
                 className="max-w-full max-h-full object-contain"
-                onError={(e) => {
-                  e.target.style.display = 'none'
-                  e.target.nextSibling.style.display = 'block'
-                }}
+                onError={(e) => { e.target.style.display = 'none' }}
               />
-              <div className="hidden text-slate-500 text-xs">Logo nicht verfügbar</div>
             </div>
             <div>
-              <p className="text-white text-sm">Logo aktiv</p>
-              <button
-                onClick={handleRemoveLogo}
-                disabled={uploading}
-                className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
-              >
-                Entfernen
-              </button>
+              <p className="text-white text-sm">{previewUrl ? 'Wird hochgeladen...' : 'Logo aktiv'}</p>
+              {!previewUrl && (
+                <button
+                  onClick={handleRemoveLogo}
+                  disabled={uploading}
+                  className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
+                >
+                  Entfernen
+                </button>
+              )}
             </div>
           </div>
         </div>

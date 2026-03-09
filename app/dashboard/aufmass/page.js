@@ -1119,6 +1119,7 @@ export default function AufmassPage() {
   return (
     <div className="space-y-6 pb-24">
       {/* Header */}
+      <a href="/dashboard" className="text-slate-400 hover:text-white text-sm inline-block mb-3">← Zurück zum Dashboard</a>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">📐 Aufmaß</h1>

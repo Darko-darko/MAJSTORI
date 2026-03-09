@@ -19,7 +19,7 @@ function StatusBadge({ status, cancelAtPeriodEnd, periodEnd }) {
   const effectiveStatus = isCancelled ? 'cancelled' : status
   const cls = STATUS_COLORS[effectiveStatus] || 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
   const label = isCancelled
-    ? `Gekündigt${periodEnd ? ` (${new Date(periodEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })})` : ''}`
+    ? (periodEnd ? new Date(periodEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'Gekündigt')
     : status === null ? '—' : status
   return (
     <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${cls}`}>

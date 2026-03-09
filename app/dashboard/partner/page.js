@@ -148,7 +148,7 @@ export default function PartnerPage() {
 
     if (isCancelled) return (
       <span className="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400">
-        Gekündigt{periodEnd ? ` (${periodEnd})` : ''}
+        {periodEnd || 'Gekündigt'}
       </span>
     )
     if (s === 'active') return <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">Aktiv</span>

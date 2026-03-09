@@ -62,14 +62,6 @@ export default function DashboardFAQPage() {
 
   return (
     <div className="min-h-screen">
-      {/* SKAČUĆI ZNAK PITANJA */}
-      <button
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all duration-300 flex items-center justify-center text-3xl font-bold z-40 animate-bounce hover:animate-none"
-        title="Zurück nach oben"
-      >
-        ?
-      </button>
 
       {/* Hero Section */}
       <section className="pt-8 pb-12 px-4 sm:px-6">

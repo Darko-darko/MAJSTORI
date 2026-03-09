@@ -394,7 +394,7 @@ export default function SettingsPage() {
                 value={deleteInput}
                 onChange={e => { setDeleteInput(e.target.value); setDeleteError('') }}
                 placeholder="LÖSCHEN"
-                className="w-full sm:w-64 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-red-500 transition-colors"
+                className="w-full sm:w-64 px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-red-500 transition-colors"
               />
             </div>
 
@@ -405,7 +405,7 @@ export default function SettingsPage() {
             <button
               onClick={requestDeletion}
               disabled={deleteInput !== 'LÖSCHEN' || deleteLoading}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
               {deleteLoading ? 'Bitte warten...' : 'Konto löschen'}
             </button>
