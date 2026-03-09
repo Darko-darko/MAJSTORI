@@ -90,7 +90,7 @@ Neues Aufmaß erstellen: "📐 Neues Aufmaß" → Titel (Pflichtfeld), Datum, Ku
 Bereiche (Räume/Zonen): Beliebig viele Bereiche anlegen (z.B. "Wohnzimmer", "Fassade Nord", "Dach") — jeder Bereich hat eigene Positionen
 Positionen erfassen (Einheiten):
   - m² (Fläche): Länge × Breite eingeben → Ergebnis wird automatisch berechnet
-  - lm (Laufmeter): Nur Länge eingeben
+  - lfm (Laufmeter): Nur Länge eingeben
   - m³ (Volumen): Länge × Breite × Höhe eingeben
   - Stk (Stückzahl): Anzahl eingeben
   - Wand: Umfang × Höhe (2×(L+B)×H) — für Wandflächen
@@ -98,14 +98,16 @@ Positionen erfassen (Einheiten):
 Abzüge (Öffnungen): Pro Bereich können Öffnungen (Türen, Fenster) als Abzüge erfasst werden — werden automatisch vom Brutto abgezogen. Formen: Rechteck, Dreieck, Halbelipse.
 Ergänzungen (Formen): Additive Flächen die zum Brutto hinzugezählt werden — z.B. Erker, Nischen. Formen: Rechteck, Dreieck, Halbelipse.
 Netto-Berechnung: Brutto − Abzüge + Ergänzungen = Netto (wird automatisch berechnet und angezeigt)
-PDF generieren: "📄 PDF" → PDF mit allen Bereichen, Berechnungen, Skizzen und Zusammenfassung wird erstellt → direkter Download
-PDF-Inhalt: Firmenangaben, Aufmaß-Titel, Datum, Kundenname, Tabelle mit allen Positionen (Bezeichnung, Berechnung, Einheit, Ergebnis), Skizzen mit Maßangaben, Netto pro Einheit, Zusammenfassung, optionale Unterschrift
+Materialien: Pro Aufmaß können benötigte Materialien erfasst werden (Bezeichnung, Menge, Einheit: Stk/L/kg/m/m²/Karton/Sack) — ohne Preise. Beim Übernehmen ins Angebot werden Materialien automatisch als Positionen mit Preis 0 übertragen — Preise können dann ergänzt werden.
+PDF generieren: "📄 PDF" → PDF mit allen Bereichen, Berechnungen, Skizzen, Materialien-Tabelle und Zusammenfassung wird erstellt → direkter Download
+PDF-Inhalt: Firmenangaben, Aufmaß-Titel, Datum, Kundenname, Tabelle mit allen Positionen (Bezeichnung, Berechnung, Einheit, Ergebnis), Skizzen mit Maßangaben, Netto pro Einheit, Zusammenfassung, Materialien-Tabelle, optionale Unterschrift
 Unterschrift: Im Editor unten → Unterschriftsfeld → Vollbild-Canvas öffnet sich → Kunde unterschreibt mit Finger/Stift → Unterschrift erscheint im PDF
-In Angebot übernehmen: "📋 In Angebot übernehmen" → alle Netto-Positionen werden automatisch in den Angebots-Editor übertragen — Preise können dann ergänzt werden
+In Angebot übernehmen: "📋 In Angebot übernehmen" → alle Netto-Positionen UND Materialien werden automatisch in den Angebots-Editor übertragen — Preise können dann ergänzt werden
 Tipps:
   - Mehrere Bereiche für verschiedene Räume oder Zonen verwenden
   - Beschreibung für jede Position eingeben (z.B. "Boden Fliesen", "Wand Putz")
   - Abzüge für Türen und Fenster nicht vergessen
+  - Materialien erfassen spart Zeit beim Angebot erstellen
   - PDF vor Ort mit Kunden unterschreiben lassen
   - Aus Aufmaß direkt Angebot erstellen — spart Zeit beim Übertragen
 

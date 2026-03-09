@@ -1883,11 +1883,15 @@ if (searchError) {
                         >
                           <option value="">–</option>
                           <option value="m²">m²</option>
-                          <option value="lm">lm</option>
+                          <option value="lfm">lfm</option>
                           <option value="m³">m³</option>
                           <option value="Stk">Stk</option>
                           <option value="Std">Std</option>
                           <option value="pausch">pausch</option>
+                          <option value="L">L</option>
+                          <option value="kg">kg</option>
+                          <option value="Karton">Karton</option>
+                          <option value="Sack">Sack</option>
                         </select>
                       </div>
                     </div>
