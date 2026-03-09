@@ -258,7 +258,7 @@ export default function SettingsPage() {
               💡 Geschäftsdaten können in den Rechnungseinstellungen bearbeitet werden
             </p>
             <a
-              href="/dashboard/settings/invoice"
+              href="/dashboard/invoices?tab=settings"
               className="self-start px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
               Zu den Einstellungen →
