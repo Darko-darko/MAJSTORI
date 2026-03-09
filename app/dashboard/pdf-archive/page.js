@@ -361,23 +361,34 @@ const togglePDFSelection = (pdfId) => {
   }
 
   const openPDFInNewTab = async (pdfId) => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const response = await fetch(`/api/invoices/${pdfId}/pdf`, {
-      headers: { Authorization: `Bearer ${session.access_token}` }
-    })
-    if (!response.ok) throw new Error('HTTP ' + response.status)
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const tab = window.open(url, '_blank')
-    if (!tab) { alert('Popup wurde blockiert. Bitte erlauben Sie Popups.'); return }
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  } catch (error) {
-    console.error('❌ Open PDF error:', error)
-    alert('PDF öffnen fehlgeschlagen: ' + error.message)
+    const pdfTab = window.open('', '_blank')
+    if (!pdfTab) { alert('Popup wurde blockiert. Bitte erlauben Sie Popups.'); return }
+    pdfTab.document.open()
+    pdfTab.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>PDF wird geladen...</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#0b1220;font-family:-apple-system,sans-serif;color:white}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center}
+.content{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.spinner{width:80px;height:80px;border:6px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}.title{font-size:18px;font-weight:700}.subtitle{font-size:14px;color:#94a3b8}
+</style></head><body><div class="overlay"><div class="content"><div class="spinner"></div><div class="title">PDF wird geladen…</div><div class="subtitle">Einen Moment bitte…</div></div></div></body></html>`)
+    pdfTab.document.close()
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { pdfTab.close(); return }
+      const response = await fetch(`/api/invoices/${pdfId}/pdf`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (!response.ok) throw new Error('HTTP ' + response.status)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      pdfTab.location.href = url
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (error) {
+      console.error('❌ Open PDF error:', error)
+      pdfTab.close()
+      alert('PDF öffnen fehlgeschlagen: ' + error.message)
+    }
   }
-}
 
   const loadAusgaben = async (month, year) => {
     setAusgabenLoading(true)
