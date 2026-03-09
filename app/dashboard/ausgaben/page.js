@@ -232,7 +232,7 @@ export default function AusgabenPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 sm:p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className={`max-w-3xl mx-auto space-y-6 ${selectedIds.size > 0 ? 'pb-36' : 'pb-32'}`}>
 
         <FirstVisitHint pageKey="ausgaben" />
 
@@ -346,7 +346,7 @@ export default function AusgabenPage() {
 
       {/* Floating action bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60]">
           <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl px-4 py-3 flex items-center gap-4">
             <span className="text-white text-sm">
               <span className="font-semibold">{selectedIds.size}</span> Beleg{selectedIds.size > 1 ? 'e' : ''} ausgewählt
