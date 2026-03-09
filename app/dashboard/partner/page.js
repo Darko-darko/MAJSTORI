@@ -24,23 +24,27 @@ export default function PartnerPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      setSessionToken(session.access_token)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+        setSessionToken(session.access_token)
 
-      const res = await fetch('/api/partner/stats', {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      })
-      if (!res.ok) { setLoading(false); return }
-      const data = await res.json()
+        const res = await fetch('/api/partner/stats', {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        })
+        if (!res.ok) { setLoading(false); return }
+        const data = await res.json()
 
-      if (!data.profile?.is_partner) { setLoading(false); return }
-      setMajstor(data.profile)
-      setReferred(data.referred || [])
-      setPayouts(data.payouts || [])
-      setMonthlyStats(data.monthlyStats || [])
-      setClickStats(data.clickStats || null)
-      setLoading(false)
+        if (!data.profile?.is_partner) { setLoading(false); return }
+        setMajstor(data.profile)
+        setReferred(data.referred || [])
+        setPayouts(data.payouts || [])
+        setMonthlyStats(data.monthlyStats || [])
+        setClickStats(data.clickStats || null)
+        setLoading(false)
+      } catch {
+        setLoading(false)
+      }
     }
     load()
   }, [])
