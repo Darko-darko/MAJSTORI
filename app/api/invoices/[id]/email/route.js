@@ -232,21 +232,21 @@ function generateStoragePath(invoice, majstor) {
   const year = new Date(invoice.created_at).getFullYear()
   const month = new Date(invoice.created_at).getMonth() + 1
   const documentNumber = invoice.invoice_number || invoice.quote_number || `draft-${invoice.id}`
-  const documentType = invoice.type === 'quote' ? 'angebote' : 'rechnungen'
-  
+  const documentType = invoice.type === 'quote' ? 'angebote' : invoice.type === 'storno' ? 'stornos' : 'rechnungen'
+
   return `${majstor.id}/${year}/${month.toString().padStart(2, '0')}/${documentType}/${documentNumber}.pdf`
 }
 
 function generateFilename(invoice) {
-  const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+  const documentType = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Stornorechnung' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
   const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
-  
+
   return `${documentType}_${documentNumber}_${customerName}.pdf`
 }
 
 function generateEmailHTML(invoice, majstor, customMessage) {
-  const documentType = invoice.type === 'quote' ? 'Angebot' : 'Rechnung'
+  const documentType = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Stornorechnung' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number
   const customerName = invoice.customer_name || 'Damen und Herren'
 

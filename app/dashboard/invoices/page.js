@@ -134,7 +134,7 @@ function DashboardPageContent() {
       })
       
       // Postavi ispravan tab (invoices ili quotes)
-      const correctTab = invoiceToView.type === 'invoice' ? 'invoices' : 'quotes'
+      const correctTab = (invoiceToView.type === 'invoice' || invoiceToView.type === 'storno') ? 'invoices' : 'quotes'
       if (activeTab !== correctTab) {
         console.log('📑 Switching tab to:', correctTab)
         setActiveTab(correctTab)
@@ -311,7 +311,7 @@ function DashboardPageContent() {
         .from('invoices')
         .select('*')
         .eq('majstor_id', majstorId)
-        .eq('type', 'invoice')
+        .in('type', ['invoice', 'storno'])
         .neq('status', 'dummy')
         .order('created_at', { ascending: false })
 
@@ -626,7 +626,8 @@ pdfTab.document.close()
       'paid': 'bg-green-500/10 text-green-400 border-green-500/20',
       'overdue': 'bg-red-500/10 text-red-400 border-red-500/20',
       'cancelled': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-      'converted': 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+      'converted': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+      'storno': 'bg-slate-500/10 text-slate-300 border-slate-500/20',
     }
     return colors[status] || colors.draft
   }
@@ -910,16 +911,64 @@ console.log('🔄 Refreshing invoices data...')
   }
 
   const handleCancelInvoice = async (invoice) => {
-    const confirmed = confirm(
-      `Rechnung ${invoice.invoice_number} wirklich stornieren?\n\nDie Rechnung wird als storniert markiert und kann nicht mehr bearbeitet werden.`
-    )
-    if (!confirmed) return
+    if (!confirm(`Stornorechnung für ${invoice.invoice_number} erstellen?\n\nEs wird eine neue Stornorechnung mit negativen Beträgen erstellt und die ursprüngliche Rechnung als storniert markiert.`)) return
     try {
-      const { error } = await supabase
-        .from('invoices')
+      const stornoNumber = `STOR-${invoice.invoice_number}`
+
+      const { data: storno, error } = await supabase.from('invoices').insert({
+        majstor_id: majstor.id,
+        type: 'storno',
+        invoice_number: stornoNumber,
+        storno_of: invoice.id,
+        customer_id: invoice.customer_id,
+        customer_name: invoice.customer_name,
+        customer_email: invoice.customer_email,
+        customer_phone: invoice.customer_phone,
+        customer_street: invoice.customer_street,
+        customer_postal_code: invoice.customer_postal_code,
+        customer_city: invoice.customer_city,
+        customer_country: invoice.customer_country,
+        items: invoice.items,
+        subtotal: -(invoice.subtotal || 0),
+        tax_rate: invoice.tax_rate,
+        tax_amount: -(invoice.tax_amount || 0),
+        total_amount: -(invoice.total_amount || 0),
+        status: 'sent',
+        issue_date: new Date().toISOString().split('T')[0],
+        due_date: new Date().toISOString().split('T')[0],
+        notes: `Stornierung von Rechnung ${invoice.invoice_number}`,
+        is_kleinunternehmer: invoice.is_kleinunternehmer,
+        payment_terms_days: invoice.payment_terms_days,
+      }).select().single()
+      if (error) throw error
+
+      await supabase.from('invoices')
         .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', invoice.id)
-      if (error) throw error
+
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch(`/api/invoices/${storno.id}/pdf`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+
+      await loadInvoicesData(majstor.id)
+      alert(`Stornorechnung ${stornoNumber} wurde erstellt.`)
+    } catch (err) {
+      alert('Fehler: ' + err.message)
+    }
+  }
+
+  const handleUndoStorno = async (invoice) => {
+    if (!confirm(`Stornierung von ${invoice.invoice_number} rückgängig machen?\n\nDie Stornorechnung wird gelöscht und die ursprüngliche Rechnung wiederhergestellt.`)) return
+    try {
+      const { data: stornoInvoice } = await supabase.from('invoices')
+        .select('id, email_sent_at').eq('storno_of', invoice.id).maybeSingle()
+      if (stornoInvoice) {
+        await supabase.from('invoices').delete().eq('id', stornoInvoice.id)
+      }
+      await supabase.from('invoices')
+        .update({ status: 'sent', updated_at: new Date().toISOString() })
+        .eq('id', invoice.id)
       await loadInvoicesData(majstor.id)
     } catch (err) {
       alert('Fehler: ' + err.message)
@@ -1667,8 +1716,9 @@ const HardResetModal = () => {
                       )}
                     </div>
                     <div className="text-right">
-                      <span className={`px-3 py-1 rounded-full text-sm border ${isInvoiceOverdue(invoice) ? getStatusColor('overdue') : getStatusColor(invoice.status)}`}>
-                        {invoice.status === 'paid' ? 'Bezahlt'
+                      <span className={`px-3 py-1 rounded-full text-sm border ${invoice.type === 'storno' ? getStatusColor('storno') : isInvoiceOverdue(invoice) ? getStatusColor('overdue') : getStatusColor(invoice.status)}`}>
+                        {invoice.type === 'storno' ? 'Storno'
+                          : invoice.status === 'paid' ? 'Bezahlt'
                           : invoice.status === 'cancelled' ? 'Storniert'
                           : isInvoiceOverdue(invoice) ? 'Überfällig'
                           : invoice.status === 'sent' ? 'Gesendet'
@@ -1714,30 +1764,32 @@ const HardResetModal = () => {
                       👁️ PDF ansehen
                     </button>
                     
-                    <button 
-                      onClick={() => handleEditClick(invoice)}
-                      className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-                    >
-                      Bearbeiten
-                    </button>
-                    
-                 {invoice.email_sent_at ? (
-  <button 
-    onClick={() => handleEmailClick(invoice)}
-    className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
-  >
-    🔄 Erneut senden
-  </button>
-) : (
-  <button 
-    onClick={() => handleEmailClick(invoice)}
-    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-  >
-    Per E-Mail senden
-  </button>
-)}
-                    
-                    {(invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && (
+                      <button
+                        onClick={() => handleEditClick(invoice)}
+                        className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                      >
+                        Bearbeiten
+                      </button>
+                    )}
+
+                    {invoice.email_sent_at ? (
+                      <button
+                        onClick={() => handleEmailClick(invoice)}
+                        className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                      >
+                        🔄 Erneut senden
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleEmailClick(invoice)}
+                        className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                      >
+                        Per E-Mail senden
+                      </button>
+                    )}
+
+                    {invoice.type !== 'storno' && (invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
                       <button
                         onClick={() => handleReminderClick(invoice)}
                         className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
@@ -1746,7 +1798,7 @@ const HardResetModal = () => {
                       </button>
                     )}
 
-                    {(invoice.status === 'draft' || invoice.status === 'sent') && (
+                    {invoice.type !== 'storno' && (invoice.status === 'draft' || invoice.status === 'sent') && (
                       <button
                         onClick={() => handleMarkAsPaid(invoice)}
                         className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
@@ -1763,8 +1815,8 @@ const HardResetModal = () => {
                         Bezahlung rückgängig
                       </button>
                     )}
-                    
-                    {(invoice.status === 'draft' || invoice.status === 'sent' || invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'cancelled' && (
+
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
                         onClick={() => handleCancelInvoice(invoice)}
                         className="bg-slate-600/40 hover:bg-slate-600/60 text-slate-300 px-3 py-2 rounded text-sm transition-colors"
@@ -1773,13 +1825,25 @@ const HardResetModal = () => {
                         Stornieren
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDeleteInvoice(invoice)}
-                      className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
-                      title="Rechnung löschen"
-                    >
-                      Löschen
-                    </button>
+
+                    {invoice.status === 'cancelled' && invoice.type !== 'storno' && (
+                      <button
+                        onClick={() => handleUndoStorno(invoice)}
+                        className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 px-3 py-2 rounded text-sm transition-colors"
+                        title="Stornierung rückgängig machen — Stornorechnung wird gelöscht"
+                      >
+                        Storno rückgängig
+                      </button>
+                    )}
+                    {invoice.type !== 'storno' && (
+                      <button
+                        onClick={() => handleDeleteInvoice(invoice)}
+                        className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
+                        title="Rechnung löschen"
+                      >
+                        Löschen
+                      </button>
+                    )}
                   </div>
                 </div>
               )

@@ -121,7 +121,11 @@ export default function PDFArchivePage() {
         .not('pdf_storage_path', 'is', null)
         .neq('status', 'dummy')
 
-      query = query.eq('type', filters.type)
+      if (filters.type === 'invoice') {
+        query = query.in('type', ['invoice', 'storno'])
+      } else {
+        query = query.eq('type', filters.type)
+      }
 
       if (filters.customer) {
         query = query.eq('customer_name', filters.customer)
@@ -147,7 +151,7 @@ export default function PDFArchivePage() {
           .lte('pdf_generated_at', endOfCustomMonth.toISOString())
       }
 
-      const { data: pdfsData, error } = await query.order('invoice_number', { ascending: false })
+      const { data: pdfsData, error } = await query.order('issue_date', { ascending: false }).order('created_at', { ascending: false })
 
       if (error) throw error
 
@@ -356,12 +360,19 @@ const togglePDFSelection = (pdfId) => {
     }
   }
 
-  // ✅ Api, a ne blub
-const openPDFInNewTab = async (pdfId) => {
+  const openPDFInNewTab = async (pdfId) => {
   try {
-    const pdfUrl = `/api/invoices/${pdfId}/pdf?t=${Date.now()}`
-    console.log('👁️ Opening PDF:', pdfUrl)
-    window.open(pdfUrl, '_blank')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const response = await fetch(`/api/invoices/${pdfId}/pdf`, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    })
+    if (!response.ok) throw new Error('HTTP ' + response.status)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const tab = window.open(url, '_blank')
+    if (!tab) { alert('Popup wurde blockiert. Bitte erlauben Sie Popups.'); return }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   } catch (error) {
     console.error('❌ Open PDF error:', error)
     alert('PDF öffnen fehlgeschlagen: ' + error.message)
@@ -442,7 +453,8 @@ const openPDFInNewTab = async (pdfId) => {
       'paid': 'bg-green-500/10 text-green-400 border-green-500/20',
       'overdue': 'bg-red-500/10 text-red-400 border-red-500/20',
       'cancelled': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-      'converted': 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+      'converted': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+      'storno': 'bg-slate-500/10 text-slate-300 border-slate-500/20',
     }
     return colors[status] || colors.draft
   }
@@ -497,13 +509,15 @@ const openPDFInNewTab = async (pdfId) => {
                 <p className="text-slate-500 text-sm">{invoice.customer_address}</p>
               )}
             </div>
-            <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(invoice.status)}`}>
-              {invoice.status === 'draft' && 'Entwurf'}
-              {invoice.status === 'sent' && 'Gesendet'}
-              {invoice.status === 'paid' && 'Bezahlt'}
-              {invoice.status === 'overdue' && 'Überfällig'}
-              {invoice.status === 'cancelled' && 'Storniert'}
-              {invoice.status === 'converted' && 'Umgewandelt'}
+            <span className={`px-3 py-1 rounded-full text-sm border ${invoice.type === 'storno' ? getStatusColor('storno') : getStatusColor(invoice.status)}`}>
+              {invoice.type === 'storno' ? 'Storno'
+                : invoice.status === 'draft' ? 'Entwurf'
+                : invoice.status === 'sent' ? 'Gesendet'
+                : invoice.status === 'paid' ? 'Bezahlt'
+                : invoice.status === 'overdue' ? 'Überfällig'
+                : invoice.status === 'cancelled' ? 'Storniert'
+                : invoice.status === 'converted' ? 'Umgewandelt'
+                : ''}
             </span>
           </div>
 
@@ -923,11 +937,11 @@ const openPDFInNewTab = async (pdfId) => {
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 max-w-sm">
           <div className="text-2xl mb-2">
-            {filters.type === 'invoice' ? '🧾' : '📋'}
+            {filters.type === 'invoice' ? '🧾' : filters.type === 'storno' ? '↩️' : '📋'}
           </div>
           <div className="text-white font-semibold">{archivedPDFs.length}</div>
           <div className="text-slate-400 text-sm">
-            {filters.type === 'invoice' ? 'Rechnungen' : 'Angebote'} 
+            {filters.type === 'invoice' ? 'Rechnungen' : filters.type === 'storno' ? 'Stornos' : 'Angebote'}
             {filters.dateRange === 'thisMonth' && ' (dieser Monat)'}
             {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
             {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
@@ -946,6 +960,7 @@ const openPDFInNewTab = async (pdfId) => {
               className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
             >
               <option value="invoice">Rechnungen</option>
+              <option value="storno">Stornos</option>
               <option value="quote">Angebote</option>
             </select>
           </div>
