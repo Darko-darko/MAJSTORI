@@ -403,8 +403,8 @@ export default function AdminPartnersPage() {
                     {[
                       { label: 'Klicks', value: detailData.clickStats.total, color: 'text-slate-300' },
                       { label: 'QR-Scans', value: detailData.clickStats.qr, color: 'text-blue-400' },
-                      { label: 'Konversionen', value: detailData.clickStats.conversions, color: 'text-purple-400' },
-                      { label: 'Konv.-Rate', value: `${detailData.clickStats.conversionRate}%`, color: 'text-teal-400' },
+                      { label: 'Konv.', value: detailData.clickStats.conversions, color: 'text-purple-400' },
+                      { label: 'Rate %', value: `${detailData.clickStats.conversionRate}%`, color: 'text-teal-400' },
                     ].map(c => (
                       <div key={c.label} className="bg-slate-700/50 rounded-lg p-3 text-center">
                         <div className={`text-xl font-bold ${c.color}`}>{c.value}</div>
