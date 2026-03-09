@@ -2,6 +2,7 @@
 
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
+import * as XLSX from 'xlsx'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -430,6 +431,16 @@ const { data: invoices, error } = await supabase
     }
   }
 
+  const handleExport = () => {
+    const activeServices = services.filter(s => s.is_active)
+    if (activeServices.length === 0) { alert('Keine Services zum Exportieren'); return }
+    const exportData = activeServices.map(s => ({ Name: s.name }))
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Services')
+    XLSX.writeFile(wb, 'services_export.xlsx')
+  }
+
   const getSourceBadgeColor = (source) => {
     const colors = {
       'manual': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -594,6 +605,12 @@ const { data: invoices, error } = await supabase
         {/* Action Buttons */}
         <div className="flex gap-3">
           <button
+            onClick={handleExport}
+            className="bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition-colors text-sm"
+          >
+            📤 Export
+          </button>
+          <button
             onClick={() => setShowImportModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
           >
@@ -642,16 +659,16 @@ const { data: invoices, error } = await supabase
         <div className="grid gap-4">
           {services.map((service) => (
             <div key={service.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 hover:border-slate-600 transition-colors">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-white font-semibold text-lg">{service.name}</h3>
-                    <span className={`px-2 py-1 rounded-full text-xs border ${getSourceBadgeColor(service.source)}`}>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <h3 className="text-white font-semibold text-lg truncate">{service.name}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs border flex-shrink-0 ${getSourceBadgeColor(service.source)}`}>
                       {getSourceLabel(service.source)}
                     </span>
                   </div>
-                  
-                  <div className="flex items-center gap-6 text-sm text-slate-400">
+
+                  <div className="flex items-center flex-wrap gap-4 text-sm text-slate-400">
                     <span>📊 {service.usage_count || 0}x verwendet</span>
                     <span>📅 Erstellt: {formatDate(service.created_at)}</span>
                     {service.last_used_at && (
@@ -661,14 +678,14 @@ const { data: invoices, error } = await supabase
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-shrink-0">
                   <button
                     onClick={() => handleEditClick(service)}
                     className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                   >
                     ✏️ Bearbeiten
                   </button>
-                  
+
                   <button
                     onClick={() => handleDeleteService(service)}
                     className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
