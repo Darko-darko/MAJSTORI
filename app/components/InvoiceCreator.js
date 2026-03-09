@@ -2142,9 +2142,15 @@ if (searchError) {
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
                   placeholder="z.B. Zahlungsbedingungen, Lieferhinweise, Danksagung, etc."
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Diese Informationen erscheinen am Ende des PDFs
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-slate-500">Diese Informationen erscheinen am Ende des PDFs</p>
+                  <span className={`text-xs ${(formData.notes?.length || 0) > 1600 ? 'text-red-400' : (formData.notes?.length || 0) > 1200 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                    {formData.notes?.length || 0} / 2000
+                  </span>
+                </div>
+                {(formData.notes?.length || 0) > 2000 && (
+                  <p className="text-xs text-red-400 mt-1">⚠️ Text zu lang — wird im PDF möglicherweise abgeschnitten. Bitte kürzen Sie den Text auf max. 2000 Zeichen.</p>
+                )}
               </div>
 
             </div>
