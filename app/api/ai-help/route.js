@@ -39,7 +39,7 @@ HAUPTFUNKTIONEN:
 - Kundenverwaltung: Suche nach Name/Firma/E-Mail/Stadt, Import/Export, automatisches Speichern bei Rechnungserstellung
 - Buchhalter: Zwei Tabs — "Rechnungen" (alle PDFs, Zeitfilter, Massenversand) und "Ausgaben" (Belege/Fotos von Einkäufen und Kosten, Massenversand als ZIP). Massenversand: Buchhalter öffnen → Tab wählen → Zeitraum wählen → alle auswählen → "An Buchhalter senden"
 - Ausgaben: Fotos oder Scans von Kassenbons, Tankquittungen, Materialkosten usw. hochladen. Werden komprimiert gespeichert, nach Monat gruppiert anzeigbar. Als ZIP gesammelt an Buchhalter senden (Tab "Ausgaben" im Buchhalter-Bereich)
-- Dienstleistungen: Import via Excel, eigene Preisliste, 1-Klick beim Rechnungen erstellen
+- Dienstleistungen: Import/Export via Excel, eigene Preisliste, 1-Klick beim Rechnungen erstellen
 - Push-Benachrichtigungen: Für neue Kundenanfragen und überfällige Rechnungen. Aktivieren: Einstellungen → Erscheinungsbild → Push-Benachrichtigungen umschalten
 - Profilbild (Avatar): Upload in Einstellungen → aus Galerie wählen oder Selfie aufnehmen. Wird automatisch auf max. 400×400px verkleinert.
 - Geschäftslogo: Einstellungen → erscheint auf allen Rechnungen, Angeboten und der Visitenkarte. PNG empfohlen (transparenter Hintergrund).
@@ -134,7 +134,7 @@ Wie Kunden eine Anfrage schicken (kein Login nötig):
 Wo Sie Anfragen sehen: Dashboard → "Anfragen" (linkes Menü)
 Anfragen verwalten:
   - Status: Neu → Gelesen → Beantwortet → Abgeschlossen
-  - Priorität: Niedrig / Normal / Hoch / Dringend
+  - Priorität: 🔋 Niedrig / 📄 Normal / ⚠️ Hoch / 🔥 Notfall
   - Fotos in voller Größe öffnen per Klick
   - Direkt antworten: E-Mail-Button (öffnet Antwort-E-Mail) oder Anruf-Button
   - Aus Anfrage direkt Rechnung oder Angebot erstellen (1-Klick, Kundendaten werden übernommen)
@@ -171,7 +171,8 @@ NEUEN KUNDEN HINZUFÜGEN:
 NEUE DIENSTLEISTUNG HINZUFÜGEN:
 - Beim Erstellen einer Rechnung: Position manuell eintippen (Beschreibung + Preis)
 - Über Dienstleistungen: Dashboard → Dienstleistungen → neue Dienstleistung anlegen → erscheint dann als 1-Klick-Option bei jeder Rechnung
-- Import: Dienstleistungen → Import via Excel
+- Import: Dienstleistungen → Import via Excel (.xlsx/.csv)
+- Export: Dienstleistungen → Export via Excel (alle aktiven Dienstleistungen als .xlsx herunterladen)
 
 RECHNUNGSEINSTELLUNGEN (Rechnungen & Angebote → Tab "Einstellungen"):
 Hier werden alle Daten eingestellt, die auf Rechnungen und Angeboten erscheinen.
@@ -206,6 +207,12 @@ EINSTELLUNGEN (Einstellungen-Seite):
 FAQ & HILFE:
 - Vollständige FAQ-Seite: pro-meister.de/faq
 - Dieser KI-Assistent beantwortet die häufigsten Fragen
+
+DATEN EXPORTIEREN (DSGVO Art. 20):
+- Wo: Einstellungen → "Meine Daten exportieren" (über dem Konto-löschen-Bereich)
+- Was: ZIP-Datei mit allen persönlichen Daten als JSON: Profil, Rechnungen/Angebote, Kunden, Dienstleistungen, Ausgaben, Aufmaße
+- Format: Strukturiert, maschinenlesbar (JSON) — kann in andere Systeme importiert werden
+- Tipp: Vor einer Konto-Löschung unbedingt Daten exportieren, um keine Daten zu verlieren
 
 DATENSCHUTZ & SICHERHEIT:
 - 100% DSGVO-konform, EU-Server (Supabase), SSL/TLS-Verschlüsselung
