@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [pendingDeletion, setPendingDeletion] = useState(null) // deletion_scheduled_at date string
+  const [exportLoading, setExportLoading] = useState(false)
 
   useEffect(() => {
     loadMajstorData()
@@ -79,6 +80,28 @@ export default function SettingsPage() {
       setDeleteError(err.message)
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setExportLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/user/export', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (!res.ok) throw new Error('Export fehlgeschlagen')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `pro-meister-export-${new Date().toISOString().split('T')[0]}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Fehler: ' + err.message)
+    } finally {
+      setExportLoading(false)
     }
   }
 
@@ -356,6 +379,29 @@ export default function SettingsPage() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Daten exportieren */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+        <h3 className="text-white font-semibold mb-2">Meine Daten exportieren</h3>
+        <p className="text-slate-400 text-sm mb-4">
+          Laden Sie alle Ihre Daten als ZIP-Datei herunter (DSGVO Art. 20).
+          Enthält: Profil, Rechnungen, Angebote, Kunden, Leistungen, Ausgaben.
+        </p>
+        <button
+          onClick={handleExport}
+          disabled={exportLoading}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {exportLoading ? (
+            <>
+              <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              Wird exportiert...
+            </>
+          ) : (
+            '⬇️ Daten herunterladen'
+          )}
+        </button>
       </div>
 
       {/* Konto löschen */}
