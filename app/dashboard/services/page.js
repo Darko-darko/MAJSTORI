@@ -671,7 +671,7 @@ const { data: invoices, error } = await supabase
                   
                   <button
                     onClick={() => handleDeleteService(service)}
-                    className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                    className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
                   >
                     🗑️ Löschen
                   </button>

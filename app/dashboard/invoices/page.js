@@ -1535,7 +1535,7 @@ const HardResetModal = () => {
                   {!hasInvoice && (
                     <button 
                       onClick={() => handleDeleteInvoice(quote)}
-                      className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                      className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
                       title="Angebot löschen"
                     >
                       Löschen
@@ -1750,7 +1750,7 @@ const HardResetModal = () => {
                     
                     <button 
                       onClick={() => handleDeleteInvoice(invoice)}
-                      className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                      className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
                       title="Rechnung löschen"
                     >
                       Löschen
