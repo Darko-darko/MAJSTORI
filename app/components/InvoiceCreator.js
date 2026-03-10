@@ -2022,7 +2022,7 @@ if (searchError) {
                   })}
                   {(savedAttachments.length + pendingAttachments.length) < 20 && (
                     <label className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-slate-200 cursor-pointer mt-1 py-2 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors">
-                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelect} />
+                      <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                       📎 Anhang hinzufügen
                     </label>
                   )}
