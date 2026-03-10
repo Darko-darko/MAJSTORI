@@ -404,6 +404,9 @@ export default function SettingsPage() {
         </button>
       </div>
 
+      {/* Buchhalter-Zugang */}
+      <BuchhalterZugangSection majstorId={majstor?.id} />
+
       {/* Konto löschen */}
       <div className="bg-slate-800/50 border border-red-900/40 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-red-400 mb-2">Konto löschen</h3>
@@ -481,6 +484,130 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function BuchhalterZugangSection({ majstorId }) {
+  const [accesses, setAccesses] = useState([])
+  const [email, setEmail] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  useEffect(() => {
+    if (majstorId) loadAccesses()
+  }, [majstorId])
+
+  const loadAccesses = async () => {
+    setLoadingList(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/buchhalter-access', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      const json = await res.json()
+      if (json.data) setAccesses(json.data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingList(false)
+    }
+  }
+
+  const handleInvite = async () => {
+    if (!email.trim() || !confirmed) return
+    setLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/buchhalter-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ buchhalter_email: email.trim() })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setSuccess('Zugang erteilt und E-Mail verschickt.')
+      setEmail('')
+      setConfirmed(false)
+      loadAccesses()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRevoke = async (id) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch(`/api/buchhalter-access?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      setAccesses(prev => prev.filter(a => a.id !== id))
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  return (
+    <div className="bg-slate-800/50 border border-teal-900/40 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-white mb-1">📒 Buchhalter-Zugang</h3>
+      <p className="text-slate-400 text-sm mb-4">Erteilen Sie Ihrem Buchhalter Lesezugang auf Ihre Buchhalter-Daten.</p>
+
+      <div className="space-y-3 mb-4">
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="E-Mail des Buchhalters"
+          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+        />
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={e => setConfirmed(e.target.checked)}
+            className="mt-0.5 shrink-0"
+          />
+          <span className="text-slate-300 text-xs">Hiermit erteile ich dieser Person Lesezugang auf meine Rechnungen und Ausgaben.</span>
+        </label>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {success && <p className="text-teal-400 text-sm">{success}</p>}
+        <button
+          onClick={handleInvite}
+          disabled={!email.trim() || !confirmed || loading}
+          className="px-4 py-2 bg-teal-700 hover:bg-teal-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          {loading ? 'Wird gesendet...' : 'Zugang erteilen'}
+        </button>
+      </div>
+
+      {!loadingList && accesses.length > 0 && (
+        <div className="border-t border-slate-700 pt-4 space-y-2">
+          <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Aktive Zugänge</p>
+          {accesses.map(a => (
+            <div key={a.id} className="flex items-center justify-between gap-2 bg-slate-700/40 rounded-lg px-3 py-2">
+              <div>
+                <p className="text-white text-sm">{a.buchhalter_email}</p>
+                <p className="text-slate-400 text-xs">{a.buchhalter_id ? 'Registriert ✓' : 'Noch nicht registriert'}</p>
+              </div>
+              <button
+                onClick={() => handleRevoke(a.id)}
+                className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
+              >
+                Entfernen
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

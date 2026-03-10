@@ -146,5 +146,5 @@
 - swipe side bar (i za iphone)
 - Aufmaß
 - pdf za Wand ✅
-- Otvori i slike
+- proveriti ako se cancel, ko se ponovo subcribe
 - provera zugfreda detaljna 

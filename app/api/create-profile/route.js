@@ -93,6 +93,18 @@ export async function POST(request) {
 
     console.log('✅ Profile created successfully:', newProfile.id)
 
+    // Auto-match: poveži sa buchhalter_access zapisima koji čekaju ovaj email
+    try {
+      await supabase
+        .from('buchhalter_access')
+        .update({ buchhalter_id: newProfile.id, accepted_at: new Date().toISOString() })
+        .eq('buchhalter_email', profileData.email.toLowerCase())
+        .is('buchhalter_id', null)
+      console.log('✅ buchhalter_access auto-match done')
+    } catch (matchErr) {
+      console.warn('⚠️ Auto-match failed (non-blocking):', matchErr.message)
+    }
+
     // 🔥 REMOVED: Automatic trial creation
     // No longer automatically creating trial subscriptions here
     // User will choose their plan in /welcome/choose-plan

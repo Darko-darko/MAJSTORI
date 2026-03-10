@@ -190,6 +190,28 @@ export default function ChoosePlanPage() {
     }
   }
 
+  // 📒 Buchhalter Handler
+  const handleBuchhalterSelect = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+
+      const res = await fetch('/api/set-buchhalter-role', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      if (!res.ok) throw new Error('Fehler beim Einrichten des Buchhalter-Zugangs')
+
+      router.push('/dashboard/buchhalter')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // 📋 Freemium Handler
   const handleFreemiumSelect = async () => {
     setLoading(true)
@@ -267,8 +289,8 @@ export default function ChoosePlanPage() {
         )}
 
         {/* Main Plan Cards */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
-          
+        <div className="grid md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
+
                     {/* 💎 PRO - EMPFOHLEN */}
           <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500 rounded-2xl p-8 hover:border-blue-400 transition-all duration-300 relative scale-105 shadow-2xl">
             
@@ -335,23 +357,22 @@ export default function ChoosePlanPage() {
               </div>
             </div>
 
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>Alle PRO Funktionen</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>Unbegrenzte Kunden</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>Rechnungen & Angebote</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>30 Tage Kündigungsfrist</span>
-              </div>
+            <div className="space-y-2.5 mb-8">
+              {[
+                { icon: '📄', text: 'Rechnungen, Angebote & Stornos' },
+                { icon: '🎙️', text: 'KI-Sprachdiktat für Rechnungen' },
+                { icon: '📐', text: 'Aufmaß & Flächenberechnung' },
+                { icon: '🤖', text: 'KI-Assistent für Handwerker' },
+                { icon: '👥', text: 'Unbegrenzte Kunden & Services' },
+                { icon: '🗂️', text: 'Buchhalter-Zugang & ZIP-Export' },
+                { icon: '📊', text: 'Ausgaben & Auswertungen' },
+                { icon: '🔔', text: 'Push-Benachrichtigungen' },
+              ].map(({ icon, text }) => (
+                <div key={text} className="flex items-center gap-3 text-sm text-slate-300">
+                  <span>{icon}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
             </div>
 
             <button
@@ -384,29 +405,29 @@ export default function ChoosePlanPage() {
               <div className="text-slate-400">für immer</div>
             </div>
 
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>QR Visitenkarte</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-300">
-                <span className="text-green-400">✅</span>
-                <span>Kundenanfragen</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <span className="text-slate-600">❌</span>
-                <span>Kundenverwaltung</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <span className="text-slate-600">❌</span>
-                <span>Rechnungen</span>
-              </div>
+            <div className="space-y-2.5 mb-8">
+              {[
+                { ok: true,  text: 'QR Visitenkarte' },
+                { ok: true,  text: 'Kundenanfragen' },
+                { ok: false, text: 'Rechnungen & Angebote' },
+                { ok: false, text: 'Aufmaß & Flächenberechnung' },
+                { ok: false, text: 'KI-Assistent & Sprachdiktat' },
+                { ok: false, text: 'Kundenverwaltung' },
+                { ok: false, text: 'Buchhalter-Zugang' },
+              ].map(({ ok, text }) => (
+                <div key={text} className={`flex items-center gap-3 text-sm ${ok ? 'text-slate-300' : 'text-slate-500 line-through'}`}>
+                  <span className={ok ? 'text-green-400' : 'text-slate-600'}>
+                    {ok ? '✅' : '🔒'}
+                  </span>
+                  <span>{text}</span>
+                </div>
+              ))}
             </div>
 
             <button
               onClick={handleFreemiumSelect}
               disabled={loading}
-              className="w-full bg-slate-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-700 transition-colors disabled:opacity-50 shadow-lg"
+              className="w-full bg-slate-500 hover:bg-slate-400 text-white py-4 rounded-xl font-bold text-lg transition-colors disabled:opacity-50 shadow-lg border border-slate-400/30"
             >
               {loading ? 'Wird eingerichtet...' : 'Nur QR-Visitenkarte nutzen'}
             </button>
@@ -420,116 +441,37 @@ export default function ChoosePlanPage() {
 
 
 
-          {/* 🚀 PRO+ - USKORO */}
-          <div className="bg-slate-800/30 backdrop-blur-sm border-2 border-slate-700 rounded-2xl p-8 relative opacity-75">
-            
-            {/* Coming Soon Badge */}
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <div className="bg-orange-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
-                🔜 BALD VERFÜGBAR
-              </div>
-            </div>
+        </div>
 
-            <div className="text-center mb-6 pt-4">
-              <div className={`w-20 h-20 bg-gradient-to-br ${pricing.proPlus.color} rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg opacity-60`}>
-                <span className="text-4xl">{pricing.proPlus.icon}</span>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">{pricing.proPlus.name}</h3>
-              <p className="text-slate-300">Enterprise Funktionen</p>
-            </div>
-
-            <div className="text-center mb-8">
-              <div className="text-5xl font-bold text-slate-400 mb-2">
-                {pricing.proPlus.price.toFixed(2)}€
-              </div>
-              <div className="text-slate-500">pro Monat + MwSt.</div>
-            </div>
-
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="text-slate-600">✅</span>
-                <span>Alle PRO Funktionen</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="text-slate-600">📅</span>
-                <span>Terminplaner & Kalender</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="text-slate-600">👥</span>
-                <span>Team-Verwaltung</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="text-slate-600">📊</span>
-                <span>Business Analytics</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="text-slate-600">📱</span>
-                <span>Mobile App</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-slate-400">
-                <span className="text-slate-600">⚡</span>
-                <span>24/7 Support</span>
-              </div>
-            </div>
-
+        {/* Buchhalter — diskretna opcija */}
+        <div className="text-center mb-8">
+          <p className="text-slate-500 text-sm">
+            Sind Sie Buchhalter?{' '}
             <button
-              disabled
-              className="w-full bg-slate-700 text-slate-400 py-4 rounded-xl font-bold text-lg cursor-not-allowed"
+              onClick={handleBuchhalterSelect}
+              disabled={loading}
+              className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors disabled:opacity-50"
             >
-              🔒 Bald verfügbar
+              Hier als Buchhalter fortfahren →
             </button>
-
-            <div className="text-xs text-slate-500 text-center mt-4">
-              <p>Benachrichtigung erhalten</p>
-            </div>
-          </div>
+          </p>
         </div>
 
-        {/* Security Banner */}
-        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 mb-8">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-green-400 text-2xl">🔒</span>
-            </div>
-            <div>
-              <h4 className="text-green-300 font-bold text-lg mb-3">Sichere Zahlung via FastSpring</h4>
-              <div className="grid md:grid-cols-2 gap-3 text-green-200 text-sm">
-                <p className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  EU-konforme Rechnungsstellung
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  PCI-DSS Level 1 zertifiziert
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  30 Tage Kündigungsfrist
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  DSGVO-konform
-                </p>
-              </div>
-            </div>
+        {/* Trust + Disclaimer — kompaktno */}
+        <div className="text-center space-y-2 pt-2">
+          <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+            <span>🔒 Sichere Zahlung via FastSpring</span>
+            <span>·</span>
+            <span>PCI-DSS Level 1</span>
+            <span>·</span>
+            <span>DSGVO-konform</span>
+            <span>·</span>
+            <span>30 Tage Kündigungsfrist</span>
+            <span>·</span>
+            <span>Alle Preise zzgl. MwSt.</span>
           </div>
-        </div>
-
-        {/* Pricing Disclaimer */}
-        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6 mb-8">
-          <h4 className="text-white font-semibold mb-3 text-center">📋 Transparente Preise</h4>
-          <div className="text-slate-400 text-sm space-y-2 max-w-3xl mx-auto">
-            <p>• Alle Preise zzgl. MwSt.</p>
-            <p>• <strong className="text-white">Trial-Periode:</strong> Kreditkarte erforderlich. Erste Zahlung nach Trial.</p>
-            <p>• <strong className="text-white">Kündigungsfrist:</strong> 30 Tage. Zugriff bis Periodenende.</p>
-            <p>• Automatische Verlängerung. Jederzeit online kündbar.</p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-slate-500 text-sm">
-          <p>
-            Fragen? <a href="mailto:support@pro-meister.de" className="text-blue-400 hover:text-blue-300 underline">support@pro-meister.de</a>
+          <p className="text-xs text-slate-500">
+            Fragen? <a href="mailto:support@pro-meister.de" className="hover:text-slate-400 underline">support@pro-meister.de</a>
           </p>
         </div>
       </div>
