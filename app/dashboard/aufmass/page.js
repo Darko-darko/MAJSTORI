@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { generateAufmassPDF } from '@/lib/pdf/AufmassPDF'
+import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 
 const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
@@ -1237,6 +1238,7 @@ export default function AufmassPage() {
   }
 
   return (
+    <SubscriptionGuard feature="invoicing" majstorId={majstor?.id}>
     <div className="space-y-6 pb-24">
       {/* Header */}
       <a href="/dashboard" className="text-slate-400 hover:text-white text-sm inline-block mb-3">← Zurück zum Dashboard</a>
@@ -1335,5 +1337,6 @@ export default function AufmassPage() {
         />
       )}
     </div>
+    </SubscriptionGuard>
   )
 }

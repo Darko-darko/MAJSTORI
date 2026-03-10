@@ -439,10 +439,8 @@ const getNavigation = () => {
     { name: 'Ausgaben', href: '/dashboard/ausgaben', icon: '🧾', protected: true, feature: 'pdf_archive' },
     { name: 'Buchhalter', href: '/dashboard/pdf-archive', icon: '🗂️', protected: true, feature: 'pdf_archive' },
 
-    ...(ADMIN_EMAILS.includes(majstor?.email) ? [
-      { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
-      { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: false },
-    ] : []),
+    { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
+    { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
