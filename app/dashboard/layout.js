@@ -36,7 +36,14 @@ function DashboardLayoutContent({ children }) {
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining } = useSubscription(majstor?.id)
 
   // Push notifikacije
-  const { permission, subscribed, loading: pushLoading, supported: pushSupported, subscribe } = usePushNotifications(majstor?.id)
+  const { permission, subscribed: subscribedRaw, loading: pushLoading, supported: pushSupported, subscribe } = usePushNotifications(majstor?.id)
+  const [subscribed, setSubscribedOverride] = useState(null)
+  const resolvedSubscribed = subscribed !== null ? subscribed : subscribedRaw
+  useEffect(() => {
+    const handler = (e) => setSubscribedOverride(e.detail.subscribed)
+    window.addEventListener('push-subscription-changed', handler)
+    return () => window.removeEventListener('push-subscription-changed', handler)
+  }, [])
 
   
  // 🔥 LISTEN TO CUSTOM EVENTS + FORCE BADGE RE-RENDER
@@ -891,7 +898,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </div>
 
               <div className="flex items-center space-x-3">
-                {pushSupported && !subscribed && permission !== 'denied' ? (
+                {pushSupported && !resolvedSubscribed && permission !== 'denied' ? (
                   <button
                     onClick={subscribe}
                     disabled={pushLoading}
