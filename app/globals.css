@@ -58,11 +58,40 @@ html.light-mode {
   --color-violet-300: oklch(0.491 0.270 292.581) !important; /* → violet-700 */
   --color-violet-400: oklch(0.541 0.281 293.009) !important; /* → violet-600 */
   --color-violet-500: oklch(0.541 0.281 293.009) !important; /* → violet-600 */
+
+  --color-teal-200: oklch(0.511 0.096 186.391) !important;   /* → teal-700 */
+  --color-teal-300: oklch(0.511 0.096 186.391) !important;   /* → teal-700 */
+  --color-teal-400: oklch(0.600 0.118 184.704) !important;   /* → teal-600 */
+  --color-teal-500: oklch(0.600 0.118 184.704) !important;   /* → teal-600 */
+  --color-teal-900: oklch(0.908 0.030 185.0) !important;     /* → light mint/neutral */
+  --color-teal-950: oklch(0.908 0.030 185.0) !important;
+
+  --color-red-900: oklch(0.930 0.020 15.0) !important;       /* → light pink/neutral */
+  --color-red-950: oklch(0.930 0.020 15.0) !important;
+
+  --color-amber-200: oklch(0.555 0.163 48.998) !important;   /* → amber-700 */
+  --color-amber-300: oklch(0.555 0.163 48.998) !important;   /* → amber-700 */
+  --color-amber-400: oklch(0.627 0.194 47.604) !important;   /* → amber-600 */
+  --color-amber-500: oklch(0.627 0.194 47.604) !important;   /* → amber-600 */
+  --color-amber-900: oklch(0.908 0.040 83.0) !important;     /* → light beige/neutral */
 }
 
 /* Thicker borders za bolju vidljivost u light modu */
 html.light-mode .border {
   border-width: 2px;
+  border-color: oklch(0.554 0.046 257.418); /* slate-500 */
+}
+
+/* Tamniji border-slate-* u light modu */
+html.light-mode [class*="border-slate-"] {
+  border-color: oklch(0.554 0.046 257.418) !important; /* slate-500 */
+}
+
+/* Tamniji okviri svih input/select/textarea polja u light modu */
+html.light-mode input,
+html.light-mode select,
+html.light-mode textarea {
+  border-color: oklch(0.554 0.046 257.418) !important; /* slate-500 */
 }
 
 /* Exception: kolorirane boje dugmadi trebaju bijeli tekst i u light modu */
@@ -78,6 +107,23 @@ html.light-mode [class*="bg-indigo-"] {
 /* Exception: Google dugme uvijek bijelo (branded button) */
 html.light-mode .google-btn {
   --color-white: #ffffff !important;
+}
+
+/* Re-invert: inputi unutar Öffnungen/Formen (bg-red/teal kontejneri) — direktna klasa */
+html.light-mode .shape-row-input {
+  color: oklch(0.208 0.042 265.755) !important; /* slate-900 dark */
+  --color-white: oklch(0.208 0.042 265.755) !important;
+  border-color: oklch(0.554 0.046 257.418) !important; /* slate-500 */
+}
+
+/* Exception: Bereichsname input treba tanku ivicu, ne slate-500 override */
+html.light-mode .bereich-name-input {
+  border-color: oklch(0.554 0.046 257.418 / 0.55) !important;
+}
+
+/* Re-invert: summary Netto red i slični "tekst-na-prozirnoj-pozadini" unutar obojenih sekcija */
+html.light-mode .light-invert-text {
+  color: oklch(0.208 0.042 265.755) !important;
 }
 
 /* Grace period banner — zadrzati bijeli tekst i dugme na tamnom gradientu */
