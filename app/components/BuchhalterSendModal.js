@@ -7,14 +7,20 @@ export default function BuchhalterSendModal({
   onClose,
   selectedIds,
   majstor,
-  periodLabel
+  periodLabel,
+  buchhalterEmail: initialEmail = '',
+  onEmailSaved,
 }) {
   const [loading, setLoading] = useState(false)
   const [zipUrl, setZipUrl] = useState(null)
   const [shortUrl, setShortUrl] = useState(null)
   const [count, setCount] = useState(0)
   const [error, setError] = useState('')
-  const [bookkeeperEmail, setBookkeeperEmail] = useState(majstor?.bookkeeper_email || '')
+  const [bookkeeperEmail, setBookkeeperEmail] = useState(initialEmail)
+
+  useEffect(() => {
+    setBookkeeperEmail(initialEmail)
+  }, [initialEmail])
 
   useEffect(() => {
     if (isOpen) {
@@ -23,10 +29,6 @@ export default function BuchhalterSendModal({
       generateZip()
     }
   }, [isOpen])
-
-  useEffect(() => {
-    setBookkeeperEmail(majstor?.bookkeeper_email || '')
-  }, [majstor])
 
   const generateZip = async () => {
     setLoading(true)
@@ -53,10 +55,19 @@ export default function BuchhalterSendModal({
   }
 
   const saveBookkeeperEmail = async (email) => {
-    if (!email || !majstor?.id) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    await supabase.from('majstors').update({ bookkeeper_email: email }).eq('id', majstor.id)
+    if (!email?.trim() || !majstor?.id) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/buchhalter-access', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ buchhalter_email: email.trim() })
+      })
+      if (res.ok && onEmailSaved) onEmailSaved(email.trim())
+    } catch (e) {
+      console.warn('Email save failed:', e.message)
+    }
   }
 
   const getEmailContent = () => {
@@ -131,13 +142,11 @@ export default function BuchhalterSendModal({
 
           {zipUrl && !loading && (
             <>
-              {/* Success info */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center gap-2">
                 <span className="text-green-400">✅</span>
                 <span className="text-green-300 text-sm">ZIP erstellt — {count} PDFs</span>
               </div>
 
-              {/* Buttons */}
               <div className="space-y-2">
                 <button
                   onClick={openGmail}

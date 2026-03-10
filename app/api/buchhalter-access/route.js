@@ -138,6 +138,46 @@ export async function POST(request) {
   return NextResponse.json({ success: true, data: result.data })
 }
 
+// PATCH — sačuvaj email bez invite-a (samo za ZIP slanje)
+export async function PATCH(request) {
+  const user = await getUser(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { buchhalter_email } = await request.json()
+  if (!buchhalter_email?.trim()) return NextResponse.json({ error: 'E-Mail fehlt' }, { status: 400 })
+
+  const email = buchhalter_email.trim().toLowerCase()
+
+  // Provjeri da li buchhalter već ima nalog
+  const { data: buchhalterProfile } = await supabase
+    .from('majstors')
+    .select('id')
+    .eq('email', email)
+    .eq('role', 'buchhalter')
+    .single()
+
+  // Revoke sve ostale aktivne (ako menja email)
+  await supabase.from('buchhalter_access').update({ status: 'revoked' })
+    .eq('majstor_id', user.id).eq('status', 'active').neq('buchhalter_email', email)
+
+  // Upsert — ako red već postoji (i revoked), reaktiviraj ga
+  const { data, error } = await supabase
+    .from('buchhalter_access')
+    .upsert({
+      majstor_id: user.id,
+      buchhalter_email: email,
+      buchhalter_id: buchhalterProfile?.id || null,
+      status: 'active',
+      invited_at: new Date().toISOString(),
+      accepted_at: buchhalterProfile ? new Date().toISOString() : null,
+    }, { onConflict: 'majstor_id,buchhalter_email' })
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true, data })
+}
+
 // DELETE — ukloni pristup
 export async function DELETE(request) {
   const user = await getUser(request)
