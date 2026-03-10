@@ -358,6 +358,11 @@ const handlePDFView = async (document) => {
   setPdfLoading(true)
 
   // ✅ Open tab immediately (prevents popup blocker)
+  const isLight = localStorage.getItem('pm-theme') === 'light'
+  const bg = isLight ? '#f1f5f9' : '#0b1220'
+  const textColor = isLight ? '#0f172a' : '#ffffff'
+  const subtitleColor = isLight ? '#475569' : '#94a3b8'
+  const trackColor = isLight ? '#cbd5e1' : '#334155'
   const pdfTab = window.open('', '_blank')
   if (!pdfTab) {
     alert('Popup wurde blockiert. Bitte erlauben Sie Popups.')
@@ -372,61 +377,25 @@ pdfTab.document.write(`
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>PDF wird generiert...</title>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
+      * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
-        width: 100%;
-        height: 100%;
-        background: #0b1220;
+        width: 100%; height: 100%;
+        background: ${bg};
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-        color: white;
+        color: ${textColor};
       }
-
-      /* 🔥 FULLSCREEN overlay – isto kao React modal */
-      .overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.6);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        text-align: center;
-      }
-
+      .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+      .content { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
       .spinner {
-        width: 80px;
-        height: 80px;
-        border: 6px solid #334155;
+        width: 80px; height: 80px;
+        border: 6px solid ${trackColor};
         border-top-color: #3b82f6;
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }
-
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-
-      .title {
-        font-size: 18px;
-        font-weight: 700;
-        color: #ffffff;
-      }
-
-      .subtitle {
-        font-size: 14px;
-        color: #94a3b8;
-      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .title { font-size: 18px; font-weight: 700; }
+      .subtitle { font-size: 14px; color: ${subtitleColor}; }
     </style>
   </head>
   <body>

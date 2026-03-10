@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { generateAufmassPDF } from '@/lib/pdf/AufmassPDF'
+import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 
 const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
@@ -399,7 +400,7 @@ function ShapeRow({ item, onChange, onRemove }) {
       </div>
       <input type="text" value={item.description} onChange={e => update('description', e.target.value)}
         placeholder={isSubtract ? 'Fenster / Tür...' : 'Beschreibung...'}
-        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs" />
+        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs shape-row-input" />
       <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
         {['m', 'cm'].map(du => (
           <button key={du} onClick={() => update('dim_unit', du)}
@@ -411,25 +412,25 @@ function ShapeRow({ item, onChange, onRemove }) {
         <span className="text-slate-500 text-xs">B</span>
         <input type="number" value={item.length || ''} onChange={e => update('length', e.target.value)}
           placeholder="0.00" step="0.01" inputMode="decimal"
-          className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
+          className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
       </div>
       <span className="text-slate-500 text-xs">×</span>
       <div className="flex items-center gap-1">
         <span className="text-slate-500 text-xs">H</span>
         <input type="number" value={item.width || ''} onChange={e => update('width', e.target.value)}
           placeholder="0.00" step="0.01" inputMode="decimal"
-          className="w-16 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
+          className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
       </div>
       <div className="flex items-center gap-1">
         <span className="text-slate-500 text-xs">×</span>
         <input type="number" value={item.count || ''} onChange={e => update('count', e.target.value)}
           placeholder="1" step="1" min="1" inputMode="numeric"
-          className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right" />
+          className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
       </div>
-      <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border ${resCls}`}>
-        <span className={`text-xs font-bold ${signCls}`}>{sign}</span>
+      <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border light-invert-text ${resCls}`}>
+        <span className={`text-xs font-bold light-invert-text ${signCls}`}>{sign}</span>
         <span className="font-semibold text-xs">{formatNum(item.result || 0)}</span>
-        <span className="text-slate-400 text-xs">m²</span>
+        <span className="text-xs">m²</span>
       </div>
       <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
     </div>
@@ -458,9 +459,9 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
         <span className="text-red-400 text-sm">🪟</span>
         <span className="text-red-300 text-sm font-medium flex-1">Öffnungen & Abzüge</span>
         {openings.length > 0 && !open && (
-          <div className="flex flex-col items-end">
-            <span className="text-red-300 text-xs font-medium">− {formatNum(totalAbzug)} m²</span>
-            <span className="text-white text-xs font-semibold">= {formatNum(netto)} m²</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-red-400 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>
+            <span className="text-white light-invert-text text-sm font-bold font-mono">= {formatNum(netto)} m²</span>
           </div>
         )}
         <span className="text-red-400/60 text-xs">{open ? '▲' : '▼'}</span>
@@ -492,14 +493,14 @@ function ÖffnungenSection({ openings, onChange, bruttoM2 }) {
                   <span>− {formatNum(op.result)} m²</span>
                 </div>
               ))}
-              <div className="flex justify-between text-white font-semibold border-t border-slate-700 pt-1">
+              <div className="flex justify-between text-white font-semibold border-t border-slate-700 pt-1 light-invert-text">
                 <span>Netto</span>
                 <span>{formatNum(netto)} m²</span>
               </div>
             </div>
           )}
           <button onClick={() => setOpen(false)}
-            className="w-full py-2 bg-red-800/30 hover:bg-red-700/40 text-red-200 text-sm font-medium rounded-lg transition-colors">
+            className="w-full py-2 bg-red-800/30 hover:bg-red-700/40 text-red-200 text-sm font-medium rounded-lg transition-colors border border-red-700/60">
             ✓ Fertig
           </button>
         </div>
@@ -527,9 +528,9 @@ function FormenSection({ forms, onChange, baseM2 }) {
         <span className="text-teal-400 text-sm">◖</span>
         <span className="text-teal-300 text-sm font-medium flex-1">Formen & Ergänzungen</span>
         {forms.length > 0 && !open && (
-          <div className="flex flex-col items-end">
-            <span className="text-teal-300 text-xs font-medium">+ {formatNum(totalAdd)} m²</span>
-            <span className="text-white text-xs font-semibold">= {formatNum(netto)} m²</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-teal-400 text-xs font-mono">+ {formatNum(totalAdd)} m²</span>
+            <span className="text-white light-invert-text text-sm font-bold font-mono">= {formatNum(netto)} m²</span>
           </div>
         )}
         <button onClick={e => { e.stopPropagation(); addForm() }}
@@ -553,14 +554,14 @@ function FormenSection({ forms, onChange, baseM2 }) {
           </button>
           {forms.length > 0 && (
             <div className="px-3 py-2 bg-slate-900/60 rounded border border-slate-700 text-xs">
-              <div className="flex justify-between text-teal-300 font-semibold">
-                <span>Gesamt Ergänzungen</span>
-                <span>+ {formatNum(totalAdd)} m²</span>
+              <div className="flex justify-between font-semibold">
+                <span className="text-teal-300">Gesamt Ergänzungen</span>
+                <span className="text-white light-invert-text">+ {formatNum(totalAdd)} m²</span>
               </div>
             </div>
           )}
           <button onClick={() => setOpen(false)}
-            className="w-full py-2 bg-teal-800/30 hover:bg-teal-700/40 text-teal-200 text-sm font-medium rounded-lg transition-colors">
+            className="w-full py-2 bg-teal-800/30 hover:bg-teal-700/40 text-teal-200 text-sm font-medium rounded-lg transition-colors border border-teal-700/60">
             ✓ Fertig
           </button>
         </div>
@@ -648,7 +649,7 @@ function MaterialienSection({ materials, onChange }) {
             + Material hinzufügen
           </button>
           <button onClick={() => setOpen(false)}
-            className="w-full py-2 bg-amber-800/30 hover:bg-amber-700/40 text-amber-200 text-sm font-medium rounded-lg transition-colors">
+            className="w-full py-2 bg-amber-800/30 hover:bg-amber-700/40 text-amber-200 text-sm font-medium rounded-lg transition-colors border border-amber-700/60">
             ✓ Fertig
           </button>
         </div>
@@ -659,6 +660,7 @@ function MaterialienSection({ materials, onChange }) {
 
 // ─── Room section ─────────────────────────────────────────────────────────────
 function RoomSection({ room, onChange, onRemove }) {
+  const [open, setOpen] = useState(true)
   const regularItems = room.items.filter(i => !i.subtract && !i.isForm)
   const openings = room.items.filter(i => i.subtract)
   const forms = room.items.filter(i => i.isForm && !i.subtract)
@@ -692,47 +694,68 @@ function RoomSection({ room, onChange, onRemove }) {
   // Only show Öffnungen section if room has area-type items or already has openings/forms
   const hasAreaItems = regularItems.some(i => ['m²', 'Wand', 'Bogen', 'Trap'].includes(i.unit))
 
+  // netto m² for collapsed summary
+  const totalAbzug = openings.reduce((s, i) => s + (i.result || 0), 0)
+  const nettoM2 = bruttoM2 - totalAbzug
+
   return (
-    <div className="border border-slate-600 rounded-xl overflow-hidden">
+    <div className="rounded-lg overflow-hidden">
       {/* Room header */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/60">
-        <input
-          type="text"
-          value={room.name}
-          onChange={e => onChange({ ...room, name: e.target.value })}
-          placeholder="Bereichsname (z.B. Wohnzimmer, Fenster, Fassade...)"
-          className="flex-1 bg-transparent text-white font-semibold text-sm focus:outline-none placeholder-slate-500"
-        />
-        <button onClick={onRemove} className="text-slate-500 hover:text-red-400 text-lg leading-none px-1">×</button>
+      <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 rounded-t-lg">
+        {open ? (
+          <div className="flex items-center flex-1 border border-slate-600/25 rounded bereich-name-input" onClick={e => e.stopPropagation()}>
+            <svg className="w-3 h-3 ml-2 mr-1 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <input
+              type="text"
+              value={room.name}
+              onChange={e => onChange({ ...room, name: e.target.value })}
+              placeholder="Bereichsname"
+              className="flex-1 bg-transparent py-0.5 pr-2 text-white text-sm focus:outline-none placeholder-slate-400 min-w-0 shape-row-input"
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        ) : (
+          <span className="flex-1 text-white text-sm font-medium truncate">
+            {room.name || <span className="text-slate-500">Bereichsname</span>}
+            {nettoM2 > 0 && <span className="text-slate-400 text-xs font-mono ml-2">{formatNum(nettoM2)} m²</span>}
+          </span>
+        )}
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="text-slate-400 hover:text-slate-200 text-xs px-1 shrink-0"
+        >{open ? '▲' : '▼'}</button>
+        <button onClick={onRemove} className="text-slate-500 hover:text-red-400 text-lg leading-none px-1 shrink-0">×</button>
       </div>
 
       {/* Items */}
-      <div className="p-3 space-y-2 bg-slate-800/30">
-        {regularItems.map((item, idx) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            onChange={newItem => updateRegularItem(idx, newItem)}
-            onRemove={() => removeRegularItem(idx)}
-          />
-        ))}
-        <button
-          onClick={addItem}
-          className="w-full py-2 border border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 text-sm rounded-lg transition-colors"
-        >
-          + Position hinzufügen
-        </button>
-        {(hasAreaItems || forms.length > 0) && (
-          <FormenSection forms={forms} onChange={updateForms} baseM2={baseM2} />
-        )}
-        {(hasAreaItems || forms.length > 0 || openings.length > 0) && (
-          <ÖffnungenSection
-            openings={openings}
-            onChange={updateOpenings}
-            bruttoM2={bruttoM2}
-          />
-        )}
-      </div>
+      {open && (
+        <div className="p-3 space-y-2 bg-slate-800/30">
+          {regularItems.map((item, idx) => (
+            <ItemRow
+              key={item.id}
+              item={item}
+              onChange={newItem => updateRegularItem(idx, newItem)}
+              onRemove={() => removeRegularItem(idx)}
+            />
+          ))}
+          <button
+            onClick={addItem}
+            className="w-full py-2 border border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 text-sm rounded-lg transition-colors"
+          >
+            + Position hinzufügen
+          </button>
+          {(hasAreaItems || forms.length > 0) && (
+            <FormenSection forms={forms} onChange={updateForms} baseM2={baseM2} />
+          )}
+          {(hasAreaItems || forms.length > 0 || openings.length > 0) && (
+            <ÖffnungenSection
+              openings={openings}
+              onChange={updateOpenings}
+              bruttoM2={bruttoM2}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -851,8 +874,9 @@ function SignatureModal({ onConfirm, onClose, existingDataUrl }) {
           ref={canvasRef}
           width={500}
           height={900}
-          className="bg-white border-2 border-dashed border-slate-300 rounded-xl"
+          className="border-2 border-dashed border-slate-300 rounded-xl"
           style={{
+            backgroundColor: '#ffffff',
             cursor: 'crosshair',
             touchAction: 'none',
             display: 'block',
@@ -883,6 +907,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   })
   const [signature, setSignature] = useState(null)
   const [showSig, setShowSig] = useState(false)
+  const [bereicheOpen, setBereicheOpen] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -988,12 +1013,6 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
           </div>
 
-          {/* Hint */}
-          <div className="px-5 pt-3 pb-0">
-            <div className="bg-blue-950/40 border border-blue-800/40 rounded-lg px-3 py-2 text-xs text-blue-300/80 leading-relaxed">
-              💡 <strong>Tipp:</strong> Bereiche anlegen (z.B. "Wohnzimmer") → Positionen erfassen (m², lm, m³, Stk) → Abzüge für Öffnungen → PDF generieren oder direkt in Angebot / Rechnung übernehmen.
-            </div>
-          </div>
 
           <div className="p-5 space-y-4">
             {/* Meta */}
@@ -1030,41 +1049,46 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             </div>
 
             {/* Sobe */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-white font-semibold text-sm">Bereiche</h3>
-                <span className="text-xs text-slate-500">{form.rooms.length} Bereich/Bereiche</span>
+            <div className="border border-slate-600 rounded-xl overflow-hidden">
+              <div
+                className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
+                onClick={() => setBereicheOpen(o => !o)}
+              >
+                <span className="text-white text-sm font-semibold flex-1">📐 Bereiche <span className="text-slate-400 font-normal text-xs">({form.rooms.length})</span></span>
+                {totalEntries.length > 0 && (
+                  <span className="text-slate-400 text-xs font-mono mr-2">
+                    {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
+                  </span>
+                )}
+                <span className="text-slate-400 text-xs">{bereicheOpen ? '▲' : '▼'}</span>
               </div>
+              {bereicheOpen && <div className="p-3 space-y-0">
               {form.rooms.map((room, idx) => (
-                <RoomSection
-                  key={room.id}
-                  room={room}
-                  onChange={r => updateRoom(idx, r)}
-                  onRemove={() => removeRoom(idx)}
-                />
+                <div key={room.id}>
+                  {idx > 0 && <div className="border-t border-slate-600/50 my-3" />}
+                  <RoomSection
+                    room={room}
+                    onChange={r => updateRoom(idx, r)}
+                    onRemove={() => removeRoom(idx)}
+                  />
+                </div>
               ))}
+              {form.rooms.length > 0 && <div className="border-t border-slate-600/50 mt-3 mb-1" />}
               <button
                 onClick={addRoom}
-                className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors"
+                className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors mt-2"
               >
                 + Bereich hinzufügen
               </button>
+              </div>}
             </div>
 
-            {/* Sažetak */}
-            {totalEntries.length > 0 && (
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Zusammenfassung</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {totalEntries.map(([unit, val]) => (
-                    <div key={unit} className="text-center">
-                      <p className="text-xl font-bold text-white">{formatNum(val)}</p>
-                      <p className="text-xs text-slate-400">{unit}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
+            {/* Materialien */}
+            <MaterialienSection
+              materials={form.materials}
+              onChange={m => setForm(f => ({ ...f, materials: m }))}
+            />
 
             {/* Notizen */}
             <div>
@@ -1077,12 +1101,6 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
-
-            {/* Materialien */}
-            <MaterialienSection
-              materials={form.materials}
-              onChange={m => setForm(f => ({ ...f, materials: m }))}
-            />
 
             {/* Potpis */}
             <div>
@@ -1108,7 +1126,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={() => setShowSig(true)}
-                  className="w-full h-20 bg-white rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
+                  className="w-full h-20 rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
+                  style={{ backgroundColor: '#ffffff' }}
                 >
                   <div className="text-center pointer-events-none">
                     <div className="text-2xl mb-0.5">✍️</div>
@@ -1223,6 +1242,7 @@ export default function AufmassPage() {
   }
 
   return (
+    <SubscriptionGuard feature="invoicing" majstorId={majstor?.id}>
     <div className="space-y-6 pb-24">
       {/* Header */}
       <a href="/dashboard" className="text-slate-400 hover:text-white text-sm inline-block mb-3">← Zurück zum Dashboard</a>
@@ -1321,5 +1341,6 @@ export default function AufmassPage() {
         />
       )}
     </div>
+    </SubscriptionGuard>
   )
 }

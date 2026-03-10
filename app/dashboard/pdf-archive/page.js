@@ -361,15 +361,20 @@ const togglePDFSelection = (pdfId) => {
   }
 
   const openPDFInNewTab = async (pdfId) => {
+    const isLight = localStorage.getItem('pm-theme') === 'light'
+    const bg = isLight ? '#f1f5f9' : '#0b1220'
+    const textColor = isLight ? '#0f172a' : 'white'
+    const subtitleColor = isLight ? '#475569' : '#94a3b8'
+    const trackColor = isLight ? '#cbd5e1' : '#334155'
     const pdfTab = window.open('', '_blank')
     if (!pdfTab) { alert('Popup wurde blockiert. Bitte erlauben Sie Popups.'); return }
     pdfTab.document.open()
     pdfTab.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>PDF wird geladen...</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#0b1220;font-family:-apple-system,sans-serif;color:white}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center}
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:${bg};font-family:-apple-system,sans-serif;color:${textColor}}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
 .content{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
-.spinner{width:80px;height:80px;border:6px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}.title{font-size:18px;font-weight:700}.subtitle{font-size:14px;color:#94a3b8}
+.spinner{width:80px;height:80px;border:6px solid ${trackColor};border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}.title{font-size:18px;font-weight:700}.subtitle{font-size:14px;color:${subtitleColor}}
 </style></head><body><div class="overlay"><div class="content"><div class="spinner"></div><div class="title">PDF wird geladen…</div><div class="subtitle">Einen Moment bitte…</div></div></div></body></html>`)
     pdfTab.document.close()
     try {
@@ -838,7 +843,7 @@ const togglePDFSelection = (pdfId) => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-20 w-20 border-[6px] border-slate-600 border-t-blue-500 mx-auto mb-4"></div>
           <div className="text-white text-xl">Lade PDF Archiv...</div>
         </div>
       </div>
@@ -879,7 +884,7 @@ const togglePDFSelection = (pdfId) => {
       return (
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-20 w-20 border-[6px] border-slate-600 border-t-blue-500 mx-auto mb-4"></div>
             <div className="text-white text-xl">Lade Details...</div>
           </div>
         </div>

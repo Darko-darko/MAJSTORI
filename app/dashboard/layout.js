@@ -438,7 +438,9 @@ const getNavigation = () => {
     { name: 'Rechnungen', href: '/dashboard/invoices', icon: '📄', badge: formatBadgeCount(badges.invoices), badgeColor: 'bg-red-500', protected: true, feature: 'invoicing' },
     { name: 'Ausgaben', href: '/dashboard/ausgaben', icon: '🧾', protected: true, feature: 'pdf_archive' },
     { name: 'Buchhalter', href: '/dashboard/pdf-archive', icon: '🗂️', protected: true, feature: 'pdf_archive' },
-    ...(ADMIN_EMAILS.includes(majstor?.email) ? [{ name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: false }] : []),
+
+    { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
+    { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
@@ -650,11 +652,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-       
-        
-
         <div className="text-center">
-          <div className="text-white text-xl mb-4">Laden...</div>
+          <div className="animate-spin rounded-full h-20 w-20 border-[6px] border-slate-600 border-t-blue-500 mx-auto mb-6"></div>
+          <div className="text-white text-xl mb-2">Laden...</div>
           <div className="text-slate-400 text-sm">Überprüfung der Benutzerauthentifizierung...</div>
         </div>
       </div>
@@ -999,7 +999,14 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
 export default function DashboardLayout({ children }) {
   return (
-    <Suspense fallback={<div className="text-white">Laden...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 border-[6px] border-slate-600 border-t-blue-500 mx-auto mb-6"></div>
+          <div className="text-white text-xl">Laden...</div>
+        </div>
+      </div>
+    }>
       <DashboardLayoutContent>{children}</DashboardLayoutContent>
     </Suspense>
   )

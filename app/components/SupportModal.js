@@ -73,7 +73,7 @@ export function SupportModal({ isOpen, onClose, userEmail = '', userName = '' })
         <button
           onClick={onClose}
           disabled={sending}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl z-10 disabled:opacity-50"
+          className="absolute top-4 right-4 text-slate-900 hover:text-black text-2xl z-10 disabled:opacity-50"
         >
           ×
         </button>
