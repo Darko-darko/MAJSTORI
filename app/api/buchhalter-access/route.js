@@ -46,13 +46,14 @@ export async function POST(request) {
   // Provjeri da li već postoji
   const { data: existing } = await supabase
     .from('buchhalter_access')
-    .select('id, status')
+    .select('id, status, accepted_at')
     .eq('majstor_id', user.id)
     .eq('buchhalter_email', email)
     .single()
 
-  if (existing && existing.status !== 'revoked') {
-    return NextResponse.json({ error: 'Dieser Buchhalter hat bereits Zugang' }, { status: 409 })
+  // Ako je već prihvatio poziv — ne šalji ponovo
+  if (existing && existing.status !== 'revoked' && existing.accepted_at) {
+    return NextResponse.json({ error: 'Dieser Buchhalter ist bereits verbunden' }, { status: 409 })
   }
 
   // Provjeri da li buchhalter već ima nalog
@@ -84,7 +85,7 @@ export async function POST(request) {
 
   let result
   if (existing) {
-    // Reactivate revoked
+    // Update: reaktiviraj revoked ILI ažuriraj invited_at za erneut senden
     const { data, error } = await supabase
       .from('buchhalter_access')
       .update(accessData)
@@ -161,6 +162,7 @@ export async function PATCH(request) {
     .eq('majstor_id', user.id).eq('status', 'active').neq('buchhalter_email', email)
 
   // Upsert — ako red već postoji (i revoked), reaktiviraj ga
+  // NE setujemo invited_at ovde — to radi samo POST (kad se email pošalje)
   const { data, error } = await supabase
     .from('buchhalter_access')
     .upsert({
@@ -168,7 +170,6 @@ export async function PATCH(request) {
       buchhalter_email: email,
       buchhalter_id: buchhalterProfile?.id || null,
       status: 'active',
-      invited_at: new Date().toISOString(),
       accepted_at: buchhalterProfile ? new Date().toISOString() : null,
     }, { onConflict: 'majstor_id,buchhalter_email' })
     .select()
