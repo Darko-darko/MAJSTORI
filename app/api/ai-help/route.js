@@ -165,6 +165,16 @@ RECHNUNG AN BUCHHALTER SENDEN:
 - Buchhalter E-Mail speichern: Beim ersten Versand einfach die E-Mail-Adresse des Buchhalters eingeben — wird automatisch gespeichert und beim nächsten Mal vorausgefüllt. Adresse kann jederzeit geändert werden.
 - CC-Option: Beim Versand einer einzelnen Rechnung per E-Mail gibt es ein CC-Feld (vorausgefüllt mit Ihrer eigenen E-Mail). Sie können dort die E-Mail Ihres Buchhalters eintragen — dann bekommt er jede Rechnung sofort als Kopie. Buchhalter bevorzugen jedoch meistens den gesammelten Versand einmal pro Monat.
 
+BUCHHALTER-ZUGANG (Portal) — DETAILS:
+Was ist das: Ihr Buchhalter bekommt einen eigenen Login und kann Ihre Rechnungen und Ausgaben direkt im Portal einsehen und herunterladen — ohne dass Sie jedes Mal etwas senden müssen.
+Einrichten: Dashboard → Buchhalter (linkes Menü) → "PDF-Archiv & Buchhalter-Zugang" → E-Mail-Adresse des Buchhalters eingeben → "Portal-Zugang aktivieren"
+Was der Buchhalter sieht: Ein eigenes Dashboard mit Ihren Rechnungen und Ausgaben — sortiert nach Monat, als ZIP herunterladbar. Nur Lese-Zugriff, keine Änderungen möglich.
+Login des Buchhalters: Der Buchhalter erhält eine E-Mail mit Einladung → erstellt ein eigenes Passwort → meldet sich unter pro-meister.de/login an
+Mehrere Mandanten: Wenn ein Buchhalter mehrere Handwerker betreut, sieht er alle verbundenen Mandanten in seinem Portal.
+Verbindung trennen: Jederzeit in Einstellungen → Buchhalter-Zugang → "Zugang entfernen". Der Buchhalter verliert sofort den Zugriff.
+Sichtbar in Einstellungen: Unter "Buchhalter-Zugang" wird angezeigt, ob eine Verbindung aktiv ist (grünes "✓ Portal-Zugang aktiv" oder "Kein Portal-Zugang").
+Tipp: Ideal für Buchhalter die regelmäßig Zugriff brauchen — spart Zeit gegenüber dem monatlichen E-Mail-Versand.
+
 NEUEN KUNDEN HINZUFÜGEN:
 - Beim Erstellen einer Rechnung: Kundendaten einfach eintippen — Kunde wird automatisch gespeichert
 - Über Kundenverwaltung: Dashboard → Kunden → Neuer Kunde → manuell ausfüllen
@@ -196,6 +206,18 @@ Bankdaten (erscheinen auf jeder Rechnung):
 Zahlungsbedingungen:
   - Standard-Zahlungsziel: 7 / 14 / 30 Tage
   - Rechnungs-Fußzeile: freier Text (z.B. "Vielen Dank für Ihr Vertrauen!")
+
+PARTNER-PROGRAMM — DETAILS:
+Was ist das: Empfehlen Sie Pro-Meister weiter und verdienen Sie eine Provision für jeden aktiven PRO-Kunden, der über Ihren Empfehlungslink registriert wird.
+Wie werde ich Partner: Kontaktieren Sie uns unter support@pro-meister.de — wir schalten Ihren Partner-Status frei und vergeben Ihren persönlichen Empfehlungscode.
+Partner-Dashboard: Nach Freischaltung erscheint "🤝 Mein ProMeister Partner" im Seitenmenü (oder im Header für Buchhalter). Dort finden Sie:
+  - Ihren persönlichen Empfehlungslink und QR-Code
+  - Übersicht über alle geworbenen Kunden und deren Status (Testphase, Aktiv, Gekündigt)
+  - Finanzübersicht: monatliche Provision, Auszahlungsstatus
+  - Kundenliste mit Registrierungsdatum und aktuellem Status
+Provision: Fester Betrag pro aktivem PRO-Kunden pro Monat (wird individuell vereinbart). Auszahlung erfolgt monatlich.
+Empfehlungslink teilen: Link kopieren, QR-Code herunterladen, oder direkt über "Teilen"-Button versenden.
+Transparenz: Sie sehen jederzeit welche Kunden aktiv sind, wann die Provision fällig ist und ob die Auszahlung erfolgt ist.
 
 EINSTELLUNGEN (Einstellungen-Seite):
 - Allgemein: Firmenname, Adresse, Telefon, Website
