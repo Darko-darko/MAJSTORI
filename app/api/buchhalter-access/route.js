@@ -104,18 +104,8 @@ export async function POST(request) {
 
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 })
 
-  // Pošalji invite email
+  // Pošalji invite email — univerzalni template sa obe opcije
   try {
-    const isRegistered = !!buchhalterProfile
-    const emailBody = isRegistered
-      ? `<p><strong>${majstorName}</strong> hat Ihnen Zugang zu seinem Buchhalter-Bereich auf Pro-Meister erteilt.</p>
-         <p>Melden Sie sich an, um die Daten einzusehen:</p>
-         <p><a href="https://pro-meister.de/login" style="background:#0d9488;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Jetzt anmelden →</a></p>`
-      : `<p><strong>${majstorName}</strong> hat Ihnen Zugang zu seinem Buchhalter-Bereich auf Pro-Meister erteilt.</p>
-         <p>Registrieren Sie sich kostenlos und wählen Sie beim Setup <strong>"Buchhalter"</strong>:</p>
-         <p><a href="https://pro-meister.de/signup" style="background:#0d9488;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Jetzt registrieren →</a></p>
-         <p style="color:#64748b;font-size:13px;">Wichtig: Verwenden Sie diese E-Mail-Adresse zur Registrierung.</p>`
-
     await resend.emails.send({
       from: 'Pro-Meister <noreply@pro-meister.de>',
       to: email,
@@ -126,7 +116,12 @@ export async function POST(request) {
             <span style="font-size:32px">📒</span>
             <h2 style="color:#0f172a;margin:8px 0">Buchhalter-Zugang erhalten</h2>
           </div>
-          ${emailBody}
+          <p><strong>${majstorName}</strong> hat Ihnen Zugang zu seinem Buchhalter-Bereich auf Pro-Meister erteilt.</p>
+          <p style="margin-top:20px;font-weight:600;">Bereits registriert?</p>
+          <p><a href="https://pro-meister.de/login" style="display:inline-block;background:#0d9488;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Anmelden →</a></p>
+          <p style="margin-top:20px;font-weight:600;">Noch kein Konto?</p>
+          <p><a href="https://pro-meister.de/signup" style="display:inline-block;background:#334155;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Kostenlos registrieren →</a></p>
+          <p style="color:#64748b;font-size:13px;margin-top:4px;">Wählen Sie beim Setup <strong>„Buchhalter"</strong> und verwenden Sie diese E-Mail-Adresse.</p>
           <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
           <p style="color:#94a3b8;font-size:12px;text-align:center">Pro-Meister · pro-meister.de</p>
         </div>
@@ -171,6 +166,7 @@ export async function PATCH(request) {
       buchhalter_id: buchhalterProfile?.id || null,
       status: 'active',
       accepted_at: null, // Buchhalter muss explizit annehmen
+      invited_at: null, // Reset — Einladung wird nur über POST gesendet
     }, { onConflict: 'majstor_id,buchhalter_email' })
     .select()
     .single()
