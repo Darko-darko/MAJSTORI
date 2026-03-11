@@ -80,7 +80,7 @@ export async function POST(request) {
     buchhalter_id: buchhalterProfile?.id || null,
     status: 'active',
     invited_at: new Date().toISOString(),
-    accepted_at: buchhalterProfile ? new Date().toISOString() : null,
+    accepted_at: null, // Buchhalter muss explizit annehmen
   }
 
   let result
@@ -170,13 +170,63 @@ export async function PATCH(request) {
       buchhalter_email: email,
       buchhalter_id: buchhalterProfile?.id || null,
       status: 'active',
-      accepted_at: buchhalterProfile ? new Date().toISOString() : null,
+      accepted_at: null, // Buchhalter muss explizit annehmen
     }, { onConflict: 'majstor_id,buchhalter_email' })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true, data })
+}
+
+// PUT — buchhalter prihvata poziv
+export async function PUT(request) {
+  const user = await getUser(request)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id, action } = await request.json()
+  if (!id || !action) return NextResponse.json({ error: 'ID und Aktion erforderlich' }, { status: 400 })
+
+  // Provjeri da je buchhalter vlasnik ovog accessa
+  const { data: accessRow } = await supabase
+    .from('buchhalter_access')
+    .select('id, buchhalter_id, buchhalter_email, status')
+    .eq('id', id)
+    .single()
+
+  if (!accessRow) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 })
+
+  // Provjeri ownership — buchhalter_id mora matchovati ILI email mora matchovati
+  const userEmail = user.email?.toLowerCase()
+  if (accessRow.buchhalter_id !== user.id && accessRow.buchhalter_email !== userEmail) {
+    return NextResponse.json({ error: 'Nicht berechtigt' }, { status: 403 })
+  }
+
+  if (action === 'accept') {
+    const { error } = await supabase
+      .from('buchhalter_access')
+      .update({
+        accepted_at: new Date().toISOString(),
+        buchhalter_id: user.id,
+        status: 'active'
+      })
+      .eq('id', id)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
+  if (action === 'decline') {
+    const { error } = await supabase
+      .from('buchhalter_access')
+      .update({ status: 'revoked' })
+      .eq('id', id)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
+  return NextResponse.json({ error: 'Ungültige Aktion' }, { status: 400 })
 }
 
 // DELETE — ukloni pristup

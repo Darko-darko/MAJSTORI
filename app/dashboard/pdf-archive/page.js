@@ -52,6 +52,9 @@ export default function PDFArchivePage() {
   const [buchhalterInviteStatus, setBuchhalterInviteStatus] = useState(null) // 'success' | 'error' | 'already' | 'mismatch' | null
   const [buchhalterInviteOpen, setBuchhalterInviteOpen] = useState(false)
   const [buchhalterConfirmEmail, setBuchhalterConfirmEmail] = useState('')
+  const [buchhalterRevokeConfirm, setBuchhalterRevokeConfirm] = useState(false)
+  const [buchhalterRevoking, setBuchhalterRevoking] = useState(false)
+  const [buchhalterRevoked, setBuchhalterRevoked] = useState(false) // just revoked, show reconnect UI
 
   // Bookkeeper settings (legacy, kept for BookkeeperSettingsModal)
   const [bookkeeperSettings, setBookkeeperSettings] = useState({
@@ -939,7 +942,12 @@ const togglePDFSelection = (pdfId) => {
       {/* Buchhalterin E-Mail */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
         <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wide">Buchhalterin E-Mail</p>
-        {buchhalterEmailEditing || !buchhalterAccess ? (
+        {buchhalterRevoked ? (
+          <div className="flex items-center justify-between">
+            <span className="text-white text-sm">{buchhalterEmailInput}</span>
+            <button onClick={() => { setBuchhalterRevoked(false); setBuchhalterEmailEditing(true); setBuchhalterEmailInput('') }} className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700 transition-colors">Ändern</button>
+          </div>
+        ) : buchhalterEmailEditing || !buchhalterAccess ? (
           <div className="flex gap-2 items-center">
             <input
               type="email"
@@ -981,6 +989,41 @@ const togglePDFSelection = (pdfId) => {
           </div>
         )}
       </div>
+
+      {/* Zugang beendet — reconnect UI */}
+      {buchhalterRevoked && (
+        <div className="bg-slate-800/30 border border-red-500/20 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-red-400 text-lg">✕</span>
+            <div>
+              <p className="text-white text-sm font-medium">Zugang beendet</p>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Der Buchhalter hat keinen Zugriff mehr auf Ihre Daten.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              setBuchhalterEmailSaving(true)
+              try {
+                const { data: { session } } = await supabase.auth.getSession()
+                const res = await fetch('/api/buchhalter-access', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                  body: JSON.stringify({ buchhalter_email: buchhalterEmailInput.trim() })
+                })
+                const json = await res.json()
+                if (res.ok) { setBuchhalterAccess(json.data); setBuchhalterRevoked(false) }
+              } catch (e) { console.error(e) }
+              finally { setBuchhalterEmailSaving(false) }
+            }}
+            disabled={buchhalterEmailSaving}
+            className="px-4 py-2 bg-teal-700 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {buchhalterEmailSaving ? '...' : 'Zugang wiederherstellen'}
+          </button>
+        </div>
+      )}
 
       {/* Buchhalter einladen */}
       {buchhalterAccess && !buchhalterEmailEditing && (
@@ -1097,6 +1140,59 @@ const togglePDFSelection = (pdfId) => {
               )}
             </div>
           )}
+          {/* Zugang beenden link */}
+          <div className="border-t border-slate-700/50 pt-3 mt-1">
+            <button
+              onClick={() => setBuchhalterRevokeConfirm(true)}
+              className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
+            >
+              Zugang beenden
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Revoke Dialog */}
+      {buchhalterRevokeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-white font-semibold text-lg mb-2">Buchhalter-Zugang beenden?</h3>
+            <p className="text-slate-300 text-sm mb-5">
+              Möchten Sie den Zugang für <strong>{buchhalterAccess?.buchhalter_email}</strong> wirklich beenden? Der Buchhalter verliert sofort den Zugriff auf Ihre Daten.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBuchhalterRevokeConfirm(false)}
+                className="flex-1 px-4 py-2 text-sm text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={async () => {
+                  setBuchhalterRevoking(true)
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const res = await fetch(`/api/buchhalter-access?id=${buchhalterAccess.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${session.access_token}` }
+                    })
+                    if (res.ok) {
+                      setBuchhalterRevoked(true)
+                      setBuchhalterAccess(null)
+                      setBuchhalterRevokeConfirm(false)
+                      setBuchhalterInviteStatus(null)
+                      setBuchhalterInviteOpen(false)
+                    }
+                  } catch (e) { console.error(e) }
+                  finally { setBuchhalterRevoking(false) }
+                }}
+                disabled={buchhalterRevoking}
+                className="flex-1 px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {buchhalterRevoking ? 'Wird beendet...' : 'Ja, beenden'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
