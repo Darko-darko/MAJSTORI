@@ -112,9 +112,14 @@ export async function POST(request) {
          <p>Melden Sie sich an, um die Daten einzusehen:</p>
          <p><a href="https://pro-meister.de/login" style="display:inline-block;background:#0d9488;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Jetzt anmelden →</a></p>`
       : `<p><strong>${majstorName}</strong> hat Ihnen Zugang zu seinem Buchhalter-Bereich auf Pro-Meister erteilt.</p>
-         <p>Registrieren Sie sich kostenlos und wählen Sie beim Setup <strong>„Buchhalter"</strong>:</p>
+         <p style="font-weight:600;margin-top:16px;">So richten Sie Ihren Zugang ein:</p>
+         <table cellpadding="0" cellspacing="0" style="margin:8px 0 16px">
+           <tr><td style="vertical-align:top;padding:4px 10px 4px 0;color:#0d9488;font-weight:bold;">1.</td><td style="padding:4px 0;">Registrieren Sie sich kostenlos über den Button unten</td></tr>
+           <tr><td style="vertical-align:top;padding:4px 10px 4px 0;color:#0d9488;font-weight:bold;">2.</td><td style="padding:4px 0;">Auf der Planauswahl-Seite klicken Sie unten auf <strong>„Hier als Buchhalter fortfahren"</strong></td></tr>
+           <tr><td style="vertical-align:top;padding:4px 10px 4px 0;color:#0d9488;font-weight:bold;">3.</td><td style="padding:4px 0;">Fertig — Sie haben sofort Zugang zu den Finanzdaten</td></tr>
+         </table>
          <p><a href="https://pro-meister.de/signup" style="display:inline-block;background:#0d9488;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Jetzt registrieren →</a></p>
-         <p style="color:#64748b;font-size:13px;">Wichtig: Verwenden Sie diese E-Mail-Adresse zur Registrierung.</p>`
+         <p style="color:#64748b;font-size:13px;margin-top:12px;">Wichtig: Verwenden Sie diese E-Mail-Adresse (${email}) zur Registrierung.</p>`
 
     await resend.emails.send({
       from: 'Pro-Meister <noreply@pro-meister.de>',
