@@ -188,11 +188,21 @@ export async function DELETE(request) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 })
 
+  // Allow both majstor and buchhalter to revoke
+  const { data: accessRow } = await supabase
+    .from('buchhalter_access')
+    .select('majstor_id, buchhalter_id')
+    .eq('id', id)
+    .single()
+
+  if (!accessRow || (accessRow.majstor_id !== user.id && accessRow.buchhalter_id !== user.id)) {
+    return NextResponse.json({ error: 'Nicht berechtigt' }, { status: 403 })
+  }
+
   const { error } = await supabase
     .from('buchhalter_access')
     .update({ status: 'revoked' })
     .eq('id', id)
-    .eq('majstor_id', user.id) // ownership check
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
