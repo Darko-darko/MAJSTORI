@@ -85,7 +85,13 @@ export default function LoginPage() {
 
       if (data.user) {
         console.log('✅ Login successful:', data.user.email)
-        router.push('/dashboard')
+        // Check role for buchhalter redirect
+        const { data: profile } = await supabase
+          .from('majstors')
+          .select('role')
+          .eq('id', data.user.id)
+          .single()
+        router.push(profile?.role === 'buchhalter' ? '/dashboard/buchhalter' : '/dashboard')
       }
 
     } catch (err) {

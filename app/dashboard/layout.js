@@ -13,10 +13,12 @@ import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import Link from 'next/link'
 import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
 import AIHelpChat from '@/app/components/AIHelpChat'
+import { useTheme } from '@/lib/context/ThemeContext'
 
 
 
 function DashboardLayoutContent({ children }) {
+  const { theme, toggleTheme } = useTheme()
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -275,7 +277,13 @@ useEffect(() => {
           setError('Profile access error: ' + majstorError.message)
         }
       } else {
-        if (!majstorData.subscription_status) {
+        // Buchhalter doesn't need a subscription
+      if (majstorData.role === 'buchhalter') {
+        setMajstor(majstorData)
+        return
+      }
+
+      if (!majstorData.subscription_status) {
           router.push('/welcome/choose-plan')
           return
         }
@@ -436,6 +444,12 @@ const getSubscriptionBadge = () => {
 
 // app/dashboard/layout.js - FINALNI SA ISPRAVNIM REDOM I ORIGINAL FONT SIZE
 // Samo izmeni getNavigation() i NavigationItem
+
+const isBuchhalter = majstor?.role === 'buchhalter'
+
+const getBuchhalterNavigation = () => [
+  { name: 'Meine Auftraggeber', href: '/dashboard/buchhalter', icon: '📒', protected: false },
+]
 
 const getNavigation = () => {
   return [
@@ -695,7 +709,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
     )
   }
 
-  const navigation = getNavigation()
+  const navigation = isBuchhalter ? getBuchhalterNavigation() : getNavigation()
 
   const partnerItem = majstor?.is_partner
     ? { name: 'Mein ProMeister Partner', href: '/dashboard/partner', icon: '🤝', protected: false }
@@ -732,7 +746,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
         )}
 
         {/* Desktop Sidebar */}
-        <div className="hidden lg:flex lg:flex-shrink-0">
+        <div className={`hidden ${!isBuchhalter ? 'lg:flex' : ''} lg:flex-shrink-0`}>
           <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
             
             <div className="flex items-center h-16 px-4 border-b border-slate-700">
@@ -762,9 +776,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
-              <NavigationItem item={mitgliedschaftItem} />
-            </div>
+            {!isBuchhalter && (
+              <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
+                <NavigationItem item={mitgliedschaftItem} />
+              </div>
+            )}
 
             <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
               {navigation.map((item) => (
@@ -773,11 +789,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
             </nav>
 
             <div className="border-t border-slate-700 px-2 py-2">
-              {bottomNavigation.map((item) => (
+              {!isBuchhalter && bottomNavigation.map((item) => (
                 <NavigationItem key={item.name} item={item} />
               ))}
-              {partnerItem && <NavigationItem item={partnerItem} />}
-              {ADMIN_EMAILS.includes(majstor?.email) && (
+              {!isBuchhalter && partnerItem && <NavigationItem item={partnerItem} />}
+              {!isBuchhalter && ADMIN_EMAILS.includes(majstor?.email) && (
                 <Link
                   href="/admin"
                   className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
@@ -798,9 +814,8 @@ const NavigationItem = ({ item, isMobile = false }) => {
         </div>
 
         {/* Mobile Sidebar */}
-        <div 
-          className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 ${
-    
+        <div
+          className={`${isBuchhalter ? 'hidden' : ''} lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -838,9 +853,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
-              <NavigationItem item={mitgliedschaftItem} isMobile={true} />
-            </div>
+            {!isBuchhalter && (
+              <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
+                <NavigationItem item={mitgliedschaftItem} isMobile={true} />
+              </div>
+            )}
 
             <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
               {navigation.map((item) => (
@@ -849,11 +866,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
             </nav>
 
             <div className="border-t border-slate-700 px-2 py-2">
-              {bottomNavigation.map((item) => (
+              {!isBuchhalter && bottomNavigation.map((item) => (
                 <NavigationItem key={item.name} item={item} isMobile={true} />
               ))}
-              {partnerItem && <NavigationItem item={partnerItem} isMobile={true} />}
-              {ADMIN_EMAILS.includes(majstor?.email) && (
+              {!isBuchhalter && partnerItem && <NavigationItem item={partnerItem} isMobile={true} />}
+              {!isBuchhalter && ADMIN_EMAILS.includes(majstor?.email) && (
                 <Link
                   href="/admin"
                   onClick={() => setSidebarOpen(false)}
@@ -880,25 +897,27 @@ const NavigationItem = ({ item, isMobile = false }) => {
           <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden text-slate-400 hover:text-white p-1"
-                >
-                  <span className="text-xl">☰</span>
-                </button>
+                {!isBuchhalter && (
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="lg:hidden text-slate-400 hover:text-white p-1"
+                  >
+                    <span className="text-xl">☰</span>
+                  </button>
+                )}
                 
                 <div>
                   <h1 className="text-xl font-semibold text-white">
-                    Handwerker Dashboard
+                    {isBuchhalter ? 'Buchhaltungs-Portal' : 'Handwerker Dashboard'}
                   </h1>
                   <p className="text-sm text-slate-400 hidden sm:block">
-                    Verwalten Sie Ihre Kunden und Aufträge
+                    {isBuchhalter ? 'Pro-Meister · Buchhalter-Zugang' : 'Verwalten Sie Ihre Kunden und Aufträge'}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-3">
-                {pushSupported && !resolvedSubscribed && permission !== 'denied' ? (
+                {!isBuchhalter && (pushSupported && !resolvedSubscribed && permission !== 'denied' ? (
                   <button
                     onClick={subscribe}
                     disabled={pushLoading}
@@ -927,9 +946,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
                       <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                     )}
                   </button>
-                )}
-                
-                <button 
+                ))}
+
+                <button
                   className="relative p-2 text-slate-400 hover:text-white transition-colors"
                   onClick={openSupport}
                   title="Support kontaktieren"
@@ -937,7 +956,24 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   <span className="text-xl">📨</span>
                 </button>
 
-                {isFreemium ? (
+                {isBuchhalter && (
+                  <>
+                    <button
+                      onClick={toggleTheme}
+                      title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                      className="p-2 text-slate-400 hover:text-white transition-colors text-lg"
+                    >
+                      {theme === 'dark' ? '☀️' : '🌙'}
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      className="text-sm text-slate-400 hover:text-white transition-colors px-2 py-1"
+                    >
+                      🚪 Abmelden
+                    </button>
+                  </>
+                )}
+                {!isBuchhalter && (isFreemium ? (
                   majstor?.avatar_url ? (
                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                       <img src={majstor.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -962,7 +998,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                       </div>
                     )}
                   </Link>
-                )}
+                ))}
               </div>
             </div>
           </header>
@@ -998,7 +1034,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
           userName={majstor?.full_name}
         />
 
-        <AIHelpChat />
+        {!isBuchhalter && <AIHelpChat />}
       </div>
     </>
   )

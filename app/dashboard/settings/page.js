@@ -381,6 +381,9 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Buchhalter-Zugang */}
+      <BuchhalterZugangSection majstorId={majstor?.id} />
+
       {/* Daten exportieren */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
         <h3 className="text-white font-semibold mb-2">Meine Daten exportieren</h3>
@@ -481,6 +484,49 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function BuchhalterZugangSection({ majstorId }) {
+  const [access, setAccess] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!majstorId) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { setLoading(false); return }
+      fetch('/api/buchhalter-access', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.json())
+        .then(json => setAccess(json.data?.[0] || null))
+        .catch(console.error)
+        .finally(() => setLoading(false))
+    })
+  }, [majstorId])
+
+  return (
+    <div className="bg-slate-800/50 border border-teal-900/40 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-white mb-1">📒 Buchhalter-Zugang</h3>
+      <p className="text-slate-400 text-sm mb-3">E-Mail für den Versand von ZIP-Exporten und optionalem Portal-Zugang.</p>
+
+      {loading ? (
+        <div className="h-6 w-6 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
+      ) : access ? (
+        <div className="flex items-center justify-between bg-slate-700/40 border border-slate-600 rounded-lg px-4 py-3">
+          <div>
+            <p className="text-white text-sm font-medium">{access.buchhalter_email}</p>
+            <p className="text-slate-400 text-xs mt-0.5">{access.buchhalter_id ? '✓ Portal-Zugang aktiv' : 'Kein Portal-Zugang'}</p>
+          </div>
+          <a href="/dashboard/pdf-archive" className="text-teal-400 hover:text-teal-300 text-xs px-3 py-1.5 rounded-lg hover:bg-teal-900/20 transition-colors border border-teal-900/30">
+            Verwalten →
+          </a>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 text-slate-400 text-sm">
+          <span>Noch keine E-Mail gespeichert.</span>
+          <a href="/dashboard/pdf-archive" className="text-teal-400 hover:text-teal-300 underline text-sm">Jetzt einrichten →</a>
+        </div>
+      )}
     </div>
   )
 }

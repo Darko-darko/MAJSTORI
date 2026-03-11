@@ -43,7 +43,17 @@ export default function PDFArchivePage() {
   const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
   const [detailAttachments, setDetailAttachments] = useState([])
 
-  // Bookkeeper settings
+  // Buchhalter access
+  const [buchhalterAccess, setBuchhalterAccess] = useState(null)
+  const [buchhalterEmailInput, setBuchhalterEmailInput] = useState('')
+  const [buchhalterEmailEditing, setBuchhalterEmailEditing] = useState(false)
+  const [buchhalterEmailSaving, setBuchhalterEmailSaving] = useState(false)
+  const [buchhalterInviting, setBuchhalterInviting] = useState(false)
+  const [buchhalterInviteStatus, setBuchhalterInviteStatus] = useState(null) // 'success' | 'error' | 'already' | 'mismatch' | null
+  const [buchhalterInviteOpen, setBuchhalterInviteOpen] = useState(false)
+  const [buchhalterConfirmEmail, setBuchhalterConfirmEmail] = useState('')
+
+  // Bookkeeper settings (legacy, kept for BookkeeperSettingsModal)
   const [bookkeeperSettings, setBookkeeperSettings] = useState({
     showSettings: false,
     email: '',
@@ -86,7 +96,7 @@ export default function PDFArchivePage() {
       }
 
       setMajstor(majstorData)
-      
+
       if (majstorData.bookkeeper_email) {
         setBookkeeperSettings(prev => ({
           ...prev,
@@ -94,7 +104,21 @@ export default function PDFArchivePage() {
           name: majstorData.bookkeeper_name || 'Buchhalter'
         }))
       }
-      
+
+      // Učitaj buchhalter_access
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const accessRes = await fetch('/api/buchhalter-access', {
+            headers: { Authorization: `Bearer ${session.access_token}` }
+          })
+          const accessJson = await accessRes.json()
+          const first = accessJson.data?.[0] || null
+          setBuchhalterAccess(first)
+          setBuchhalterEmailInput(first?.buchhalter_email || '')
+        }
+      } catch (e) { console.warn('buchhalter-access load failed', e) }
+
       await loadArchivedPDFs(user.id)
 
     } catch (err) {
@@ -912,6 +936,170 @@ const togglePDFSelection = (pdfId) => {
         </Link>
       </div>
 
+      {/* Buchhalterin E-Mail */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+        <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wide">Buchhalterin E-Mail</p>
+        {buchhalterEmailEditing || !buchhalterAccess ? (
+          <div className="flex gap-2 items-center">
+            <input
+              type="email"
+              value={buchhalterEmailInput}
+              onChange={e => setBuchhalterEmailInput(e.target.value)}
+              placeholder="buchhaltung@kanzlei.de"
+              className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+            />
+            <button
+              onClick={async () => {
+                if (!buchhalterEmailInput.trim()) return
+                setBuchhalterEmailSaving(true)
+                try {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/buchhalter-access', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ buchhalter_email: buchhalterEmailInput.trim() })
+                  })
+                  const json = await res.json()
+                  if (res.ok) { setBuchhalterAccess(json.data); setBuchhalterEmailEditing(false); setBuchhalterInviteStatus(null) }
+                  else { console.error('PATCH failed:', json); alert('Fehler: ' + (json.error || 'Unbekannter Fehler')) }
+                } catch (e) { console.error('PATCH exception:', e); alert('Netzwerkfehler: ' + e.message) }
+                finally { setBuchhalterEmailSaving(false) }
+              }}
+              disabled={buchhalterEmailSaving || !buchhalterEmailInput.trim()}
+              className="px-3 py-2 bg-teal-700 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm transition-colors"
+            >
+              {buchhalterEmailSaving ? '...' : 'Speichern'}
+            </button>
+            {buchhalterAccess && (
+              <button onClick={() => { setBuchhalterEmailEditing(false); setBuchhalterEmailInput(buchhalterAccess.buchhalter_email) }} className="text-slate-400 hover:text-white text-sm px-2">✕</button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-white text-sm">{buchhalterAccess.buchhalter_email}</span>
+            <button onClick={() => { setBuchhalterEmailEditing(true); setBuchhalterEmailInput(buchhalterAccess.buchhalter_email) }} className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700 transition-colors">Ändern</button>
+          </div>
+        )}
+      </div>
+
+      {/* Buchhalter einladen */}
+      {buchhalterAccess && !buchhalterEmailEditing && (
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 space-y-3">
+          {buchhalterAccess.accepted_at ? (
+            /* Buchhalter je prihvatio — povezan */
+            <div className="flex items-center gap-3">
+              <span className="text-teal-400 text-lg">✓</span>
+              <div>
+                <p className="text-white text-sm font-medium">Buchhalter verbunden</p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  {buchhalterAccess.buchhalter_email} hat Portal-Zugang seit {new Date(buchhalterAccess.accepted_at).toLocaleDateString('de-DE')}.
+                </p>
+              </div>
+            </div>
+          ) : buchhalterAccess.invited_at && !buchhalterInviteOpen ? (
+            /* Poziv već poslat — prikaži status sa "Erneut senden" */
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-white text-sm font-medium">✓ Einladung gesendet</p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  Einladung wurde am {new Date(buchhalterAccess.invited_at).toLocaleDateString('de-DE')} an {buchhalterAccess.buchhalter_email} gesendet.
+                </p>
+              </div>
+              <button
+                onClick={() => { setBuchhalterInviteOpen(true); setBuchhalterConfirmEmail(''); setBuchhalterInviteStatus(null) }}
+                className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors border border-slate-600 whitespace-nowrap"
+              >
+                Erneut senden
+              </button>
+            </div>
+          ) : (
+            /* Poziv još nije poslat */
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-white text-sm font-medium">📧 Buchhalter einladen</p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  {buchhalterInviteStatus === 'success'
+                    ? `Einladung wurde an ${buchhalterAccess.buchhalter_email} gesendet!`
+                    : 'Eine E-Mail-Einladung an Ihren Buchhalter senden, damit er Zugang zu Ihren Daten erhält.'}
+                </p>
+              </div>
+              {buchhalterInviteStatus === 'success' ? (
+                <span className="text-teal-400 text-sm font-medium whitespace-nowrap">✓ Gesendet</span>
+              ) : !buchhalterInviteOpen ? (
+                <button
+                  onClick={() => { setBuchhalterInviteOpen(true); setBuchhalterConfirmEmail(''); setBuchhalterInviteStatus(null) }}
+                  className="px-4 py-2 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  Einladung senden
+                </button>
+              ) : null}
+            </div>
+          )}
+          {/* Confirm email input */}
+          {!buchhalterAccess.accepted_at && buchhalterInviteOpen && buchhalterInviteStatus !== 'success' && (
+            <div className="space-y-2">
+              <label className="text-slate-300 text-xs">Bitte bestätigen Sie die E-Mail-Adresse:</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="email"
+                  value={buchhalterConfirmEmail}
+                  onChange={e => { setBuchhalterConfirmEmail(e.target.value); setBuchhalterInviteStatus(null) }}
+                  placeholder={buchhalterAccess.buchhalter_email}
+                  className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
+                />
+                <button
+                  onClick={async () => {
+                    if (buchhalterConfirmEmail.trim().toLowerCase() !== buchhalterAccess.buchhalter_email.toLowerCase()) {
+                      setBuchhalterInviteStatus('mismatch')
+                      return
+                    }
+                    setBuchhalterInviting(true)
+                    setBuchhalterInviteStatus(null)
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch('/api/buchhalter-access', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ buchhalter_email: buchhalterAccess.buchhalter_email })
+                      })
+                      if (res.status === 409) {
+                        setBuchhalterInviteStatus('already')
+                      } else if (res.ok) {
+                        const json = await res.json()
+                        setBuchhalterAccess(json.data)
+                        setBuchhalterInviteStatus('success')
+                        setBuchhalterInviteOpen(false)
+                      } else {
+                        setBuchhalterInviteStatus('error')
+                      }
+                    } catch (e) {
+                      console.error(e)
+                      setBuchhalterInviteStatus('error')
+                    } finally {
+                      setBuchhalterInviting(false)
+                    }
+                  }}
+                  disabled={buchhalterInviting || !buchhalterConfirmEmail.trim()}
+                  className="px-4 py-2 bg-teal-700 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  {buchhalterInviting ? 'Wird gesendet...' : 'Senden'}
+                </button>
+                <button onClick={() => { setBuchhalterInviteOpen(false); setBuchhalterInviteStatus(null) }} className="text-slate-400 hover:text-white text-sm px-2">✕</button>
+              </div>
+              {buchhalterInviteStatus === 'mismatch' && (
+                <p className="text-red-400 text-xs">E-Mail stimmt nicht überein. Bitte überprüfen Sie die Eingabe.</p>
+              )}
+              {buchhalterInviteStatus === 'already' && (
+                <p className="text-amber-400 text-xs">Dieser Buchhalter hat bereits Zugang.</p>
+              )}
+              {buchhalterInviteStatus === 'error' && (
+                <p className="text-red-400 text-xs">Fehler beim Senden. Bitte erneut versuchen.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-800 p-1 rounded-xl w-fit">
         <button
@@ -1128,6 +1316,8 @@ const togglePDFSelection = (pdfId) => {
         majstor={majstor}
         invoices={archivedPDFs}
         periodLabel={getPeriodLabel()}
+        buchhalterEmail={buchhalterAccess?.buchhalter_email || ''}
+        onEmailSaved={(email) => setBuchhalterAccess(prev => prev ? { ...prev, buchhalter_email: email } : { buchhalter_email: email })}
       />
       <BookkeeperSettingsModal />
 

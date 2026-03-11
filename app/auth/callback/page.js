@@ -32,7 +32,7 @@ function AuthCallbackComponent() {
           // Check if majstor profile exists
           const { data: existingProfile, error: profileError } = await supabase
             .from('majstors')
-            .select('id, subscription_status')
+            .select('id, subscription_status, role')
             .eq('id', data.session.user.id)
             .single()
 
@@ -49,7 +49,10 @@ function AuthCallbackComponent() {
           // 🔥 NEW: Check for welcome redirect
           const nextParam = searchParams.get('next')
 
-          if (existingProfile) {
+          if (existingProfile?.role === 'buchhalter') {
+            console.log('📒 Buchhalter — redirecting to buchhalter dashboard...')
+            router.push('/dashboard/buchhalter')
+          } else if (existingProfile) {
             // Existing user — always go to dashboard
             console.log('📊 Existing user — redirecting to dashboard...')
             router.push('/dashboard')
