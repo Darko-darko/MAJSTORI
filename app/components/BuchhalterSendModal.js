@@ -64,7 +64,10 @@ export default function BuchhalterSendModal({
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ buchhalter_email: email.trim() })
       })
-      if (res.ok && onEmailSaved) onEmailSaved(email.trim())
+      if (res.ok) {
+        const json = await res.json()
+        if (onEmailSaved) onEmailSaved(json.data || email.trim())
+      }
     } catch (e) {
       console.warn('Email save failed:', e.message)
     }
