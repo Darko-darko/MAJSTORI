@@ -1048,12 +1048,33 @@ const togglePDFSelection = (pdfId) => {
                   Einladung wurde am {new Date(buchhalterAccess.invited_at).toLocaleDateString('de-DE')} an {buchhalterAccess.buchhalter_email} gesendet.
                 </p>
               </div>
-              <button
-                onClick={() => { setBuchhalterInviteOpen(true); setBuchhalterConfirmEmail(''); setBuchhalterInviteStatus(null) }}
-                className="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors border border-slate-600 whitespace-nowrap"
-              >
-                Erneut senden
-              </button>
+              {buchhalterInviteStatus === 'resent' ? (
+                <span className="text-teal-400 text-xs font-medium whitespace-nowrap">✓ Erneut gesendet</span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    setBuchhalterInviting(true)
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch('/api/buchhalter-access', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ buchhalter_email: buchhalterAccess.buchhalter_email })
+                      })
+                      if (res.ok) {
+                        const json = await res.json()
+                        setBuchhalterAccess(json.data)
+                        setBuchhalterInviteStatus('resent')
+                      }
+                    } catch (e) { console.error(e) }
+                    finally { setBuchhalterInviting(false) }
+                  }}
+                  disabled={buchhalterInviting}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-600 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50"
+                >
+                  {buchhalterInviting ? '...' : 'Erneut senden'}
+                </button>
+              )}
             </div>
           ) : (
             /* Poziv još nije poslat */
@@ -1070,7 +1091,7 @@ const togglePDFSelection = (pdfId) => {
                 <span className="text-teal-400 text-sm font-medium whitespace-nowrap">✓ Gesendet</span>
               ) : !buchhalterInviteOpen ? (
                 <button
-                  onClick={() => { setBuchhalterInviteOpen(true); setBuchhalterConfirmEmail(''); setBuchhalterInviteStatus(null) }}
+                  onClick={() => { setBuchhalterInviteOpen(true); setBuchhalterConfirmEmail(buchhalterAccess.buchhalter_email); setBuchhalterInviteStatus(null) }}
                   className="px-4 py-2 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                 >
                   Einladung senden
