@@ -280,6 +280,10 @@ useEffect(() => {
         // Buchhalter doesn't need a subscription
       if (majstorData.role === 'buchhalter') {
         setMajstor(majstorData)
+        // Redirect buchhalter to their dashboard if on main /dashboard
+        if (window.location.pathname === '/dashboard' || window.location.pathname === '/dashboard/') {
+          router.push('/dashboard/buchhalter')
+        }
         return
       }
 
