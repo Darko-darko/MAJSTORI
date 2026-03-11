@@ -109,9 +109,11 @@ export async function POST(request) {
     const isRegistered = !!buchhalterProfile
     const emailBody = isRegistered
       ? `<p><strong>${majstorName}</strong> hat Ihnen Zugang zu seinem Buchhalter-Bereich auf Pro-Meister erteilt.</p>
+         <p style="color:#475569;font-size:14px;margin-top:8px;">Alle Rechnungen werden im <strong>ZUGFeRD 2.4</strong> Standard erstellt und können direkt in Ihre Buchhaltungssoftware importiert werden.</p>
          <p>Melden Sie sich an, um die Daten einzusehen:</p>
          <p><a href="https://pro-meister.de/login" style="display:inline-block;background:#0d9488;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;">Jetzt anmelden →</a></p>`
       : `<p><strong>${majstorName}</strong> hat Ihnen Zugang zu seinem Buchhalter-Bereich auf Pro-Meister erteilt.</p>
+         <p style="color:#475569;font-size:14px;margin-top:8px;">Alle Rechnungen werden im <strong>ZUGFeRD 2.4</strong> Standard erstellt und können direkt in Ihre Buchhaltungssoftware importiert werden.</p>
          <p style="font-weight:600;margin-top:16px;">So richten Sie Ihren Zugang ein:</p>
          <table cellpadding="0" cellspacing="0" style="margin:8px 0 16px">
            <tr><td style="vertical-align:top;padding:4px 10px 4px 0;color:#0d9488;font-weight:bold;">1.</td><td style="padding:4px 0;">Registrieren Sie sich kostenlos über den Button unten</td></tr>
