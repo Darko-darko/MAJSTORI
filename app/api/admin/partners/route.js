@@ -21,7 +21,7 @@ async function getAdminClient(request) {
   return { admin }
 }
 
-// GET — lista svih partnera sa statistikama
+// GET — lista svih top-level partnera sa statistikama
 export async function GET(request) {
   try {
     const { admin, error, status } = await getAdminClient(request)
@@ -34,6 +34,7 @@ export async function GET(request) {
         user_subscriptions ( status )
       `)
       .eq('is_partner', true)
+      .is('parent_partner_id', null)
       .order('created_at', { ascending: false })
 
     if (dbError) throw dbError
@@ -53,6 +54,12 @@ export async function GET(request) {
         .select('source')
         .eq('ref_code', p.ref_code)
 
+      // Count sub-partners
+      const { count: sub_partner_count } = await admin
+        .from('majstors')
+        .select('id', { count: 'exact', head: true })
+        .eq('parent_partner_id', p.id)
+
       const totalClicks = clicks?.length || 0
       const qrClicks = clicks?.filter(c => c.source === 'qr').length || 0
       const conversions = (referred || []).length
@@ -68,6 +75,7 @@ export async function GET(request) {
         clicks: totalClicks,
         qr_clicks: qrClicks,
         conversion_rate: conversionRate,
+        sub_partner_count: sub_partner_count || 0,
         ...stats
       }
     }))
@@ -87,6 +95,19 @@ export async function POST(request) {
     const { majstor_id, ref_code, commission_rate } = await request.json()
     if (!majstor_id || !ref_code) {
       return NextResponse.json({ error: 'majstor_id und ref_code erforderlich' }, { status: 400 })
+    }
+
+    // Guard: don't promote sub-partners to top-level partners
+    const { data: target } = await admin
+      .from('majstors')
+      .select('id, parent_partner_id')
+      .eq('id', majstor_id)
+      .single()
+
+    if (target?.parent_partner_id) {
+      return NextResponse.json({
+        error: 'Dieser Nutzer ist bereits Sub-Partner. Bitte zuerst Sub-Partner-Status entfernen.'
+      }, { status: 400 })
     }
 
     const { error: dbError } = await admin
@@ -124,7 +145,7 @@ export async function PATCH(request) {
   }
 }
 
-// DELETE — ukloni partner status
+// DELETE — ukloni partner status (cascade removes sub-partners too)
 export async function DELETE(request) {
   try {
     const { admin, error, status } = await getAdminClient(request)
@@ -135,6 +156,13 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'majstor_id erforderlich' }, { status: 400 })
     }
 
+    // Cascade: remove all sub-partners first
+    await admin
+      .from('majstors')
+      .update({ is_partner: false, parent_partner_id: null, ref_code: null, commission_rate: 0 })
+      .eq('parent_partner_id', majstor_id)
+
+    // Then remove the partner
     const { error: dbError } = await admin
       .from('majstors')
       .update({ is_partner: false, ref_code: null, commission_rate: 0 })

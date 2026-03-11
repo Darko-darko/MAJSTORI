@@ -1,6 +1,7 @@
 // app/api/admin/partner-detail/route.js
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { computeMonthlyStats, mergeMonthlyStats, fetchSubPartnerData } from '@/lib/partnerStats'
 
 const ADMIN_EMAILS = ['darko.jocic.ns@gmail.com', 'novakovicdusan555@gmail.com']
 
@@ -25,7 +26,7 @@ export async function GET(request) {
 
     const { data: partner } = await admin
       .from('majstors')
-      .select('id, full_name, email, ref_code, commission_rate')
+      .select('id, full_name, email, ref_code, commission_rate, parent_partner_id')
       .eq('id', partner_id)
       .single()
 
@@ -55,7 +56,7 @@ export async function GET(request) {
       } catch { history = [] }
     }
 
-    const monthlyStats = computeMonthlyStats(referred || [], history, partner.commission_rate || 0)
+    const directMonthlyStats = computeMonthlyStats(referred || [], history, partner.commission_rate || 0)
 
     const { data: clicks } = await admin
       .from('ref_clicks')
@@ -73,48 +74,34 @@ export async function GET(request) {
       conversionRate: totalClicks ? Math.round(conversions / totalClicks * 100) : 0,
     }
 
-    return NextResponse.json({ partner, referred: referred || [], payouts: payouts || [], monthlyStats, clickStats })
+    // Sub-partner data (only for top-level partners)
+    let subPartners = []
+    let monthlyStats = directMonthlyStats
+
+    if (!partner.parent_partner_id) {
+      subPartners = await fetchSubPartnerData(admin, partner_id)
+
+      if (subPartners.length > 0) {
+        monthlyStats = mergeMonthlyStats(
+          directMonthlyStats,
+          subPartners.map(sp => ({ stats: sp.monthlyStats, subRate: sp.commission_rate || 0 })),
+          partner.commission_rate || 0,
+          'gross'
+        )
+      }
+    }
+
+    return NextResponse.json({
+      partner,
+      referred: referred || [],
+      payouts: payouts || [],
+      monthlyStats,
+      clickStats,
+      subPartners,
+    })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
-}
-
-function computeMonthlyStats(referred, history, commissionRate) {
-  const months = []
-  const now = new Date()
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const year = d.getFullYear()
-    const month = d.getMonth()
-    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
-    const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999)
-    const isCurrent = i === 0
-
-    const registrations = referred.filter(u => {
-      const c = new Date(u.created_at)
-      return c.getFullYear() === year && c.getMonth() === month
-    }).length
-
-    let activeCount
-    if (isCurrent) {
-      activeCount = referred.filter(u => {
-        const subs = u.user_subscriptions || []
-        const latest = [...subs].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]
-        return latest?.status === 'active'
-      }).length
-    } else {
-      activeCount = referred.filter(u => {
-        const userHistory = history
-          .filter(h => h.majstor_id === u.id && new Date(h.changed_at) <= lastDay)
-          .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at))
-        if (userHistory.length === 0) return false
-        return userHistory[0].status === 'active'
-      }).length
-    }
-
-    months.push({ month: monthKey, activeCount, amount: activeCount * commissionRate, registrations, isCurrent })
-  }
-  return months
 }
 
 // POST { partner_id, month, amount } — mark as paid

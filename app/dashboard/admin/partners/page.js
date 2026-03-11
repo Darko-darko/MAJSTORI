@@ -250,6 +250,7 @@ export default function AdminPartnersPage() {
                       <th className="text-center px-4 py-3">Reg.</th>
                       <th className="text-center px-4 py-3">Trial</th>
                       <th className="text-center px-4 py-3">Aktiv</th>
+                      <th className="text-center px-4 py-3">Sub-P.</th>
                       <th className="text-right px-4 py-3">Aktionen</th>
                     </tr>
                   </thead>
@@ -276,6 +277,7 @@ export default function AdminPartnersPage() {
                         <td className="px-4 py-3 text-center text-slate-300">{p.total}</td>
                         <td className="px-4 py-3 text-center text-yellow-400">{p.trial}</td>
                         <td className="px-4 py-3 text-center text-green-400 font-bold">{p.active}</td>
+                        <td className="px-4 py-3 text-center text-slate-400">{p.sub_partner_count || 0}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex gap-2 justify-end">
                             <button
@@ -491,6 +493,57 @@ export default function AdminPartnersPage() {
                     </button>
                   )}
                 </div>
+
+                {/* Sub-Partners (read-only) */}
+                {detailData?.subPartners?.length > 0 && (
+                  <div>
+                    <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                      Sub-Partner ({detailData.subPartners.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {detailData.subPartners.map(sp => {
+                        const spActive = sp.monthlyStats?.[0]?.activeCount ?? 0
+                        return (
+                          <div key={sp.id} className="bg-slate-900/50 rounded-lg px-3 py-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <div className="text-white text-xs font-medium">{sp.full_name || '—'}</div>
+                                <div className="text-slate-500 text-xs">{sp.email} · ref: <span className="font-mono text-blue-400">{sp.ref_code}</span></div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-green-400 text-xs font-medium">{sp.commission_rate || 0}€/Aktiv</div>
+                                <div className="text-slate-400 text-xs">{sp.referred?.length ?? 0} Kunden · {spActive} aktiv</div>
+                              </div>
+                            </div>
+                            {sp.clickStats && sp.clickStats.total > 0 && (
+                              <div className="grid grid-cols-4 gap-2 text-center pt-2 border-t border-slate-700/50">
+                                <div>
+                                  <div className="text-white text-xs font-medium">{sp.clickStats.total}</div>
+                                  <div className="text-slate-500 text-xs">Klicks</div>
+                                </div>
+                                <div>
+                                  <div className="text-blue-400 text-xs font-medium">{sp.clickStats.qr}</div>
+                                  <div className="text-slate-500 text-xs">QR</div>
+                                </div>
+                                <div>
+                                  <div className="text-purple-400 text-xs font-medium">{sp.clickStats.conversions}</div>
+                                  <div className="text-slate-500 text-xs">Reg.</div>
+                                </div>
+                                <div>
+                                  <div className="text-green-400 text-xs font-medium">{sp.clickStats.conversionRate}%</div>
+                                  <div className="text-slate-500 text-xs">Rate</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <p className="text-slate-500 text-xs mt-2">
+                      ℹ️ Betrag in Finanzübersicht enthält Kunden aller Sub-Partner (Brutto-Provision)
+                    </p>
+                  </div>
+                )}
 
                 {/* Users list */}
                 {detailReferred.length > 0 && (
