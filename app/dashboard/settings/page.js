@@ -146,12 +146,20 @@ export default function SettingsPage() {
             Verwalten Sie Ihr Geschäftsprofil und allgemeine Einstellungen
           </p>
         </div>
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
-        >
-          ← Zurück zum Dashboard
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
+          >
+            ← Zurück
+          </Link>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-red-400 border border-slate-700 hover:border-red-500/50 rounded-lg transition-colors"
+          >
+            🚪 Abmelden
+          </button>
+        </div>
       </div>
 
       {/* Settings Grid */}
@@ -484,6 +492,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
     </div>
   )
 }
@@ -515,9 +524,9 @@ function BuchhalterZugangSection({ majstorId }) {
         <div className="flex items-center justify-between bg-slate-700/40 border border-slate-600 rounded-lg px-4 py-3">
           <div>
             <p className="text-white text-sm font-medium">{access.buchhalter_email}</p>
-            <p className="text-slate-400 text-xs mt-0.5">{access.buchhalter_id ? '✓ Portal-Zugang aktiv' : 'Kein Portal-Zugang'}</p>
+            <p className={`text-xs mt-0.5 ${access.buchhalter_id ? 'text-green-400' : 'text-slate-400'}`}>{access.buchhalter_id ? '✓ Portal-Zugang aktiv' : 'Kein Portal-Zugang'}</p>
           </div>
-          <a href="/dashboard/pdf-archive" className="text-teal-400 hover:text-teal-300 text-xs px-3 py-1.5 rounded-lg hover:bg-teal-900/20 transition-colors border border-teal-900/30">
+          <a href="/dashboard/pdf-archive" className="text-blue-400 hover:text-blue-300 text-xs px-3 py-1.5 rounded-lg hover:bg-blue-900/20 transition-colors border border-blue-900/30">
             Verwalten →
           </a>
         </div>
