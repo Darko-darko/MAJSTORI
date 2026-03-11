@@ -940,8 +940,8 @@ const togglePDFSelection = (pdfId) => {
       </div>
 
       {/* Buchhalterin E-Mail */}
+      <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wide">Buchhalterin E-Mail</p>
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-        <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wide">Buchhalterin E-Mail</p>
         {buchhalterRevoked ? (
           <div className="flex items-center justify-between">
             <span className="text-white text-sm">{buchhalterEmailInput}</span>
@@ -985,7 +985,7 @@ const togglePDFSelection = (pdfId) => {
         ) : (
           <div className="flex items-center justify-between">
             <span className="text-white text-sm">{buchhalterAccess.buchhalter_email}</span>
-            <button onClick={() => { setBuchhalterEmailEditing(true); setBuchhalterEmailInput(buchhalterAccess.buchhalter_email) }} className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700 transition-colors">Ändern</button>
+            <button onClick={() => { setBuchhalterEmailEditing(true); setBuchhalterEmailInput('') }} className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700 transition-colors">Ändern</button>
           </div>
         )}
       </div>
@@ -1025,98 +1025,77 @@ const togglePDFSelection = (pdfId) => {
         </div>
       )}
 
-      {/* Buchhalter einladen */}
+      {/* Buchhalter verbinden — jedno dugme ispod emaila */}
       {buchhalterAccess && !buchhalterEmailEditing && (
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 space-y-3">
-          {buchhalterAccess.accepted_at ? (
-            /* Buchhalter je prihvatio — povezan */
-            <div className="flex items-center gap-3">
-              <span className="text-teal-400 text-lg">✓</span>
-              <div>
-                <p className="text-white text-sm font-medium">Buchhalter verbunden</p>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  {buchhalterAccess.buchhalter_email} hat Portal-Zugang seit {new Date(buchhalterAccess.accepted_at).toLocaleDateString('de-DE')}.
+        <button
+          onClick={() => setBuchhalterInviteOpen(true)}
+          className={`w-full text-center px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+            buchhalterAccess.accepted_at
+              ? 'bg-teal-700/30 border border-teal-600/40 text-teal-400'
+              : buchhalterAccess.invited_at
+              ? 'bg-amber-700/20 border border-amber-600/30 text-amber-300 hover:bg-amber-700/30'
+              : 'bg-teal-700 hover:bg-teal-600 text-white border border-teal-600'
+          }`}
+        >
+          {buchhalterAccess.accepted_at
+            ? `✓ Buchhalter verbunden seit ${new Date(buchhalterAccess.accepted_at).toLocaleDateString('de-DE')}`
+            : buchhalterAccess.invited_at
+            ? `📧 Einladung gesendet am ${new Date(buchhalterAccess.invited_at).toLocaleDateString('de-DE')}`
+            : '🔗 Mit Buchhalter verbinden'}
+        </button>
+      )}
+
+      {/* Buchhalter-Verbindung Modal */}
+      {buchhalterInviteOpen && buchhalterAccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="text-white font-semibold text-lg">Buchhalter-Verbindung</h3>
+            <p className="text-slate-300 text-sm">
+              E-Mail: <strong>{buchhalterAccess.buchhalter_email}</strong>
+            </p>
+
+            {/* Status */}
+            {buchhalterAccess.accepted_at ? (
+              <div className="bg-teal-900/20 border border-teal-700/30 rounded-lg p-3">
+                <p className="text-teal-400 text-sm font-medium">✓ Verbunden</p>
+                <p className="text-slate-400 text-xs mt-1">
+                  Ihr Buchhalter hat Portal-Zugang seit {new Date(buchhalterAccess.accepted_at).toLocaleDateString('de-DE')}.
                 </p>
               </div>
-            </div>
-          ) : buchhalterAccess.invited_at && !buchhalterInviteOpen ? (
-            /* Poziv već poslat — prikaži status sa "Erneut senden" */
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-white text-sm font-medium">✓ Einladung gesendet</p>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  Einladung wurde am {new Date(buchhalterAccess.invited_at).toLocaleDateString('de-DE')} an {buchhalterAccess.buchhalter_email} gesendet.
+            ) : buchhalterAccess.invited_at ? (
+              <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-3">
+                <p className="text-slate-300 text-sm font-medium">📧 Einladung gesendet</p>
+                <p className="text-slate-400 text-xs mt-1">
+                  Gesendet am {new Date(buchhalterAccess.invited_at).toLocaleDateString('de-DE')}. Warten auf Annahme.
                 </p>
               </div>
-              {buchhalterInviteStatus === 'resent' ? (
-                <span className="text-teal-400 text-xs font-medium whitespace-nowrap">✓ Erneut gesendet</span>
-              ) : (
+            ) : (
+              <div className="bg-slate-700/30 border border-slate-600/50 rounded-lg p-3">
+                <p className="text-slate-400 text-sm">
+                  Ihr Buchhalter erhält eine E-Mail mit Zugang zu Ihren Finanzdaten.
+                </p>
+              </div>
+            )}
+
+            {/* Feedback */}
+            {buchhalterInviteStatus === 'success' && (
+              <p className="text-teal-400 text-sm font-medium">✓ Einladung gesendet!</p>
+            )}
+            {buchhalterInviteStatus === 'resent' && (
+              <p className="text-teal-400 text-sm font-medium">✓ Erneut gesendet!</p>
+            )}
+            {buchhalterInviteStatus === 'already' && (
+              <p className="text-amber-400 text-sm">Dieser Buchhalter hat bereits Zugang.</p>
+            )}
+            {buchhalterInviteStatus === 'error' && (
+              <p className="text-red-400 text-sm">Fehler beim Senden. Bitte erneut versuchen.</p>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 pt-2">
+              {!buchhalterAccess.accepted_at && buchhalterInviteStatus !== 'success' && buchhalterInviteStatus !== 'resent' && (
                 <button
                   onClick={async () => {
-                    setBuchhalterInviting(true)
-                    try {
-                      const { data: { session } } = await supabase.auth.getSession()
-                      const res = await fetch('/api/buchhalter-access', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-                        body: JSON.stringify({ buchhalter_email: buchhalterAccess.buchhalter_email })
-                      })
-                      if (res.ok) {
-                        const json = await res.json()
-                        setBuchhalterAccess(json.data)
-                        setBuchhalterInviteStatus('resent')
-                      }
-                    } catch (e) { console.error(e) }
-                    finally { setBuchhalterInviting(false) }
-                  }}
-                  disabled={buchhalterInviting}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-teal-700 hover:bg-teal-600 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50"
-                >
-                  {buchhalterInviting ? '...' : 'Erneut senden'}
-                </button>
-              )}
-            </div>
-          ) : (
-            /* Poziv još nije poslat */
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-white text-sm font-medium">📧 Buchhalter einladen</p>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  {buchhalterInviteStatus === 'success'
-                    ? `Einladung wurde an ${buchhalterAccess.buchhalter_email} gesendet!`
-                    : 'Eine E-Mail-Einladung an Ihren Buchhalter senden, damit er Zugang zu Ihren Daten erhält.'}
-                </p>
-              </div>
-              {buchhalterInviteStatus === 'success' ? (
-                <span className="text-teal-400 text-sm font-medium whitespace-nowrap">✓ Gesendet</span>
-              ) : !buchhalterInviteOpen ? (
-                <button
-                  onClick={() => { setBuchhalterInviteOpen(true); setBuchhalterConfirmEmail(buchhalterAccess.buchhalter_email); setBuchhalterInviteStatus(null) }}
-                  className="px-4 py-2 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                  Einladung senden
-                </button>
-              ) : null}
-            </div>
-          )}
-          {/* Confirm email input */}
-          {!buchhalterAccess.accepted_at && buchhalterInviteOpen && buchhalterInviteStatus !== 'success' && (
-            <div className="space-y-2">
-              <label className="text-slate-300 text-xs">Bitte bestätigen Sie die E-Mail-Adresse:</label>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="email"
-                  value={buchhalterConfirmEmail}
-                  onChange={e => { setBuchhalterConfirmEmail(e.target.value); setBuchhalterInviteStatus(null) }}
-                  placeholder={buchhalterAccess.buchhalter_email}
-                  className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500"
-                />
-                <button
-                  onClick={async () => {
-                    if (buchhalterConfirmEmail.trim().toLowerCase() !== buchhalterAccess.buchhalter_email.toLowerCase()) {
-                      setBuchhalterInviteStatus('mismatch')
-                      return
-                    }
                     setBuchhalterInviting(true)
                     setBuchhalterInviteStatus(null)
                     try {
@@ -1131,8 +1110,8 @@ const togglePDFSelection = (pdfId) => {
                       } else if (res.ok) {
                         const json = await res.json()
                         setBuchhalterAccess(json.data)
-                        setBuchhalterInviteStatus('success')
-                        setBuchhalterInviteOpen(false)
+                        setBuchhalterInviteStatus(buchhalterAccess.invited_at ? 'resent' : 'success')
+                        setTimeout(() => { setBuchhalterInviteOpen(false); setBuchhalterInviteStatus(null) }, 1500)
                       } else {
                         setBuchhalterInviteStatus('error')
                       }
@@ -1143,32 +1122,25 @@ const togglePDFSelection = (pdfId) => {
                       setBuchhalterInviting(false)
                     }
                   }}
-                  disabled={buchhalterInviting || !buchhalterConfirmEmail.trim()}
-                  className="px-4 py-2 bg-teal-700 hover:bg-teal-600 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                  disabled={buchhalterInviting}
+                  className="w-full px-4 py-2.5 bg-teal-700 hover:bg-teal-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  {buchhalterInviting ? 'Wird gesendet...' : 'Senden'}
+                  {buchhalterInviting ? 'Wird gesendet...' : buchhalterAccess.invited_at ? 'Erneut senden' : 'Einladung senden'}
                 </button>
-                <button onClick={() => { setBuchhalterInviteOpen(false); setBuchhalterInviteStatus(null) }} className="text-slate-400 hover:text-white text-sm px-2">✕</button>
-              </div>
-              {buchhalterInviteStatus === 'mismatch' && (
-                <p className="text-red-400 text-xs">E-Mail stimmt nicht überein. Bitte überprüfen Sie die Eingabe.</p>
               )}
-              {buchhalterInviteStatus === 'already' && (
-                <p className="text-amber-400 text-xs">Dieser Buchhalter hat bereits Zugang.</p>
-              )}
-              {buchhalterInviteStatus === 'error' && (
-                <p className="text-red-400 text-xs">Fehler beim Senden. Bitte erneut versuchen.</p>
-              )}
+              <button
+                onClick={() => { setBuchhalterInviteOpen(false); setBuchhalterInviteStatus(null) }}
+                className="w-full px-4 py-2 text-sm text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              >
+                Schließen
+              </button>
+              <button
+                onClick={() => { setBuchhalterInviteOpen(false); setBuchhalterRevokeConfirm(true) }}
+                className="text-xs text-red-400/60 hover:text-red-400 transition-colors pt-1"
+              >
+                Zugang beenden
+              </button>
             </div>
-          )}
-          {/* Zugang beenden link */}
-          <div className="border-t border-slate-700/50 pt-3 mt-1">
-            <button
-              onClick={() => setBuchhalterRevokeConfirm(true)}
-              className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
-            >
-              Zugang beenden
-            </button>
           </div>
         </div>
       )}
@@ -1434,7 +1406,7 @@ const togglePDFSelection = (pdfId) => {
         invoices={archivedPDFs}
         periodLabel={getPeriodLabel()}
         buchhalterEmail={buchhalterAccess?.buchhalter_email || ''}
-        onEmailSaved={(email) => setBuchhalterAccess(prev => prev ? { ...prev, buchhalter_email: email } : { buchhalter_email: email })}
+        onEmailSaved={(data) => setBuchhalterAccess(typeof data === 'object' ? data : (prev => prev ? { ...prev, buchhalter_email: data } : { buchhalter_email: data }))}
       />
       <BookkeeperSettingsModal />
 
