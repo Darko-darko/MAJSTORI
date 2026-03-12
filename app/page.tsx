@@ -523,6 +523,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ZUGFeRD Validator CTA */}
+      <section className="py-12 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                ZUGFeRD Validator — kostenlos
+              </h3>
+              <p className="text-slate-400">
+                Prüfen Sie jede PDF-Rechnung auf ZUGFeRD / Factur-X / EN16931 Konformität. Sofort, ohne Registrierung.
+              </p>
+            </div>
+            <a
+              href="/zugferd-validator"
+              className="shrink-0 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
+            >
+              Jetzt prüfen →
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto">
@@ -625,6 +647,7 @@ export default function Home() {
                 <a href="#pricing" className="block text-slate-400 hover:text-white transition-colors">Preise</a>
                 <a href="/login" className="block text-slate-400 hover:text-white transition-colors">Anmelden</a>
                 <a href="/signup" className="block text-slate-400 hover:text-white transition-colors">Registrieren</a>
+                <a href="/zugferd-validator" className="block text-slate-400 hover:text-white transition-colors">ZUGFeRD Validator <span className="text-green-400 text-xs">kostenlos</span></a>
               </div>
             </div>
             <div>
