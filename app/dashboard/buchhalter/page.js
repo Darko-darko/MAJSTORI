@@ -204,8 +204,8 @@ export default function BuchhalterDashboard() {
       {majstors.length === 0 && pendingInvites.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
           <div className="text-4xl mb-3">📭</div>
-          <p className="text-white font-semibold mb-1">Noch keine Auftraggeber</p>
-          <p className="text-slate-400 text-sm">Bitten Sie Ihren Auftraggeber, Ihnen in seinen Einstellungen Zugang zu erteilen.</p>
+          <p className="text-white font-semibold mb-1">Noch keine Mandanten verbunden</p>
+          <p className="text-slate-400 text-sm">Empfehlen Sie Pro-Meister Ihren Mandanten — sobald ein Handwerker Sie als Buchhalter hinzufügt, erscheinen seine Belege automatisch hier.</p>
         </div>
       ) : majstors.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
