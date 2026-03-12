@@ -147,9 +147,18 @@ export default function BuchhalterDashboard() {
 
   return (
     <div className="space-y-6 pb-20">
-      <div>
-        <h1 className="text-2xl font-bold text-white">📒 Meine Auftraggeber</h1>
-        <p className="text-slate-400 text-sm mt-1">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">📒 Meine Auftraggeber</h1>
+          <p className="text-slate-400 text-sm mt-1">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
+        </div>
+        <a
+          href="/zugferd-validator"
+          target="_blank"
+          className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          ZUGFeRD prüfen
+        </a>
       </div>
 
       {/* Pending Invites */}

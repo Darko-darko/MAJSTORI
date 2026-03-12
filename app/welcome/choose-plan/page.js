@@ -443,18 +443,16 @@ export default function ChoosePlanPage() {
 
         </div>
 
-        {/* Buchhalter — diskretna opcija */}
+        {/* Buchhalter — uočljiva opcija */}
         <div className="text-center mb-8">
-          <p className="text-slate-500 text-sm">
-            Sind Sie Buchhalter?{' '}
-            <button
-              onClick={handleBuchhalterSelect}
-              disabled={loading}
-              className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors disabled:opacity-50"
-            >
-              Hier als Buchhalter fortfahren →
-            </button>
-          </p>
+          <button
+            onClick={handleBuchhalterSelect}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800/50 border border-slate-700 hover:border-blue-500/50 rounded-xl text-sm text-slate-300 hover:text-white transition-all disabled:opacity-50"
+          >
+            <span>📒</span>
+            <span>Sie sind <span className="text-blue-400 font-medium">Buchhalter</span>? Kostenlos zum Portal →</span>
+          </button>
         </div>
 
         {/* Trust + Disclaimer — kompaktno */}
