@@ -2,6 +2,7 @@
 'use client'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export default function ZugferdValidatorPage() {
   const [file, setFile] = useState(null)
@@ -12,15 +13,22 @@ export default function ZugferdValidatorPage() {
   const [steps, setSteps] = useState([])
   const inputRef = useRef(null)
 
-  // localStorage soft limit (10 free validations)
+  // localStorage soft limit (3 free validations — logged-in users unlimited)
   const FREE_LIMIT = 3
   const getCount = () => typeof window !== 'undefined' ? parseInt(localStorage.getItem('zfv_count') || '0') : 0
   const incCount = () => { if (typeof window !== 'undefined') localStorage.setItem('zfv_count', String(getCount() + 1)) }
   const [limited, setLimited] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(false)
 
   useEffect(() => {
-    setLimited(getCount() >= FREE_LIMIT)
-  }, [result])
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setLoggedIn(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!loggedIn) setLimited(getCount() >= FREE_LIMIT)
+  }, [result, loggedIn])
 
   const handleFile = useCallback(async (f) => {
     if (!f || !f.name.toLowerCase().endsWith('.pdf')) {
@@ -65,7 +73,7 @@ export default function ZugferdValidatorPage() {
         setError(json.error || 'Fehler bei der Validierung')
       } else {
         setResult(json)
-        incCount()
+        if (!loggedIn) incCount()
       }
     } catch (err) {
       setError('Netzwerkfehler — bitte erneut versuchen.')
@@ -211,7 +219,7 @@ export default function ZugferdValidatorPage() {
             <p className="text-slate-500 text-sm">
               oder klicken zum Auswählen — max. 10 MB
             </p>
-            {getCount() > 0 && (
+            {!loggedIn && getCount() > 0 && (
               <p className="text-slate-400 text-xs mt-4">
                 {FREE_LIMIT - getCount()} von {FREE_LIMIT} Prüfungen ohne Anmeldung verbleibend
               </p>
