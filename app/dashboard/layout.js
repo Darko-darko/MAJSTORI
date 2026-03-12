@@ -962,15 +962,6 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
                 {isBuchhalter && (
                   <>
-                    {partnerItem && (
-                      <Link
-                        href={partnerItem.href}
-                        title={partnerItem.name}
-                        className="p-2 text-slate-400 hover:text-white transition-colors text-lg"
-                      >
-                        🤝
-                      </Link>
-                    )}
                     <button
                       onClick={toggleTheme}
                       title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
