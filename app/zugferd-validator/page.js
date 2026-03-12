@@ -27,7 +27,7 @@ export default function ZugferdValidatorPage() {
   }, [])
 
   useEffect(() => {
-    if (!loggedIn) setLimited(getCount() >= FREE_LIMIT)
+    setLimited(!loggedIn && getCount() >= FREE_LIMIT)
   }, [result, loggedIn])
 
   const handleFile = useCallback(async (f) => {
@@ -403,7 +403,7 @@ export default function ZugferdValidatorPage() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={reset}
-                className="flex-1 py-3 bg-white border border-slate-300 hover:border-slate-400 text-slate-900 rounded-xl font-medium transition-colors"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors"
               >
                 Weitere PDF prüfen
               </button>
