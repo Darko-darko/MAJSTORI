@@ -13,7 +13,7 @@ export default function ZugferdValidatorPage() {
   const inputRef = useRef(null)
 
   // localStorage soft limit (10 free validations)
-  const FREE_LIMIT = 10
+  const FREE_LIMIT = 3
   const getCount = () => typeof window !== 'undefined' ? parseInt(localStorage.getItem('zfv_count') || '0') : 0
   const incCount = () => { if (typeof window !== 'undefined') localStorage.setItem('zfv_count', String(getCount() + 1)) }
   const [limited, setLimited] = useState(false)
