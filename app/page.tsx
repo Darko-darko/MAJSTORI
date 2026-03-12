@@ -204,14 +204,14 @@ export default function Home() {
               <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                 <span className="text-2xl">📂</span>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4">Buchhalter-Export</h3>
+              <h3 className="text-2xl font-bold text-white mb-4">Buchhalter-Anbindung</h3>
               <p className="text-slate-300 mb-6 leading-relaxed">
-                Alle Rechnungen gesammelt an den Buchhalter — ein Klick, eine E-Mail, alle PDFs. DATEV kann die eingebetteten ZUGFeRD-Daten direkt importieren.
+                Verbinden Sie sich direkt mit Ihrem Buchhalter. Alle Rechnungen landen automatisch als ZUGFeRD-PDF in seinem Portal — DATEV-importierbar, ohne Nachfragen.
               </p>
               <ul className="text-slate-400 space-y-2">
-                <li>✓ Massenversand per Knopfdruck</li>
+                <li>✓ Buchhalter-Portal mit eigenem Zugang</li>
                 <li>✓ <span className="text-indigo-400 font-medium">ZUGFeRD → DATEV-Import direkt</span></li>
-                <li>✓ PDF-Archiv immer verfügbar</li>
+                <li>✓ Massenversand & PDF-Archiv</li>
               </ul>
             </div>
 

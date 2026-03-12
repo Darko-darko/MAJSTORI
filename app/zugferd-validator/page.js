@@ -1,6 +1,6 @@
 // app/zugferd-validator/page.js — Public ZUGFeRD Validator (free tool)
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 
 export default function ZugferdValidatorPage() {
@@ -12,10 +12,15 @@ export default function ZugferdValidatorPage() {
   const [steps, setSteps] = useState([])
   const inputRef = useRef(null)
 
-  // localStorage soft limit (3 free validations)
+  // localStorage soft limit (10 free validations)
+  const FREE_LIMIT = 10
   const getCount = () => parseInt(localStorage.getItem('zfv_count') || '0')
   const incCount = () => localStorage.setItem('zfv_count', String(getCount() + 1))
-  const isLimited = () => getCount() >= 3
+  const [limited, setLimited] = useState(false)
+
+  useEffect(() => {
+    setLimited(getCount() >= FREE_LIMIT)
+  }, [result])
 
   const handleFile = useCallback(async (f) => {
     if (!f || !f.name.toLowerCase().endsWith('.pdf')) {
@@ -152,8 +157,35 @@ export default function ZugferdValidatorPage() {
           </p>
         </div>
 
+        {/* Limit reached */}
+        {!result && !loading && limited && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-10 sm:p-14 text-center">
+            <div className="text-4xl mb-4">📋</div>
+            <h2 className="text-xl font-bold text-slate-900 mb-2">
+              Alle {FREE_LIMIT} Prüfungen ohne Anmeldung aufgebraucht
+            </h2>
+            <p className="text-slate-500 mb-6 max-w-md mx-auto">
+              Registrieren Sie sich kostenlos als Buchhalter — unbegrenzte Validierungen, eigenes Portal, Mandanten-Anbindung.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href="/signup"
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Kostenlos registrieren →
+              </Link>
+              <Link
+                href="/login"
+                className="px-6 py-2.5 bg-white border border-slate-300 hover:border-slate-400 text-slate-700 rounded-lg font-medium transition-colors"
+              >
+                Anmelden
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Upload Area */}
-        {!result && !loading && (
+        {!result && !loading && !limited && (
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
@@ -179,6 +211,11 @@ export default function ZugferdValidatorPage() {
             <p className="text-slate-500 text-sm">
               oder klicken zum Auswählen — max. 10 MB
             </p>
+            {getCount() > 0 && (
+              <p className="text-slate-400 text-xs mt-4">
+                {FREE_LIMIT - getCount()} von {FREE_LIMIT} Prüfungen ohne Anmeldung verbleibend
+              </p>
+            )}
           </div>
         )}
 
