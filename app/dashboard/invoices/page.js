@@ -1727,60 +1727,67 @@ const HardResetModal = () => {
                   </div>
 
                   <div className="flex gap-3 flex-wrap">
-                    <button 
+                    <button
                       onClick={() => handlePDFView(invoice)}
-                      className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                      className="px-3 py-2 rounded text-sm transition-colors"
+                      style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
                     >
                       👁️ PDF ansehen
                     </button>
-                    
+
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && (
                       <button
                         onClick={() => handleEditClick(invoice)}
-                        className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#475569', color: '#ffffff' }}
                       >
-                        Bearbeiten
+                        ✏️ Bearbeiten
                       </button>
                     )}
 
                     {invoice.email_sent_at ? (
                       <button
                         onClick={() => handleEmailClick(invoice)}
-                        className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
                       >
                         🔄 Erneut senden
                       </button>
                     ) : (
                       <button
                         onClick={() => handleEmailClick(invoice)}
-                        className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#64748b', color: '#ffffff' }}
                       >
-                        Per E-Mail senden
+                        ✉️ Per E-Mail senden
                       </button>
                     )}
 
                     {invoice.type !== 'storno' && (invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
                       <button
                         onClick={() => handleReminderClick(invoice)}
-                        className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#ea580c', color: '#ffffff' }}
                       >
-                        {invoice.mahnung_sent_at ? '🔄 Mahnung erneut senden' : 'Mahnung'}
+                        {invoice.mahnung_sent_at ? '🔄 Mahnung erneut senden' : '⚠️ Mahnung'}
                       </button>
                     )}
 
                     {invoice.type !== 'storno' && (invoice.status === 'draft' || invoice.status === 'sent') && (
                       <button
                         onClick={() => handleMarkAsPaid(invoice)}
-                        className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
                       >
-                        Als bezahlt markieren
+                        ✅ Als bezahlt markieren
                       </button>
                     )}
 
                     {invoice.status === 'paid' && (
                       <button
                         onClick={() => handleUndoPaid(invoice)}
-                        className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#ea580c', color: '#ffffff' }}
                       >
                         Bezahlung rückgängig
                       </button>
@@ -1789,17 +1796,19 @@ const HardResetModal = () => {
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
                         onClick={() => handleCancelInvoice(invoice)}
-                        className="bg-slate-600/40 hover:bg-slate-600/60 text-slate-300 px-3 py-2 rounded text-sm transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: '#d97706', color: '#ffffff' }}
                         title="Rechnung stornieren"
                       >
-                        Stornieren
+                        ⛔ Stornieren
                       </button>
                     )}
 
                     {invoice.status === 'cancelled' && invoice.type !== 'storno' && (
                       <button
                         onClick={() => handleUndoStorno(invoice)}
-                        className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 px-3 py-2 rounded text-sm transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: 'rgba(37,99,235,0.15)', color: '#2563eb' }}
                         title="Stornierung rückgängig machen — Stornorechnung wird gelöscht"
                       >
                         Storno rückgängig
@@ -1808,10 +1817,11 @@ const HardResetModal = () => {
                     {invoice.type !== 'storno' && (
                       <button
                         onClick={() => handleDeleteInvoice(invoice)}
-                        className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded text-sm transition-colors"
+                        className="px-3 py-2 rounded text-sm transition-colors"
+                        style={{ backgroundColor: 'rgba(220,38,38,0.15)', color: '#b91c1c' }}
                         title="Rechnung löschen"
                       >
-                        Löschen
+                        🗑️ Löschen
                       </button>
                     )}
                   </div>
