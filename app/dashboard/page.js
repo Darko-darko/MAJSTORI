@@ -176,7 +176,8 @@ function DashboardPageContent() {
   const ProtectedStatCard = ({ href, icon, title, value, subtitle, badgeCount, iconBg }) => {
     if (isFreemium) {
       return (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 relative">
+          <span className="absolute top-2 right-2 px-1 py-0.5 text-xs rounded font-medium" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>🔒 Pro</span>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">{title}</p>
@@ -185,7 +186,7 @@ function DashboardPageContent() {
               </p>
               <p className="text-sm text-slate-400">{subtitle}</p>
             </div>
-            <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-2xl`}>
+            <div className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center text-2xl opacity-75`}>
               {icon}
             </div>
           </div>
@@ -264,11 +265,6 @@ function DashboardPageContent() {
             >
               🔒 Jetzt freischalten
             </button>
-            <div className="absolute top-3 right-3">
-              <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium">
-                Pro
-              </span>
-            </div>
           </div>
         }
         showUpgradePrompt={false}
@@ -353,15 +349,28 @@ function DashboardPageContent() {
           badgeCount={0}
         />
 
-        <ProtectedStatCard
+        <Link
           href="/dashboard/inquiries"
-          icon="📩"
-          iconBg="bg-blue-600"
-          title="Kundenanfragen"
-          value={stats.totalInquiries}
-          subtitle={`${stats.newInquiries} neue`}
-          badgeCount={stats.newInquiries}
-        />
+          className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer group relative"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Kundenanfragen</p>
+              <p className="text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                {stats.totalInquiries}
+              </p>
+              <p className="text-sm text-slate-400">{`${stats.newInquiries} neue`}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+              📩
+            </div>
+          </div>
+          {stats.newInquiries > 0 && (
+            <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+              {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
+            </span>
+          )}
+        </Link>
       </div>
 
       <div>
