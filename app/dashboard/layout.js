@@ -3,7 +3,7 @@
 'use client'
 
 const ADMIN_EMAILS = ['darko.jocic.ns@gmail.com', 'novakovicdusan555@gmail.com']
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { auth, majstorsAPI, supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
@@ -24,6 +24,44 @@ function DashboardLayoutContent({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Swipe gesture for mobile sidebar (document-level listeners, no overlay div)
+  const touchStart = useRef(null)
+  const touchEnd = useRef(null)
+  useEffect(() => {
+    const onTouchStart = (e) => {
+      touchEnd.current = null
+      touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    }
+    const onTouchMove = (e) => {
+      touchEnd.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    }
+    const onTouchEnd = () => {
+      if (!touchStart.current || !touchEnd.current) return
+      const dx = touchEnd.current.x - touchStart.current.x
+      const dy = touchEnd.current.y - touchStart.current.y
+      // Ignore if vertical scroll is dominant
+      if (Math.abs(dy) > Math.abs(dx)) return
+      // Swipe right from left edge (20-50px zone) → open
+      if (dx > 50 && touchStart.current.x < 50) {
+        setSidebarOpen(true)
+      }
+      // Swipe left → close (only when sidebar is open)
+      if (dx < -50 && sidebarOpen) {
+        setSidebarOpen(false)
+      }
+      touchStart.current = null
+      touchEnd.current = null
+    }
+    document.addEventListener('touchstart', onTouchStart, { passive: true })
+    document.addEventListener('touchmove', onTouchMove, { passive: true })
+    document.addEventListener('touchend', onTouchEnd, { passive: true })
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart)
+      document.removeEventListener('touchmove', onTouchMove)
+      document.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [sidebarOpen])
 
   const [badgeKey, setBadgeKey] = useState(0)
 
