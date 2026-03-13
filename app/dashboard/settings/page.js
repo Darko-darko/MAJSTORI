@@ -305,18 +305,18 @@ export default function SettingsPage() {
             {isLocked ? (
               <div className="block p-3 bg-slate-700/30 rounded-lg opacity-50 cursor-not-allowed">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white text-sm">💰</div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#9333ea' }}>💰</div>
                   <div className="flex-1">
                     <h4 className="text-white font-medium">Rechnungseinstellungen</h4>
                     <p className="text-slate-400 text-xs">Steuer, Bank, Logo, Zahlungsbedingungen</p>
                   </div>
-                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">🔒 Pro</span>
+                  <span className="text-xs text-white px-2 py-1 rounded-full" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
                 </div>
               </div>
             ) : (
               <Link href="/dashboard/invoices?tab=settings" className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white text-sm">💰</div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#9333ea' }}>💰</div>
                   <div>
                     <h4 className="text-white font-medium">Rechnungseinstellungen</h4>
                     <p className="text-slate-400 text-xs">Steuer, Bank, Logo, Zahlungsbedingungen</p>
@@ -328,18 +328,18 @@ export default function SettingsPage() {
             {isLocked ? (
               <div className="block p-3 bg-slate-700/30 rounded-lg opacity-50 cursor-not-allowed">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white text-sm">🔧</div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#16a34a' }}>🔧</div>
                   <div className="flex-1">
                     <h4 className="text-white font-medium">Meine Services</h4>
                     <p className="text-slate-400 text-xs">Dienstleistungen verwalten</p>
                   </div>
-                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">🔒 Pro</span>
+                  <span className="text-xs text-white px-2 py-1 rounded-full" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
                 </div>
               </div>
             ) : (
               <Link href="/dashboard/services" className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white text-sm">🔧</div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#16a34a' }}>🔧</div>
                   <div>
                     <h4 className="text-white font-medium">Meine Services</h4>
                     <p className="text-slate-400 text-xs">Dienstleistungen verwalten</p>
@@ -351,18 +351,18 @@ export default function SettingsPage() {
             {isLocked ? (
               <div className="block p-3 bg-slate-700/30 rounded-lg opacity-50 cursor-not-allowed">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm">👥</div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#2563eb' }}>👥</div>
                   <div className="flex-1">
                     <h4 className="text-white font-medium">Meine Kunden</h4>
                     <p className="text-slate-400 text-xs">Kundendatenbank verwalten</p>
                   </div>
-                  <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">🔒 Pro</span>
+                  <span className="text-xs text-white px-2 py-1 rounded-full" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
                 </div>
               </div>
             ) : (
               <Link href="/dashboard/customers" className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm">👥</div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#2563eb' }}>👥</div>
                   <div>
                     <h4 className="text-white font-medium">Meine Kunden</h4>
                     <p className="text-slate-400 text-xs">Kundendatenbank verwalten</p>
@@ -376,7 +376,7 @@ export default function SettingsPage() {
               className="block p-3 bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center text-white text-sm">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm" style={{ backgroundColor: '#ea580c' }}>
                   📱
                 </div>
                 <div>
