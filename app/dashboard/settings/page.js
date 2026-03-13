@@ -521,14 +521,26 @@ function BuchhalterZugangSection({ majstorId }) {
       {loading ? (
         <div className="h-6 w-6 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
       ) : access ? (
-        <div className="flex items-center justify-between bg-slate-700/40 border border-slate-600 rounded-lg px-4 py-3">
-          <div>
+        <div className="space-y-3">
+          <div className="bg-slate-700/40 border border-slate-600 rounded-lg px-4 py-3">
             <p className="text-white text-sm font-medium">{access.buchhalter_email}</p>
-            <p className={`text-xs mt-0.5 ${access.buchhalter_id ? 'text-green-400' : 'text-slate-400'}`}>{access.buchhalter_id ? '✓ Portal-Zugang aktiv' : 'Kein Portal-Zugang'}</p>
+            <a href="/dashboard/pdf-archive" className="inline-block mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+              Verwalten →
+            </a>
           </div>
-          <a href="/dashboard/pdf-archive" className="text-blue-400 hover:text-blue-300 text-xs px-3 py-1.5 rounded-lg hover:bg-blue-900/20 transition-colors border border-blue-900/30">
-            Verwalten →
-          </a>
+          <div className={`rounded-lg px-4 py-3 flex items-center gap-2 border ${access.buchhalter_id ? 'border-green-500' : 'border-slate-600'}`} style={{ backgroundColor: '#ffffff' }}>
+            {access.buchhalter_id ? (
+              <>
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>
+                <span style={{ color: '#16a34a' }} className="text-sm font-medium">Portal-Zugang aktiv</span>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 bg-slate-600 rounded-full flex items-center justify-center text-slate-400 text-xs">—</div>
+                <span style={{ color: '#64748b' }} className="text-sm">Kein Portal-Zugang</span>
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <div className="flex items-center gap-3 text-slate-400 text-sm">
