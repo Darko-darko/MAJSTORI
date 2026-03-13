@@ -1,6 +1,7 @@
 // app/api/support/route.js
 import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
+import { incrementEmailCount } from '@/lib/emailCounter'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -96,6 +97,8 @@ export async function POST(request) {
       )
     }
 
+    incrementEmailCount()
+
     // Send confirmation to user
     await resend.emails.send({
       from: 'ProMeister Support <support@pro-meister.de>',
@@ -136,6 +139,7 @@ export async function POST(request) {
       `
     })
 
+    incrementEmailCount()
     console.log('✅ Support email sent:', data)
 
     return NextResponse.json({

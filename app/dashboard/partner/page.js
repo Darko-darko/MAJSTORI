@@ -362,7 +362,7 @@ export default function PartnerPage() {
                       : <div className="w-[180px] h-[180px] bg-slate-700 rounded-lg animate-pulse" />
                     }
                     <button onClick={() => downloadQR(qrLanding, `qr-landing-${majstor.ref_code}.png`)} disabled={!qrLanding} className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors disabled:opacity-40">
-                      ⬇️ Herunterladen
+                      📥 Herunterladen
                     </button>
                   </div>
                 )}
@@ -394,7 +394,7 @@ export default function PartnerPage() {
                       : <div className="w-[180px] h-[180px] bg-slate-700 rounded-lg animate-pulse" />
                     }
                     <button onClick={() => downloadQR(qrSignup, `qr-signup-${majstor.ref_code}.png`)} disabled={!qrSignup} className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors disabled:opacity-40">
-                      ⬇️ Herunterladen
+                      📥 Herunterladen
                     </button>
                   </div>
                 )}

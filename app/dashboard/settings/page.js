@@ -410,7 +410,7 @@ export default function SettingsPage() {
               Wird exportiert...
             </>
           ) : (
-            '⬇️ Daten herunterladen'
+            '📥 Daten herunterladen'
           )}
         </button>
       </div>

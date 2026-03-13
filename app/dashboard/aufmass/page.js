@@ -1149,27 +1149,31 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             <button
               onClick={save}
               disabled={saving}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg text-sm transition-colors"
+              className="flex-1 py-2.5 disabled:opacity-50 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
             >
-              {saving ? 'Speichern...' : '💾 Speichern'}
+              {saving ? 'Speichern...' : <><span>💾</span><span>Speichern</span></>}
             </button>
             <button
               onClick={downloadPDF}
-              className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg text-sm transition-colors"
+              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#475569', color: '#ffffff' }}
             >
-              📄 PDF
+              <span>📄</span><span>PDF</span>
             </button>
             <button
               onClick={() => transferTo('quote')}
-              className="flex-1 py-2.5 bg-green-700 hover:bg-green-600 text-white font-semibold rounded-lg text-sm transition-colors"
+              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#15803d', color: '#ffffff' }}
             >
-              📋 Angebot
+              <span>📋</span><span>Angebot</span>
             </button>
             <button
               onClick={() => transferTo('invoice')}
-              className="flex-1 py-2.5 bg-orange-700 hover:bg-orange-600 text-white font-semibold rounded-lg text-sm transition-colors"
+              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#c2410c', color: '#ffffff' }}
             >
-              🧾 Rechnung
+              <span>🧾</span><span>Rechnung</span>
             </button>
             <button
               onClick={onClose}
@@ -1314,7 +1318,8 @@ export default function AufmassPage() {
                   </button>
                   <button
                     onClick={() => generateAufmassPDF(a, majstor)}
-                    className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors"
+                    className="flex-1 py-2 text-sm rounded-lg transition-colors"
+                    style={{ backgroundColor: '#475569', color: '#ffffff' }}
                   >
                     📄 PDF
                   </button>

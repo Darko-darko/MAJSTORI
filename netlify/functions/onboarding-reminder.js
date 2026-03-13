@@ -19,6 +19,15 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BASE_URL = 'https://pro-meister.de'
 
+async function incrementEmailCount() {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase.rpc('increment_email_counter', { target_date: today })
+  } catch (e) {
+    console.error('Email counter increment failed (non-critical):', e)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Email templates
 // ---------------------------------------------------------------------------
@@ -277,6 +286,7 @@ exports.handler = async () => {
               .update({ onboarding_email_7d_sent_at: now.toISOString() })
               .eq('id', user.id)
             sent7d++
+            await incrementEmailCount()
             console.log(`✅ Day-7 onboarding email sent to ${user.email}`)
           } catch (err) {
             console.error(`❌ Day-7 email failed for ${user.email}:`, err.message)
@@ -299,6 +309,7 @@ exports.handler = async () => {
               .update({ onboarding_email_1d_sent_at: now.toISOString() })
               .eq('id', user.id)
             sent1d++
+            await incrementEmailCount()
             console.log(`✅ Day-1 onboarding email sent to ${user.email}`)
           } catch (err) {
             console.error(`❌ Day-1 email failed for ${user.email}:`, err.message)
@@ -340,6 +351,7 @@ exports.handler = async () => {
             .update({ grace_period_email_sent_at: now.toISOString() })
             .eq('id', user.id)
           sentGrace++
+          await incrementEmailCount()
           console.log(`✅ Grace period expiry email sent to ${user.email}`)
         } catch (err) {
           console.error(`❌ Grace period email failed for ${user.email}:`, err.message)
