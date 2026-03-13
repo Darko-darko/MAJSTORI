@@ -613,6 +613,7 @@ pdfTab.document.close()
   }
 
   const isInvoiceOverdue = (invoice) => {
+    if (invoice.type === 'storno') return false
     if (invoice.status !== 'sent' && invoice.status !== 'draft') {
       return false
     }

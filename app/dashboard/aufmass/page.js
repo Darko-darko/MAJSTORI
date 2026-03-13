@@ -815,7 +815,7 @@ function SignatureModal({ onConfirm, onClose, existingDataUrl }) {
 
   const confirm = () => {
     const canvas = canvasRef.current
-    if (!canvas || !hasDrawnRef.current) { onConfirm(null); onClose(); return }
+    if (!canvas || !hasDrawnRef.current) { onConfirm(null, null); onClose(); return }
     // Rotate CCW 90° for portrait PDF
     const rotated = document.createElement('canvas')
     rotated.width = canvas.height
@@ -824,7 +824,7 @@ function SignatureModal({ onConfirm, onClose, existingDataUrl }) {
     rctx.translate(0, canvas.width)
     rctx.rotate(-Math.PI / 2)
     rctx.drawImage(canvas, 0, 0)
-    onConfirm(rotated.toDataURL('image/png'))
+    onConfirm(rotated.toDataURL('image/png'), canvas.toDataURL('image/png'))
     onClose()
   }
 
@@ -906,6 +906,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     materials: aufmass?.materials || [],
   })
   const [signature, setSignature] = useState(null)
+  const [signatureRaw, setSignatureRaw] = useState(null)
   const [showSig, setShowSig] = useState(false)
   const [bereicheOpen, setBereicheOpen] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1110,7 +1111,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   <img
                     src={signature}
                     alt="Unterschrift"
-                    className="w-full h-20 object-contain bg-white rounded-lg border border-slate-400"
+                    className="w-full h-20 object-contain rounded-lg border border-slate-400"
+                    style={{ backgroundColor: '#ffffff' }}
                   />
                   <button
                     type="button"
@@ -1181,8 +1183,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
 
       {showSig && (
         <SignatureModal
-          existingDataUrl={signature}
-          onConfirm={setSignature}
+          existingDataUrl={signatureRaw}
+          onConfirm={(rotated, raw) => { setSignature(rotated); setSignatureRaw(raw) }}
           onClose={() => setShowSig(false)}
         />
       )}
