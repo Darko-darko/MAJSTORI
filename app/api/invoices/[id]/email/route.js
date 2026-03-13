@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { Buffer } from 'node:buffer'
 import JSZip from 'jszip'
+import { incrementEmailCount } from '@/lib/emailCounter'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -195,6 +196,7 @@ export async function POST(request, routeData) {
     }
 
     console.log('✅ Email sent successfully:', emailResult.id)
+    incrementEmailCount()
 
     // Save email tracking info
     const updateData = {

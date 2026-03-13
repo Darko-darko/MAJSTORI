@@ -49,6 +49,7 @@ export default function CreateBusinessCardPage() {
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   const [copyLinkStatus, setCopyLinkStatus] = useState('')
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const [showQRModal, setShowQRModal] = useState(false)
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
   const logoInputRef = useRef(null)
   const galleryInputRef = useRef(null)
@@ -1054,6 +1055,7 @@ export default function CreateBusinessCardPage() {
               onClick={handleSubmit}
               disabled={loading}
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
+              style={{ color: '#ffffff' }}
             >
               {loading ? 'Speichern...' : 'Profil speichern'}
             </button>
@@ -1107,7 +1109,7 @@ export default function CreateBusinessCardPage() {
               </button>
             )}
             <button
-              onClick={downloadQRCode}
+              onClick={() => setShowQRModal(true)}
               disabled={!qrCodeUrl}
               className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
             >
@@ -1426,6 +1428,7 @@ export default function CreateBusinessCardPage() {
                 type="submit"
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:scale-[1.02] transition-transform disabled:opacity-50"
+                style={{ color: '#ffffff' }}
               >
                 {loading ? 'Speichern...' : 'Profil speichern'}
               </button>
@@ -1455,7 +1458,7 @@ export default function CreateBusinessCardPage() {
                 📧 Email
               </button>
               <button
-                onClick={downloadQRCode}
+                onClick={() => setShowQRModal(true)}
                 disabled={!qrCodeUrl}
                 className="flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
@@ -1518,6 +1521,36 @@ export default function CreateBusinessCardPage() {
                   className="w-full h-32 object-cover rounded-lg" 
                 />
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowQRModal(false)}>
+          <div className="bg-slate-800 rounded-xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white mb-4">QR Code</h3>
+            <div className="bg-white rounded-lg p-4 mb-4">
+              <img src={qrCodeUrl} alt="QR Code" className="w-full" />
+            </div>
+            <p className="text-slate-400 text-sm mb-4">
+              {majstor?.slug ? `pro-meister.de/m/${majstor.slug}` : ''}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="flex-1 py-2.5 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Schließen
+              </button>
+              <button
+                onClick={downloadQRCode}
+                className="flex-1 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                style={{ color: '#ffffff' }}
+              >
+                📥 Herunterladen
+              </button>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { incrementEmailCount } from '@/lib/emailCounter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -155,10 +156,11 @@ export async function POST(request) {
           })
         } else {
           console.log('✅ Email sent to', recipient, 'ID:', emailResult.id)
-          emailResults.push({ 
-            recipient, 
-            success: true, 
-            emailId: emailResult.id 
+          incrementEmailCount()
+          emailResults.push({
+            recipient,
+            success: true,
+            emailId: emailResult.id
           })
         }
 

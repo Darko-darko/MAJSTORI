@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { incrementEmailCount } from '@/lib/emailCounter'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -139,6 +140,7 @@ export async function POST(request) {
         </div>
       `
     })
+    incrementEmailCount()
   } catch (emailError) {
     console.warn('⚠️ Invite email failed (non-blocking):', emailError.message)
   }

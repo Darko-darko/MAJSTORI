@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { supabase } from '@/lib/supabase'
+import { incrementEmailCount } from '@/lib/emailCounter'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -326,6 +327,7 @@ Gesendet über pro-meister.de - Die Handwerker-Plattform
     }
 
     console.log('✅ Business card email sent successfully:', emailResult.data?.id)
+    incrementEmailCount()
 
     // Optional: Log email send event
     try {
