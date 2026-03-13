@@ -1126,7 +1126,7 @@ if (searchError) {
       }
 
       const dueDate = new Date(formData.issue_date)
-      dueDate.setDate(dueDate.getDate() + formData.payment_terms_days)
+      dueDate.setDate(dueDate.getDate() + parseInt(formData.payment_terms_days))
 
       // ✅ Create invoice with customer_id + structured addresses
       const invoiceData = {
@@ -2127,6 +2127,7 @@ if (searchError) {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
                   >
+                    <option value="0">Sofort</option>
                     <option value="7">7 Tage</option>
                     <option value="14">14 Tage</option>
                     <option value="30">30 Tage</option>
