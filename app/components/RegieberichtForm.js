@@ -40,6 +40,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
   })
 
   const [signatureDataUrl, setSignatureDataUrl] = useState(null)
+  const [signatureRawDataUrl, setSignatureRawDataUrl] = useState(null)
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [generatedFile, setGeneratedFile] = useState(null)
 
@@ -61,14 +62,14 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       hasDrawnRef.current = false
-      // Restore existing signature if any
-      if (signatureDataUrl) {
+      // Restore existing unrotated signature if any
+      if (signatureRawDataUrl) {
         const img = new Image()
         img.onload = () => {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
           hasDrawnRef.current = true
         }
-        img.src = signatureDataUrl
+        img.src = signatureRawDataUrl
       }
     }, 50)
     return () => clearTimeout(timer)
@@ -127,6 +128,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     const canvas = fullscreenCanvasRef.current
     if (!canvas || !hasDrawnRef.current) {
       setSignatureDataUrl(null)
+      setSignatureRawDataUrl(null)
       setShowSignatureModal(false)
       return
     }
@@ -141,6 +143,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     rctx.drawImage(canvas, 0, 0)
 
     setSignatureDataUrl(rotated.toDataURL('image/png'))
+    setSignatureRawDataUrl(canvas.toDataURL('image/png'))
     setShowSignatureModal(false)
   }
 
@@ -300,12 +303,12 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
       {/* Fullscreen signature modal */}
       {showSignatureModal && (
         <div
-          className="fixed inset-0 z-50 bg-white flex flex-col"
-          style={{ touchAction: 'none' }}
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{ touchAction: 'none', backgroundColor: '#ffffff' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 shrink-0">
-            <span className="text-slate-800 font-semibold text-sm">✍️ Unterschrift</span>
+          <div className="flex items-center justify-between px-4 py-2 border-b shrink-0" style={{ backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}>
+            <span className="font-semibold text-sm" style={{ color: '#1e293b' }}>✍️ Unterschrift</span>
             <button
               type="button"
               onClick={() => setShowSignatureModal(false)}
@@ -316,7 +319,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
           </div>
 
           {/* Hint */}
-          <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 shrink-0">
+          <div className="px-4 py-2 border-b shrink-0" style={{ backgroundColor: '#eff6ff', borderColor: '#dbeafe' }}>
             <p className="text-blue-600 text-xs text-center">
               Mieter unterschreibt hier mit Finger oder Stift &nbsp;·&nbsp; Gerät quer halten für mehr Platz
             </p>
@@ -350,8 +353,9 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
               ref={fullscreenCanvasRef}
               width={500}
               height={900}
-              className="bg-white border-2 border-dashed border-slate-300 rounded-xl"
+              className="border-2 border-dashed border-slate-300 rounded-xl"
               style={{
+                backgroundColor: '#ffffff',
                 cursor: 'crosshair',
                 touchAction: 'none',
                 display: 'block',
@@ -492,7 +496,8 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
                   <img
                     src={signatureDataUrl}
                     alt="Unterschrift"
-                    className="w-full h-20 object-contain bg-white rounded-lg border border-slate-400"
+                    className="w-full h-20 object-contain rounded-lg border border-slate-400"
+                    style={{ backgroundColor: '#ffffff' }}
                   />
                   <button
                     type="button"
@@ -508,7 +513,8 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
                 <button
                   type="button"
                   onClick={() => setShowSignatureModal(true)}
-                  className="w-full h-20 bg-white rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
+                  className="w-full h-20 rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
+                  style={{ backgroundColor: '#ffffff' }}
                 >
                   <div className="text-center pointer-events-none">
                     <div className="text-2xl mb-0.5">✍️</div>
