@@ -146,7 +146,7 @@ export default function SettingsPage() {
             Verwalten Sie Ihr Geschäftsprofil und allgemeine Einstellungen
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between">
           <Link
             href="/dashboard"
             className="inline-flex items-center text-slate-400 hover:text-white transition-colors"
