@@ -1785,8 +1785,8 @@ const HardResetModal = () => {
                     ) : (
                       <button
                         onClick={() => handleEmailClick(invoice)}
-                        className="px-3 py-2 rounded text-sm transition-colors"
-                        style={{ backgroundColor: '#64748b', color: '#ffffff' }}
+                        className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
+                        style={{ borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.3)' }}
                       >
                         ✉️ Per E-Mail senden
                       </button>
@@ -1806,9 +1806,9 @@ const HardResetModal = () => {
                       <button
                         onClick={() => handleMarkAsPaid(invoice)}
                         className="px-3 py-2 rounded text-sm transition-colors"
-                        style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+                        style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
                       >
-                        ✅ Als bezahlt markieren
+                        💰 Als bezahlt markieren
                       </button>
                     )}
 
