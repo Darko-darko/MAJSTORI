@@ -76,7 +76,7 @@ function DashboardLayoutContent({ children }) {
   const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining } = useSubscription(majstor?.id)
 
   // Push notifikacije
-  const { permission, subscribed: subscribedRaw, loading: pushLoading, supported: pushSupported, subscribe } = usePushNotifications(majstor?.id)
+  const { permission, subscribed: subscribedRaw, loading: pushLoading, supported: pushSupported, subscribe, unsubscribe } = usePushNotifications(majstor?.id)
   const [subscribed, setSubscribedOverride] = useState(null)
   const resolvedSubscribed = subscribed !== null ? subscribed : subscribedRaw
   useEffect(() => {
@@ -959,12 +959,12 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     onClick={subscribe}
                     disabled={pushLoading}
                     title="Push-Benachrichtigungen aktivieren"
-                    className="relative p-2 text-slate-400 hover:text-yellow-400 transition-colors disabled:opacity-50"
+                    className="relative p-2 text-white opacity-50 hover:opacity-80 transition-colors disabled:opacity-30"
                   >
                     {pushLoading ? (
                       <span className="text-xl">⏳</span>
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
                         <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/>
                       </svg>
@@ -972,9 +972,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   </button>
                 ) : (
                   <button
-                    className="relative p-2 text-yellow-400 hover:text-yellow-300 transition-colors"
-                    onClick={() => router.push('/dashboard/settings?tab=notifications')}
-                    title="Benachrichtigungen verwalten"
+                    className="relative p-2 hover:opacity-80 transition-colors"
+                    style={{ color: '#facc15' }}
+                    onClick={unsubscribe}
+                    disabled={pushLoading}
+                    title="Push-Benachrichtigungen deaktivieren"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
@@ -986,11 +988,14 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 ))}
 
                 <button
-                  className="relative p-2 text-slate-400 hover:text-white transition-colors"
+                  className="relative p-2 hover:opacity-80 transition-colors"
+                  style={{ color: '#3b82f6' }}
                   onClick={openSupport}
                   title="Support kontaktieren"
                 >
-                  <span className="text-xl">📨</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
                 </button>
 
                 <button
