@@ -54,6 +54,7 @@ function DashboardPageContent() {
   const [regieberichtInvoice, setRegieberichtInvoice] = useState(null)
   const [regieberichtUploading, setRegieberichtUploading] = useState(false)
   const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
+  const [regieberichtExists, setRegieberichtExists] = useState({}) // {invoiceId: true}
 
   //početak
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -328,11 +329,16 @@ function DashboardPageContent() {
       if (allIds.length > 0) {
         const { data: attData } = await supabase
           .from('invoice_attachments')
-          .select('invoice_id')
+          .select('invoice_id, filename')
           .in('invoice_id', allIds)
         const counts = {}
-        attData?.forEach(a => { counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1 })
+        const regieMap = {}
+        attData?.forEach(a => {
+          counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1
+          if (a.filename?.startsWith('Regiebericht_')) regieMap[a.invoice_id] = true
+        })
         setAttachmentCounts(counts)
+        setRegieberichtExists(regieMap)
       }
 
       buildQuoteInvoiceMap(quotesData || [], invoicesData || [])
@@ -1752,11 +1758,19 @@ const HardResetModal = () => {
 
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && (
                       <button
-                        onClick={() => setRegieberichtInvoice(invoice)}
-                        className="px-3 py-2 rounded text-sm transition-colors border-2 border-dashed"
-                        style={{ borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)' }}
+                        onClick={() => {
+                          if (regieberichtExists[invoice.id]) {
+                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
+                          }
+                          setRegieberichtInvoice(invoice)
+                        }}
+                        className="px-3 py-2 rounded text-sm transition-colors border-2"
+                        style={regieberichtExists[invoice.id]
+                          ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
+                          : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
+                        }
                       >
-                        📋 Regiebericht
+                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
                       </button>
                     )}
 
@@ -2615,11 +2629,12 @@ const HardResetModal = () => {
                   })
                   if (dbErr) throw dbErr
 
-                  // Update local attachment count
+                  // Update local state
                   setAttachmentCounts(prev => ({
                     ...prev,
                     [invoiceId]: (prev[invoiceId] || 0) + 1
                   }))
+                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: true }))
 
                   setRegieberichtInvoice(null)
                   alert('✅ Regiebericht wurde als Anhang hinzugefügt!')
