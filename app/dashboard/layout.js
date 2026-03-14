@@ -948,14 +948,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   </button>
                 )}
                 
-                <div>
-                  <h1 className="text-xl font-semibold text-white">
-                    {isBuchhalter ? 'Buchhaltungs-Portal' : 'Handwerker Dashboard'}
-                  </h1>
-                  <p className="text-sm text-slate-400 hidden sm:block">
-                    {isBuchhalter ? 'Pro-Meister · Buchhalter-Zugang' : 'Verwalten Sie Ihre Kunden und Aufträge'}
-                  </p>
-                </div>
+                <h1 className="text-base font-semibold text-white whitespace-nowrap">
+                  {isBuchhalter ? 'Buchhaltungs-Portal' : <span>Pro-Meister<span className="text-blue-400">.de</span></span>}
+                </h1>
               </div>
 
               <div className="flex items-center space-x-3">
@@ -998,22 +993,21 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   <span className="text-xl">📨</span>
                 </button>
 
+                <button
+                  onClick={toggleTheme}
+                  title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  className="p-2 text-slate-400 hover:text-white transition-colors text-lg"
+                >
+                  {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
+
                 {isBuchhalter && (
-                  <>
-                    <button
-                      onClick={toggleTheme}
-                      title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                      className="p-2 text-slate-400 hover:text-white transition-colors text-lg"
-                    >
-                      {theme === 'dark' ? '☀️' : '🌙'}
-                    </button>
-                    <button
-                      onClick={handleSignOut}
-                      className="text-sm text-slate-400 hover:text-white transition-colors px-2 py-1"
-                    >
-                      🚪 Abmelden
-                    </button>
-                  </>
+                  <button
+                    onClick={handleSignOut}
+                    className="text-sm text-slate-400 hover:text-white transition-colors px-2 py-1"
+                  >
+                    🚪 Abmelden
+                  </button>
                 )}
                 {!isBuchhalter && (isFreemium ? (
                   majstor?.avatar_url ? (
