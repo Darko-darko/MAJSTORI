@@ -124,6 +124,10 @@ export default function InvoiceCreator({
   const [aufmassAttached, setAufmassAttached] = useState(false)
   const [aufmassAttaching, setAufmassAttaching] = useState(false)
   const [aufmassLocalId, setAufmassLocalId] = useState(null)
+  const [showAufmassPicker, setShowAufmassPicker] = useState(false)
+  const [aufmassPickerList, setAufmassPickerList] = useState([])
+  const [aufmassPickerLoading, setAufmassPickerLoading] = useState(false)
+  const [selectedAufmassId, setSelectedAufmassId] = useState(aufmassId)
 
   // Check business data completeness on mount
   useEffect(() => {
@@ -735,6 +739,80 @@ export default function InvoiceCreator({
     }))
   }
 
+  // Open Aufmaß picker modal
+  const openAufmassPicker = async () => {
+    setShowAufmassPicker(true)
+    setAufmassPickerLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/aufmasse', {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      })
+      const json = await res.json()
+      setAufmassPickerList(json.aufmasse || [])
+    } catch (e) {
+      console.error('Aufmaß list error:', e)
+    } finally {
+      setAufmassPickerLoading(false)
+    }
+  }
+
+  // Import Aufmaß items into current invoice (append)
+  const importAufmass = (aufmass) => {
+    const flatItems = []
+    for (const room of (aufmass.rooms || [])) {
+      const nettoByUnit = {}
+      for (const item of (room.items || [])) {
+        if (!item.result) continue
+        const rawU = item.unit || ''
+        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
+        const sign = item.subtract ? -1 : 1
+        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+      }
+      for (const [unit, netto] of Object.entries(nettoByUnit)) {
+        if (netto <= 0) continue
+        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
+        const matchUnits = unit === 'm²' ? m2Units : [unit]
+        const descs = room.items
+          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
+          .map(i => i.description)
+          .filter(Boolean)
+          .join(', ')
+        flatItems.push({
+          description: [room.name, descs].filter(Boolean).join(': '),
+          quantity: Math.round(netto * 100) / 100,
+          unit,
+          price: 0,
+          price_gross: 0,
+          total: 0,
+          price_source: 'netto',
+        })
+      }
+    }
+    // Add materials
+    for (const mat of (aufmass.materials || [])) {
+      if (!mat.description) continue
+      flatItems.push({
+        description: mat.description,
+        quantity: parseFloat(mat.quantity) || 1,
+        unit: mat.unit || 'Stk',
+        price: 0,
+        price_gross: 0,
+        total: 0,
+        price_source: 'netto',
+      })
+    }
+    if (flatItems.length === 0) return
+    // Append to existing items (remove trailing empty items first)
+    setFormData(prev => {
+      const existingItems = prev.items.filter(i => i.description || i.price || i.quantity > 1)
+      return { ...prev, items: [...existingItems, ...flatItems] }
+    })
+    setSelectedAufmassId(aufmass.id)
+    setAufmassAttached(false) // reset so banner shows
+    setShowAufmassPicker(false)
+  }
+
   // Remove item
   const removeItem = (index) => {
     if (formData.items.length > 1) {
@@ -1167,7 +1245,7 @@ if (searchError) {
         valid_until: type === 'quote' ? formData.valid_until : null,
         is_kleinunternehmer: formData.is_kleinunternehmer,
         converted_from_quote_id: editData?.converted_from_quote_id || null,
-        aufmass_id: aufmassId || editData?.aufmass_id || null
+        aufmass_id: selectedAufmassId || aufmassId || editData?.aufmass_id || null
       }
 
       let result
@@ -2026,12 +2104,12 @@ if (searchError) {
                       📎 Anhang hinzufügen
                     </label>
                   )}
-                  {(aufmassId || editData?.aufmass_id) && !aufmassAttached && (
+                  {(selectedAufmassId || aufmassId || editData?.aufmass_id) && !aufmassAttached && (
                     <button
                       type="button"
                       disabled={aufmassAttaching}
                       onClick={async () => {
-                        const id = aufmassId || editData?.aufmass_id
+                        const id = selectedAufmassId || aufmassId || editData?.aufmass_id
                         if (!id) return
                         setAufmassAttaching(true)
                         try {
@@ -2064,14 +2142,25 @@ if (searchError) {
               </div>
             </div>
 
-            {/* Regiebericht */}
-            <div>
+            <hr className="border-slate-700 my-2" />
+
+            {/* Regiebericht & Aufmaß */}
+            <div className="space-y-2">
               <button
                 type="button"
                 onClick={() => setShowRegieForm(p => !p)}
-                className="w-full py-2.5 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg text-sm text-slate-400 hover:text-slate-200 transition-colors text-center"
+                className="w-full py-2.5 border border-dashed rounded-lg text-sm text-white transition-colors text-center"
+                style={{ borderColor: '#2563eb' }}
               >
                 📋 Regiebericht erstellen
+              </button>
+              <button
+                type="button"
+                onClick={openAufmassPicker}
+                className="w-full py-2.5 border border-dashed rounded-lg text-sm text-white transition-colors text-center"
+                style={{ borderColor: '#2563eb' }}
+              >
+                📐 Aufmaß importieren
               </button>
 
               {showRegieForm && (
@@ -2191,6 +2280,50 @@ if (searchError) {
           </form>
         </div>
       </div>
+
+      {/* Aufmaß Picker Modal */}
+      {showAufmassPicker && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setShowAufmassPicker(false)}>
+          <div className="bg-slate-800 rounded-xl max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-white">📐 Aufmaß auswählen</h3>
+              <button onClick={() => setShowAufmassPicker(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {aufmassPickerLoading ? (
+                <p className="text-slate-400 text-center py-8">Laden...</p>
+              ) : aufmassPickerList.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-slate-400">Keine Aufmaße vorhanden.</p>
+                  <p className="text-slate-500 text-sm mt-1">Erstellen Sie zuerst ein Aufmaß über das Menü.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {aufmassPickerList.map(a => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => importAufmass(a)}
+                      className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-blue-500 rounded-lg p-3 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white font-medium">{a.title || 'Ohne Titel'}</p>
+                          {a.customer_name && <p className="text-slate-400 text-sm">{a.customer_name}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-slate-400 text-xs">{a.date ? new Date(a.date).toLocaleDateString('de-DE') : ''}</p>
+                          <p className="text-slate-500 text-xs">{(a.rooms || []).length} {(a.rooms || []).length === 1 ? 'Raum' : 'Räume'}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
