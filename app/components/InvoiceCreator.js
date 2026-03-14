@@ -27,7 +27,6 @@ function compressImage(file, maxWidth = 1920) {
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
-import RegieberichtForm from './RegieberichtForm'
 
 export default function InvoiceCreator({
   isOpen,
@@ -120,7 +119,6 @@ export default function InvoiceCreator({
   // Attachments
   const [pendingAttachments, setPendingAttachments] = useState([]) // {file, localId}
   const [savedAttachments, setSavedAttachments] = useState([])     // from DB
-  const [showRegieForm, setShowRegieForm] = useState(false)
   const [aufmassAttached, setAufmassAttached] = useState(false)
   const [aufmassAttaching, setAufmassAttaching] = useState(false)
   const [aufmassLocalId, setAufmassLocalId] = useState(null)
@@ -1857,41 +1855,63 @@ if (searchError) {
   )}
 </div>
 
-  {/* ✅ SERVICE LOCATION - IMPROVED WITH QUICK-FILL */}
-  <div className="mt-4">
-    <label className="block text-sm font-medium text-slate-300 mb-2">
-      📍 Ort der Leistung (optional)
-    </label>
-    <div className="flex gap-2 mb-2">
-      <button
-        type="button"
-        onClick={copyBillingToService}
-        className="px-3 py-1 bg-slate-700 text-slate-300 text-xs rounded hover:bg-slate-600 transition-colors"
-      >
-        📋 Von Rechnungsadresse
-      </button>
-      {formData.show_weg && (
+  {/* ✅ SERVICE LOCATION - COLLAPSIBLE */}
+  {!formData.place_of_service ? (
+    <button
+      type="button"
+      onClick={() => setFormData(prev => ({ ...prev, place_of_service: ' ' }))}
+      className="w-full p-3 flex items-center gap-3 text-blue-400 hover:text-blue-300 transition-colors text-sm bg-transparent mt-2"
+    >
+      <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+      <span>+ Ort der Leistung hinzufügen (optional)</span>
+    </button>
+  ) : (
+    <div className="mt-4 p-4 bg-slate-900/30 rounded-lg border-l-4 border-amber-500">
+      <div className="flex justify-between items-center mb-3">
+        <label className="text-amber-300 font-medium text-sm">
+          📍 Ort der Leistung
+        </label>
         <button
           type="button"
-          onClick={copyWegToService}
+          onClick={() => setFormData(prev => ({ ...prev, place_of_service: '' }))}
+          className="text-slate-400 hover:text-white text-xl"
+          title="Ort der Leistung entfernen"
+        >
+          ×
+        </button>
+      </div>
+      <div className="flex gap-2 mb-2">
+        <button
+          type="button"
+          onClick={copyBillingToService}
           className="px-3 py-1 bg-slate-700 text-slate-300 text-xs rounded hover:bg-slate-600 transition-colors"
         >
-          📋 Von Lieferadresse
+          📋 Von Rechnungsadresse
         </button>
-      )}
+        {formData.show_weg && (
+          <button
+            type="button"
+            onClick={copyWegToService}
+            className="px-3 py-1 bg-slate-700 text-slate-300 text-xs rounded hover:bg-slate-600 transition-colors"
+          >
+            📋 Von Lieferadresse
+          </button>
+        )}
+      </div>
+      <input
+        type="text"
+        name="place_of_service"
+        value={formData.place_of_service.trim() ? formData.place_of_service : ''}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+        placeholder="z.B. Berlin, 10115 Berlin, Treppenhaus 2.OG"
+        autoFocus
+      />
+      <p className="text-xs text-slate-500 mt-1">
+        💡 Wichtig für steuerliche Zwecke und ZUGFeRD-Compliance
+      </p>
     </div>
-    <input
-      type="text"
-      name="place_of_service"
-      value={formData.place_of_service}
-      onChange={handleInputChange}
-      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-      placeholder="z.B. Berlin, 10115 Berlin, Treppenhaus 2.OG"
-    />
-    <p className="text-xs text-slate-500 mt-1">
-      💡 Wichtig für steuerliche Zwecke und ZUGFeRD-Compliance
-    </p>
-  </div>
+  )}
 </div>
 
             {/* Items Section */}
@@ -2144,16 +2164,8 @@ if (searchError) {
 
             <hr className="border-slate-700 my-2" />
 
-            {/* Regiebericht & Aufmaß */}
+            {/* Aufmaß */}
             <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setShowRegieForm(p => !p)}
-                className="w-full py-2.5 border border-dashed rounded-lg text-sm text-white transition-colors text-center"
-                style={{ borderColor: '#2563eb' }}
-              >
-                📋 Regiebericht erstellen
-              </button>
               <button
                 type="button"
                 onClick={openAufmassPicker}
@@ -2162,20 +2174,6 @@ if (searchError) {
               >
                 📐 Aufmaß importieren
               </button>
-
-              {showRegieForm && (
-                <div className="mt-2">
-                  <RegieberichtForm
-                    majstor={majstor}
-                    invoiceFormData={formData}
-                    onGenerated={(file) => {
-                      setPendingAttachments(prev => [...prev, { file, localId: crypto.randomUUID() }])
-                      setShowRegieForm(false)
-                    }}
-                    onClose={() => setShowRegieForm(false)}
-                  />
-                </div>
-              )}
             </div>
 
             {/* Additional Information */}

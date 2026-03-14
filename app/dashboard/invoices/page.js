@@ -8,6 +8,7 @@ import InvoiceCreator from '@/app/components/InvoiceCreator'
 import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
 import LogoUpload from '@/app/components/LogoUpload'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
+import RegieberichtForm from '@/app/components/RegieberichtForm'
 
 
 function DashboardPageContent() {
@@ -48,6 +49,10 @@ function DashboardPageContent() {
   // Attachments modal
   const [attachmentModal, setAttachmentModal] = useState(null) // {invoiceId, attachments}
   const [attachmentModalLoading, setAttachmentModalLoading] = useState(false)
+
+  // Regiebericht
+  const [regieberichtInvoice, setRegieberichtInvoice] = useState(null)
+  const [regieberichtUploading, setRegieberichtUploading] = useState(false)
   const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
 
   //početak
@@ -1745,6 +1750,16 @@ const HardResetModal = () => {
                       </button>
                     )}
 
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && (
+                      <button
+                        onClick={() => setRegieberichtInvoice(invoice)}
+                        className="px-3 py-2 rounded text-sm transition-colors border-2 border-dashed"
+                        style={{ borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)' }}
+                      >
+                        📋 Regiebericht
+                      </button>
+                    )}
+
                     {invoice.email_sent_at ? (
                       <button
                         onClick={() => handleEmailClick(invoice)}
@@ -2556,6 +2571,75 @@ const HardResetModal = () => {
 
       <HardResetModal />
       <PDFLoadingModal />
+
+      {/* Regiebericht Modal */}
+      {regieberichtInvoice && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !regieberichtUploading && setRegieberichtInvoice(null)}>
+          <div className="bg-slate-800 rounded-xl w-full max-w-lg border border-slate-700 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <RegieberichtForm
+              majstor={majstor}
+              invoiceFormData={{
+                customer_name: regieberichtInvoice.customer_name || '',
+                customer_street: regieberichtInvoice.customer_street || '',
+                customer_postal_code: regieberichtInvoice.customer_postal_code || '',
+                customer_city: regieberichtInvoice.customer_city || '',
+                customer_phone: regieberichtInvoice.customer_phone || '',
+                place_of_service: regieberichtInvoice.place_of_service || '',
+                weg_street: regieberichtInvoice.weg_street || '',
+                weg_property_name: regieberichtInvoice.weg_property_name || '',
+                weg_postal_code: regieberichtInvoice.weg_postal_code || '',
+                weg_city: regieberichtInvoice.weg_city || '',
+                weg_country: regieberichtInvoice.weg_country || '',
+                items: regieberichtInvoice.items ? JSON.parse(regieberichtInvoice.items) : [],
+              }}
+              onGenerated={async (file) => {
+                // Upload directly to Supabase storage as invoice attachment
+                setRegieberichtUploading(true)
+                try {
+                  const invoiceId = regieberichtInvoice.id
+                  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                  const storagePath = `attachments/${majstor.id}/${invoiceId}/${Date.now()}_${safeName}`
+
+                  const { error: uploadErr } = await supabase.storage
+                    .from('invoice-pdfs')
+                    .upload(storagePath, file, { contentType: 'application/pdf' })
+                  if (uploadErr) throw uploadErr
+
+                  const { error: dbErr } = await supabase.from('invoice_attachments').insert({
+                    invoice_id: invoiceId,
+                    majstor_id: majstor.id,
+                    storage_path: storagePath,
+                    filename: file.name,
+                    file_size: file.size,
+                    mime_type: 'application/pdf',
+                  })
+                  if (dbErr) throw dbErr
+
+                  // Update local attachment count
+                  setAttachmentCounts(prev => ({
+                    ...prev,
+                    [invoiceId]: (prev[invoiceId] || 0) + 1
+                  }))
+
+                  setRegieberichtInvoice(null)
+                  alert('✅ Regiebericht wurde als Anhang hinzugefügt!')
+                } catch (err) {
+                  console.error('Regiebericht upload error:', err)
+                  alert('❌ Fehler beim Hochladen: ' + (err.message || 'Unbekannter Fehler'))
+                } finally {
+                  setRegieberichtUploading(false)
+                }
+              }}
+              onClose={() => !regieberichtUploading && setRegieberichtInvoice(null)}
+            />
+            {regieberichtUploading && (
+              <div className="p-4 text-center">
+                <p className="text-blue-400 text-sm animate-pulse">⏳ Wird hochgeladen...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Attachment Mini-Modal */}
       {attachmentModal && (
