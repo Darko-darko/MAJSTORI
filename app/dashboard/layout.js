@@ -235,7 +235,7 @@ useEffect(() => {
       
       const interval = setInterval(() => {
         loadBadgeCounts()
-      }, 2 * 60 * 1000)
+      }, 5 * 60 * 1000)
       
       return () => clearInterval(interval)
     }
@@ -245,7 +245,9 @@ useEffect(() => {
     if (!majstor?.id) return
 
     try {
-      const [inquiriesResult, invoicesResult] = await Promise.all([
+      const today = new Date().toISOString().slice(0, 10)
+
+      const [inquiriesResult, overdueResult] = await Promise.all([
         supabase
           .from('inquiries')
           .select('id', { count: 'exact', head: true })
@@ -254,30 +256,15 @@ useEffect(() => {
 
         supabase
           .from('invoices')
-          .select('id, due_date, status')
+          .select('id', { count: 'exact', head: true })
           .eq('majstor_id', majstor.id)
           .in('status', ['sent', 'draft'])
-          .neq('status', 'dummy'),
-       
+          .lt('due_date', today),
       ])
-
-      let overdueCount = 0
-      if (invoicesResult.data && !invoicesResult.error) {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        overdueCount = invoicesResult.data.filter(invoice => {
-          if (!invoice.due_date) return false
-          const dueDate = new Date(invoice.due_date)
-          dueDate.setHours(0, 0, 0, 0)
-          return today > dueDate
-        }).length
-      }
 
       setBadges({
         inquiries: inquiriesResult.count || 0,
-        invoices: overdueCount
-      
+        invoices: overdueResult.count || 0,
       })
 
     } catch (error) {
