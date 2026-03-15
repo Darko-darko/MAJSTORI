@@ -99,46 +99,20 @@ function DashboardPageContent() {
 
   const loadStats = async (userId) => {
     try {
-      const { data: inquiries, error: inquiriesError } = await supabase
-        .from('inquiries')
-        .select('status')
-        .eq('majstor_id', userId)
+      const [totalInq, newInq, invoiceCount, customerCount] = await Promise.all([
+        supabase.from('inquiries').select('id', { count: 'exact', head: true }).eq('majstor_id', userId),
+        supabase.from('inquiries').select('id', { count: 'exact', head: true }).eq('majstor_id', userId).eq('status', 'new'),
+        supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('majstor_id', userId).eq('type', 'invoice').neq('status', 'dummy'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('majstor_id', userId).neq('name', 'DUMMY_ENTRY_FOR_NUMBERING'),
+      ])
 
-      if (!inquiriesError && inquiries) {
-        const newInquiries = inquiries.filter(i => i.status === 'new').length || 0
-        setStats(prev => ({
-          ...prev,
-          totalInquiries: inquiries.length || 0,
-          newInquiries
-        }))
-      }
-
-      const { data: invoices } = await supabase
-        .from('invoices')
-        .select('id, type')
-        .eq('majstor_id', userId)
-        .neq('status', 'dummy')
-
-      if (invoices) {
-        setStats(prev => ({
-          ...prev,
-          totalInvoices: invoices.filter(inv => inv.type === 'invoice').length
-        }))
-      }
-
-      const { data: customers, error: customersError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('majstor_id', userId)
-        .neq('name', 'DUMMY_ENTRY_FOR_NUMBERING')
-
-      if (!customersError && customers) {
-        setStats(prev => ({
-          ...prev,
-          totalCustomers: customers.length || 0
-        }))
-      }
-
+      setStats(prev => ({
+        ...prev,
+        totalInquiries: totalInq.count || 0,
+        newInquiries: newInq.count || 0,
+        totalInvoices: invoiceCount.count || 0,
+        totalCustomers: customerCount.count || 0,
+      }))
     } catch (err) {
       console.error('Error loading stats:', err)
     }
@@ -146,7 +120,7 @@ function DashboardPageContent() {
 
   useEffect(() => {
     if (majstor?.id) {
-      const interval = setInterval(() => loadStats(majstor.id), 30000)
+      const interval = setInterval(() => loadStats(majstor.id), 5 * 60 * 1000)
       return () => clearInterval(interval)
     }
   }, [majstor?.id])
