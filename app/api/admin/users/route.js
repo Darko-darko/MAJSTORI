@@ -40,6 +40,7 @@ export async function GET(request) {
       .select(`
         id, email, full_name, business_name, city, created_at, subscription_status,
         invoices(count),
+        inquiries(count),
         user_subscriptions (
           status, created_at, current_period_end, trial_ends_at, cancel_at_period_end,
           subscription_plans ( name, display_name )
@@ -73,6 +74,7 @@ export async function GET(request) {
         trial_ends_at:         latest?.trial_ends_at ?? null,
         cancel_at_period_end:  latest?.cancel_at_period_end ?? false,
         invoice_count:      m.invoices?.[0]?.count ?? 0,
+        inquiry_count:      m.inquiries?.[0]?.count ?? 0,
       }
     })
 

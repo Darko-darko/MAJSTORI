@@ -22,15 +22,16 @@ export async function GET(request) {
 
     const today = new Date().toISOString().slice(0, 10)
 
-    const [totalUsers, activeSubs, trialSubs, totalInvoices, emailCounter] = await Promise.all([
+    const [totalUsers, activeSubs, trialSubs, totalInvoices, totalInquiries, emailCounter] = await Promise.all([
       admin.from('majstors').select('id', { count: 'exact', head: true }),
       admin.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       admin.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'trial'),
       admin.from('invoices').select('id', { count: 'exact', head: true }),
+      admin.from('inquiries').select('id', { count: 'exact', head: true }),
       admin.from('email_counter').select('count').eq('date', today).single(),
     ])
 
-    for (const result of [totalUsers, activeSubs, trialSubs, totalInvoices]) {
+    for (const result of [totalUsers, activeSubs, trialSubs, totalInvoices, totalInquiries]) {
       if (result.error) {
         console.error('Admin stats DB error:', result.error)
         return NextResponse.json({ error: 'Database error' }, { status: 500 })
@@ -41,8 +42,9 @@ export async function GET(request) {
       totalUsers:    totalUsers.count    ?? 0,
       activeSubs:    activeSubs.count    ?? 0,
       trialSubs:     trialSubs.count     ?? 0,
-      totalInvoices: totalInvoices.count ?? 0,
-      emailsToday:   emailCounter.data?.count ?? 0,
+      totalInvoices:   totalInvoices.count   ?? 0,
+      totalInquiries:  totalInquiries.count  ?? 0,
+      emailsToday:     emailCounter.data?.count ?? 0,
     })
   } catch (err) {
     console.error('Admin stats error:', err)
