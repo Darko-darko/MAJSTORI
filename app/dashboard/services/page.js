@@ -2,7 +2,7 @@
 
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
-import * as XLSX from 'xlsx'
+// XLSX loaded dynamically on demand (saves ~594 KB initial bundle)
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -431,9 +431,10 @@ const { data: invoices, error } = await supabase
     }
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const activeServices = services.filter(s => s.is_active)
     if (activeServices.length === 0) { alert('Keine Services zum Exportieren'); return }
+    const XLSX = await import('xlsx')
     const exportData = activeServices.map(s => ({ Name: s.name }))
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()

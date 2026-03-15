@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import jsPDF from 'jspdf'
+// jsPDF loaded dynamically on demand (saves ~564 KB initial bundle)
 
 function buildObjekt(fd) {
   if (fd?.weg_street) {
@@ -147,7 +147,8 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     setShowSignatureModal(false)
   }
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
+    const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF({ unit: 'mm', format: 'a4' })
     const pageW = 210
     const margin = 20
