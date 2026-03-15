@@ -40,7 +40,7 @@ export async function POST(request) {
     // Send email to support
     const { data, error } = await resend.emails.send({
       from: 'ProMeister Support <support@pro-meister.de>',
-      to: ['darko.jocic.ns@gmail.com', 'novakovicdusan555@gmail.com'], // TVOJ PRAVI EMAIL
+      to: ['darko.jocic.ns@gmail.com', 'novakovicdusan555@gmail.com', 'support@pro-meister.de'],
       replyTo: email,
       subject: `${emoji} [${categoryLabel}] ${subject}`,
       html: `
