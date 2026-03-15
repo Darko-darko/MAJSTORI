@@ -210,7 +210,7 @@ export default function AdminPartnersPage() {
 
         <div className="flex items-center justify-between">
           <h1 className="text-white text-xl font-bold">🤝 Partner-Verwaltung</h1>
-          <button onClick={() => router.push('/admin')} className="text-slate-400 hover:text-white text-sm">
+          <button onClick={() => router.push('/dashboard/admin')} className="text-slate-400 hover:text-white text-sm">
             ← Admin
           </button>
         </div>

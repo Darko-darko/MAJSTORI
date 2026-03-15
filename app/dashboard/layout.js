@@ -837,7 +837,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               {!isBuchhalter && partnerItem && <NavigationItem item={partnerItem} />}
               {!isBuchhalter && ADMIN_EMAILS.includes(majstor?.email) && (
                 <Link
-                  href="/admin"
+                  href="/dashboard/admin"
                   className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
                 >
                   <span className="mr-3">🛡️</span>
@@ -914,7 +914,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               {!isBuchhalter && partnerItem && <NavigationItem item={partnerItem} isMobile={true} />}
               {!isBuchhalter && ADMIN_EMAILS.includes(majstor?.email) && (
                 <Link
-                  href="/admin"
+                  href="/dashboard/admin"
                   onClick={() => setSidebarOpen(false)}
                   className="w-full flex items-center px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
                 >
