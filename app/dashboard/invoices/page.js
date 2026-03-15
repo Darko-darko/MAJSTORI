@@ -1794,24 +1794,6 @@ const HardResetModal = () => {
                       </button>
                     )}
 
-                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
-                      <button
-                        onClick={() => {
-                          if (regieberichtExists[invoice.id]) {
-                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
-                          }
-                          setRegieberichtInvoice(invoice)
-                        }}
-                        className="px-3 py-2 rounded text-sm transition-colors border-2"
-                        style={regieberichtExists[invoice.id]
-                          ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
-                          : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
-                        }
-                      >
-                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
-                      </button>
-                    )}
-
                     {invoice.status !== 'paid' && (invoice.email_sent_at ? (
                       <button
                         onClick={() => handleEmailClick(invoice)}
@@ -1829,6 +1811,24 @@ const HardResetModal = () => {
                         ✉️ Per E-Mail senden
                       </button>
                     ))}
+
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
+                      <button
+                        onClick={() => {
+                          if (regieberichtExists[invoice.id]) {
+                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
+                          }
+                          setRegieberichtInvoice(invoice)
+                        }}
+                        className="px-3 py-2 rounded text-sm transition-colors border-2"
+                        style={regieberichtExists[invoice.id]
+                          ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
+                          : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
+                        }
+                      >
+                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
+                      </button>
+                    )}
 
                     {invoice.type !== 'storno' && (invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
                       <button
