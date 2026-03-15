@@ -526,28 +526,21 @@ pdfTab.document.close()
 
       console.log('✅ Fresh PDF opened in reserved tab')
     } else {
-      // 4️⃣ PDF is up-to-date - download from storage (FAST!)
-      console.log('✅ PDF is up-to-date, downloading from storage:', invoice.pdf_storage_path)
+      // 4️⃣ PDF is up-to-date - open directly via signed URL (FAST!)
+      console.log('✅ PDF is up-to-date, creating signed URL:', invoice.pdf_storage_path)
 
-      const { data: pdfData, error: downloadError } = await supabase.storage
+      const { data: signedData, error: signError } = await supabase.storage
         .from('invoice-pdfs')
-        .download(invoice.pdf_storage_path)
+        .createSignedUrl(invoice.pdf_storage_path, 60)
 
-      if (downloadError || !pdfData) {
-        throw new Error('PDF download failed: ' + downloadError?.message)
+      if (signError || !signedData?.signedUrl) {
+        throw new Error('Signed URL failed: ' + signError?.message)
       }
 
-      console.log('✅ PDF loaded from storage, size:', pdfData.size, 'bytes')
+      // ✅ Browser opens PDF directly — no download through JS
+      pdfTab.location.href = signedData.signedUrl
 
-      const blob = new Blob([pdfData], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-
-      // ✅ Load PDF into the already opened tab
-      pdfTab.location.href = url
-
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-
-      console.log('✅ Cached PDF opened in reserved tab')
+      console.log('✅ Cached PDF opened via signed URL')
     }
   } catch (error) {
     console.error('❌ PDF viewing error:', error)
