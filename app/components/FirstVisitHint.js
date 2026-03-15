@@ -56,6 +56,12 @@ const HINTS = {
     title: 'Ausgaben & Belege',
     text: 'Fotografieren Sie Ihre Belege direkt mit der Kamera oder laden Sie Fotos hoch. Alle Ausgaben werden gesammelt gespeichert und stehen für die Buchhaltung bereit.',
   },
+
+  aufmass: {
+    icon: '📐',
+    title: 'Aufmaß',
+    text: 'Erfassen Sie Raummaße direkt vor Ort. Räume anlegen, Maße eintragen und als PDF exportieren oder direkt in ein Angebot übernehmen.',
+  },
 }
 export default function FirstVisitHint({ pageKey }) {
   const [visible, setVisible] = useState(false)
