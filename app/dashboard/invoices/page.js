@@ -1574,8 +1574,8 @@ const HardResetModal = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-3 flex-wrap">
-                  <button 
+                <div className="grid grid-cols-2 gap-3">
+                  <button
                     onClick={() => handlePDFView(quote)}
                     className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                   >
@@ -1775,7 +1775,7 @@ const HardResetModal = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => handlePDFView(invoice)}
                       className="px-3 py-2 rounded text-sm transition-colors"
@@ -1791,24 +1791,6 @@ const HardResetModal = () => {
                         style={{ backgroundColor: '#475569', color: '#ffffff' }}
                       >
                         ✏️ Bearbeiten
-                      </button>
-                    )}
-
-                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
-                      <button
-                        onClick={() => {
-                          if (regieberichtExists[invoice.id]) {
-                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
-                          }
-                          setRegieberichtInvoice(invoice)
-                        }}
-                        className="px-3 py-2 rounded text-sm transition-colors border-2"
-                        style={regieberichtExists[invoice.id]
-                          ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
-                          : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
-                        }
-                      >
-                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
                       </button>
                     )}
 
@@ -1829,6 +1811,24 @@ const HardResetModal = () => {
                         ✉️ Per E-Mail senden
                       </button>
                     ))}
+
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
+                      <button
+                        onClick={() => {
+                          if (regieberichtExists[invoice.id]) {
+                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
+                          }
+                          setRegieberichtInvoice(invoice)
+                        }}
+                        className="px-3 py-2 rounded text-sm transition-colors border-2"
+                        style={regieberichtExists[invoice.id]
+                          ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
+                          : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
+                        }
+                      >
+                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
+                      </button>
+                    )}
 
                     {invoice.type !== 'storno' && (invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
                       <button

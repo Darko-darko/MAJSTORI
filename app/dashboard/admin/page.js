@@ -134,11 +134,10 @@ export default function AdminPage() {
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <StatCard label="Registrierte Nutzer" value={stats.totalUsers} />
             <StatCard label="Aktive Abos"          value={stats.activeSubs}    color="text-green-400" />
             <StatCard label="Trial"                value={stats.trialSubs}     color="text-orange-400" />
-            <StatCard label="Rechnungen gesamt"    value={stats.totalInvoices} />
             <StatCard label="E-Mails heute"        value={`${stats.emailsToday} / 100`} color={stats.emailsToday >= 80 ? 'text-red-400' : stats.emailsToday >= 50 ? 'text-yellow-400' : 'text-green-400'} />
           </div>
         )}
@@ -183,6 +182,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3 text-slate-400 font-medium">Plan</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Status</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Rechnungen</th>
+                <th className="px-4 py-3 text-slate-400 font-medium">Anfragen</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Läuft bis</th>
                 <th className="px-4 py-3 text-slate-400 font-medium">Registriert</th>
               </tr>
@@ -190,11 +190,11 @@ export default function AdminPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Laden...</td>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">Laden...</td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Keine Nutzer gefunden.</td>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">Keine Nutzer gefunden.</td>
                 </tr>
               ) : (
                 users.map(u => (
@@ -204,6 +204,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-slate-300">{u.sub_plan || '—'}</td>
                     <td className="px-4 py-3"><StatusBadge status={u.sub_status} cancelAtPeriodEnd={u.cancel_at_period_end} periodEnd={u.current_period_end} /></td>
                     <td className="px-4 py-3 text-slate-300 text-center">{u.invoice_count ?? 0}</td>
+                    <td className="px-4 py-3 text-slate-300 text-center">{u.inquiry_count ?? 0}</td>
                     <td className="px-4 py-3 text-slate-400">{formatDate(u.current_period_end)}</td>
                     <td className="px-4 py-3 text-slate-400">{formatDate(u.created_at)}</td>
                   </tr>
