@@ -110,6 +110,33 @@ function DashboardPageContent() {
       }
     }
 
+    if (fromInvoice === 'aufmass_append') {
+      const raw = sessionStorage.getItem('prm_edit_after_append')
+      if (raw) {
+        sessionStorage.removeItem('prm_edit_after_append')
+        const { id, type } = JSON.parse(raw)
+        setActiveTab(type === 'invoice' ? 'invoices' : 'quotes')
+        // Wait for data to load, then open editor
+        const openEditor = async () => {
+          const { data } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('id', id)
+            .single()
+          if (data) {
+            setEditingItem(data)
+            setCreateType(data.type)
+            setIsEditMode(true)
+            setShowCreateModal(true)
+          }
+        }
+        openEditor()
+        const url = new URL(window.location.href)
+        url.searchParams.delete('from')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+
     if (fromInvoice === 'invoice-creation') {
       setPendingInvoiceCreation(true)
       setPendingInvoiceType(searchParams.get('type') || 'quote')

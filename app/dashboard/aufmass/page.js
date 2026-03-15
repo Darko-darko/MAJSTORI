@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { generateAufmassPDF } from '@/lib/pdf/AufmassPDF'
+import { generateAufmassPDF, generateAufmassPDFBlob } from '@/lib/pdf/AufmassPDF'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 
 const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
@@ -912,6 +912,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Transfer modal
+  const [transferModal, setTransferModal] = useState(null) // 'quote' | 'invoice' | null
+  const [existingDocs, setExistingDocs] = useState([])
+  const [existingLoading, setExistingLoading] = useState(false)
+  const [appendingTo, setAppendingTo] = useState(null) // invoice id being appended to
+
   const addRoom = () => setForm(f => ({
     ...f,
     rooms: [...f.rooms, { id: newId(), name: '', items: [] }]
@@ -1000,6 +1006,136 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       docType,
     }))
     router.push('/dashboard/invoices?from=aufmass')
+  }
+
+  const buildFlatItems = () => {
+    const flatItems = []
+    for (const room of form.rooms) {
+      const nettoByUnit = {}
+      for (const item of room.items) {
+        if (!item.result) continue
+        const rawU = item.unit || ''
+        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
+        const sign = item.subtract ? -1 : 1
+        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+      }
+      for (const [unit, netto] of Object.entries(nettoByUnit)) {
+        if (netto <= 0) continue
+        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
+        const matchUnits = unit === 'm²' ? m2Units : [unit]
+        const descs = room.items
+          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
+          .map(i => i.description)
+          .filter(Boolean)
+          .join(', ')
+        flatItems.push({
+          description: [room.name, descs].filter(Boolean).join(': '),
+          quantity: Math.round(netto * 100) / 100,
+          unit,
+          unit_price: 0,
+          total_price: 0,
+        })
+      }
+    }
+    for (const mat of (form.materials || [])) {
+      if (!mat.description) continue
+      flatItems.push({
+        description: mat.description,
+        quantity: parseFloat(mat.quantity) || 1,
+        unit: mat.unit || 'Stk',
+        unit_price: 0,
+        total_price: 0,
+      })
+    }
+    return flatItems
+  }
+
+  const openTransferModal = async (docType) => {
+    setTransferModal(docType)
+    setExistingLoading(true)
+    try {
+      const type = docType === 'quote' ? 'quote' : 'invoice'
+      const { data } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, customer_name, created_at, items, type, aufmass_id')
+        .eq('majstor_id', majstor.id)
+        .eq('type', type)
+        .neq('status', 'dummy')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      setExistingDocs(data || [])
+    } catch (e) {
+      console.error('Error loading docs:', e)
+    } finally {
+      setExistingLoading(false)
+    }
+  }
+
+  const appendToExisting = async (doc) => {
+    // Guard: check if this Aufmaß is already linked to this document
+    if (aufmass?.id && doc.aufmass_id === aufmass.id) {
+      if (!confirm('Dieses Aufmaß wurde bereits zu diesem Dokument hinzugefügt. Trotzdem erneut hinzufügen?')) return
+    }
+    if (isNew && form.title.trim()) await save()
+    setAppendingTo(doc.id)
+    try {
+      const existingItems = doc.items ? JSON.parse(doc.items) : []
+      const newItems = buildFlatItems().map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        price: 0,
+        price_gross: 0,
+        total: 0,
+        price_source: 'netto',
+      }))
+      const mergedItems = [...existingItems, ...newItems]
+      const { error: updateErr } = await supabase
+        .from('invoices')
+        .update({
+          items: JSON.stringify(mergedItems),
+          aufmass_id: aufmass?.id || null,
+        })
+        .eq('id', doc.id)
+      if (updateErr) throw updateErr
+
+      // Auto-upload Aufmaß PDF as attachment
+      try {
+        const pdfBlob = await generateAufmassPDFBlob(form, majstor)
+        const safeName = (form.title || 'Aufmass').replace(/[^a-zA-Z0-9äöüÄÖÜß._-]/g, '_')
+        const fileName = `Aufmass_${safeName}.pdf`
+        const storagePath = `attachments/${majstor.id}/${doc.id}/${Date.now()}_${fileName}`
+
+        await supabase.storage
+          .from('invoice-pdfs')
+          .upload(storagePath, pdfBlob, { contentType: 'application/pdf' })
+
+        await supabase.from('invoice_attachments').insert({
+          invoice_id: doc.id,
+          majstor_id: majstor.id,
+          storage_path: storagePath,
+          filename: fileName,
+          file_size: pdfBlob.size,
+          mime_type: 'application/pdf',
+        })
+      } catch (attErr) {
+        console.error('Aufmaß PDF attachment failed (non-critical):', attErr)
+      }
+
+      setTransferModal(null)
+      // Redirect to invoices page and auto-open this document in editor
+      sessionStorage.setItem('prm_edit_after_append', JSON.stringify({
+        id: doc.id,
+        type: doc.type,
+      }))
+      router.push('/dashboard/invoices?from=aufmass_append')
+    } catch (e) {
+      console.error('Append error:', e)
+      alert('❌ Fehler: ' + (e.message || 'Unbekannter Fehler'))
+    } finally {
+      setAppendingTo(null)
+    }
   }
 
   return (
@@ -1162,14 +1298,14 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               <span>📄</span><span>PDF</span>
             </button>
             <button
-              onClick={() => transferTo('quote')}
+              onClick={() => openTransferModal('quote')}
               className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#15803d', color: '#ffffff' }}
             >
               <span>📋</span><span>Angebot</span>
             </button>
             <button
-              onClick={() => transferTo('invoice')}
+              onClick={() => openTransferModal('invoice')}
               className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#c2410c', color: '#ffffff' }}
             >
@@ -1184,6 +1320,75 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Transfer Modal: Neu erstellen / Zu bestehendem hinzufügen */}
+      {transferModal && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => !appendingTo && setTransferModal(null)}>
+          <div className="bg-slate-800 rounded-xl w-full max-w-sm border border-slate-700 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-700">
+              <h3 className="text-white font-semibold">
+                {transferModal === 'quote' ? '📋 Angebot' : '🧾 Rechnung'}
+              </h3>
+              <button onClick={() => setTransferModal(null)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {/* Neues erstellen */}
+              <button
+                onClick={() => { setTransferModal(null); transferTo(transferModal) }}
+                className="w-full py-3 rounded-lg text-sm font-semibold transition-colors"
+                style={{ backgroundColor: transferModal === 'quote' ? '#15803d' : '#c2410c', color: '#ffffff' }}
+              >
+                + {transferModal === 'quote' ? 'Neues Angebot erstellen' : 'Neue Rechnung erstellen'}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <hr className="flex-1 border-slate-700" />
+                <span className="text-slate-500 text-xs">oder</span>
+                <hr className="flex-1 border-slate-700" />
+              </div>
+
+              {/* Zu bestehendem hinzufügen */}
+              <p className="text-slate-400 text-xs">Zu bestehendem hinzufügen:</p>
+              {existingLoading ? (
+                <p className="text-slate-500 text-sm text-center py-4">Laden...</p>
+              ) : existingDocs.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-4">
+                  {transferModal === 'quote' ? 'Keine Angebote vorhanden' : 'Keine Rechnungen vorhanden'}
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {existingDocs.map(doc => (
+                    <button
+                      key={doc.id}
+                      onClick={() => appendToExisting(doc)}
+                      disabled={!!appendingTo}
+                      className="w-full text-left px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="text-white text-sm font-medium">{doc.invoice_number}</span>
+                          {doc.customer_name && (
+                            <span className="text-slate-400 text-xs ml-2">{doc.customer_name}</span>
+                          )}
+                        </div>
+                        {appendingTo === doc.id && (
+                          <span className="text-blue-400 text-xs animate-pulse">⏳</span>
+                        )}
+                      </div>
+                      <p className="text-slate-500 text-xs mt-0.5">
+                        {new Date(doc.created_at).toLocaleDateString('de-DE')} · {doc.items ? JSON.parse(doc.items).length : 0} Positionen
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSig && (
         <SignatureModal
