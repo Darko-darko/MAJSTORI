@@ -29,12 +29,14 @@ export async function GET(request, routeData) {
 
     console.log('📄 PDF API called for ID:', id, { forceRegenerate })
 
-    // Invoice
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', id)
-      .single()
+    // Invoice + Majstor in parallel
+    const [invoiceResult, majstorResult] = await Promise.all([
+      supabase.from('invoices').select('*').eq('id', id).single(),
+      supabase.from('majstors').select('*').eq('id', user.id).single(),
+    ])
+
+    const { data: invoice, error: invoiceError } = invoiceResult
+    const { data: majstor, error: majstorError } = majstorResult
 
     if (invoiceError || !invoice) {
       console.error('❌ Invoice not found:', invoiceError)
@@ -42,26 +44,19 @@ export async function GET(request, routeData) {
     }
     if (invoice.majstor_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+    if (majstorError || !majstor) {
+      console.error('❌ Majstor not found:', majstorError)
+      return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
+    }
+
     // ⚡ FAST PATH: Serve cached PDF if exists and up-to-date
     if (!forceRegenerate && invoice.pdf_storage_path && invoice.pdf_generated_at) {
       const pdfOutdated = new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
-      
+
       if (!pdfOutdated) {
         console.log('✅ Serving cached PDF (up-to-date)')
         return await servePDFFromArchive(invoice)
       }
-    }
-
-    // Majstor (only if regeneration needed)
-    const { data: majstor, error: majstorError } = await supabase
-      .from('majstors')
-      .select('*')
-      .eq('id', invoice.majstor_id)
-      .single()
-
-    if (majstorError || !majstor) {
-      console.error('❌ Majstor not found:', majstorError)
-      return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
     // For storno invoices, fetch original invoice number for PDF/ZUGFeRD reference
@@ -77,8 +72,10 @@ export async function GET(request, routeData) {
     const pdfService = new InvoicePDFService()
     const pdfBuffer = await pdfService.generateInvoice({ ...invoice, stornoOfNumber }, majstor)
 
-    console.log('💾 Archiving PDF...')
-    await archivePDF(pdfBuffer, invoice, majstor.id)
+    // Archive in background — don't block the response
+    archivePDF(pdfBuffer, invoice, majstor.id).catch(err =>
+      console.error('❌ Background PDF archiving failed:', err)
+    )
 
     const documentType = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Stornorechnung' : 'Rechnung'
     const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
