@@ -121,7 +121,14 @@ function DashboardPageContent() {
   useEffect(() => {
     if (majstor?.id) {
       const interval = setInterval(() => loadStats(majstor.id), 5 * 60 * 1000)
-      return () => clearInterval(interval)
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') loadStats(majstor.id)
+      }
+      document.addEventListener('visibilitychange', onVisible)
+      return () => {
+        clearInterval(interval)
+        document.removeEventListener('visibilitychange', onVisible)
+      }
     }
   }, [majstor?.id])
 
