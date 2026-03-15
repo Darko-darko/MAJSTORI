@@ -432,21 +432,13 @@ function DashboardPageContent() {
             </Link>
           </SubscriptionGuard>
 
-          {/* 3. Buchhalter */}
-          <SubscriptionGuard feature="pdf_archive" majstorId={majstor?.id} showUpgradePrompt={false}>
-            <Link href="/dashboard/pdf-archive" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">🗂️</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Buchhalter</div>
-            </Link>
-          </SubscriptionGuard>
-
-          {/* 4. QR Visitenkarte */}
+          {/* 3. Visitenkarte */}
           <Link href="/dashboard/business-card/create" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
             <div className="text-2xl mb-2">📱</div>
-            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">QR Visitenkarte</div>
+            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Visitenkarte</div>
           </Link>
 
-          {/* 5. Kundenanfragen */}
+          {/* 4. Kundenanfragen */}
           <Link href="/dashboard/inquiries" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group">
             <div className="text-2xl mb-2">📩</div>
             <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Kundenanfragen</div>
@@ -457,7 +449,7 @@ function DashboardPageContent() {
             )}
           </Link>
 
-          {/* 6. Meine Kunden */}
+          {/* 5. Meine Kunden */}
           <SubscriptionGuard feature="customer_management" majstorId={majstor?.id} fallback={
             <button onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
               <div className="text-2xl mb-2 opacity-60">👥</div>
@@ -471,7 +463,7 @@ function DashboardPageContent() {
             </Link>
           </SubscriptionGuard>
 
-          {/* 7. Meine Services */}
+          {/* 6. Meine Services */}
           <SubscriptionGuard feature="services_management" majstorId={majstor?.id} fallback={
             <button onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
               <div className="text-2xl mb-2 opacity-60">🔧</div>
@@ -482,6 +474,20 @@ function DashboardPageContent() {
             <Link href="/dashboard/services" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
               <div className="text-2xl mb-2">🔧</div>
               <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Meine Services</div>
+            </Link>
+          </SubscriptionGuard>
+
+          {/* 7. Aufmaß */}
+          <SubscriptionGuard feature="invoicing" majstorId={majstor?.id} fallback={
+            <button onClick={() => handleProtectedFeatureClick('invoicing', 'Aufmaß')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
+              <div className="text-2xl mb-2 opacity-60">📐</div>
+              <div className="text-slate-400 font-medium text-sm">Aufmaß</div>
+              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
+            </button>
+          } showUpgradePrompt={false}>
+            <Link href="/dashboard/aufmass" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
+              <div className="text-2xl mb-2">📐</div>
+              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Aufmaß</div>
             </Link>
           </SubscriptionGuard>
 

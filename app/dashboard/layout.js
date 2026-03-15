@@ -506,7 +506,7 @@ const getNavigation = () => {
     { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
-    { name: 'QR Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
+    { name: 'Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
     { name: 'Kundenanfragen', href: '/dashboard/inquiries', icon: '📧', badge: formatBadgeCount(badges.inquiries), badgeColor: 'bg-red-500', protected: false },
 
     { isGroupHeader: true, label: 'Stammdaten', key: 'gh-stammdaten' },

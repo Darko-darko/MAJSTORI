@@ -110,6 +110,33 @@ function DashboardPageContent() {
       }
     }
 
+    if (fromInvoice === 'aufmass_append') {
+      const raw = sessionStorage.getItem('prm_edit_after_append')
+      if (raw) {
+        sessionStorage.removeItem('prm_edit_after_append')
+        const { id, type } = JSON.parse(raw)
+        setActiveTab(type === 'invoice' ? 'invoices' : 'quotes')
+        // Wait for data to load, then open editor
+        const openEditor = async () => {
+          const { data } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('id', id)
+            .single()
+          if (data) {
+            setEditingItem(data)
+            setCreateType(data.type)
+            setIsEditMode(true)
+            setShowCreateModal(true)
+          }
+        }
+        openEditor()
+        const url = new URL(window.location.href)
+        url.searchParams.delete('from')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+
     if (fromInvoice === 'invoice-creation') {
       setPendingInvoiceCreation(true)
       setPendingInvoiceType(searchParams.get('type') || 'quote')
@@ -1562,12 +1589,23 @@ const HardResetModal = () => {
                     Bearbeiten
                   </button>
                   
-                  <button 
-                    onClick={() => handleEmailClick(quote)}
-                    className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
-                  >
-                    Per E-Mail senden
-                  </button>
+                  {quote.email_sent_at ? (
+                    <button
+                      onClick={() => handleEmailClick(quote)}
+                      className="px-3 py-2 rounded text-sm transition-colors"
+                      style={{ backgroundColor: '#16a34a', color: '#ffffff' }}
+                    >
+                      🔄 Erneut senden
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleEmailClick(quote)}
+                      className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
+                      style={{ borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.3)' }}
+                    >
+                      ✉️ Per E-Mail senden
+                    </button>
+                  )}
                   
                   {quote.status !== 'converted' && !hasInvoice && (
                     <button
@@ -1746,7 +1784,7 @@ const HardResetModal = () => {
                       👁️ PDF ansehen
                     </button>
 
-                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && (
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
                         onClick={() => handleEditClick(invoice)}
                         className="px-3 py-2 rounded text-sm transition-colors"
@@ -1756,7 +1794,7 @@ const HardResetModal = () => {
                       </button>
                     )}
 
-                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && (
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
                         onClick={() => {
                           if (regieberichtExists[invoice.id]) {
@@ -1774,7 +1812,7 @@ const HardResetModal = () => {
                       </button>
                     )}
 
-                    {invoice.email_sent_at ? (
+                    {invoice.status !== 'paid' && (invoice.email_sent_at ? (
                       <button
                         onClick={() => handleEmailClick(invoice)}
                         className="px-3 py-2 rounded text-sm transition-colors"
@@ -1790,7 +1828,7 @@ const HardResetModal = () => {
                       >
                         ✉️ Per E-Mail senden
                       </button>
-                    )}
+                    ))}
 
                     {invoice.type !== 'storno' && (invoice.status === 'overdue' || isInvoiceOverdue(invoice)) && invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'converted' && isPro && (
                       <button
