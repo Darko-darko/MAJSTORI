@@ -1574,8 +1574,8 @@ const HardResetModal = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-3 flex-wrap">
-                  <button 
+                <div className="grid grid-cols-2 gap-3">
+                  <button
                     onClick={() => handlePDFView(quote)}
                     className="bg-slate-700 text-white px-3 py-2 rounded text-sm hover:bg-slate-600 transition-colors"
                   >
@@ -1775,7 +1775,7 @@ const HardResetModal = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => handlePDFView(invoice)}
                       className="px-3 py-2 rounded text-sm transition-colors"
