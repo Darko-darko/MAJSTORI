@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { generateAufmassPDF, generateAufmassPDFBlob } from '@/lib/pdf/AufmassPDF'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
@@ -1455,6 +1456,7 @@ export default function AufmassPage() {
   return (
     <SubscriptionGuard feature="invoicing" majstorId={majstor?.id}>
     <div className="space-y-6 pb-24">
+      <FirstVisitHint pageKey="aufmass" />
       {/* Header */}
       <a href="/dashboard" className="text-slate-400 hover:text-white text-sm inline-block mb-3">← Zurück zum Dashboard</a>
       <div className="flex items-center justify-between">
