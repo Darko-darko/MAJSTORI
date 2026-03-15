@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import InvoiceCreator from '@/app/components/InvoiceCreator'
-import * as XLSX from 'xlsx'
+// XLSX loaded dynamically on demand (saves ~594 KB initial bundle)
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function CustomersPage() {
@@ -474,6 +474,7 @@ const handleToggleFavorite = async (customer) => {
       
       reader.onload = async (e) => {
         try {
+          const XLSX = await import('xlsx')
           const data = new Uint8Array(e.target.result)
           const workbook = XLSX.read(data, { type: 'array' })
           const sheetName = workbook.SheetNames[0]
@@ -547,7 +548,8 @@ const handleToggleFavorite = async (customer) => {
     }
   }
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const XLSX = await import('xlsx')
     // ✅ SIMPLIFIED: Only basic fields
     const exportData = filteredCustomers.map(c => ({
       Name: c.name,
@@ -1345,7 +1347,8 @@ const handleToggleFavorite = async (customer) => {
 
                 {/* Download Template - SIMPLIFIED */}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    const XLSX = await import('xlsx')
                     const templateData = [{
                       'Name': 'Max Mustermann',
                       'Email': 'max@example.com',
