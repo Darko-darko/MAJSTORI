@@ -61,20 +61,18 @@ export default function AusgabenPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const { data: profile } = await supabase
-        .from('majstors')
-        .select('id, full_name, business_name, bookkeeper_email')
-        .eq('id', session.user.id)
-        .single()
+      // Profile + expenses in parallel
+      const [profileResult, expensesRes] = await Promise.all([
+        supabase.from('majstors').select('id, full_name, business_name, bookkeeper_email').eq('id', session.user.id).single(),
+        fetch('/api/ausgaben', { headers: { Authorization: `Bearer ${session.access_token}` } }),
+      ])
 
+      const profile = profileResult.data
       setMajstor(profile)
       setBookkeeperEmail(profile?.bookkeeper_email || '')
 
-      const res = await fetch('/api/ausgaben', {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
+      if (expensesRes.ok) {
+        const data = await expensesRes.json()
         setAusgaben(data.ausgaben || [])
       }
     } finally {

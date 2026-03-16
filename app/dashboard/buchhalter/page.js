@@ -24,23 +24,19 @@ export default function BuchhalterDashboard() {
       if (!currentUser) { router.push('/login'); return }
       setUser(currentUser)
 
-      const { data: profile } = await supabase
-        .from('majstors')
-        .select('role')
-        .eq('id', currentUser.id)
-        .single()
+      // Profile + accesses in parallel
+      const [profileResult, accessesResult] = await Promise.all([
+        supabase.from('majstors').select('role').eq('id', currentUser.id).single(),
+        supabase.from('buchhalter_access').select('id, majstor_id, accepted_at').eq('status', 'active').or(`buchhalter_id.eq.${currentUser.id},buchhalter_email.eq.${currentUser.email.toLowerCase()}`),
+      ])
 
+      const profile = profileResult.data
       if (!profile || profile.role !== 'buchhalter') {
         router.push('/dashboard')
         return
       }
 
-      // Dohvati SVE aktivne accesse — po buchhalter_id ILI buchhalter_email
-      const { data: accesses } = await supabase
-        .from('buchhalter_access')
-        .select('id, majstor_id, accepted_at')
-        .eq('status', 'active')
-        .or(`buchhalter_id.eq.${currentUser.id},buchhalter_email.eq.${currentUser.email.toLowerCase()}`)
+      const accesses = accessesResult.data
 
       if (!accesses?.length) { setLoading(false); return }
 
