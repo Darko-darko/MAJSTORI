@@ -261,6 +261,11 @@ TECHNISCH:
 - Funktioniert auf Handy, Tablet und PC (Browser, keine App nötig)
 - PWA — Als App installieren: Auf der Startseite pro-meister.de gibt es einen "Installieren"-Button. Alternativ: im Browser-Menü → "Zum Startbildschirm hinzufügen" (Handy) oder Installations-Symbol in der Adresszeile (Desktop Chrome). Danach verhält sich die App wie eine native App.
 - Google Play Store: App ist in Bearbeitung / Genehmigungsprozess läuft — bald verfügbar.
+- PROBLEMLÖSUNG — Adressleiste/Browser sichtbar: Wenn die App mit sichtbarer Browser-Adressleiste startet, folgende Schritte:
+  1. Chrome muss als Standard-Browser eingestellt sein (Einstellungen → Apps → Standard-Apps → Browser → Chrome)
+  2. App deinstallieren und neu installieren (über Play Store oder "Zum Startbildschirm hinzufügen")
+  3. Falls das nicht hilft: Chrome → Einstellungen → Browserdaten löschen → Cache leeren, dann App neu öffnen
+  4. Bei weiteren Problemen: support@pro-meister.de kontaktieren
 - Service Worker: Push-Benachrichtigungen funktionieren auch bei geschlossenem Browser (außer bei aktiviertem Energiesparmodus)
 
 === VERHALTEN ===
