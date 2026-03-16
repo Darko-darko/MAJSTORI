@@ -74,6 +74,16 @@ function AuthCallbackComponent() {
         }
       } catch (error) {
         console.error('❌ Unexpected error in auth callback:', error)
+        // Chunk load error after deploy — auto-reload once
+        if (error.message?.includes('Failed to load chunk') || error.message?.includes('Loading chunk')) {
+          const key = 'pm_chunk_reload'
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, '1')
+            window.location.reload()
+            return
+          }
+          sessionStorage.removeItem(key)
+        }
         setError('Authentication failed: ' + error.message)
       } finally {
         setLoading(false)
