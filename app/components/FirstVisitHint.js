@@ -41,7 +41,7 @@ const HINTS = {
 
   archiv: {
     icon: '📁',
-    title: 'PDF-Archiv',
+    title: 'Buchhalter',
     text: 'Hier finden Sie alle Rechnungen als PDF sowie Ihre Ausgaben-Belege. Filtern Sie nach Zeitraum und senden Sie alles gesammelt an Ihren Buchhalter.',
   },
 
