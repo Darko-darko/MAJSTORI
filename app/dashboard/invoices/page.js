@@ -966,12 +966,26 @@ console.log('🔄 Refreshing invoices data...')
 
   const handleDeleteInvoice = async (invoice) => {
     const isQuote = invoice.type === 'quote'
-    const documentType = isQuote ? 'Angebot' : 'Rechnung'
+    const isStorno = invoice.type === 'storno'
+    const documentType = isQuote ? 'Angebot' : isStorno ? 'Stornorechnung' : 'Rechnung'
     const documentNumber = isQuote ? invoice.quote_number : invoice.invoice_number
-    
+
     if (isQuote && quoteHasInvoice(invoice.id)) {
       alert('Dieses Angebot kann nicht gelöscht werden da bereits eine Rechnung daraus erstellt wurde.\n\nLöschen Sie zuerst die Rechnung.')
       return
+    }
+
+    // Only the last invoice/storno can be deleted (GoBD: no gaps in numbering)
+    if (!isQuote && invoice.invoice_number) {
+      const allInvoiceNumbers = invoices
+        .filter(i => i.invoice_number && i.type !== 'storno')
+        .map(i => i.invoice_number)
+        .sort()
+      const lastNumber = allInvoiceNumbers[allInvoiceNumbers.length - 1]
+      if (invoice.invoice_number !== lastNumber) {
+        alert(`Nur die letzte Rechnung (${lastNumber}) kann gelöscht werden.\n\nGrund: Lückenlose Rechnungsnummern sind gesetzlich vorgeschrieben (GoBD).\n\nAlternative: Erstellen Sie eine Stornorechnung.`)
+        return
+      }
     }
     
     let linkedQuote = null
@@ -1623,9 +1637,15 @@ const HardResetModal = () => {
 
   // 🔥 UPDATED InvoicesList with overdue filter
   const InvoicesList = () => {
-    const displayInvoices = showOnlyOverdue 
+    const displayInvoices = showOnlyOverdue
       ? invoices.filter(inv => isInvoiceOverdue(inv))
       : invoices
+
+    const lastInvoiceNumber = invoices
+      .filter(i => i.invoice_number && i.type !== 'storno')
+      .map(i => i.invoice_number)
+      .sort()
+      .pop() || null
 
     return (
       <div className="space-y-4">
@@ -1862,7 +1882,7 @@ const HardResetModal = () => {
                         Storno rückgängig
                       </button>
                     )}
-                    {invoice.type !== 'storno' && (
+                    {invoice.type !== 'storno' && invoice.invoice_number === lastInvoiceNumber && (
                       <button
                         onClick={() => handleDeleteInvoice(invoice)}
                         className="px-3 py-2 rounded text-sm transition-colors"
