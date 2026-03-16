@@ -145,7 +145,7 @@ export default function AdminPage() {
             <hr className="border-slate-700 my-4" />
             <div className="grid grid-cols-2 gap-4 mb-8">
               <StatCard label="📒 Buchhalter" value={buchhalters.length} color="text-blue-400" />
-              <StatCard label="📒 Mandanten gesamt" value={buchhalters.reduce((sum, b) => sum + (b.mandant_count || 0), 0)} color="text-teal-400" />
+              <StatCard label="📒 Mandanten" value={buchhalters.reduce((sum, b) => sum + (b.mandant_count || 0), 0)} color="text-teal-400" />
             </div>
           </>
         )}
