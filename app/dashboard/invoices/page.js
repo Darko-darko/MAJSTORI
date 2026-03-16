@@ -2363,7 +2363,7 @@ const HardResetModal = () => {
 
   const tabs = [
     { id: 'quotes', name: 'Angebote', count: quotes.length },
-    { id: 'invoices', name: 'Rechnungen', count: invoices.length },
+    { id: 'invoices', name: 'Rechnungen', count: invoices.filter(i => i.type !== 'storno').length },
     { id: 'settings', name: 'Einstellungen' }
   ]
 
@@ -2466,7 +2466,7 @@ const HardResetModal = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Rechnungen</p>
-              <p className="text-2xl font-bold text-white">{invoices.length}</p>
+              <p className="text-2xl font-bold text-white">{invoices.filter(i => i.type !== 'storno').length}</p>
             </div>
             <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
               🧾
