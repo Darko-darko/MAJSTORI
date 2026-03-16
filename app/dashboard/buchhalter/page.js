@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function BuchhalterDashboard() {
   const [majstors, setMajstors] = useState([]) // accepted
@@ -147,6 +148,7 @@ export default function BuchhalterDashboard() {
 
   return (
     <div className="space-y-6 pb-20">
+      <FirstVisitHint pageKey="buchhalter" />
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">📒 Meine Auftraggeber</h1>
