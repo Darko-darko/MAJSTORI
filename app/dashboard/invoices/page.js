@@ -276,24 +276,19 @@ function DashboardPageContent() {
         return
       }
 
-      const { data: majstorData, error: majstorError } = await supabase
-        .from('majstors')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      // Profile + subscription in parallel
+      const [majstorResult, subResult] = await Promise.all([
+        supabase.from('majstors').select('*').eq('id', user.id).single(),
+        supabase.from('user_subscriptions').select('status, subscription_plans(name, display_name)').eq('majstor_id', user.id).eq('status', 'active').maybeSingle(),
+      ])
 
+      const { data: majstorData, error: majstorError } = majstorResult
       if (majstorError) {
         setError('Fehler beim Laden des Profils')
         return
       }
 
-      const { data: subData } = await supabase
-        .from('user_subscriptions')
-        .select('status, subscription_plans(name, display_name)')
-        .eq('majstor_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle()
-
+      const subData = subResult.data
       majstorData.sub_status = subData?.status ?? null
       majstorData.sub_plan   = subData?.subscription_plans?.name ?? null
 
@@ -332,21 +327,14 @@ function DashboardPageContent() {
 
   const loadInvoicesData = async (majstorId) => {
     try {
-      const { data: quotesData, error: quotesError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('majstor_id', majstorId)
-        .eq('type', 'quote')
-        .neq('status', 'dummy')
-        .order('created_at', { ascending: false })
+      // Quotes + invoices in parallel
+      const [quotesResult, invoicesResult] = await Promise.all([
+        supabase.from('invoices').select('*').eq('majstor_id', majstorId).eq('type', 'quote').neq('status', 'dummy').order('created_at', { ascending: false }),
+        supabase.from('invoices').select('*').eq('majstor_id', majstorId).in('type', ['invoice', 'storno']).neq('status', 'dummy').order('created_at', { ascending: false }),
+      ])
 
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('majstor_id', majstorId)
-        .in('type', ['invoice', 'storno'])
-        .neq('status', 'dummy')
-        .order('created_at', { ascending: false })
+      const { data: quotesData, error: quotesError } = quotesResult
+      const { data: invoicesData, error: invoicesError } = invoicesResult
 
       if (!quotesError) setQuotes(quotesData || [])
       if (!invoicesError) setInvoices(invoicesData || [])
