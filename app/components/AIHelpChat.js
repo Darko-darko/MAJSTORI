@@ -15,6 +15,18 @@ const SUGGESTED = [
 export default function AIHelpChat() {
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [showPulse, setShowPulse] = useState(false)
+
+  useEffect(() => {
+    const key = 'pm_ai_pulse_count'
+    const count = parseInt(localStorage.getItem(key) || '0', 10)
+    if (count < 3) {
+      setShowPulse(true)
+      localStorage.setItem(key, String(count + 1))
+      const timer = setTimeout(() => setShowPulse(false), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hallo! Ich bin Ihr Pro-Meister KI-Assistent\n\nWie kann ich Ihnen helfen?' }
   ])
@@ -94,6 +106,11 @@ export default function AIHelpChat() {
       {/* Floating Button */}
       <style>{`
         @keyframes pm-label-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes pm-pulse-ring {
+          0% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.35); opacity: 0; }
+          100% { transform: scale(1.35); opacity: 0; }
+        }
         html.light-mode #pm-float-btn { background: #e2e8f0 !important; border-color: #cbd5e1 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; }
         html.light-mode #pm-label { background-color: #60a5fa !important; border-color: #93c5fd !important; }
         @media (hover: none) { #pm-label { display: none !important; } }
@@ -106,8 +123,14 @@ export default function AIHelpChat() {
           </div>
         )}
         <div style={{ position: 'relative', width: '64px', height: '64px' }}>
+          {showPulse && !open && (
+            <>
+              <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '2px solid #3b82f6', animation: 'pm-pulse-ring 2s ease-out infinite', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '2px solid #3b82f6', animation: 'pm-pulse-ring 2s ease-out infinite 0.6s', pointerEvents: 'none' }} />
+            </>
+          )}
           <button
-            onClick={() => setOpen(v => !v)}
+            onClick={() => { setOpen(v => !v); setShowPulse(false) }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             id="pm-float-btn"
