@@ -38,7 +38,7 @@ export async function GET(request) {
     let query = admin
       .from('majstors')
       .select(`
-        id, email, full_name, business_name, city, created_at, subscription_status,
+        id, email, full_name, business_name, city, created_at, subscription_status, role,
         invoices(count),
         inquiries(count),
         user_subscriptions (
@@ -68,6 +68,7 @@ export async function GET(request) {
         business_name:      m.business_name,
         city:               m.city,
         created_at:         m.created_at,
+        role:               m.role || null,
         sub_status:            latest?.status ?? m.subscription_status ?? null,
         sub_plan:              latest?.subscription_plans?.display_name ?? latest?.subscription_plans?.name ?? null,
         current_period_end:    latest?.current_period_end ?? null,
@@ -78,12 +79,41 @@ export async function GET(request) {
       }
     })
 
-    // 6) Status filter
+    // 6) Split buchhalters from handwerkers
+    const buchhalters = users.filter(u => u.role === 'buchhalter')
+    const handwerkers = users.filter(u => u.role !== 'buchhalter')
+
+    // 7) Status filter (only for handwerkers)
+    let filteredHandwerkers = handwerkers
     if (status) {
-      users = users.filter(u => u.sub_status === status)
+      filteredHandwerkers = handwerkers.filter(u => u.sub_status === status)
     }
 
-    return NextResponse.json({ users })
+    // 8) Fetch mandant counts for buchhalters
+    let buchhalterList = buchhalters
+    if (buchhalters.length > 0) {
+      const buchhalterIds = buchhalters.map(b => b.id)
+      const { data: accessData } = await admin
+        .from('buchhalter_access')
+        .select('buchhalter_id, accepted_at')
+        .in('buchhalter_id', buchhalterIds)
+        .eq('status', 'active')
+
+      const countMap = {}
+      for (const a of (accessData || [])) {
+        if (!countMap[a.buchhalter_id]) countMap[a.buchhalter_id] = { total: 0, accepted: 0 }
+        countMap[a.buchhalter_id].total++
+        if (a.accepted_at) countMap[a.buchhalter_id].accepted++
+      }
+
+      buchhalterList = buchhalters.map(b => ({
+        ...b,
+        mandant_count: countMap[b.id]?.accepted ?? 0,
+        pending_count: (countMap[b.id]?.total ?? 0) - (countMap[b.id]?.accepted ?? 0),
+      }))
+    }
+
+    return NextResponse.json({ users: filteredHandwerkers, buchhalters: buchhalterList })
   } catch (err) {
     console.error('Admin users error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
