@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import FirstVisitHint from '@/app/components/FirstVisitHint'
 
 export default function BuchhalterDashboard() {
   const [majstors, setMajstors] = useState([]) // accepted
@@ -147,6 +148,7 @@ export default function BuchhalterDashboard() {
 
   return (
     <div className="space-y-6 pb-20">
+      <FirstVisitHint pageKey="buchhalter" />
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">📒 Meine Auftraggeber</h1>
@@ -204,8 +206,19 @@ export default function BuchhalterDashboard() {
       {majstors.length === 0 && pendingInvites.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
           <div className="text-4xl mb-3">📭</div>
-          <p className="text-white font-semibold mb-1">Noch keine Mandanten verbunden</p>
-          <p className="text-slate-400 text-sm">Empfehlen Sie Pro-Meister Ihren Mandanten — sobald ein Handwerker Sie als Buchhalter hinzufügt, erscheinen seine Belege automatisch hier.</p>
+          <p className="text-white font-semibold mb-2">Noch keine Mandanten verbunden</p>
+          <p className="text-slate-400 text-sm mb-4">Sobald ein Handwerker Sie als Buchhalter hinzufügt, erscheinen seine Rechnungen und Belege automatisch hier — sortiert nach Monat, als ZIP herunterladbar.</p>
+
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 text-left mt-4">
+            <p className="text-blue-300 font-semibold text-sm mb-2">💡 So verbinden Sie sich mit Ihren Mandanten:</p>
+            <ol className="text-slate-300 text-sm space-y-1.5 list-decimal list-inside">
+              <li>Empfehlen Sie <strong className="text-white">Pro-Meister</strong> Ihren Handwerker-Mandanten</li>
+              <li>Der Handwerker registriert sich kostenlos auf <strong className="text-white">pro-meister.de</strong></li>
+              <li>In seinen Einstellungen trägt er Ihre E-Mail als Buchhalter ein</li>
+              <li>Sie erhalten eine Einladung und sehen sofort alle Belege</li>
+            </ol>
+          </div>
+
         </div>
       ) : majstors.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2">

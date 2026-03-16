@@ -173,7 +173,7 @@ export default function ZugferdValidatorPage() {
               Alle {FREE_LIMIT} Prüfungen ohne Anmeldung aufgebraucht
             </h2>
             <p className="text-slate-500 mb-6 max-w-md mx-auto">
-              Registrieren Sie sich kostenlos als Buchhalter — unbegrenzte Validierungen, eigenes Portal, Mandanten-Anbindung.
+              Registrieren Sie sich kostenlos als Buchhalter — nur E-Mail und Passwort, keine weiteren persönlichen Daten nötig. Unbegrenzte Validierungen, eigenes Portal und Mandanten-Anbindung inklusive.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
@@ -415,7 +415,7 @@ export default function ZugferdValidatorPage() {
                 Rechnungen Ihrer Mandanten — automatisch auf Ihrem Schreibtisch.
               </p>
               <p className="text-slate-500 text-sm mb-4">
-                Mit Pro-Meister verbinden sich Handwerker direkt mit ihrem Buchhalter. Alle Rechnungen landen als ZUGFeRD-PDF bei Ihnen — ohne Nachfragen, ohne Papier.
+                Mit Pro-Meister verbinden sich Handwerker direkt mit ihrem Buchhalter. Alle Rechnungen landen als ZUGFeRD-PDF bei Ihnen — ohne Nachfragen, ohne Papier. Kostenlose Registrierung nur mit E-Mail und Passwort, keine persönlichen Daten nötig.
               </p>
               <Link
                 href="/signup"

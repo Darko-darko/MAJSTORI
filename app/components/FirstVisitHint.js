@@ -62,6 +62,12 @@ const HINTS = {
     title: 'Aufmaß',
     text: 'Erfassen Sie Raummaße direkt vor Ort. Räume anlegen, Maße eintragen und als PDF exportieren oder direkt in ein Angebot übernehmen.',
   },
+
+  buchhalter: {
+    icon: '📒',
+    title: 'Buchhalter-Zugang',
+    text: 'Hier sehen Sie alle Handwerker, die Ihnen Zugriff auf ihre Rechnungen und Belege gewährt haben. Sie können Dokumente einsehen und herunterladen.',
+  },
 }
 export default function FirstVisitHint({ pageKey }) {
   const [visible, setVisible] = useState(false)
