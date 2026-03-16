@@ -1882,7 +1882,7 @@ const HardResetModal = () => {
                         Storno rückgängig
                       </button>
                     )}
-                    {invoice.type !== 'storno' && invoice.invoice_number === lastInvoiceNumber && (
+                    {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.invoice_number === lastInvoiceNumber && (
                       <button
                         onClick={() => handleDeleteInvoice(invoice)}
                         className="px-3 py-2 rounded text-sm transition-colors"
