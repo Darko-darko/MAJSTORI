@@ -978,7 +978,7 @@ console.log('🔄 Refreshing invoices data...')
     // Only the last invoice/storno can be deleted (GoBD: no gaps in numbering)
     if (!isQuote && invoice.invoice_number) {
       const allInvoiceNumbers = invoices
-        .filter(i => i.invoice_number)
+        .filter(i => i.invoice_number && i.type !== 'storno')
         .map(i => i.invoice_number)
         .sort()
       const lastNumber = allInvoiceNumbers[allInvoiceNumbers.length - 1]
@@ -1642,7 +1642,7 @@ const HardResetModal = () => {
       : invoices
 
     const lastInvoiceNumber = invoices
-      .filter(i => i.invoice_number)
+      .filter(i => i.invoice_number && i.type !== 'storno')
       .map(i => i.invoice_number)
       .sort()
       .pop() || null
