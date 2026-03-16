@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [token, setToken]   = useState(null)
   const [stats, setStats]   = useState(null)
   const [users, setUsers]   = useState([])
+  const [buchhalters, setBuchhalters] = useState([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
@@ -87,7 +88,7 @@ export default function AdminPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(d => { setUsers(d.users || []); setError('') })
+      .then(d => { setUsers(d.users || []); setBuchhalters(d.buchhalters || []); setError('') })
       .catch(() => setError('Fehler beim Laden der Benutzer.'))
       .finally(() => setLoading(false))
   }, [authChecked, token, search, statusFilter])
@@ -134,12 +135,19 @@ export default function AdminPage() {
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <StatCard label="Registrierte Nutzer" value={stats.totalUsers} />
-            <StatCard label="Aktive Abos"          value={stats.activeSubs}    color="text-green-400" />
-            <StatCard label="Trial"                value={stats.trialSubs}     color="text-orange-400" />
-            <StatCard label="E-Mails heute"        value={`${stats.emailsToday} / 100`} color={stats.emailsToday >= 80 ? 'text-red-400' : stats.emailsToday >= 50 ? 'text-yellow-400' : 'text-green-400'} />
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              <StatCard label="Registrierte Nutzer" value={stats.totalUsers} />
+              <StatCard label="Aktive Abos"          value={stats.activeSubs}    color="text-green-400" />
+              <StatCard label="Trial"                value={stats.trialSubs}     color="text-orange-400" />
+              <StatCard label="E-Mails heute"        value={`${stats.emailsToday} / 100`} color={stats.emailsToday >= 80 ? 'text-red-400' : stats.emailsToday >= 50 ? 'text-yellow-400' : 'text-green-400'} />
+            </div>
+            <hr className="border-slate-700 my-4" />
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <StatCard label="📒 Buchhalter" value={buchhalters.length} color="text-blue-400" />
+              <StatCard label="📒 Mandanten" value={buchhalters.reduce((sum, b) => sum + (b.mandant_count || 0), 0)} color="text-teal-400" />
+            </div>
+          </>
         )}
 
         {/* Search + Filter */}
@@ -215,6 +223,48 @@ export default function AdminPage() {
         </div>
 
         <p className="text-slate-600 text-xs mt-4 text-right">{users.length} Nutzer</p>
+
+        {/* Buchhalter Section */}
+        {buchhalters.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-lg font-bold text-white mb-4">📒 Buchhalter</h2>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
+                <thead>
+                  <tr className="border-b border-slate-700 text-left">
+                    <th className="px-4 py-3 text-slate-400 font-medium">E-Mail</th>
+                    <th className="px-4 py-3 text-slate-400 font-medium">Name</th>
+                    <th className="px-4 py-3 text-slate-400 font-medium text-center">Mandanten</th>
+                    <th className="px-4 py-3 text-slate-400 font-medium text-center">Ausstehend</th>
+                    <th className="px-4 py-3 text-slate-400 font-medium">Registriert</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buchhalters.map(b => (
+                    <tr key={b.id} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/30 transition-colors">
+                      <td className="px-4 py-3 text-white">{b.email}</td>
+                      <td className="px-4 py-3 text-slate-300">{b.full_name || b.business_name || '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        {b.mandant_count > 0
+                          ? <span className="text-green-400 font-medium">{b.mandant_count}</span>
+                          : <span className="text-slate-500">0</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {b.pending_count > 0
+                          ? <span className="text-amber-400 font-medium">{b.pending_count}</span>
+                          : <span className="text-slate-500">0</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3 text-slate-400">{formatDate(b.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-slate-600 text-xs mt-4 text-right">{buchhalters.length} Buchhalter</p>
+          </div>
+        )}
 
         {/* Google Analytics link */}
         <div className="mt-8 bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-center justify-between">
