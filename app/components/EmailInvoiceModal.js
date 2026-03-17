@@ -160,7 +160,29 @@ export default function EmailInvoiceModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          
+
+          {/* Invoice Preview */}
+          <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-slate-500">Kunde:</span>
+                <p className="text-white font-medium">{invoice?.customer_name || '—'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500">Betrag:</span>
+                <p className="text-white font-medium">{invoice?.total_amount != null ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(invoice.total_amount) : '—'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500">Rechnungsdatum:</span>
+                <p className="text-white">{invoice?.issue_date ? new Date(invoice.issue_date).toLocaleDateString('de-DE') : '—'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500">Fälligkeitsdatum:</span>
+                <p className="text-white">{invoice?.due_date ? new Date(invoice.due_date).toLocaleDateString('de-DE') : '—'}</p>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Empfänger-E-Mail *
