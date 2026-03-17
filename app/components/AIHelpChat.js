@@ -112,6 +112,7 @@ export default function AIHelpChat() {
           100% { transform: scale(1.35); opacity: 0; }
         }
         html.light-mode #pm-float-btn { background: #e2e8f0 !important; border-color: #cbd5e1 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; }
+        html.light-mode #pm-float-btn svg line { stroke: #1e293b !important; }
         html.light-mode #pm-label { background-color: #60a5fa !important; border-color: #93c5fd !important; }
         @media (hover: none) { #pm-label { display: none !important; } }
       `}</style>
@@ -152,6 +153,11 @@ export default function AIHelpChat() {
           </button>
         </div>
       </div>
+
+      {/* Backdrop — click outside to close */}
+      {open && (
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+      )}
 
       {/* Chat Window — inline stilovi da light mode ne utiče */}
       {open && (
