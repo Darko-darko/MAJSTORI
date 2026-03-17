@@ -1666,7 +1666,7 @@ const HardResetModal = () => {
   // 🔥 UPDATED InvoicesList with overdue filter + infinity scroll
   const InvoicesList = () => {
     const displayInvoices = showOnlyOverdue
-      ? invoices.filter(inv => isInvoiceOverdue(inv))
+      ? invoices.filter(inv => isInvoiceOverdue(inv) && new Date(inv.due_date).getFullYear() === new Date().getFullYear())
       : invoices
 
     const visibleInvoices = displayInvoices.slice(0, visibleInvoiceCount)
@@ -2548,7 +2548,7 @@ const HardResetModal = () => {
             <div>
               <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
               <p className="text-2xl font-bold text-white">
-                {invoices.filter(inv => isInvoiceOverdue(inv)).length}
+                {invoices.filter(inv => isInvoiceOverdue(inv) && new Date(inv.due_date).getFullYear() === new Date().getFullYear()).length}
               </p>
             </div>
             <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">

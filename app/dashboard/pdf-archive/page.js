@@ -69,7 +69,8 @@ export default function PDFArchivePage() {
     dateRange: 'thisMonth',
     customer: '',
     customMonth: new Date().getMonth() + 1,
-    customYear: new Date().getFullYear()
+    customYear: new Date().getFullYear(),
+    status: '', // '' = alle, 'paid' = bezahlt
   })
 
   // Load data on mount
@@ -170,12 +171,25 @@ export default function PDFArchivePage() {
         query = query
           .gte('pdf_generated_at', startOfLastMonth.toISOString())
           .lte('pdf_generated_at', endOfLastMonth.toISOString())
+      } else if (filters.dateRange === 'year') {
+        const startOfYear = new Date(filters.customYear, 0, 1)
+        const endOfYear = new Date(filters.customYear, 11, 31, 23, 59, 59)
+        query = query
+          .gte('pdf_generated_at', startOfYear.toISOString())
+          .lte('pdf_generated_at', endOfYear.toISOString())
       } else if (filters.dateRange === 'custom') {
         const startOfCustomMonth = new Date(filters.customYear, filters.customMonth - 1, 1)
         const endOfCustomMonth = new Date(filters.customYear, filters.customMonth, 0, 23, 59, 59)
         query = query
           .gte('pdf_generated_at', startOfCustomMonth.toISOString())
           .lte('pdf_generated_at', endOfCustomMonth.toISOString())
+      }
+
+      // Status filter
+      if (filters.status === 'paid') {
+        query = query.eq('status', 'paid')
+      } else if (filters.status === 'unpaid') {
+        query = query.in('status', ['sent', 'draft'])
       }
 
       const { data: pdfsData, error } = await query.order('issue_date', { ascending: false }).order('created_at', { ascending: false })
@@ -303,6 +317,40 @@ const togglePDFSelection = (pdfId) => {
 
   const clearSelection = () => {
     setSelectedPDFs(new Set())
+  }
+
+  const handleBulkMarkAsPaid = async () => {
+    const unpaidIds = archivedPDFs
+      .filter(pdf => selectedPDFs.has(pdf.id) && pdf.type !== 'quote' && pdf.type !== 'storno' && pdf.status !== 'paid')
+      .map(pdf => pdf.id)
+
+    if (unpaidIds.length === 0) {
+      alert('Alle ausgewählten Rechnungen sind bereits bezahlt.')
+      return
+    }
+
+    const confirmed = confirm(`${unpaidIds.length} Rechnung(en) als bezahlt markieren?`)
+    if (!confirmed) return
+
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          status: 'paid',
+          paid_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .in('id', unpaidIds)
+
+      if (error) throw error
+
+      alert(`${unpaidIds.length} Rechnung(en) als bezahlt markiert.`)
+      setSelectedPDFs(new Set())
+      if (majstor?.id) await loadArchivedPDFs(majstor.id)
+    } catch (err) {
+      console.error('Bulk mark as paid error:', err)
+      alert('Fehler: ' + err.message)
+    }
   }
 
   const handleBulkZip = async () => {
@@ -447,7 +495,7 @@ const togglePDFSelection = (pdfId) => {
       if (newFilters.type && newFilters.type !== prev.type) {
         return { ...prev, ...newFilters, customer: '' }
       }
-      
+
       if (newFilters.dateRange && newFilters.dateRange !== prev.dateRange) {
         return { ...prev, ...newFilters, customer: '' }
       }
@@ -835,18 +883,30 @@ const togglePDFSelection = (pdfId) => {
             <span className="hidden sm:block text-white text-sm font-semibold shrink-0">
               {selectedPDFs.size} PDF{selectedPDFs.size > 1 ? 's' : ''} ausgewählt
             </span>
-            <button
-              onClick={() => setBulkEmailModal(true)}
-              className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
-            >
-              ✉️ E-Mail senden
-            </button>
-            <button
-              onClick={handleBulkZip}
-              className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
-            >
-              📥 ZIP
-            </button>
+            {filters.dateRange !== 'year' && (
+              <>
+                <button
+                  onClick={() => setBulkEmailModal(true)}
+                  className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
+                >
+                  ✉️ E-Mail senden
+                </button>
+                <button
+                  onClick={handleBulkZip}
+                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
+                >
+                  📥 ZIP
+                </button>
+              </>
+            )}
+            {filters.type === 'invoice' && (
+              <button
+                onClick={handleBulkMarkAsPaid}
+                className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
+              >
+                💰 Als bezahlt
+              </button>
+            )}
             <button
               onClick={clearSelection}
               className="hidden sm:block text-slate-400 hover:text-white text-sm px-3 py-2 shrink-0"
@@ -854,6 +914,9 @@ const togglePDFSelection = (pdfId) => {
               ✕ Auswahl aufheben
             </button>
           </div>
+          {filters.dateRange === 'year' && (
+            <p className="text-slate-400 text-xs mt-2">E-Mail-Versand und ZIP-Download sind nur im Monatsfilter verfügbar.</p>
+          )}
           <button
             onClick={clearSelection}
             className="sm:hidden w-full text-center text-slate-400 hover:text-white text-xs mt-2 py-1"
@@ -902,6 +965,9 @@ const togglePDFSelection = (pdfId) => {
     if (filters.dateRange === 'lastMonth') {
       const d = new Date(); d.setMonth(d.getMonth() - 1)
       return `${monthNames[d.getMonth()]} ${d.getFullYear()}`
+    }
+    if (filters.dateRange === 'year') {
+      return `Ganzes Jahr ${filters.customYear}`
     }
     return `${monthNames[filters.customMonth - 1]} ${filters.customYear}`
   }
@@ -1238,6 +1304,9 @@ const togglePDFSelection = (pdfId) => {
             {filters.dateRange === 'thisMonth' && ' (dieser Monat)'}
             {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
             {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
+            {filters.dateRange === 'year' && ` (${filters.customYear})`}
+            {filters.status === 'paid' && ' — Bezahlt'}
+            {filters.status === 'unpaid' && ' — Offen'}
             {filters.customer && ` - ${filters.customer}`}
           </div>
         </div>
@@ -1268,6 +1337,7 @@ const togglePDFSelection = (pdfId) => {
               <option value="thisMonth">Dieser Monat</option>
               <option value="lastMonth">Letzter Monat</option>
               <option value="custom">Monat auswählen</option>
+              <option value="year">Ganzes Jahr</option>
             </select>
           </div>
 
@@ -1312,6 +1382,39 @@ const togglePDFSelection = (pdfId) => {
             </>
           )}
 
+          {filters.dateRange === 'year' && (
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Jahr</label>
+              <select
+                value={filters.customYear}
+                onChange={(e) => handleFilterChange({ customYear: parseInt(e.target.value) })}
+                className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+              >
+                {Array.from({ length: 6 }, (_, i) => {
+                  const year = new Date().getFullYear() - i
+                  return (
+                    <option key={year} value={year}>{year}</option>
+                  )
+                })}
+              </select>
+            </div>
+          )}
+
+          {filters.type === 'invoice' && (
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Status</label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange({ status: e.target.value })}
+                className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+              >
+                <option value="">Alle</option>
+                <option value="paid">Bezahlt</option>
+                <option value="unpaid">Offen</option>
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm text-slate-400 mb-1">Kunde</label>
             <select
@@ -1352,8 +1455,10 @@ const togglePDFSelection = (pdfId) => {
         </div>
       ) : (
         <div className={`grid gap-3 ${selectedPDFs.size > 0 ? 'pb-36 sm:pb-0' : ''}`}>
-          {archivedPDFs.map((pdf) => (
-            <div key={pdf.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+          {archivedPDFs.map((pdf) => {
+            const isUnpaid = pdf.type !== 'quote' && pdf.type !== 'storno' && pdf.status !== 'paid' && pdf.status !== 'cancelled'
+            return (
+            <div key={pdf.id} className={`bg-slate-800/50 border rounded-lg p-4 ${isUnpaid ? 'border-amber-500/40' : 'border-slate-700'}`}>
               <div className="flex items-center gap-4">
                 <input
                   type="checkbox"
@@ -1363,6 +1468,8 @@ const togglePDFSelection = (pdfId) => {
                 />
 
                 <div className="flex items-center gap-2 flex-1">
+                  {isUnpaid && <span title="Offen" className="text-amber-400 text-sm">⚠️</span>}
+                  {pdf.status === 'paid' && pdf.type !== 'quote' && <span title="Bezahlt" className="text-green-400 text-sm">✅</span>}
                   <h4 className="text-white font-semibold">
                     {pdf.invoice_number || pdf.quote_number}
                   </h4>
@@ -1385,7 +1492,7 @@ const togglePDFSelection = (pdfId) => {
                   {formatCurrency(pdf.total_amount)}
                 </div>
 
-                <button 
+                <button
                   onClick={() => showDetails(pdf.id)}
                   className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
                 >
@@ -1393,7 +1500,8 @@ const togglePDFSelection = (pdfId) => {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

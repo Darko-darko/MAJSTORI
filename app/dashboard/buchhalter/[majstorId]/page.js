@@ -208,6 +208,40 @@ export default function BuchhalterMandantPage({ params }) {
     finally { setZipLoading(false) }
   }
 
+  const handleBulkMarkAsPaid = async () => {
+    const unpaidIds = invoices
+      .filter(inv => selectedIds.has(inv.id) && inv.type !== 'quote' && inv.type !== 'storno' && inv.status !== 'paid')
+      .map(inv => inv.id)
+
+    if (unpaidIds.length === 0) {
+      alert('Alle ausgewählten Rechnungen sind bereits bezahlt.')
+      return
+    }
+
+    const confirmed = confirm(`${unpaidIds.length} Rechnung(en) als bezahlt markieren?`)
+    if (!confirmed) return
+
+    try {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          status: 'paid',
+          paid_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .in('id', unpaidIds)
+
+      if (error) throw error
+
+      alert(`${unpaidIds.length} Rechnung(en) als bezahlt markiert.`)
+      setSelectedIds(new Set())
+      loadData()
+    } catch (err) {
+      console.error('Bulk mark as paid error:', err)
+      alert('Fehler: ' + err.message)
+    }
+  }
+
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
   // Set of original invoice numbers that have been storno-ed (e.g. STOR-RE-2026-0057 → RE-2026-0057)
@@ -308,10 +342,11 @@ export default function BuchhalterMandantPage({ params }) {
               </div>
               {filteredInvoices.map(inv => {
                 const selected = selectedIds.has(inv.id)
+                const isUnpaid = inv.type !== 'quote' && inv.type !== 'storno' && inv.status !== 'paid' && inv.status !== 'cancelled'
                 return (
                   <div
                     key={inv.id}
-                    className={`relative border rounded-xl p-4 transition-colors ${selected ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 hover:border-slate-600'}`}
+                    className={`relative border rounded-xl p-4 transition-colors ${selected ? 'border-blue-500 bg-blue-500/10' : isUnpaid ? 'border-amber-500/40 hover:border-amber-500/60' : 'border-slate-700 hover:border-slate-600'}`}
                   >
                     {/* Checkbox */}
                     <button
@@ -330,6 +365,8 @@ export default function BuchhalterMandantPage({ params }) {
                           <span className={`text-xs px-2 py-0.5 rounded border ${inv.type === 'storno' ? 'border-red-500/50 text-red-400' : 'border-slate-600 text-slate-400'}`}>
                             {typeLabel(inv.type)}
                           </span>
+                          {isUnpaid && <span title="Offen" className="text-amber-400 text-sm">⚠️</span>}
+                          {inv.status === 'paid' && inv.type !== 'quote' && <span title="Bezahlt" className="text-green-400 text-sm">✅</span>}
                           <span className={`font-mono text-sm ${cancelledNums.has(inv.invoice_number) ? 'text-red-400 line-through' : 'text-white'}`}>{inv.invoice_number || inv.quote_number || '—'}</span>
                         </div>
                         <p className="text-slate-300 text-sm truncate">{inv.customer_name}</p>
@@ -461,6 +498,14 @@ export default function BuchhalterMandantPage({ params }) {
               : (selectedIds.size >= 10 ? 'Als ZIP herunterladen' : 'Herunterladen')
             }
           </button>
+          {activeTab === 'rechnungen' && (
+            <button
+              onClick={handleBulkMarkAsPaid}
+              className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+            >
+              💰 Als bezahlt
+            </button>
+          )}
           <button
             onClick={() => setSelectedIds(new Set())}
             className="text-slate-400 hover:text-white text-sm px-2 py-2 transition-colors"
