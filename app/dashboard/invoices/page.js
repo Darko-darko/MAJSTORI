@@ -1638,6 +1638,33 @@ const HardResetModal = () => {
                     </button>
                   )}
                   
+                  {quote.pdf_storage_path && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(quote.pdf_storage_path, 600)
+                          if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
+                          const num = quote.quote_number || quote.invoice_number || ''
+                          if (navigator.share) {
+                            const res = await fetch(s.signedUrl)
+                            const blob = await res.blob()
+                            const file = new File([blob], `Angebot_${num}.pdf`, { type: 'application/pdf' })
+                            await navigator.share({ title: `Angebot ${num}`, files: [file] })
+                          } else {
+                            await navigator.clipboard.writeText(s.signedUrl)
+                            alert('PDF-Link wurde in die Zwischenablage kopiert!')
+                          }
+                        } catch (err) {
+                          if (err.name !== 'AbortError') console.error('Share error:', err)
+                        }
+                      }}
+                      className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
+                      style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
+                    >
+                      📤 Teilen
+                    </button>
+                  )}
+
                   {quote.status !== 'converted' && !hasInvoice && (
                     <button
                       onClick={() => convertQuoteToInvoice(quote)}
@@ -1876,6 +1903,35 @@ const HardResetModal = () => {
                         ✉️ Per E-Mail senden
                       </button>
                     ))}
+
+                    {invoice.pdf_storage_path && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(invoice.pdf_storage_path, 600)
+                            if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
+                            const num = invoice.invoice_number || invoice.quote_number || ''
+                            const prefix = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Storno' : 'Rechnung'
+                            if (navigator.share) {
+                              const res = await fetch(s.signedUrl)
+                              const blob = await res.blob()
+                              const file = new File([blob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
+                              await navigator.share({ title: `${prefix} ${num}`, files: [file] })
+                            } else {
+                              await navigator.clipboard.writeText(s.signedUrl)
+                              alert('PDF-Link wurde in die Zwischenablage kopiert!')
+                            }
+                          } catch (err) {
+                            if (err.name !== 'AbortError') console.error('Share error:', err)
+                          }
+                        }}
+                        className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
+                        style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
+                      >
+                        📤 Teilen
+                      </button>
+                    )}
 
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button

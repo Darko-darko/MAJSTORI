@@ -86,7 +86,7 @@ export default function EmailInvoiceModal({
       const pdfGenResponse = await fetch(`/api/invoices/${invoice.id}/pdf`, { headers: authHeader })
 
       if (!pdfGenResponse.ok) {
-        throw new Error('PDF generisanje nije uspelo')
+        throw new Error('PDF-Erstellung fehlgeschlagen')
       }
 
       console.log('PDF automatski generisan')
@@ -94,7 +94,7 @@ export default function EmailInvoiceModal({
 
     } catch (pdfGenError) {
       console.error('PDF generation error:', pdfGenError)
-      setError('PDF generisanje nije uspelo. Molimo pokušajte ponovo.')
+      setError('PDF-Erstellung fehlgeschlagen. Bitte versuchen Sie es erneut.')
       setLoading(false)
       return
     }
