@@ -273,6 +273,13 @@ function DashboardPageContent() {
     loadMajstorAndData()
   }, [])
 
+  // Re-fetch invoice data when navigating back or when triggered from other pages (e.g. pdf-archive)
+  useEffect(() => {
+    window.__refreshInvoices = () => {
+      if (majstor?.id) loadInvoicesData(majstor.id)
+    }
+  })
+
   const loadMajstorAndData = async () => {
     try {
       setLoading(true)
@@ -2420,8 +2427,8 @@ const HardResetModal = () => {
   }
 
   const tabs = [
-    { id: 'quotes', name: 'Angebote', count: quotes.length },
-    { id: 'invoices', name: 'Rechnungen', count: invoices.filter(i => i.type !== 'storno').length },
+    { id: 'quotes', name: 'Angebote', count: quotes.filter(q => new Date(q.issue_date || q.created_at).getFullYear() === new Date().getFullYear()).length },
+    { id: 'invoices', name: 'Rechnungen', count: invoices.filter(i => i.type !== 'storno' && new Date(i.issue_date || i.created_at).getFullYear() === new Date().getFullYear()).length },
     { id: 'settings', name: 'Einstellungen' }
   ]
 
@@ -2498,8 +2505,8 @@ const HardResetModal = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Angebote</p>
-              <p className="text-2xl font-bold text-white">{quotes.length}</p>
+              <p className="text-slate-400 text-sm">Angebote ({new Date().getFullYear()})</p>
+              <p className="text-2xl font-bold text-white">{quotes.filter(q => new Date(q.issue_date || q.created_at).getFullYear() === new Date().getFullYear()).length}</p>
             </div>
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
               📄
@@ -2523,8 +2530,8 @@ const HardResetModal = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Rechnungen</p>
-              <p className="text-2xl font-bold text-white">{invoices.filter(i => i.type !== 'storno').length}</p>
+              <p className="text-slate-400 text-sm">Rechnungen ({new Date().getFullYear()})</p>
+              <p className="text-2xl font-bold text-white">{invoices.filter(i => i.type !== 'storno' && new Date(i.issue_date || i.created_at).getFullYear() === new Date().getFullYear()).length}</p>
             </div>
             <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
               🧾
@@ -2548,9 +2555,9 @@ const HardResetModal = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
+              <p className="text-slate-400 text-sm">Überfällig (Gesamt)</p>
               <p className="text-2xl font-bold text-white">
-                {invoices.filter(inv => isInvoiceOverdue(inv) && new Date(inv.due_date).getFullYear() === new Date().getFullYear()).length}
+                {invoices.filter(inv => isInvoiceOverdue(inv)).length}
               </p>
             </div>
             <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">

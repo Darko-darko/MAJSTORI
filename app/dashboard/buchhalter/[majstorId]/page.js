@@ -34,8 +34,13 @@ export default function BuchhalterMandantPage({ params }) {
 
   const [ausgabenMonth, setAusgabenMonth] = useState(new Date().getMonth())
   const [ausgabenYear, setAusgabenYear] = useState(new Date().getFullYear())
-  const [invMonth, setInvMonth] = useState(null) // null = all months
-  const [invYear, setInvYear] = useState(new Date().getFullYear())
+  const [filters, setFilters] = useState({
+    dateRange: 'thisMonth',
+    customMonth: new Date().getMonth() + 1,
+    customYear: new Date().getFullYear(),
+    status: '',
+    customer: '',
+  })
   const [invoicesLoading, setInvoicesLoading] = useState(false)
   const [ausgabenLoading, setAusgabenLoading] = useState(false)
   const [previewItem, setPreviewItem] = useState(null)
@@ -227,12 +232,21 @@ export default function BuchhalterMandantPage({ params }) {
       if (!confirmed) return
 
       try {
-        const { error } = await supabase
-          .from('invoices')
-          .update({ status: 'sent', paid_date: null, updated_at: new Date().toISOString() })
-          .in('id', selected.map(i => i.id))
-
-        if (error) throw error
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/buchhalter-archive', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({
+            majstorId,
+            invoiceIds: selected.map(i => i.id),
+            action: 'unpaid'
+          })
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error)
         alert(`${selected.length} Rechnung(en) als offen markiert.`)
         setSelectedIds(new Set())
         loadData()
@@ -247,16 +261,21 @@ export default function BuchhalterMandantPage({ params }) {
       if (!confirmed) return
 
       try {
-        const { error } = await supabase
-          .from('invoices')
-          .update({
-            status: 'paid',
-            paid_date: new Date().toISOString().split('T')[0],
-            updated_at: new Date().toISOString()
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/buchhalter-archive', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({
+            majstorId,
+            invoiceIds: unpaidIds,
+            action: 'paid'
           })
-          .in('id', unpaidIds)
-
-        if (error) throw error
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error)
         alert(`${unpaidIds.length} Rechnung(en) als bezahlt markiert.`)
         setSelectedIds(new Set())
         loadData()
@@ -275,14 +294,48 @@ export default function BuchhalterMandantPage({ params }) {
       .map(i => i.invoice_number.replace(/^STOR-/, ''))
   )
 
-  const filteredInvoices = invoices.filter(inv => {
-    if (invMonth !== null) {
-      const d = new Date(inv.issue_date || inv.pdf_generated_at)
-      if (d.getMonth() !== invMonth || d.getFullYear() !== invYear) return false
-    } else {
-      const d = new Date(inv.issue_date || inv.pdf_generated_at)
-      if (d.getFullYear() !== invYear) return false
+  const handleFilterChange = (newFilters) => {
+    setFilters(prev => {
+      if (newFilters.dateRange && newFilters.dateRange !== prev.dateRange) {
+        return { ...prev, ...newFilters, customer: '' }
+      }
+      return { ...prev, ...newFilters }
+    })
+    setSelectedIds(new Set())
+  }
+
+  const getCustomersWithCounts = () => {
+    const counts = {}
+    for (const inv of invoices) {
+      if (inv.customer_name) {
+        counts[inv.customer_name] = (counts[inv.customer_name] || 0) + 1
+      }
     }
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  const filteredInvoices = invoices.filter(inv => {
+    const d = new Date(inv.issue_date || inv.pdf_generated_at)
+    if (filters.dateRange === 'thisMonth') {
+      const now = new Date()
+      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false
+    } else if (filters.dateRange === 'lastMonth') {
+      const last = new Date(); last.setMonth(last.getMonth() - 1)
+      if (d.getMonth() !== last.getMonth() || d.getFullYear() !== last.getFullYear()) return false
+    } else if (filters.dateRange === 'year') {
+      if (d.getFullYear() !== filters.customYear) return false
+    } else if (filters.dateRange === 'custom') {
+      if (d.getMonth() !== filters.customMonth - 1 || d.getFullYear() !== filters.customYear) return false
+    }
+    if (filters.status === 'paid') {
+      if (inv.status !== 'paid' || inv.type !== 'invoice') return false
+    } else if (filters.status === 'overdue') {
+      const today = new Date().toISOString().slice(0, 10)
+      if (!(['sent', 'draft'].includes(inv.status) && inv.type === 'invoice' && inv.due_date && inv.due_date < today)) return false
+    }
+    if (filters.customer && inv.customer_name !== filters.customer) return false
     return true
   })
 
@@ -329,23 +382,158 @@ export default function BuchhalterMandantPage({ params }) {
       {/* Rechnungen Tab */}
       {activeTab === 'rechnungen' && (
         <div className="space-y-3">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+              <p className="text-slate-400 text-sm">Rechnungen ({new Date().getFullYear()})</p>
+              <p className="text-2xl font-bold text-white">
+                {invoices.filter(i => i.type !== 'storno' && new Date(i.issue_date || i.pdf_generated_at).getFullYear() === new Date().getFullYear()).length}
+              </p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+              <p className="text-slate-400 text-sm">Bezahlt ({new Date().getFullYear()})</p>
+              <p className="text-2xl font-bold text-green-400">
+                {invoices.filter(i => i.status === 'paid' && i.type === 'invoice' && new Date(i.issue_date || i.pdf_generated_at).getFullYear() === new Date().getFullYear()).length}
+              </p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+              <p className="text-slate-400 text-sm">Überfällig (Gesamt)</p>
+              <p className="text-2xl font-bold text-orange-400">
+                {invoices.filter(i => {
+                  if (i.type !== 'invoice' || !['sent','draft'].includes(i.status) || !i.due_date) return false
+                  return i.due_date < new Date().toISOString().slice(0, 10)
+                }).length}
+              </p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+              <p className="text-slate-400 text-sm">Umsatz ({new Date().getFullYear()})</p>
+              <p className="text-2xl font-bold text-white">
+                {invoices
+                  .filter(i => i.status === 'paid' && i.type === 'invoice' && new Date(i.issue_date || i.pdf_generated_at).getFullYear() === new Date().getFullYear())
+                  .reduce((sum, i) => sum + (i.total_amount || 0), 0)
+                  .toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+              </p>
+            </div>
+          </div>
+
+          {/* Filtered Summary */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 max-w-sm">
+            <div className="text-2xl mb-2">🧾</div>
+            <div className="text-white font-semibold">{filteredInvoices.length}</div>
+            <div className="text-slate-400 text-sm">
+              Rechnungen
+              {filters.dateRange === 'thisMonth' && ' (dieser Monat)'}
+              {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
+              {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
+              {filters.dateRange === 'year' && ` (${filters.customYear})`}
+              {filters.status === 'paid' && ' — Bezahlt'}
+              {filters.status === 'overdue' && ' — Überfällig'}
+              {filters.customer && ` — ${filters.customer}`}
+            </div>
+          </div>
+
           {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={invMonth ?? ''}
-              onChange={e => setInvMonth(e.target.value === '' ? null : parseInt(e.target.value))}
-              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none"
-            >
-              <option value="">Alle Monate</option>
-              {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select
-              value={invYear}
-              onChange={e => setInvYear(parseInt(e.target.value))}
-              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none"
-            >
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Zeitraum</label>
+                <select
+                  value={filters.dateRange}
+                  onChange={(e) => handleFilterChange({ dateRange: e.target.value })}
+                  className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+                >
+                  <option value="thisMonth">Dieser Monat</option>
+                  <option value="lastMonth">Letzter Monat</option>
+                  <option value="custom">Monat auswählen</option>
+                  <option value="year">Ganzes Jahr</option>
+                </select>
+              </div>
+
+              {filters.dateRange === 'custom' && (
+                <>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Monat</label>
+                    <select
+                      value={filters.customMonth}
+                      onChange={(e) => handleFilterChange({ customMonth: parseInt(e.target.value) })}
+                      className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+                    >
+                      {['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'].map((m, i) => (
+                        <option key={i} value={i + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Jahr</label>
+                    <select
+                      value={filters.customYear}
+                      onChange={(e) => handleFilterChange({ customYear: parseInt(e.target.value) })}
+                      className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+                    >
+                      {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {filters.dateRange === 'year' && (
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Jahr</label>
+                  <select
+                    value={filters.customYear}
+                    onChange={(e) => handleFilterChange({ customYear: parseInt(e.target.value) })}
+                    className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+                  >
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange({ status: e.target.value })}
+                  className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm"
+                >
+                  <option value="">Alle</option>
+                  <option value="paid">Bezahlt</option>
+                  <option value="overdue">Überfällig</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Kunde</label>
+                <select
+                  value={filters.customer}
+                  onChange={(e) => handleFilterChange({ customer: e.target.value })}
+                  className="bg-slate-900/50 border border-slate-600 rounded text-white px-3 py-1 text-sm w-48"
+                >
+                  <option value="">Alle Kunden</option>
+                  {getCustomersWithCounts().map(c => (
+                    <option key={c.name} value={c.name}>{c.name} ({c.count})</option>
+                  ))}
+                </select>
+              </div>
+
+              {filteredInvoices.length > 0 && (
+                <div className="ml-auto">
+                  <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size > 0 && filteredInvoices.every(i => selectedIds.has(i.id))}
+                      onChange={() => toggleGroup(filteredInvoices)}
+                      className="w-4 h-4 text-green-600 bg-slate-700 border-slate-500 rounded"
+                    />
+                    Alle auswählen ({filteredInvoices.length})
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
 
           {invoicesLoading ? (
@@ -356,14 +544,6 @@ export default function BuchhalterMandantPage({ params }) {
             <div className="text-center py-12 text-slate-400">Keine Rechnungen für diesen Zeitraum</div>
           ) : (
             <>
-              <div className="flex justify-end pb-1">
-                <button
-                  onClick={() => toggleGroup(filteredInvoices)}
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  {filteredInvoices.every(i => selectedIds.has(i.id)) ? 'Alle abwählen' : 'Alle auswählen'}
-                </button>
-              </div>
               {filteredInvoices.map(inv => {
                 const selected = selectedIds.has(inv.id)
                 const isOverdue = inv.type === 'invoice' && ['sent', 'draft'].includes(inv.status) && inv.due_date && inv.due_date < new Date().toISOString().slice(0, 10)
@@ -500,44 +680,51 @@ export default function BuchhalterMandantPage({ params }) {
       )}
     </div>
 
-    {/* Floating ZIP bar */}
+    {/* Floating action bar */}
     {selectedIds.size > 0 && (
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60]">
-        <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl px-4 py-3 flex items-center gap-4">
-          <span className="text-white text-sm">
-            <span className="font-semibold">{selectedIds.size}</span>{' '}
-            {activeTab === 'rechnungen'
-              ? `Rechnung${selectedIds.size > 1 ? 'en' : ''} ausgewählt`
-              : `Beleg${selectedIds.size > 1 ? 'e' : ''} ausgewählt`
-            }
-          </span>
-          <button
-            onClick={downloadSelected}
-            disabled={zipLoading}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
-          >
-            {zipLoading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '📥'}
-            {zipLoading
-              ? (selectedIds.size >= 10 ? 'ZIP wird erstellt...' : 'Wird heruntergeladen...')
-              : (selectedIds.size >= 10 ? 'Als ZIP herunterladen' : 'Herunterladen')
-            }
-          </button>
-          {activeTab === 'rechnungen' && getSelectedInvoiceStatus() && (
+        <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl px-4 py-3 flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <span className="text-white text-sm">
+              <span className="font-semibold">{selectedIds.size}</span>{' '}
+              {activeTab === 'rechnungen'
+                ? `Rechnung${selectedIds.size > 1 ? 'en' : ''} ausgewählt`
+                : `Beleg${selectedIds.size > 1 ? 'e' : ''} ausgewählt`
+              }
+            </span>
+            {(activeTab !== 'rechnungen' || filters.dateRange !== 'year') && (
+              <button
+                onClick={downloadSelected}
+                disabled={zipLoading}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+              >
+                {zipLoading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '📥'}
+                {zipLoading
+                  ? (selectedIds.size >= 10 ? 'ZIP wird erstellt...' : 'Wird heruntergeladen...')
+                  : (selectedIds.size >= 10 ? 'Als ZIP herunterladen' : 'Herunterladen')
+                }
+              </button>
+            )}
+            {activeTab === 'rechnungen' && getSelectedInvoiceStatus() && (
+              <button
+                onClick={handleBulkTogglePaid}
+                className={`text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
+                  getSelectedInvoiceStatus() === 'paid'
+                    ? 'bg-slate-600 hover:bg-slate-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+              >
+                {getSelectedInvoiceStatus() === 'paid' ? '↩️ Als offen' : '💰 Als bezahlt'}
+              </button>
+            )}
             <button
-              onClick={handleBulkTogglePaid}
-              className={`text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
-                getSelectedInvoiceStatus() === 'paid'
-                  ? 'bg-slate-600 hover:bg-slate-700'
-                  : 'bg-amber-600 hover:bg-amber-700'
-              }`}
-            >
-              {getSelectedInvoiceStatus() === 'paid' ? '↩️ Als offen' : '💰 Als bezahlt'}
-            </button>
+              onClick={() => setSelectedIds(new Set())}
+              className="text-slate-400 hover:text-white text-sm px-2 py-2 transition-colors"
+            >✕</button>
+          </div>
+          {activeTab === 'rechnungen' && filters.dateRange === 'year' && (
+            <p className="text-slate-400 text-xs">ZIP-Download ist nur im Monatsfilter verfügbar.</p>
           )}
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-slate-400 hover:text-white text-sm px-2 py-2 transition-colors"
-          >✕</button>
         </div>
       </div>
     )}

@@ -353,6 +353,7 @@ const togglePDFSelection = (pdfId) => {
         setSelectedPDFs(new Set())
         if (majstor?.id) await loadArchivedPDFs(majstor.id)
         window.__refreshBadges?.()
+        window.__refreshInvoices?.()
       } catch (err) {
         alert('Fehler: ' + err.message)
       }
@@ -380,6 +381,7 @@ const togglePDFSelection = (pdfId) => {
         setSelectedPDFs(new Set())
         if (majstor?.id) await loadArchivedPDFs(majstor.id)
         window.__refreshBadges?.()
+        window.__refreshInvoices?.()
       } catch (err) {
         alert('Fehler: ' + err.message)
       }
