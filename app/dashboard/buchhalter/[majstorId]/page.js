@@ -50,6 +50,9 @@ export default function BuchhalterMandantPage({ params }) {
 
   useEffect(() => {
     loadData()
+    // Auto-refresh every 10 minutes
+    const interval = setInterval(() => loadData(), 10 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [majstorId])
 
   const loadData = async () => {
@@ -97,12 +100,19 @@ export default function BuchhalterMandantPage({ params }) {
     }
   }
 
+  // Always get fresh token (session may have refreshed)
+  const getFreshToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || token
+  }
+
   const loadAusgaben = async (month, year) => {
     if (!token) return
     setAusgabenLoading(true)
     try {
+      const t = await getFreshToken()
       const res = await fetch(`/api/buchhalter-archive?majstor_id=${majstorId}&type=ausgaben&month=${month}&year=${year}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${t}` }
       })
       const json = await res.json()
       setAusgaben(json.data || [])
@@ -127,8 +137,9 @@ export default function BuchhalterMandantPage({ params }) {
       <body><div class="wrap"><div class="spin"></div><p>PDF wird geladen…</p></div></body></html>`)
     tab.document.close()
     try {
+      const freshToken = await getFreshToken()
       const res = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(storagePath)}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${freshToken}` }
       })
       const { signedUrl } = await res.json()
       if (signedUrl) tab.location.href = signedUrl
@@ -169,11 +180,12 @@ export default function BuchhalterMandantPage({ params }) {
     if (!selectedIds.size || !token) return
     setZipLoading(true)
     try {
+      const t = await getFreshToken()
       if (activeTab === 'rechnungen') {
         if (selectedIds.size >= 10) {
           const res = await fetch('/api/buchhalter-archive', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
             body: JSON.stringify({ type: 'invoices', invoiceIds: [...selectedIds], majstorId })
           })
           const json = await res.json()
@@ -184,7 +196,7 @@ export default function BuchhalterMandantPage({ params }) {
             if (!inv.pdf_storage_path) continue
             try {
               const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(inv.pdf_storage_path)}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${t}` }
               })
               const { signedUrl } = await signRes.json()
               if (!signedUrl) continue
@@ -204,7 +216,7 @@ export default function BuchhalterMandantPage({ params }) {
         if (selectedIds.size >= 10) {
           const res = await fetch('/api/buchhalter-archive', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
             body: JSON.stringify({ type: 'ausgaben', ausgabenIds: [...selectedIds], majstorId })
           })
           const json = await res.json()
@@ -215,7 +227,7 @@ export default function BuchhalterMandantPage({ params }) {
             if (!item.storage_path) continue
             try {
               const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${t}` }
               })
               const { signedUrl } = await signRes.json()
               if (!signedUrl) continue
@@ -668,8 +680,9 @@ export default function BuchhalterMandantPage({ params }) {
                         <div
                           onClick={async () => {
                             try {
+                              const ft = await getFreshToken()
                               const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
-                                headers: { Authorization: `Bearer ${token}` }
+                                headers: { Authorization: `Bearer ${ft}` }
                               })
                               const { signedUrl: freshUrl } = await signRes.json()
                               if (!freshUrl) return
