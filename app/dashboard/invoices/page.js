@@ -45,6 +45,7 @@ function DashboardPageContent() {
 
   // 🔥 OVERDUE FILTER
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
+  const [showOnlyUnsent, setShowOnlyUnsent] = useState(false)
 
   // Attachments modal
   const [attachmentModal, setAttachmentModal] = useState(null) // {invoiceId, attachments}
@@ -1674,9 +1675,11 @@ const HardResetModal = () => {
 
   // 🔥 UPDATED InvoicesList with overdue filter + infinity scroll
   const InvoicesList = () => {
-    const displayInvoices = showOnlyOverdue
-      ? invoices.filter(inv => isInvoiceOverdue(inv) && new Date(inv.due_date).getFullYear() === new Date().getFullYear())
-      : invoices
+    const displayInvoices = showOnlyUnsent
+      ? invoices.filter(inv => inv.status === 'draft' && !inv.pdf_storage_path && inv.type === 'invoice')
+      : showOnlyOverdue
+        ? invoices.filter(inv => isInvoiceOverdue(inv))
+        : invoices
 
     const visibleInvoices = displayInvoices.slice(0, visibleInvoiceCount)
     const hasMoreInvoices = visibleInvoiceCount < displayInvoices.length
@@ -1708,6 +1711,11 @@ const HardResetModal = () => {
             {showOnlyOverdue && (
               <p className="text-orange-400 text-sm mt-1">
                 ⏰ Zeige nur überfällige Rechnungen ({displayInvoices.length})
+              </p>
+            )}
+            {showOnlyUnsent && (
+              <p className="text-amber-400 text-sm mt-1">
+                Nie versendete Entwürfe ({displayInvoices.length})
               </p>
             )}
           </div>
@@ -2492,7 +2500,7 @@ const HardResetModal = () => {
         <button
           onClick={() => {
             setActiveTab('quotes')
-            setShowOnlyOverdue(false)
+            setShowOnlyOverdue(false); setShowOnlyUnsent(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'quotes')
             window.history.replaceState({}, '', url.toString())
@@ -2517,7 +2525,7 @@ const HardResetModal = () => {
         <button
           onClick={() => {
             setActiveTab('invoices')
-            setShowOnlyOverdue(false)
+            setShowOnlyOverdue(false); setShowOnlyUnsent(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'invoices')
             window.history.replaceState({}, '', url.toString())
@@ -2543,6 +2551,7 @@ const HardResetModal = () => {
           onClick={() => {
             setActiveTab('invoices')
             setShowOnlyOverdue(true)
+            setShowOnlyUnsent(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'invoices')
             window.history.replaceState({}, '', url.toString())
@@ -2569,7 +2578,7 @@ const HardResetModal = () => {
         <button
           onClick={() => {
             setActiveTab('invoices')
-            setShowOnlyOverdue(false)
+            setShowOnlyOverdue(false); setShowOnlyUnsent(false)
             const url = new URL(window.location.href)
             url.searchParams.set('tab', 'invoices')
             window.history.replaceState({}, '', url.toString())
@@ -2598,6 +2607,29 @@ const HardResetModal = () => {
         </button>
       </div>
 
+      {/* Unsent drafts warning */}
+      {(() => {
+        const unsentDrafts = invoices.filter(inv => inv.status === 'draft' && !inv.pdf_storage_path && inv.type === 'invoice')
+        if (unsentDrafts.length === 0) return null
+        return (
+          <button
+            onClick={() => {
+              setActiveTab('invoices')
+              setShowOnlyOverdue(false); setShowOnlyUnsent(false)
+              setShowOnlyUnsent(true)
+            }}
+            className={`w-full text-left bg-amber-500/10 border rounded-lg p-3 transition-all hover:bg-amber-500/20 ${
+              showOnlyUnsent ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-amber-500/30'
+            }`}
+          >
+            <p className="text-amber-400 text-sm font-medium">
+              {unsentDrafts.length} Rechnung{unsentDrafts.length > 1 ? 'en' : ''} wurde{unsentDrafts.length > 1 ? 'n' : ''} nie versendet
+            </p>
+            <p className="text-slate-400 text-xs mt-1">Entwürfe ohne PDF — klicken zum Anzeigen</p>
+          </button>
+        )
+      })()}
+
       <div className="border-b border-slate-700 overflow-x-auto">
         <nav className="flex space-x-1 sm:space-x-8 min-w-max">
           {tabs.map((tab) => (
@@ -2606,7 +2638,7 @@ const HardResetModal = () => {
               onClick={() => {
                 setActiveTab(tab.id)
                 if (tab.id !== 'invoices') {
-                  setShowOnlyOverdue(false)
+                  setShowOnlyOverdue(false); setShowOnlyUnsent(false)
                 }
                 const url = new URL(window.location.href)
                 url.searchParams.set('tab', tab.id)
