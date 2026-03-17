@@ -57,7 +57,7 @@ function DashboardPageContent() {
   const [regieberichtExists, setRegieberichtExists] = useState({}) // {invoiceId: true}
 
   // Infinity scroll
-  const PAGE_SIZE = 30
+  const PAGE_SIZE = 15
   const [visibleInvoiceCount, setVisibleInvoiceCount] = useState(PAGE_SIZE)
   const [visibleQuoteCount, setVisibleQuoteCount] = useState(PAGE_SIZE)
   const invoiceSentinelRef = useRef(null)
