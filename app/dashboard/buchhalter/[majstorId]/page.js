@@ -116,17 +116,27 @@ export default function BuchhalterMandantPage({ params }) {
     }
   }, [activeTab, ausgabenMonth, ausgabenYear, token])
 
-  const openPDF = (signedUrl) => {
-    if (!signedUrl) return
+  const openPDF = async (storagePath) => {
+    if (!storagePath) return
     const tab = window.open('', '_blank')
-    if (!tab) { window.open(signedUrl, '_blank'); return }
+    if (!tab) return
     tab.document.write(`<!DOCTYPE html><html><head><title>PDF wird geladen…</title>
       <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif}
       .wrap{text-align:center;color:#94a3b8}.spin{width:44px;height:44px;border:3px solid #1e293b;border-top-color:#14b8a6;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 16px}
       @keyframes s{to{transform:rotate(360deg)}}p{font-size:14px}</style></head>
-      <body><div class="wrap"><div class="spin"></div><p>PDF wird geladen…</p></div>
-      <script>window.location.href=${JSON.stringify(signedUrl)}</script></body></html>`)
+      <body><div class="wrap"><div class="spin"></div><p>PDF wird geladen…</p></div></body></html>`)
     tab.document.close()
+    try {
+      const res = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(storagePath)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const { signedUrl } = await res.json()
+      if (signedUrl) tab.location.href = signedUrl
+      else { tab.close(); alert('PDF konnte nicht geladen werden.') }
+    } catch {
+      tab.close()
+      alert('Verbindungsfehler beim Laden des PDFs.')
+    }
   }
 
   const formatCurrency = (amount) => amount != null
@@ -171,9 +181,14 @@ export default function BuchhalterMandantPage({ params }) {
         } else {
           const items = invoices.filter(i => selectedIds.has(i.id))
           for (const inv of items) {
-            if (!inv.signedUrl) continue
+            if (!inv.pdf_storage_path) continue
             try {
-              const res = await fetch(inv.signedUrl)
+              const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(inv.pdf_storage_path)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+              })
+              const { signedUrl } = await signRes.json()
+              if (!signedUrl) continue
+              const res = await fetch(signedUrl)
               const blob = await res.blob()
               const url = URL.createObjectURL(blob)
               const num = inv.invoice_number || inv.quote_number || 'Dok'
@@ -197,9 +212,14 @@ export default function BuchhalterMandantPage({ params }) {
         } else {
           const items = ausgaben.filter(a => selectedIds.has(a.id))
           for (const item of items) {
-            if (!item.signedUrl) continue
+            if (!item.storage_path) continue
             try {
-              const res = await fetch(item.signedUrl)
+              const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
+                headers: { Authorization: `Bearer ${token}` }
+              })
+              const { signedUrl } = await signRes.json()
+              if (!signedUrl) continue
+              const res = await fetch(signedUrl)
               const blob = await res.blob()
               const url = URL.createObjectURL(blob)
               triggerDownload(url, item.filename || 'Beleg')
@@ -317,7 +337,10 @@ export default function BuchhalterMandantPage({ params }) {
   }
 
   const filteredInvoices = invoices.filter(inv => {
-    const d = new Date(inv.issue_date || inv.pdf_generated_at)
+    // Überfällig: filter by due_date month instead of issue_date
+    const d = filters.status === 'overdue' && inv.due_date
+      ? new Date(inv.due_date)
+      : new Date(inv.issue_date || inv.pdf_generated_at)
     if (filters.dateRange === 'thisMonth') {
       const now = new Date()
       if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false
@@ -568,7 +591,7 @@ export default function BuchhalterMandantPage({ params }) {
                     </button>
                     {/* Content */}
                     <div
-                      onClick={() => openPDF(inv.signedUrl)}
+                      onClick={() => openPDF(inv.pdf_storage_path)}
                       className="pl-8 flex items-center justify-between gap-4 cursor-pointer"
                     >
                       <div className="min-w-0">
@@ -581,7 +604,7 @@ export default function BuchhalterMandantPage({ params }) {
                           <span className={`font-mono text-sm ${cancelledNums.has(inv.invoice_number) ? 'text-red-400 line-through' : 'text-white'}`}>{inv.invoice_number || inv.quote_number || '—'}</span>
                         </div>
                         <p className="text-slate-300 text-sm truncate">{inv.customer_name}</p>
-                        <p className="text-slate-500 text-xs">{formatDate(inv.issue_date)}</p>
+                        <p className="text-slate-500 text-xs">{formatDate(inv.issue_date)}{isOverdue && inv.due_date && <span className="text-amber-400"> · Fällig: {formatDate(inv.due_date)}</span>}</p>
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-white font-semibold">{formatCurrency(inv.total_amount)}</p>
@@ -644,14 +667,19 @@ export default function BuchhalterMandantPage({ params }) {
                       <div key={item.id} className="relative">
                         <div
                           onClick={async () => {
-                            if (isPDF) { window.open(item.signedUrl, '_blank'); return }
-                            setPreviewItem(item)
-                            setPreviewBlobUrl(null)
                             try {
-                              const res = await fetch(item.signedUrl)
+                              const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
+                                headers: { Authorization: `Bearer ${token}` }
+                              })
+                              const { signedUrl: freshUrl } = await signRes.json()
+                              if (!freshUrl) return
+                              if (isPDF) { window.open(freshUrl, '_blank'); return }
+                              setPreviewItem(item)
+                              setPreviewBlobUrl(null)
+                              const res = await fetch(freshUrl)
                               const blob = await res.blob()
                               setPreviewBlobUrl(URL.createObjectURL(blob))
-                            } catch { setPreviewBlobUrl(item.signedUrl) }
+                            } catch { /* skip */ }
                           }}
                           className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 bg-slate-700 flex items-center justify-center hover:border-teal-500 transition-colors ${selected ? 'border-blue-500' : 'border-transparent'}`}
                         >

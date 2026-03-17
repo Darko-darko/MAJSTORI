@@ -159,30 +159,34 @@ export default function PDFArchivePage() {
         query = query.eq('customer_name', filters.customer)
       }
 
+      // Überfällig: filter by due_date instead of pdf_generated_at
+      const dateCol = filters.status === 'overdue' ? 'due_date' : 'pdf_generated_at'
       if (filters.dateRange === 'thisMonth') {
         const startOfMonth = new Date()
         startOfMonth.setDate(1)
         startOfMonth.setHours(0, 0, 0, 0)
-        query = query.gte('pdf_generated_at', startOfMonth.toISOString())
+        const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59)
+        query = query.gte(dateCol, filters.status === 'overdue' ? startOfMonth.toISOString().slice(0, 10) : startOfMonth.toISOString())
+        query = query.lte(dateCol, filters.status === 'overdue' ? endOfMonth.toISOString().slice(0, 10) : endOfMonth.toISOString())
       } else if (filters.dateRange === 'lastMonth') {
         const now = new Date()
         const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
         const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
         query = query
-          .gte('pdf_generated_at', startOfLastMonth.toISOString())
-          .lte('pdf_generated_at', endOfLastMonth.toISOString())
+          .gte(dateCol, filters.status === 'overdue' ? startOfLastMonth.toISOString().slice(0, 10) : startOfLastMonth.toISOString())
+          .lte(dateCol, filters.status === 'overdue' ? endOfLastMonth.toISOString().slice(0, 10) : endOfLastMonth.toISOString())
       } else if (filters.dateRange === 'year') {
         const startOfYear = new Date(filters.customYear, 0, 1)
         const endOfYear = new Date(filters.customYear, 11, 31, 23, 59, 59)
         query = query
-          .gte('pdf_generated_at', startOfYear.toISOString())
-          .lte('pdf_generated_at', endOfYear.toISOString())
+          .gte(dateCol, filters.status === 'overdue' ? startOfYear.toISOString().slice(0, 10) : startOfYear.toISOString())
+          .lte(dateCol, filters.status === 'overdue' ? endOfYear.toISOString().slice(0, 10) : endOfYear.toISOString())
       } else if (filters.dateRange === 'custom') {
         const startOfCustomMonth = new Date(filters.customYear, filters.customMonth - 1, 1)
         const endOfCustomMonth = new Date(filters.customYear, filters.customMonth, 0, 23, 59, 59)
         query = query
-          .gte('pdf_generated_at', startOfCustomMonth.toISOString())
-          .lte('pdf_generated_at', endOfCustomMonth.toISOString())
+          .gte(dateCol, filters.status === 'overdue' ? startOfCustomMonth.toISOString().slice(0, 10) : startOfCustomMonth.toISOString())
+          .lte(dateCol, filters.status === 'overdue' ? endOfCustomMonth.toISOString().slice(0, 10) : endOfCustomMonth.toISOString())
       }
 
       // Status filter (exclude storno when filtering by status)
@@ -198,6 +202,11 @@ export default function PDFArchivePage() {
       const { data: pdfsData, error } = await query.order('issue_date', { ascending: false }).order('created_at', { ascending: false })
 
       if (error) throw error
+
+      // Sort overdue by due_date ascending (oldest debt first)
+      if (filters.status === 'overdue' && pdfsData) {
+        pdfsData.sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
+      }
 
       setArchivedPDFs(pdfsData || [])
       console.log('✅ Loaded', pdfsData?.length || 0, 'archived PDFs')
