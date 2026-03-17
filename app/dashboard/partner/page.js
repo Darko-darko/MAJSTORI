@@ -264,14 +264,24 @@ export default function PartnerPage() {
   }
 
   function downloadQR(dataUrl, filename) {
-    if (/iPhone|iPad/i.test(navigator.userAgent)) {
-      window.open(dataUrl)
-    } else {
-      const link = document.createElement('a')
-      link.download = filename
-      link.href = dataUrl
-      link.click()
-    }
+    if (!dataUrl) return
+    const parts = dataUrl.split(',')
+    const mime = parts[0].match(/:(.*?);/)[1]
+    const bstr = atob(parts[1])
+    const u8arr = new Uint8Array(bstr.length)
+    for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i)
+    const blob = new Blob([u8arr], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 100)
   }
 
   function getLatestSub(u) {
