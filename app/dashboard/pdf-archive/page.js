@@ -142,7 +142,7 @@ export default function PDFArchivePage() {
         .select(`
           id, type, invoice_number, quote_number, customer_name,
           total_amount, pdf_generated_at, pdf_storage_path, pdf_file_size,
-          created_at, status, customer_email, issue_date, updated_at,
+          created_at, status, customer_email, issue_date, due_date, updated_at,
           email_sent_at, email_sent_to
         `)
         .eq('majstor_id', majstorId)
@@ -185,11 +185,14 @@ export default function PDFArchivePage() {
           .lte('pdf_generated_at', endOfCustomMonth.toISOString())
       }
 
-      // Status filter
+      // Status filter (exclude storno when filtering by status)
       if (filters.status === 'paid') {
-        query = query.eq('status', 'paid')
+        query = query.eq('status', 'paid').eq('type', 'invoice')
       } else if (filters.status === 'unpaid') {
-        query = query.in('status', ['sent', 'draft'])
+        query = query.in('status', ['sent', 'draft']).eq('type', 'invoice')
+      } else if (filters.status === 'overdue') {
+        const today = new Date().toISOString().slice(0, 10)
+        query = query.in('status', ['sent', 'draft']).eq('type', 'invoice').lt('due_date', today)
       }
 
       const { data: pdfsData, error } = await query.order('issue_date', { ascending: false }).order('created_at', { ascending: false })
@@ -319,37 +322,67 @@ const togglePDFSelection = (pdfId) => {
     setSelectedPDFs(new Set())
   }
 
-  const handleBulkMarkAsPaid = async () => {
-    const unpaidIds = archivedPDFs
-      .filter(pdf => selectedPDFs.has(pdf.id) && pdf.type !== 'quote' && pdf.type !== 'storno' && pdf.status !== 'paid')
-      .map(pdf => pdf.id)
+  const getSelectedInvoiceStatus = () => {
+    const selected = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id) && pdf.type === 'invoice')
+    if (selected.length === 0) return null
+    const allPaid = selected.every(pdf => pdf.status === 'paid')
+    const allUnpaid = selected.every(pdf => pdf.status !== 'paid')
+    if (allPaid) return 'paid'
+    if (allUnpaid) return 'unpaid'
+    return 'mixed'
+  }
 
-    if (unpaidIds.length === 0) {
-      alert('Alle ausgewählten Rechnungen sind bereits bezahlt.')
-      return
-    }
+  const handleBulkTogglePaid = async () => {
+    const status = getSelectedInvoiceStatus()
+    const selected = archivedPDFs.filter(pdf => selectedPDFs.has(pdf.id) && pdf.type === 'invoice')
 
-    const confirmed = confirm(`${unpaidIds.length} Rechnung(en) als bezahlt markieren?`)
-    if (!confirmed) return
+    if (status === 'paid') {
+      // Undo paid → sent
+      const confirmed = confirm(`${selected.length} Rechnung(en) als offen markieren?`)
+      if (!confirmed) return
 
-    try {
-      const { error } = await supabase
-        .from('invoices')
-        .update({
-          status: 'paid',
-          paid_date: new Date().toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
-        })
-        .in('id', unpaidIds)
+      try {
+        const { error } = await supabase
+          .from('invoices')
+          .update({ status: 'sent', paid_date: null, updated_at: new Date().toISOString() })
+          .in('id', selected.map(p => p.id))
 
-      if (error) throw error
+        if (error) throw error
 
-      alert(`${unpaidIds.length} Rechnung(en) als bezahlt markiert.`)
-      setSelectedPDFs(new Set())
-      if (majstor?.id) await loadArchivedPDFs(majstor.id)
-    } catch (err) {
-      console.error('Bulk mark as paid error:', err)
-      alert('Fehler: ' + err.message)
+        alert(`${selected.length} Rechnung(en) als offen markiert.`)
+        setSelectedPDFs(new Set())
+        if (majstor?.id) await loadArchivedPDFs(majstor.id)
+        window.__refreshBadges?.()
+      } catch (err) {
+        alert('Fehler: ' + err.message)
+      }
+    } else {
+      // Mark as paid
+      const unpaidIds = selected.filter(pdf => pdf.status !== 'paid').map(pdf => pdf.id)
+      if (unpaidIds.length === 0) return
+
+      const confirmed = confirm(`${unpaidIds.length} Rechnung(en) als bezahlt markieren?`)
+      if (!confirmed) return
+
+      try {
+        const { error } = await supabase
+          .from('invoices')
+          .update({
+            status: 'paid',
+            paid_date: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString()
+          })
+          .in('id', unpaidIds)
+
+        if (error) throw error
+
+        alert(`${unpaidIds.length} Rechnung(en) als bezahlt markiert.`)
+        setSelectedPDFs(new Set())
+        if (majstor?.id) await loadArchivedPDFs(majstor.id)
+        window.__refreshBadges?.()
+      } catch (err) {
+        alert('Fehler: ' + err.message)
+      }
     }
   }
 
@@ -899,12 +932,16 @@ const togglePDFSelection = (pdfId) => {
                 </button>
               </>
             )}
-            {filters.type === 'invoice' && (
+            {filters.type === 'invoice' && getSelectedInvoiceStatus() && (
               <button
-                onClick={handleBulkMarkAsPaid}
-                className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2"
+                onClick={handleBulkTogglePaid}
+                className={`flex-1 sm:flex-none text-white px-4 py-2 rounded text-sm flex items-center justify-center gap-2 ${
+                  getSelectedInvoiceStatus() === 'paid'
+                    ? 'bg-slate-600 hover:bg-slate-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
               >
-                💰 Als bezahlt
+                {getSelectedInvoiceStatus() === 'paid' ? '↩️ Als offen' : '💰 Als bezahlt'}
               </button>
             )}
             <button
@@ -1307,6 +1344,7 @@ const togglePDFSelection = (pdfId) => {
             {filters.dateRange === 'year' && ` (${filters.customYear})`}
             {filters.status === 'paid' && ' — Bezahlt'}
             {filters.status === 'unpaid' && ' — Offen'}
+            {filters.status === 'overdue' && ' — Überfällig'}
             {filters.customer && ` - ${filters.customer}`}
           </div>
         </div>
@@ -1410,7 +1448,7 @@ const togglePDFSelection = (pdfId) => {
               >
                 <option value="">Alle</option>
                 <option value="paid">Bezahlt</option>
-                <option value="unpaid">Offen</option>
+                <option value="overdue">Überfällig</option>
               </select>
             </div>
           )}
@@ -1456,9 +1494,9 @@ const togglePDFSelection = (pdfId) => {
       ) : (
         <div className={`grid gap-3 ${selectedPDFs.size > 0 ? 'pb-36 sm:pb-0' : ''}`}>
           {archivedPDFs.map((pdf) => {
-            const isUnpaid = pdf.type !== 'quote' && pdf.type !== 'storno' && pdf.status !== 'paid' && pdf.status !== 'cancelled'
+            const isOverdue = pdf.type === 'invoice' && ['sent', 'draft'].includes(pdf.status) && pdf.due_date && pdf.due_date < new Date().toISOString().slice(0, 10)
             return (
-            <div key={pdf.id} className={`bg-slate-800/50 border rounded-lg p-4 ${isUnpaid ? 'border-amber-500/40' : 'border-slate-700'}`}>
+            <div key={pdf.id} className={`bg-slate-800/50 border rounded-lg p-4 ${isOverdue ? 'border-amber-500/40' : 'border-slate-700'}`}>
               <div className="flex items-center gap-4">
                 <input
                   type="checkbox"
@@ -1468,8 +1506,8 @@ const togglePDFSelection = (pdfId) => {
                 />
 
                 <div className="flex items-center gap-2 flex-1">
-                  {isUnpaid && <span title="Offen" className="text-amber-400 text-sm">⚠️</span>}
-                  {pdf.status === 'paid' && pdf.type !== 'quote' && <span title="Bezahlt" className="text-green-400 text-sm">✅</span>}
+                  {isOverdue && <span title="Überfällig" className="text-amber-400 text-sm">⚠️</span>}
+                  {pdf.status === 'paid' && pdf.type === 'invoice' && <span title="Bezahlt" className="text-green-400 text-sm">✅</span>}
                   <h4 className="text-white font-semibold">
                     {pdf.invoice_number || pdf.quote_number}
                   </h4>

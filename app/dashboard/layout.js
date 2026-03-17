@@ -229,18 +229,6 @@ useEffect(() => {
     checkUser()
   }, [])
 
-  useEffect(() => {
-    if (majstor?.id) {
-      loadBadgeCounts()
-      
-      const interval = setInterval(() => {
-        loadBadgeCounts()
-      }, 5 * 60 * 1000)
-      
-      return () => clearInterval(interval)
-    }
-  }, [majstor?.id])
-
   const loadBadgeCounts = async () => {
     if (!majstor?.id) return
 
@@ -274,6 +262,19 @@ useEffect(() => {
       console.error('Error loading badge counts:', error)
     }
   }
+
+  // Expose on window so child pages can trigger badge refresh
+  useEffect(() => {
+    window.__refreshBadges = loadBadgeCounts
+  })
+
+  useEffect(() => {
+    if (majstor?.id) {
+      loadBadgeCounts()
+      const interval = setInterval(loadBadgeCounts, 5 * 60 * 1000)
+      return () => clearInterval(interval)
+    }
+  }, [majstor?.id])
 
   const checkUser = async () => {
     try {
