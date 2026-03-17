@@ -497,16 +497,40 @@ const togglePDFSelection = (pdfId) => {
 </style></head><body><div class="overlay"><div class="content"><div class="spinner"></div><div class="title">PDF wird geladen…</div><div class="subtitle">Einen Moment bitte…</div></div></div></body></html>`)
     pdfTab.document.close()
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { pdfTab.close(); return }
-      const response = await fetch(`/api/invoices/${pdfId}/pdf`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      })
-      if (!response.ok) throw new Error('HTTP ' + response.status)
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      pdfTab.location.href = url
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      const { data: invoice } = await supabase
+        .from('invoices')
+        .select('pdf_storage_path, pdf_generated_at, updated_at')
+        .eq('id', pdfId)
+        .single()
+
+      if (!invoice?.pdf_storage_path) {
+        // No PDF yet — generate via API
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) { pdfTab.close(); return }
+        const response = await fetch(`/api/invoices/${pdfId}/pdf`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        })
+        if (!response.ok) throw new Error('HTTP ' + response.status)
+        // Refetch after generation
+        const { data: freshInvoice } = await supabase
+          .from('invoices')
+          .select('pdf_storage_path')
+          .eq('id', pdfId)
+          .single()
+        if (!freshInvoice?.pdf_storage_path) throw new Error('PDF-Pfad nicht gefunden')
+        const { data: signedData } = await supabase.storage
+          .from('invoice-pdfs')
+          .createSignedUrl(freshInvoice.pdf_storage_path, 600)
+        if (!signedData?.signedUrl) throw new Error('Signed URL fehlgeschlagen')
+        pdfTab.location.href = signedData.signedUrl
+      } else {
+        // PDF exists — open via signed URL
+        const { data: signedData } = await supabase.storage
+          .from('invoice-pdfs')
+          .createSignedUrl(invoice.pdf_storage_path, 600)
+        if (!signedData?.signedUrl) throw new Error('Signed URL fehlgeschlagen')
+        pdfTab.location.href = signedData.signedUrl
+      }
     } catch (error) {
       console.error('❌ Open PDF error:', error)
       pdfTab.close()
