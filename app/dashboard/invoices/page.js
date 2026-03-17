@@ -521,24 +521,34 @@ pdfTab.document.close()
         throw new Error('PDF generation failed')
       }
 
-      const pdfBlob = await regenResponse.blob()
-      console.log('✅ Fresh PDF received from API, size:', pdfBlob.size, 'bytes')
+      // PDF was regenerated and uploaded — fetch fresh signed URL
+      const { data: freshInvoice } = await supabase
+        .from('invoices')
+        .select('pdf_storage_path')
+        .eq('id', document.id)
+        .single()
 
-      const url = URL.createObjectURL(pdfBlob)
+      if (freshInvoice?.pdf_storage_path) {
+        const { data: signedData } = await supabase.storage
+          .from('invoice-pdfs')
+          .createSignedUrl(freshInvoice.pdf_storage_path, 600)
 
-      // ✅ Load PDF into the already opened tab
-      pdfTab.location.href = url
-
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-
-      console.log('✅ Fresh PDF opened in reserved tab')
+        if (signedData?.signedUrl) {
+          pdfTab.location.href = signedData.signedUrl
+          console.log('✅ Fresh PDF opened via signed URL (after regeneration)')
+        } else {
+          throw new Error('Signed URL nach Regenerierung fehlgeschlagen')
+        }
+      } else {
+        throw new Error('PDF-Pfad nach Regenerierung nicht gefunden')
+      }
     } else {
       // 4️⃣ PDF is up-to-date - open directly via signed URL (FAST!)
       console.log('✅ PDF is up-to-date, creating signed URL:', invoice.pdf_storage_path)
 
       const { data: signedData, error: signError } = await supabase.storage
         .from('invoice-pdfs')
-        .createSignedUrl(invoice.pdf_storage_path, 60)
+        .createSignedUrl(invoice.pdf_storage_path, 600)
 
       if (signError || !signedData?.signedUrl) {
         throw new Error('Signed URL failed: ' + signError?.message)
