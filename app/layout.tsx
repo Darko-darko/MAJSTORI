@@ -87,8 +87,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de">
+    <html lang="de" translate="no">
       <head>
+        <meta name="google" content="notranslate" />
         {/*
           KORAK 1 — Consent defaults — mora biti PRVI u <head>, pre gtag.js.
           Sve kategorije DENIED po defaultu — GDPR / TTDSG compliant.
