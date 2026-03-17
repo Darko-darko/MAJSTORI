@@ -918,7 +918,7 @@ const togglePDFSelection = (pdfId) => {
             <span className="hidden sm:block text-white text-sm font-semibold shrink-0">
               {selectedPDFs.size} PDF{selectedPDFs.size > 1 ? 's' : ''} ausgewählt
             </span>
-            {filters.dateRange !== 'year' && (
+            {filters.dateRange !== 'year' && filters.dateRange !== 'all' && (
               <>
                 <button
                   onClick={() => setBulkEmailModal(true)}
@@ -953,7 +953,7 @@ const togglePDFSelection = (pdfId) => {
               ✕ Auswahl aufheben
             </button>
           </div>
-          {filters.dateRange === 'year' && (
+          {(filters.dateRange === 'year' || filters.dateRange === 'all') && (
             <p className="text-slate-400 text-xs mt-2">E-Mail-Versand und ZIP-Download sind nur im Monatsfilter verfügbar.</p>
           )}
           <button
@@ -1007,6 +1007,9 @@ const togglePDFSelection = (pdfId) => {
     }
     if (filters.dateRange === 'year') {
       return `Ganzes Jahr ${filters.customYear}`
+    }
+    if (filters.dateRange === 'all') {
+      return 'Alle Jahre'
     }
     return `${monthNames[filters.customMonth - 1]} ${filters.customYear}`
   }
@@ -1344,6 +1347,7 @@ const togglePDFSelection = (pdfId) => {
             {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
             {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
             {filters.dateRange === 'year' && ` (${filters.customYear})`}
+            {filters.dateRange === 'all' && ' (Alle Jahre)'}
             {filters.status === 'paid' && ' — Bezahlt'}
             {filters.status === 'unpaid' && ' — Offen'}
             {filters.status === 'overdue' && ' — Überfällig'}
@@ -1378,6 +1382,7 @@ const togglePDFSelection = (pdfId) => {
               <option value="lastMonth">Letzter Monat</option>
               <option value="custom">Monat auswählen</option>
               <option value="year">Ganzes Jahr</option>
+              <option value="all">Alle Jahre</option>
             </select>
           </div>
 

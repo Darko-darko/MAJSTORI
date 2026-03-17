@@ -426,6 +426,7 @@ export default function BuchhalterMandantPage({ params }) {
               {filters.dateRange === 'lastMonth' && ' (letzter Monat)'}
               {filters.dateRange === 'custom' && ` (${filters.customMonth}/${filters.customYear})`}
               {filters.dateRange === 'year' && ` (${filters.customYear})`}
+              {filters.dateRange === 'all' && ' (Alle Jahre)'}
               {filters.status === 'paid' && ' — Bezahlt'}
               {filters.status === 'overdue' && ' — Überfällig'}
               {filters.customer && ` — ${filters.customer}`}
@@ -446,6 +447,7 @@ export default function BuchhalterMandantPage({ params }) {
                   <option value="lastMonth">Letzter Monat</option>
                   <option value="custom">Monat auswählen</option>
                   <option value="year">Ganzes Jahr</option>
+                  <option value="all">Alle Jahre</option>
                 </select>
               </div>
 
@@ -692,7 +694,7 @@ export default function BuchhalterMandantPage({ params }) {
                 : `Beleg${selectedIds.size > 1 ? 'e' : ''} ausgewählt`
               }
             </span>
-            {(activeTab !== 'rechnungen' || filters.dateRange !== 'year') && (
+            {(activeTab !== 'rechnungen' || (filters.dateRange !== 'year' && filters.dateRange !== 'all')) && (
               <button
                 onClick={downloadSelected}
                 disabled={zipLoading}
@@ -722,7 +724,7 @@ export default function BuchhalterMandantPage({ params }) {
               className="text-slate-400 hover:text-white text-sm px-2 py-2 transition-colors"
             >✕</button>
           </div>
-          {activeTab === 'rechnungen' && filters.dateRange === 'year' && (
+          {activeTab === 'rechnungen' && (filters.dateRange === 'year' || filters.dateRange === 'all') && (
             <p className="text-slate-400 text-xs">ZIP-Download ist nur im Monatsfilter verfügbar.</p>
           )}
         </div>
