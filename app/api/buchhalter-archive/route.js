@@ -67,7 +67,7 @@ export async function GET(request) {
   // invoices
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, type, invoice_number, quote_number, customer_name, total_amount, pdf_generated_at, pdf_storage_path, status, issue_date, tax_rate, subtotal, tax_amount')
+    .select('id, type, invoice_number, quote_number, customer_name, total_amount, pdf_generated_at, pdf_storage_path, status, issue_date, due_date, tax_rate, subtotal, tax_amount')
     .eq('majstor_id', majstorId)
     .not('pdf_storage_path', 'is', null)
     .neq('status', 'dummy')

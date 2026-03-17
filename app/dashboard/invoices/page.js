@@ -1087,8 +1087,9 @@ console.log('🔄 Refreshing invoices data...')
       if (error) throw error
       
       alert(`Rechnung ${invoice.invoice_number} wurde als bezahlt markiert.`)
+      window.__refreshBadges?.()
       await loadInvoicesData(majstor.id)
-      
+
     } catch (err) {
       console.error('Error marking as paid:', err)
       alert('Fehler: ' + err.message)
@@ -1116,6 +1117,7 @@ console.log('🔄 Refreshing invoices data...')
       if (error) throw error
       
       alert(`Rechnung ${invoice.invoice_number} wurde als "Gesendet" markiert.`)
+      window.__refreshBadges?.()
       await loadInvoicesData(majstor.id)
       
     } catch (err) {
