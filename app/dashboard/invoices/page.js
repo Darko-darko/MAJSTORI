@@ -47,6 +47,25 @@ function DashboardPageContent() {
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
   const [showOnlyUnsent, setShowOnlyUnsent] = useState(false)
 
+  // Shared drafts — persistent reminder to mark as sent
+  const [sharedDraftIds, setSharedDraftIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('prm_shared_drafts') || '[]') } catch { return [] }
+  })
+  const addSharedDraft = (id) => {
+    setSharedDraftIds(prev => {
+      const next = prev.includes(id) ? prev : [...prev, id]
+      localStorage.setItem('prm_shared_drafts', JSON.stringify(next))
+      return next
+    })
+  }
+  const removeSharedDraft = (id) => {
+    setSharedDraftIds(prev => {
+      const next = prev.filter(x => x !== id)
+      localStorage.setItem('prm_shared_drafts', JSON.stringify(next))
+      return next
+    })
+  }
+
   // Attachments modal
   const [attachmentModal, setAttachmentModal] = useState(null) // {invoiceId, attachments}
   const [attachmentModalLoading, setAttachmentModalLoading] = useState(false)
@@ -1716,7 +1735,7 @@ const HardResetModal = () => {
   // 🔥 UPDATED InvoicesList with overdue filter + infinity scroll
   const InvoicesList = () => {
     const displayInvoices = showOnlyUnsent
-      ? invoices.filter(inv => inv.status === 'draft' && !inv.pdf_storage_path && inv.type === 'invoice')
+      ? invoices.filter(inv => inv.status === 'draft' && inv.type === 'invoice')
       : showOnlyOverdue
         ? invoices.filter(inv => isInvoiceOverdue(inv))
         : invoices
@@ -1876,6 +1895,32 @@ const HardResetModal = () => {
                     </div>
                   </div>
 
+                  {/* Shared draft banner — persistent reminder */}
+                  {invoice.status === 'draft' && sharedDraftIds.includes(invoice.id) && (
+                    <div className="mb-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center justify-between gap-3">
+                      <p className="text-amber-400 text-sm">📤 Rechnung wurde geteilt — wurde sie erfolgreich versendet?</p>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={async () => {
+                            await supabase.from('invoices').update({ status: 'sent' }).eq('id', invoice.id)
+                            removeSharedDraft(invoice.id)
+                            if (majstor?.id) loadInvoicesData(majstor.id)
+                          }}
+                          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium transition-colors"
+                        >
+                          ✅ Ja, gesendet
+                        </button>
+                        <button
+                          onClick={() => removeSharedDraft(invoice.id)}
+                          className="px-2 py-1.5 text-slate-400 hover:text-white text-xs transition-colors"
+                          title="Später erinnern"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => handlePDFView(invoice)}
@@ -1926,14 +1971,9 @@ const HardResetModal = () => {
                               const blob = await res.blob()
                               const file = new File([blob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
                               await navigator.share({ title: `${prefix} ${num}`, files: [file] })
-                              // After sharing, ask if invoice was sent (only for unsent drafts)
-                              // Delay so share sheet closes first (Windows resolves early)
+                              // Mark as shared draft — persistent banner will appear
                               if (invoice.status === 'draft' && !invoice.email_sent_at) {
-                                await new Promise(r => setTimeout(r, 1000))
-                                if (confirm('Wurde die Rechnung erfolgreich versendet?\n\nWenn ja, wird der Status auf „Gesendet" gesetzt.')) {
-                                  await supabase.from('invoices').update({ status: 'sent' }).eq('id', invoice.id)
-                                  if (majstor?.id) loadInvoicesData(majstor.id)
-                                }
+                                addSharedDraft(invoice.id)
                               }
                             } else {
                               await navigator.clipboard.writeText(s.signedUrl)
@@ -2693,7 +2733,7 @@ const HardResetModal = () => {
 
       {/* Unsent drafts warning */}
       {(() => {
-        const unsentDrafts = invoices.filter(inv => inv.status === 'draft' && !inv.pdf_storage_path && inv.type === 'invoice')
+        const unsentDrafts = invoices.filter(inv => inv.status === 'draft' && inv.type === 'invoice')
         if (unsentDrafts.length === 0) return null
         return (
           <button
@@ -2707,9 +2747,9 @@ const HardResetModal = () => {
             }`}
           >
             <p className="text-amber-400 text-sm font-medium">
-              {unsentDrafts.length} Rechnung{unsentDrafts.length > 1 ? 'en' : ''} wurde{unsentDrafts.length > 1 ? 'n' : ''} nie versendet
+              {unsentDrafts.length} Rechnung{unsentDrafts.length > 1 ? 'en' : ''} wurde{unsentDrafts.length > 1 ? 'n' : ''} noch nicht versendet
             </p>
-            <p className="text-slate-400 text-xs mt-1">Entwürfe ohne PDF — klicken zum Anzeigen</p>
+            <p className="text-slate-400 text-xs mt-1">Entwürfe — klicken zum Anzeigen</p>
           </button>
         )
       })()}
