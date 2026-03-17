@@ -1863,6 +1863,11 @@ const HardResetModal = () => {
                           : invoice.status === 'sent' ? 'Gesendet'
                           : 'Entwurf'}
                       </span>
+                      {isInvoiceOverdue(invoice) && (
+                        <div className={`mt-1 text-xs ${invoice.status === 'sent' ? 'text-blue-400' : 'text-amber-400'}`}>
+                          {invoice.status === 'sent' ? 'Gesendet' : 'Entwurf'}
+                        </div>
+                      )}
                       {invoice.status === 'paid' && (
                         <div className="text-green-400 font-semibold text-sm mt-1">
                           💰 {formatCurrency(invoice.total_amount)}
@@ -1958,37 +1963,62 @@ const HardResetModal = () => {
                       </button>
                     ))}
 
-                    {invoice.pdf_storage_path && (
-                      <button
-                        onClick={async () => {
-                          try {
+                    <button
+                      onClick={async () => {
+                        try {
+                          const num = invoice.invoice_number || invoice.quote_number || ''
+                          const prefix = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Storno' : 'Rechnung'
+
+                          // Get PDF blob — from storage or generate on the fly
+                          let pdfBlob
+                          if (invoice.pdf_storage_path) {
                             const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(invoice.pdf_storage_path, 600)
                             if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
-                            const num = invoice.invoice_number || invoice.quote_number || ''
-                            const prefix = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Storno' : 'Rechnung'
-                            if (navigator.share) {
-                              const res = await fetch(s.signedUrl)
-                              const blob = await res.blob()
-                              const file = new File([blob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
-                              await navigator.share({ title: `${prefix} ${num}`, files: [file] })
-                              // Mark as shared draft — persistent banner will appear
-                              if (invoice.status === 'draft' && !invoice.email_sent_at) {
-                                addSharedDraft(invoice.id)
+                            const res = await fetch(s.signedUrl)
+                            pdfBlob = await res.blob()
+                          } else {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch(`/api/invoices/${invoice.id}/pdf?forceRegenerate=true`, {
+                              headers: { Authorization: `Bearer ${session.access_token}` }
+                            })
+                            if (!res.ok) { alert('PDF konnte nicht erstellt werden.'); return }
+                            pdfBlob = await res.blob()
+                            // Reload list so pdf_storage_path updates
+                            setTimeout(() => { if (majstor?.id) loadInvoicesData(majstor.id) }, 2000)
+                          }
+
+                          if (navigator.share) {
+                            const file = new File([pdfBlob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
+                            await navigator.share({
+                              title: `${prefix} ${num}`,
+                              text: `${prefix} ${num} — ${invoice.customer_name || ''} — ${formatCurrency(invoice.total_amount)}`,
+                              files: [file]
+                            })
+                            // Mark as shared draft — persistent banner will appear
+                            if (invoice.status === 'draft' && !invoice.email_sent_at) {
+                              addSharedDraft(invoice.id)
+                            }
+                          } else {
+                            if (invoice.pdf_storage_path) {
+                              const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(invoice.pdf_storage_path, 600)
+                              if (s?.signedUrl) {
+                                await navigator.clipboard.writeText(s.signedUrl)
+                                alert('PDF-Link wurde in die Zwischenablage kopiert!')
                               }
                             } else {
-                              await navigator.clipboard.writeText(s.signedUrl)
-                              alert('PDF-Link wurde in die Zwischenablage kopiert!')
+                              const url = URL.createObjectURL(pdfBlob)
+                              window.open(url, '_blank')
                             }
-                          } catch (err) {
-                            if (err.name !== 'AbortError') console.error('Share error:', err)
                           }
-                        }}
-                        className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
-                        style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
-                      >
-                        📤 Teilen
-                      </button>
-                    )}
+                        } catch (err) {
+                          if (err.name !== 'AbortError') console.error('Share error:', err)
+                        }
+                      }}
+                      className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
+                      style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
+                    >
+                      📤 Teilen
+                    </button>
 
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button

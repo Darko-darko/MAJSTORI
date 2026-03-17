@@ -233,7 +233,7 @@ useEffect(() => {
     if (!majstor?.id) return
 
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
       const yearStart = `${new Date().getFullYear()}-01-01`
 
       const [inquiriesResult, overdueResult] = await Promise.all([

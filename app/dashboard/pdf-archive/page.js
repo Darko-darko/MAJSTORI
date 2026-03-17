@@ -195,7 +195,7 @@ export default function PDFArchivePage() {
       } else if (filters.status === 'unpaid') {
         query = query.in('status', ['sent', 'draft']).eq('type', 'invoice')
       } else if (filters.status === 'overdue') {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
         query = query.in('status', ['sent', 'draft']).eq('type', 'invoice').lt('due_date', today)
       }
 
@@ -1534,7 +1534,7 @@ const togglePDFSelection = (pdfId) => {
       ) : (
         <div className={`grid gap-3 ${selectedPDFs.size > 0 ? 'pb-36 sm:pb-0' : ''}`}>
           {archivedPDFs.map((pdf) => {
-            const isOverdue = pdf.type === 'invoice' && ['sent', 'draft'].includes(pdf.status) && pdf.due_date && pdf.due_date < new Date().toISOString().slice(0, 10)
+            const isOverdue = pdf.type === 'invoice' && ['sent', 'draft'].includes(pdf.status) && pdf.due_date && pdf.due_date < new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
             return (
             <div key={pdf.id} className={`bg-slate-800/50 border rounded-lg p-4 ${isOverdue ? 'border-amber-500/40' : 'border-slate-700'}`}>
               <div className="flex items-center gap-4">

@@ -50,8 +50,17 @@ export default function BuchhalterMandantPage({ params }) {
 
   useEffect(() => {
     loadData()
-    // Auto-refresh every 10 minutes
-    const interval = setInterval(() => loadData(), 10 * 60 * 1000)
+    // Silent auto-refresh every 10 minutes (no loading spinner)
+    const interval = setInterval(async () => {
+      try {
+        const t = await getFreshToken()
+        const res = await fetch(`/api/buchhalter-archive?majstor_id=${majstorId}&type=invoices`, {
+          headers: { Authorization: `Bearer ${t}` }
+        })
+        const json = await res.json()
+        if (res.ok && json.data) setInvoices(json.data)
+      } catch { /* silent */ }
+    }, 10 * 60 * 1000)
     return () => clearInterval(interval)
   }, [majstorId])
 
@@ -367,7 +376,7 @@ export default function BuchhalterMandantPage({ params }) {
     if (filters.status === 'paid') {
       if (inv.status !== 'paid' || inv.type !== 'invoice') return false
     } else if (filters.status === 'overdue') {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
       if (!(['sent', 'draft'].includes(inv.status) && inv.type === 'invoice' && inv.due_date && inv.due_date < today)) return false
     }
     if (filters.customer && inv.customer_name !== filters.customer) return false
@@ -441,7 +450,7 @@ export default function BuchhalterMandantPage({ params }) {
               <p className="text-2xl font-bold text-orange-400">
                 {invoices.filter(i => {
                   if (i.type !== 'invoice' || !['sent','draft'].includes(i.status) || !i.due_date) return false
-                  return i.due_date < new Date().toISOString().slice(0, 10)
+                  return i.due_date < new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
                 }).length}
               </p>
             </div>
@@ -588,7 +597,7 @@ export default function BuchhalterMandantPage({ params }) {
             <>
               {filteredInvoices.map(inv => {
                 const selected = selectedIds.has(inv.id)
-                const isOverdue = inv.type === 'invoice' && ['sent', 'draft'].includes(inv.status) && inv.due_date && inv.due_date < new Date().toISOString().slice(0, 10)
+                const isOverdue = inv.type === 'invoice' && ['sent', 'draft'].includes(inv.status) && inv.due_date && inv.due_date < new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
                 return (
                   <div
                     key={inv.id}
