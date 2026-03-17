@@ -156,9 +156,16 @@ RECHNUNGEN — DETAILS:
 
 RECHNUNG PER E-MAIL AN KUNDEN SENDEN:
 - Direkt nach Erstellung: Rechnung öffnen → "Per E-Mail senden" → Kunde erhält PDF sofort im Posteingang
+- Vorschau: Vor dem Senden werden Kunde, Betrag, Rechnungsdatum und Fälligkeitsdatum angezeigt — so können Sie überprüfen ob es die richtige Rechnung ist
 - Auch vom Handy aus dem Feld möglich — Rechnung erstellen und sofort abschicken
 - Betreff und Nachricht können angepasst werden
 - CC-Feld: Kopie an sich selbst oder Buchhalter möglich
+
+RECHNUNG/ANGEBOT TEILEN (📤 Teilen):
+- Neben "Per E-Mail senden" gibt es den Button "📤 Teilen" — erscheint sobald ein PDF generiert wurde
+- Mobilgeräte: Öffnet den nativen Teilen-Dialog (WhatsApp, Viber, Telegram, SMS, E-Mail usw.) — PDF wird direkt als Datei geteilt
+- Desktop: PDF-Link wird in die Zwischenablage kopiert
+- Ideal für Handwerker die Rechnungen per Messenger an Kunden schicken
 
 RECHNUNG AN BUCHHALTER SENDEN:
 - Empfehlung: Einmal oder zweimal im Monat alle Rechnungen und Ausgaben gesammelt senden. Buchhalter → Tab wählen (Rechnungen oder Ausgaben) → Zeitraum wählen → alle auswählen → "An Buchhalter senden".
@@ -168,7 +175,7 @@ RECHNUNG AN BUCHHALTER SENDEN:
 BUCHHALTER-ZUGANG (Portal) — DETAILS:
 Was ist das: Ihr Buchhalter bekommt einen eigenen Login und kann Ihre Rechnungen und Ausgaben direkt im Portal einsehen und herunterladen — ohne dass Sie jedes Mal etwas senden müssen.
 Einrichten: Dashboard → Buchhalter (linkes Menü) → "PDF-Archiv & Buchhalter-Zugang" → E-Mail-Adresse des Buchhalters eingeben → "Portal-Zugang aktivieren"
-Was der Buchhalter sieht: Ein eigenes Dashboard mit Ihren Rechnungen und Ausgaben — sortiert nach Monat, als ZIP herunterladbar. Nur Lese-Zugriff, keine Änderungen möglich.
+Was der Buchhalter sieht: Ein eigenes Dashboard mit Statistik-Karten (Rechnungen, Bezahlt, Überfällig, Umsatz), Zeitraum-Filter, Status-Filter und Kunden-Filter. Rechnungen und Ausgaben — sortiert nach Monat, als ZIP herunterladbar. Buchhalter kann Rechnungen als "bezahlt" markieren. Überfällige Rechnungen zeigen auch das Fälligkeitsdatum an.
 Login des Buchhalters: Der Buchhalter erhält eine E-Mail mit Einladung → erstellt ein eigenes Passwort → meldet sich unter pro-meister.de/login an
 Mehrere Mandanten: Wenn ein Buchhalter mehrere Handwerker betreut, sieht er alle verbundenen Mandanten in seinem Portal.
 Verbindung trennen: Jederzeit in Einstellungen → Buchhalter-Zugang → "Zugang entfernen". Der Buchhalter verliert sofort den Zugriff.
