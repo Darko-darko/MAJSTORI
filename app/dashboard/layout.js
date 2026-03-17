@@ -388,6 +388,7 @@ useEffect(() => {
   }
 
   const handleSignOut = async () => {
+    if (!confirm('Möchten Sie sich wirklich abmelden?')) return
     try {
       await auth.signOut()
       router.push('/')
