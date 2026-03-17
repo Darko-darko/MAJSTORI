@@ -469,7 +469,8 @@ pdfTab.document.close()
       .single()
 
     if (invoiceError || !invoice) {
-      throw new Error('Invoice not found')
+      console.error('❌ Invoice lookup failed:', { id: document.id, error: invoiceError })
+      throw new Error('Invoice not found: ' + (invoiceError?.message || 'no data'))
     }
 
     // 2️⃣ Check if PDF is missing or outdated
@@ -521,27 +522,25 @@ pdfTab.document.close()
         throw new Error('PDF generation failed')
       }
 
-      // PDF was regenerated and uploaded — fetch fresh signed URL
-      const { data: freshInvoice } = await supabase
-        .from('invoices')
-        .select('pdf_storage_path')
-        .eq('id', document.id)
-        .single()
+      // Use the PDF blob directly from the response (archive runs in background on server)
+      const pdfBlob = await regenResponse.blob()
+      const blobUrl = URL.createObjectURL(pdfBlob)
+      pdfTab.location.href = blobUrl
+      console.log('✅ Fresh PDF opened via blob (after regeneration)')
 
-      if (freshInvoice?.pdf_storage_path) {
-        const { data: signedData } = await supabase.storage
-          .from('invoice-pdfs')
-          .createSignedUrl(freshInvoice.pdf_storage_path, 600)
-
-        if (signedData?.signedUrl) {
-          pdfTab.location.href = signedData.signedUrl
-          console.log('✅ Fresh PDF opened via signed URL (after regeneration)')
-        } else {
-          throw new Error('Signed URL nach Regenerierung fehlgeschlagen')
-        }
-      } else {
-        throw new Error('PDF-Pfad nach Regenerierung nicht gefunden')
-      }
+      // Reload invoice list after short delay so archive finishes and Teilen button appears
+      // Also exit unsent filter so the invoice stays visible with all action buttons
+      const scrollToId = document.id
+      setTimeout(async () => {
+        if (majstor?.id) await loadInvoicesData(majstor.id)
+        setShowOnlyUnsent(false)
+        setVisibleInvoiceCount(prev => Math.max(prev, 9999)) // ensure old invoice is in visible range
+        // Scroll to the invoice after React re-renders
+        setTimeout(() => {
+          const el = window.document.getElementById(`invoice-${scrollToId}`)
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 300)
+      }, 2000)
     } else {
       // 4️⃣ PDF is up-to-date - open directly via signed URL (FAST!)
       console.log('✅ PDF is up-to-date, creating signed URL:', invoice.pdf_storage_path)
@@ -1800,7 +1799,7 @@ const HardResetModal = () => {
            
               
               return (
-                <div key={invoice.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+                <div key={invoice.id} id={`invoice-${invoice.id}`} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1918,7 +1917,6 @@ const HardResetModal = () => {
                       <button
                         onClick={async () => {
                           try {
-                            const { data: { session } } = await supabase.auth.getSession()
                             const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(invoice.pdf_storage_path, 600)
                             if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
                             const num = invoice.invoice_number || invoice.quote_number || ''
@@ -1928,6 +1926,15 @@ const HardResetModal = () => {
                               const blob = await res.blob()
                               const file = new File([blob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
                               await navigator.share({ title: `${prefix} ${num}`, files: [file] })
+                              // After sharing, ask if invoice was sent (only for unsent drafts)
+                              // Delay so share sheet closes first (Windows resolves early)
+                              if (invoice.status === 'draft' && !invoice.email_sent_at) {
+                                await new Promise(r => setTimeout(r, 1000))
+                                if (confirm('Wurde die Rechnung erfolgreich versendet?\n\nWenn ja, wird der Status auf „Gesendet" gesetzt.')) {
+                                  await supabase.from('invoices').update({ status: 'sent' }).eq('id', invoice.id)
+                                  if (majstor?.id) loadInvoicesData(majstor.id)
+                                }
+                              }
                             } else {
                               await navigator.clipboard.writeText(s.signedUrl)
                               alert('PDF-Link wurde in die Zwischenablage kopiert!')

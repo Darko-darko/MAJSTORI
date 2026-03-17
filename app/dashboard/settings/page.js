@@ -154,7 +154,7 @@ export default function SettingsPage() {
             ← Zurück
           </Link>
           <button
-            onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
+            onClick={async () => { if (!confirm('Möchten Sie sich wirklich abmelden?')) return; await supabase.auth.signOut(); router.push('/login') }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-red-400 border border-slate-700 hover:border-red-500/50 rounded-lg transition-colors"
           >
             🚪 Abmelden
