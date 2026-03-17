@@ -88,6 +88,38 @@ export async function GET(request) {
   return NextResponse.json({ data: signedData })
 }
 
+// PATCH — toggle paid status for invoices (buchhalter)
+export async function PATCH(request) {
+  try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    const { majstorId, invoiceIds, action } = await request.json()
+
+    if (!majstorId || !invoiceIds?.length || !action) {
+      return NextResponse.json({ error: 'majstorId, invoiceIds, action required' }, { status: 400 })
+    }
+
+    const hasAccess = await verifyAccess(token, majstorId)
+    if (!hasAccess) return NextResponse.json({ error: 'Kein Zugang' }, { status: 403 })
+
+    const updateData = action === 'paid'
+      ? { status: 'paid', paid_date: new Date().toISOString().split('T')[0], updated_at: new Date().toISOString() }
+      : { status: 'sent', paid_date: null, updated_at: new Date().toISOString() }
+
+    const { data, error } = await supabase
+      .from('invoices')
+      .update(updateData)
+      .in('id', invoiceIds)
+      .eq('majstor_id', majstorId)
+      .select('id')
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, updated: data?.length || 0 })
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
 // POST — ZIP download for selected ausgaben or invoices (buchhalter)
 export async function POST(request) {
   try {
