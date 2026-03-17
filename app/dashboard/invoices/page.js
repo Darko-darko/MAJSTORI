@@ -1,6 +1,6 @@
 // app/dashboard/invoices/page.js - COMPLETE FILE WITH OVERDUE FILTER
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -55,6 +55,13 @@ function DashboardPageContent() {
   const [regieberichtUploading, setRegieberichtUploading] = useState(false)
   const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
   const [regieberichtExists, setRegieberichtExists] = useState({}) // {invoiceId: true}
+
+  // Infinity scroll
+  const PAGE_SIZE = 15
+  const [visibleInvoiceCount, setVisibleInvoiceCount] = useState(PAGE_SIZE)
+  const [visibleQuoteCount, setVisibleQuoteCount] = useState(PAGE_SIZE)
+  const invoiceSentinelRef = useRef(null)
+  const quoteSentinelRef = useRef(null)
 
   //početak
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -336,8 +343,8 @@ function DashboardPageContent() {
       const { data: quotesData, error: quotesError } = quotesResult
       const { data: invoicesData, error: invoicesError } = invoicesResult
 
-      if (!quotesError) setQuotes(quotesData || [])
-      if (!invoicesError) setInvoices(invoicesData || [])
+      if (!quotesError) { setQuotes(quotesData || []); setVisibleQuoteCount(PAGE_SIZE) }
+      if (!invoicesError) { setInvoices(invoicesData || []); setVisibleInvoiceCount(PAGE_SIZE) }
 
       // Load attachment counts separately
       const allIds = [...(quotesData || []), ...(invoicesData || [])].map(i => i.id)
@@ -1489,7 +1496,22 @@ const HardResetModal = () => {
     )
   }
 
-  const QuotesList = () => (
+  const QuotesList = () => {
+    const visibleQuotes = quotes.slice(0, visibleQuoteCount)
+    const hasMoreQuotes = visibleQuoteCount < quotes.length
+
+    const quoteObserverRef = useCallback(node => {
+      if (!node) return
+      const observer = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting && hasMoreQuotes) {
+          setVisibleQuoteCount(prev => prev + PAGE_SIZE)
+        }
+      }, { rootMargin: '200px' })
+      observer.observe(node)
+      return () => observer.disconnect()
+    }, [hasMoreQuotes])
+
+    return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-white">Angebote (Profakture)</h3>
@@ -1524,7 +1546,7 @@ const HardResetModal = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {quotes.map((quote) => {
+          {visibleQuotes.map((quote) => {
             const hasInvoice = quoteHasInvoice(quote.id)
             
             return (
@@ -1630,16 +1652,37 @@ const HardResetModal = () => {
               </div>
             )
           })}
+          {hasMoreQuotes && (
+            <div ref={quoteObserverRef} className="flex justify-center py-4">
+              <p className="text-slate-500 text-sm">{visibleQuotes.length} von {quotes.length} Angeboten geladen...</p>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
+  }
 
-  // 🔥 UPDATED InvoicesList with overdue filter
+  // 🔥 UPDATED InvoicesList with overdue filter + infinity scroll
   const InvoicesList = () => {
     const displayInvoices = showOnlyOverdue
-      ? invoices.filter(inv => isInvoiceOverdue(inv))
+      ? invoices.filter(inv => isInvoiceOverdue(inv) && new Date(inv.due_date).getFullYear() === new Date().getFullYear())
       : invoices
+
+    const visibleInvoices = displayInvoices.slice(0, visibleInvoiceCount)
+    const hasMoreInvoices = visibleInvoiceCount < displayInvoices.length
+
+    // IntersectionObserver for infinity scroll
+    const invoiceObserverRef = useCallback(node => {
+      if (!node) return
+      const observer = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting && hasMoreInvoices) {
+          setVisibleInvoiceCount(prev => prev + PAGE_SIZE)
+        }
+      }, { rootMargin: '200px' })
+      observer.observe(node)
+      return () => observer.disconnect()
+    }, [hasMoreInvoices])
 
     const lastInvoiceNumber = invoices
       .filter(i => i.invoice_number && i.type !== 'storno')
@@ -1652,7 +1695,7 @@ const HardResetModal = () => {
         <div className="flex justify-between items-center">
           <div>
             <h3 className="text-lg font-semibold text-white">Rechnungen</h3>
-            
+
             {showOnlyOverdue && (
               <p className="text-orange-400 text-sm mt-1">
                 ⏰ Zeige nur überfällige Rechnungen ({displayInvoices.length})
@@ -1693,7 +1736,7 @@ const HardResetModal = () => {
           </div>
         ) : (
           <div className="grid gap-4">
-            {displayInvoices.map((invoice) => {
+            {visibleInvoices.map((invoice) => {
               const overdueStatus = isInvoiceOverdue(invoice)
               const daysOverdue = getDaysOverdue(invoice)
            
@@ -1896,6 +1939,11 @@ const HardResetModal = () => {
                 </div>
               )
             })}
+            {hasMoreInvoices && (
+              <div ref={invoiceObserverRef} className="flex justify-center py-4">
+                <p className="text-slate-500 text-sm">{visibleInvoices.length} von {displayInvoices.length} Rechnungen geladen...</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2500,7 +2548,7 @@ const HardResetModal = () => {
             <div>
               <p className="text-slate-400 text-sm">Überfällige Rechnungen</p>
               <p className="text-2xl font-bold text-white">
-                {invoices.filter(inv => isInvoiceOverdue(inv)).length}
+                {invoices.filter(inv => isInvoiceOverdue(inv) && new Date(inv.due_date).getFullYear() === new Date().getFullYear()).length}
               </p>
             </div>
             <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white">
@@ -2525,11 +2573,11 @@ const HardResetModal = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Monatsumsatz</p>
+              <p className="text-slate-400 text-sm">Jahresumsatz {new Date().getFullYear()}</p>
               <p className="text-2xl font-bold text-white">
                 {formatCurrency(
                   invoices
-                    .filter(inv => inv.status === 'paid')
+                    .filter(inv => inv.status === 'paid' && new Date(inv.issue_date || inv.created_at).getFullYear() === new Date().getFullYear())
                     .reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
                 )}
               </p>

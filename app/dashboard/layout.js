@@ -246,6 +246,7 @@ useEffect(() => {
 
     try {
       const today = new Date().toISOString().slice(0, 10)
+      const yearStart = `${new Date().getFullYear()}-01-01`
 
       const [inquiriesResult, overdueResult] = await Promise.all([
         supabase
@@ -258,8 +259,10 @@ useEffect(() => {
           .from('invoices')
           .select('id', { count: 'exact', head: true })
           .eq('majstor_id', majstor.id)
+          .eq('type', 'invoice')
           .in('status', ['sent', 'draft'])
-          .lt('due_date', today),
+          .lt('due_date', today)
+          .gte('due_date', yearStart),
       ])
 
       setBadges({
