@@ -86,6 +86,8 @@ function DashboardPageContent() {
   })
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [settingsError, setSettingsError] = useState('')
+  const [localSettings, setLocalSettings] = useState(null)
+  const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -309,7 +311,7 @@ function DashboardPageContent() {
 
       setMajstor(majstorData)
       
-      setSettingsData({
+      const newSettings = {
         is_kleinunternehmer: majstorData.is_kleinunternehmer || false,
         tax_number: majstorData.tax_number || '',
         vat_id: majstorData.vat_id || '',
@@ -319,8 +321,8 @@ function DashboardPageContent() {
         bank_name: majstorData.bank_name || '',
         payment_terms_days: majstorData.payment_terms_days || 14,
         invoice_footer: majstorData.invoice_footer || '',
-        full_name: (majstorData.business_name || (majstorData.full_name && majstorData.full_name !== majstorData.email?.split('@')[0])) 
-          ? majstorData.full_name || '' 
+        full_name: (majstorData.business_name || (majstorData.full_name && majstorData.full_name !== majstorData.email?.split('@')[0]))
+          ? majstorData.full_name || ''
           : '',
         business_name: majstorData.business_name || '',
         phone: majstorData.phone || '',
@@ -328,7 +330,9 @@ function DashboardPageContent() {
         address: majstorData.address || '',
         postal_code: majstorData.postal_code || '',
         business_email: majstorData.business_email || ''
-      })
+      }
+      setSettingsData(newSettings)
+      setLocalSettings(newSettings)
       
       await loadInvoicesData(majstorData.id)
 
@@ -1967,24 +1971,19 @@ const HardResetModal = () => {
     )
   }
 
-  const SettingsTab = () => {
-    const [localSettings, setLocalSettings] = useState(settingsData)
-    const [hasChanges, setHasChanges] = useState(false)
-
-    useEffect(() => {
-      setLocalSettings(settingsData)
-      setHasChanges(false)
-    }, [settingsData])
+  const settingsContent = (() => {
+    if (!localSettings) return null
+    const hasChanges = hasSettingsChanges
 
     const handleLocalChange = (e) => {
       const { name, value, type, checked } = e.target
       const newValue = type === 'checkbox' ? checked : value
-      
+
       setLocalSettings(prev => ({
         ...prev,
         [name]: newValue
       }))
-      setHasChanges(true)
+      setHasSettingsChanges(true)
     }
 
   const handleLocalSave = async () => {
@@ -1994,10 +1993,11 @@ const HardResetModal = () => {
   try {
     const hasTaxNumber = localSettings.tax_number && localSettings.tax_number.trim().length > 0
     const hasVatId = localSettings.vat_id && localSettings.vat_id.trim().length > 0
-    
+
     if (!hasTaxNumber && !hasVatId) {
-      setSettingsError('Bitte geben Sie entweder eine Steuernummer oder eine USt-IdNr ein (mindestens eines ist erforderlich)')
+      setSettingsError('Mindestens eine Steuernummer oder eine USt-IdNr ist erforderlich. Beide Angaben sind ebenfalls möglich.')
       setSettingsLoading(false)
+      setTimeout(() => document.getElementById('settings-tax-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
       return
     }
 
@@ -2033,7 +2033,7 @@ const HardResetModal = () => {
     setSettingsData(localSettings)
     setMajstor(newMajstorData)
 
-    setHasChanges(false)
+    setHasSettingsChanges(false)
     
     const isNowComplete = isBusinessDataComplete(newMajstorData)
     
@@ -2293,29 +2293,40 @@ const HardResetModal = () => {
                   type="text"
                   name="tax_number"
                   value={localSettings.tax_number}
-                  onChange={handleLocalChange}
+                  onChange={(e) => { handleLocalChange(e); if (settingsError) setSettingsError('') }}
                   placeholder="12/345/67890"
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-                 
+                  className={`w-full px-3 py-2 bg-slate-900/50 border rounded-lg text-white ${settingsError && !localSettings.tax_number?.trim() && !localSettings.vat_id?.trim() ? 'border-red-500' : 'border-slate-600'}`}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">USt-IdNr</label>
                 <input
                   type="text"
                   name="vat_id"
                   value={localSettings.vat_id}
-                  onChange={handleLocalChange}
+                  onChange={(e) => { handleLocalChange(e); if (settingsError) setSettingsError('') }}
                   placeholder="DE123456789"
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
+                  className={`w-full px-3 py-2 bg-slate-900/50 border rounded-lg text-white ${settingsError && !localSettings.tax_number?.trim() && !localSettings.vat_id?.trim() ? 'border-red-500' : 'border-slate-600'}`}
                 />
               </div>
-              <div className="md:col-span-2 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-  <p className="text-blue-300 text-sm">
-    ℹ️ <strong>Hinweis:</strong> Sie müssen mindestens eine Steuernummer ODER eine USt-IdNr angeben. Beide können ausgefüllt werden.
-  </p>
-</div>
+              {settingsError && !localSettings.tax_number?.trim() && !localSettings.vat_id?.trim() ? (
+                <div id="settings-tax-error" className="md:col-span-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  <p className="text-red-400 text-sm font-medium">{settingsError}</p>
+                </div>
+              ) : !localSettings.tax_number?.trim() && !localSettings.vat_id?.trim() ? (
+                <div className="md:col-span-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                  <p className="text-yellow-300 text-sm">
+                    ⚠️ Mindestens eine Steuernummer oder USt-IdNr ist erforderlich.
+                  </p>
+                </div>
+              ) : (
+                <div className="md:col-span-2 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                  <p className="text-blue-300 text-sm">
+                    ℹ️ <strong>Hinweis:</strong> Sie können eine Steuernummer, eine USt-IdNr oder beides angeben.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2399,12 +2410,6 @@ const HardResetModal = () => {
             </div>
           </div>
 
-          {settingsError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-              <p className="text-red-400">{settingsError}</p>
-            </div>
-          )}
-
           {hasChanges && (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2">
@@ -2425,14 +2430,20 @@ const HardResetModal = () => {
           >
             {settingsLoading ? 'Speichern...' : 'Einstellungen speichern'}
           </button>
-          
+
+          {settingsError && (
+            <div className="mt-3 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+              <p className="text-red-400 text-sm font-medium">{settingsError}</p>
+            </div>
+          )}
+
           <p className="text-xs text-slate-500 mt-2">
             Diese Einstellungen werden automatisch für alle neuen Rechnungen und Angebote verwendet.
           </p>
         </form>
       </div>
     )
-  }
+  })()
 
   const tabs = [
     { id: 'quotes', name: 'Angebote', count: quotes.filter(q => new Date(q.issue_date || q.created_at).getFullYear() === new Date().getFullYear()).length },
@@ -2664,7 +2675,7 @@ const HardResetModal = () => {
       <div>
         {activeTab === 'quotes' && <QuotesList />}
         {activeTab === 'invoices' && <InvoicesList />}
-        {activeTab === 'settings' && <SettingsTab />}
+        {activeTab === 'settings' && settingsContent}
       </div>
 
       {showCreateModal && (
