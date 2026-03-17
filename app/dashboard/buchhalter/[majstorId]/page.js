@@ -337,6 +337,11 @@ export default function BuchhalterMandantPage({ params }) {
     }
     if (filters.customer && inv.customer_name !== filters.customer) return false
     return true
+  }).sort((a, b) => {
+    if (filters.status === 'overdue') {
+      return (a.due_date || '').localeCompare(b.due_date || '')
+    }
+    return (b.issue_date || b.pdf_generated_at || '').localeCompare(a.issue_date || a.pdf_generated_at || '')
   })
 
   if (loading) return (
