@@ -432,11 +432,12 @@ const loadInquiries = async () => {
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
+      day: 'numeric',
+      month: 'long',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Europe/Berlin'
     })
   }
 
