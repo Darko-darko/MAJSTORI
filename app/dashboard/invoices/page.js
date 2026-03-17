@@ -2420,8 +2420,8 @@ const HardResetModal = () => {
   }
 
   const tabs = [
-    { id: 'quotes', name: 'Angebote', count: quotes.length },
-    { id: 'invoices', name: 'Rechnungen', count: invoices.filter(i => i.type !== 'storno').length },
+    { id: 'quotes', name: 'Angebote', count: quotes.filter(q => new Date(q.issue_date || q.created_at).getFullYear() === new Date().getFullYear()).length },
+    { id: 'invoices', name: 'Rechnungen', count: invoices.filter(i => i.type !== 'storno' && new Date(i.issue_date || i.created_at).getFullYear() === new Date().getFullYear()).length },
     { id: 'settings', name: 'Einstellungen' }
   ]
 
@@ -2499,7 +2499,7 @@ const HardResetModal = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Angebote</p>
-              <p className="text-2xl font-bold text-white">{quotes.length}</p>
+              <p className="text-2xl font-bold text-white">{quotes.filter(q => new Date(q.issue_date || q.created_at).getFullYear() === new Date().getFullYear()).length}</p>
             </div>
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
               📄
@@ -2524,7 +2524,7 @@ const HardResetModal = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Rechnungen</p>
-              <p className="text-2xl font-bold text-white">{invoices.filter(i => i.type !== 'storno').length}</p>
+              <p className="text-2xl font-bold text-white">{invoices.filter(i => i.type !== 'storno' && new Date(i.issue_date || i.created_at).getFullYear() === new Date().getFullYear()).length}</p>
             </div>
             <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white">
               🧾
