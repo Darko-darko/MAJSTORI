@@ -651,8 +651,22 @@ pdfTab.document.close()
 
   const handleEmailSuccess = (result) => {
     console.log('Email sent successfully:', result)
+    const sentId = emailItem?.id
     setShowEmailModal(false)
     setEmailItem(null)
+    // Instant local update: draft → sent
+    if (sentId) {
+      setInvoices(prev => prev.map(i => i.id === sentId ? { ...i, status: 'sent', email_sent_at: new Date().toISOString() } : i))
+      removeSharedDraft(sentId)
+      // Exit unsent filter + scroll to invoice
+      setShowOnlyUnsent(false)
+      setVisibleInvoiceCount(prev => Math.max(prev, 9999))
+      setTimeout(() => {
+        const el = document.getElementById(`invoice-${sentId}`)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 200)
+    }
+    // Also reload from DB for full sync
     if (majstor?.id) {
       loadInvoicesData(majstor.id)
     }
@@ -1892,9 +1906,19 @@ const HardResetModal = () => {
                       <div className="flex gap-2 shrink-0">
                         <button
                           onClick={async () => {
-                            await supabase.from('invoices').update({ status: 'sent' }).eq('id', invoice.id)
-                            removeSharedDraft(invoice.id)
-                            if (majstor?.id) loadInvoicesData(majstor.id)
+                            const invoiceId = invoice.id
+                            // Instant local update for badge
+                            setInvoices(prev => prev.map(i => i.id === invoiceId ? { ...i, status: 'sent' } : i))
+                            removeSharedDraft(invoiceId)
+                            // Exit unsent filter so user sees the updated badge
+                            setShowOnlyUnsent(false)
+                            setVisibleInvoiceCount(prev => Math.max(prev, 9999))
+                            // Scroll to invoice after re-render
+                            setTimeout(() => {
+                              const el = document.getElementById(`invoice-${invoiceId}`)
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            }, 200)
+                            await supabase.from('invoices').update({ status: 'sent', updated_at: new Date().toISOString() }).eq('id', invoiceId)
                           }}
                           className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded font-medium transition-colors"
                         >
