@@ -9,11 +9,11 @@ const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','No
 const SCANNER_TESTERS = ['2f9f6665-3524-44a6-9a74-215571ad5690', 'd9a02afc-1508-4e36-8a26-e53aa9bf7dc8']
 
 const PRICING_PLANS = [
-  { name: 'Mini', scans: 500, price: '15', color: 'slate' },
-  { name: 'Pro', scans: 1000, price: '20', color: 'blue', popular: true },
-  { name: 'Pro+', scans: 3000, price: '35', color: 'violet' },
-  { name: 'Max', scans: 5000, price: '60', color: 'amber' },
-  { name: 'Ultra', scans: 10000, price: '100', color: 'teal' },
+  { name: 'Mini', scans: 500, price: '14,90', color: 'slate' },
+  { name: 'Pro', scans: 1000, price: '19,90', color: 'blue', popular: true },
+  { name: 'Pro+', scans: 3000, price: '34,90', color: 'violet' },
+  { name: 'Max', scans: 5000, price: '59,90', color: 'amber' },
+  { name: 'Ultra', scans: 10000, price: '99,90', color: 'teal' },
 ]
 
 export default function BuchhalterScanner() {
@@ -427,12 +427,16 @@ export default function BuchhalterScanner() {
           <p className="text-slate-400 text-sm mt-1 ml-8">Belege hochladen, scannen und exportieren</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Scan counter */}
+          {/* Scan counter — always clickable */}
           <div
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isLimitReached ? 'bg-red-500/20 border border-red-500/40 text-red-400' : 'bg-slate-800 border border-slate-700 text-slate-300'}`}
-            onClick={() => isLimitReached && setShowPricing(true)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+              isLimitReached ? 'bg-red-500/20 border border-red-500/40 text-red-400'
+              : scanCount >= scanLimit * 0.8 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
+              : 'bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-500'
+            }`}
+            onClick={() => setShowPricing(true)}
           >
-            {isLimitReached && <span className="mr-1">🔒</span>}
+            {isLimitReached ? '🔒 ' : scanCount >= scanLimit * 0.8 ? '⚠️ ' : ''}
             {scanCount} / {scanLimit} Scans
           </div>
         </div>
@@ -441,6 +445,45 @@ export default function BuchhalterScanner() {
       <div className="flex gap-6 min-h-[60vh]">
         {/* Sidebar — Folders */}
         <div className="w-64 shrink-0 space-y-3">
+          {/* Subscribe CTA — always on top */}
+          <div
+            className={`border rounded-xl p-3 space-y-2.5 cursor-pointer transition-colors ${
+              isLimitReached ? 'border-red-500/40 bg-red-500/10'
+              : scanCount >= scanLimit * 0.8 ? 'border-amber-500/30 bg-amber-500/10'
+              : 'border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10'
+            }`}
+            onClick={() => setShowPricing(true)}
+          >
+            <div className="flex items-center justify-between">
+              <span className={`text-sm font-semibold ${
+                isLimitReached ? 'text-red-400' : scanCount >= scanLimit * 0.8 ? 'text-amber-400' : 'text-teal-400'
+              }`}>
+                {isLimitReached ? '🔒 Limit erreicht' : scanCount >= scanLimit * 0.8 ? '⚠️ Scans knapp' : '✨ Free-Plan'}
+              </span>
+              <span className="text-xs text-slate-400">{scanCount}/{scanLimit}</span>
+            </div>
+            <div className="w-full bg-slate-700 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all ${
+                  isLimitReached ? 'bg-red-500' : scanCount >= scanLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'
+                }`}
+                style={{ width: `${Math.min((scanCount / scanLimit) * 100, 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-400">
+              {isLimitReached
+                ? 'Upgraden für weitere Scans'
+                : `${scanLimit - scanCount} kostenlose Scans übrig`}
+            </p>
+            <button className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              isLimitReached
+                ? 'bg-red-600 hover:bg-red-500 text-white'
+                : 'bg-teal-600 hover:bg-teal-500 text-white'
+            }`}>
+              {isLimitReached ? 'Jetzt upgraden' : 'Jetzt abonnieren'}
+            </button>
+          </div>
+
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
             <h3 className="text-white font-semibold text-sm">Firmen / Mandanten</h3>
 
@@ -505,6 +548,7 @@ export default function BuchhalterScanner() {
               ))}
             </div>
           </div>
+
         </div>
 
         {/* Main content */}
@@ -717,35 +761,76 @@ export default function BuchhalterScanner() {
       {/* Pricing Modal */}
       {showPricing && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowPricing(false)}>
-          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 space-y-5" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl p-6 space-y-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-white font-bold text-xl">🔒 Scan-Limit erreicht</h3>
+              <h3 className="text-white font-bold text-xl">
+                {isLimitReached ? '🔒 Scan-Limit erreicht' : '📊 Ihre Scan-Nutzung'}
+              </h3>
               <button onClick={() => setShowPricing(false)} className="text-slate-400 hover:text-white text-xl">×</button>
             </div>
+
+            {/* Usage bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-300">{scanCount} von {scanLimit} Scans verbraucht</span>
+                <span className={`font-medium ${isLimitReached ? 'text-red-400' : scanCount >= scanLimit * 0.8 ? 'text-amber-400' : 'text-teal-400'}`}>
+                  {scanLimit - scanCount > 0 ? `${scanLimit - scanCount} übrig` : 'Limit erreicht'}
+                </span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2.5">
+                <div
+                  className={`h-2.5 rounded-full transition-all duration-500 ${
+                    isLimitReached ? 'bg-red-500' : scanCount >= scanLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'
+                  }`}
+                  style={{ width: `${Math.min((scanCount / scanLimit) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+
             <p className="text-slate-300 text-sm">
-              Sie haben {scanCount} von {scanLimit} kostenlosen Scans verbraucht. Wählen Sie ein Paket für weitere Scans:
+              {isLimitReached
+                ? 'Upgraden Sie jetzt, um weiter zu scannen:'
+                : 'Mehr Scans benötigt? Wählen Sie ein Paket:'}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+            {/* Plans grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {PRICING_PLANS.map(plan => (
                 <div
                   key={plan.name}
-                  className={`border rounded-xl p-4 space-y-2 transition-colors ${
-                    plan.popular ? 'border-blue-500 bg-blue-500/10' : 'border-slate-600 bg-slate-900/50'
+                  className={`relative border rounded-xl p-4 space-y-2 transition-all hover:scale-[1.02] ${
+                    plan.popular ? 'border-teal-500 bg-teal-500/10 ring-1 ring-teal-500/20' : 'border-slate-600 bg-slate-900/50 hover:border-slate-500'
                   }`}
                 >
-                  {plan.popular && <span className="text-xs text-blue-400 font-medium">Beliebt</span>}
+                  {plan.popular && (
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      Beliebt
+                    </div>
+                  )}
                   <h4 className="text-white font-bold text-lg">{plan.name}</h4>
-                  <p className="text-slate-400 text-sm">bis {plan.scans.toLocaleString('de-DE')} Scans/Monat</p>
-                  <p className="text-white text-2xl font-bold">{plan.price}€<span className="text-sm text-slate-400 font-normal">/Monat</span></p>
-                  <button className="w-full mt-2 py-2 rounded-lg text-sm font-medium bg-slate-700 text-slate-400 cursor-not-allowed">
-                    Demnächst verfügbar
+                  <p className="text-slate-400 text-xs">{plan.scans.toLocaleString('de-DE')} Scans/Monat</p>
+                  <p className="text-white text-xl font-bold">{plan.price}€<span className="text-xs text-slate-400 font-normal">/Mo.</span></p>
+                  <button
+                    onClick={() => {
+                      // TODO: FastSpring checkout integration
+                      alert(`${plan.name}-Paket wird bald verfügbar sein. Kontaktieren Sie uns: info@pro-meister.de`)
+                    }}
+                    className={`w-full mt-2 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      plan.popular
+                        ? 'bg-teal-600 hover:bg-teal-500 text-white'
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                  >
+                    Jetzt upgraden
                   </button>
                 </div>
               ))}
             </div>
-            <p className="text-slate-500 text-xs text-center">
-              Alle Preise zzgl. 19% MwSt. Kontaktieren Sie uns: info@pro-meister.de
-            </p>
+
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <p>Alle Preise zzgl. 19% MwSt. Jederzeit kündbar.</p>
+              <p>Fragen? <a href="mailto:info@pro-meister.de" className="text-teal-400 hover:underline">info@pro-meister.de</a></p>
+            </div>
           </div>
         </div>
       )}
@@ -906,7 +991,7 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
             <div>
               <label className="text-slate-400 text-xs">Netto (€)</label>
               <input type="text" value={form.amount_net.toFixed ? form.amount_net.toFixed(2) : form.amount_net} readOnly
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-400 text-sm" />
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm opacity-60" />
             </div>
           </div>
           <div>
