@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import JSZip from 'jszip'
+import crypto from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -105,9 +106,7 @@ export async function POST(request) {
     // Create short link (valid 14 days, same as signed URL)
     let shortUrl = null
     try {
-      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-      let code = ''
-      for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
+      const code = crypto.randomBytes(6).toString('hex')
       const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 14 * 1000).toISOString()
       const { error: insertError } = await supabase
         .from('short_links')
