@@ -2739,6 +2739,13 @@ const HardResetModal = () => {
               setActiveTab('invoices')
               setShowOnlyOverdue(false); setShowOnlyUnsent(false)
               setShowOnlyUnsent(true)
+              setTimeout(() => {
+                const firstCard = document.querySelector('[id^="invoice-"]')
+                if (firstCard) {
+                  const y = firstCard.getBoundingClientRect().top + window.scrollY - 120
+                  window.scrollTo({ top: y, behavior: 'smooth' })
+                }
+              }, 150)
             }}
             className={`w-full text-left bg-amber-500/10 border rounded-lg p-3 transition-all hover:bg-amber-500/20 ${
               showOnlyUnsent ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-amber-500/30'
