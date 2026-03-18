@@ -24,6 +24,7 @@ export default function CustomersPage() {
   const [filterWEG, setFilterWEG] = useState('all')
   const [filterFavorites, setFilterFavorites] = useState(false)
   const [sortBy, setSortBy] = useState('created_at')
+  const [yearFilter, setYearFilter] = useState(new Date().getFullYear())
   
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -82,7 +83,7 @@ export default function CustomersPage() {
     if (majstor?.id) {
       loadCustomers()
     }
-  }, [majstor])
+  }, [majstor, yearFilter])
 
 useEffect(() => {
   filterCustomers()
@@ -112,7 +113,7 @@ useEffect(() => {
   const loadCustomers = async () => {
     try {
       setLoading(true)
-      
+
       const { data, error } = await supabase
         .from('customers')
         .select('*')
@@ -121,12 +122,51 @@ useEffect(() => {
 
       if (error) throw error
 
-      setCustomers(data || [])
-      
-      const total = data?.length || 0
-      const totalRevenue = data?.reduce((sum, c) => sum + (parseFloat(c.total_revenue) || 0), 0) || 0
-      const withWEG = data?.filter(c => c.weg_street).length || 0
-      const favorites = data?.filter(c => c.is_favorite).length || 0
+      const customerList = data || []
+
+      // STEP 2: Učitaj invoice stats po customer_id (pouzdanije od email matchinga)
+      const customerIds = customerList.map(c => c.id).filter(Boolean)
+
+      if (customerIds.length > 0) {
+        let invoiceQuery = supabase
+          .from('invoices')
+          .select('id, type, total_amount, status, issue_date, customer_id')
+          .eq('majstor_id', majstor.id)
+          .eq('type', 'invoice')
+          .in('customer_id', customerIds)
+
+        // Godišnji filter
+        if (yearFilter !== 'all') {
+          invoiceQuery = invoiceQuery
+            .gte('issue_date', `${yearFilter}-01-01`)
+            .lte('issue_date', `${yearFilter}-12-31`)
+        }
+
+        const { data: invoices, error: invError } = await invoiceQuery
+
+        if (!invError && invoices) {
+          customerList.forEach(customer => {
+            const custInvoices = invoices.filter(inv => inv.customer_id === customer.id)
+            customer.total_invoices = custInvoices.length
+            customer.total_revenue = custInvoices.reduce((sum, inv) =>
+              sum + (inv.status === 'paid' ? (inv.total_amount || 0) : 0), 0
+            )
+          })
+        }
+      }
+
+      // Klijenti bez invoicea dobijaju 0
+      customerList.forEach(c => {
+        if (c.total_invoices === undefined) c.total_invoices = 0
+        if (c.total_revenue === undefined) c.total_revenue = 0
+      })
+
+      setCustomers(customerList)
+
+      const total = customerList.length
+      const totalRevenue = customerList.reduce((sum, c) => sum + (parseFloat(c.total_revenue) || 0), 0)
+      const withWEG = customerList.filter(c => c.weg_street).length
+      const favorites = customerList.filter(c => c.is_favorite).length
 
       setStats({ total, totalRevenue, withWEG, favorites })
     } catch (err) {
@@ -698,6 +738,18 @@ const handleToggleFavorite = async (customer) => {
   <option value="revenue">Nach Umsatz</option>
   <option value="last_contact">Nach letztem Kontakt</option>
 </select>
+
+          {/* Year Filter */}
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+          >
+            <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+            <option value={new Date().getFullYear() - 1}>{new Date().getFullYear() - 1}</option>
+            <option value={new Date().getFullYear() - 2}>{new Date().getFullYear() - 2}</option>
+            <option value="all">Gesamt</option>
+          </select>
         </div>
 
         {/* Customers Table - Desktop */}
