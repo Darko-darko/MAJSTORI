@@ -9,8 +9,8 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-// Allowed user for testing (Buchhalter)
-const ALLOWED_USERS = ['d9a02afc-1508-4e36-8a26-e53aa9bf7dc8']
+// Allowed users for testing (Buchhalter)
+const ALLOWED_USERS = ['d9a02afc-1508-4e36-8a26-e53aa9bf7dc8', '2f9f6665-3524-44a6-9a74-215571ad5690']
 
 const CATEGORIES = [
   'Material', 'Werkzeug', 'Fahrzeug', 'Büro',

@@ -53,6 +53,8 @@ export default function BuchhalterMandantPage({ params }) {
   const [scanResult, setScanResult] = useState(null)
   const [scanEditItem, setScanEditItem] = useState(null)
   const [scanSaving, setScanSaving] = useState(false)
+  const [bulkScanning, setBulkScanning] = useState(false)
+  const [bulkScanProgress, setBulkScanProgress] = useState({ done: 0, total: 0 })
 
   useEffect(() => {
     loadData()
@@ -426,6 +428,198 @@ export default function BuchhalterMandantPage({ params }) {
     }
   }
 
+  // Bulk scan all unscanned ausgaben
+  const bulkScanAll = async () => {
+    const unscanned = ausgaben.filter(a => !a.scanned_at)
+    if (!unscanned.length) { alert('Alle Belege sind bereits gescannt.'); return }
+    if (!confirm(`${unscanned.length} Beleg${unscanned.length > 1 ? 'e' : ''} mit KI scannen?`)) return
+
+    setBulkScanning(true)
+    setBulkScanProgress({ done: 0, total: unscanned.length })
+
+    for (let i = 0; i < unscanned.length; i++) {
+      const item = unscanned[i]
+      try {
+        const ft = await getFreshToken()
+        const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
+          headers: { Authorization: `Bearer ${ft}` }
+        })
+        const { signedUrl } = await signRes.json()
+        if (!signedUrl) continue
+
+        const res = await fetch('/api/ausgaben/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+          body: JSON.stringify({ image_url: signedUrl, ausgabe_id: item.id })
+        })
+        const json = await res.json()
+        if (res.ok && json.data) {
+          setAusgaben(prev => prev.map(a => a.id === item.id ? { ...a, ...json.data, scanned_at: new Date().toISOString() } : a))
+        }
+      } catch { /* continue with next */ }
+      setBulkScanProgress({ done: i + 1, total: unscanned.length })
+    }
+
+    setBulkScanning(false)
+  }
+
+  // Excel export grouped by category
+  const exportExcel = () => {
+    const scanned = ausgaben.filter(a => a.scanned_at)
+    if (!scanned.length) { alert('Keine gescannten Belege zum Exportieren.'); return }
+
+    // Group by category
+    const groups = {}
+    for (const a of scanned) {
+      const cat = a.category || 'Sonstiges'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(a)
+    }
+
+    const CATEGORIES_ORDER = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
+    const sortedCats = Object.keys(groups).sort((a, b) => {
+      const ia = CATEGORIES_ORDER.indexOf(a), ib = CATEGORIES_ORDER.indexOf(b)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
+
+    // Build CSV with BOM for Excel UTF-8 compatibility
+    const sep = ';'
+    let csv = '\uFEFF' // BOM
+    let grandBrutto = 0, grandNetto = 0, grandVat = 0
+
+    for (const cat of sortedCats) {
+      const items = groups[cat]
+      csv += `\n${cat}\n`
+      csv += `Datum${sep}Händler${sep}Brutto (€)${sep}Netto (€)${sep}MwSt-Satz${sep}MwSt (€)${sep}Beschreibung${sep}Dateiname\n`
+
+      let catBrutto = 0, catNetto = 0, catVat = 0
+      for (const a of items) {
+        const brutto = parseFloat(a.amount_gross) || 0
+        const netto = parseFloat(a.amount_net) || 0
+        const vat = parseFloat(a.vat_amount) || 0
+        catBrutto += brutto
+        catNetto += netto
+        catVat += vat
+
+        const datum = a.receipt_date ? new Date(a.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''
+        const vendor = (a.vendor || '').replace(/;/g, ',')
+        const desc = (a.description || '').replace(/;/g, ',')
+        const fname = (a.filename || '').replace(/;/g, ',')
+        csv += `${datum}${sep}${vendor}${sep}${brutto.toFixed(2).replace('.', ',')}${sep}${netto.toFixed(2).replace('.', ',')}${sep}${a.vat_rate || 19}%${sep}${vat.toFixed(2).replace('.', ',')}${sep}${desc}${sep}${fname}\n`
+      }
+
+      csv += `${sep}Summe ${cat}${sep}${catBrutto.toFixed(2).replace('.', ',')}${sep}${catNetto.toFixed(2).replace('.', ',')}${sep}${sep}${catVat.toFixed(2).replace('.', ',')}${sep}${sep}\n`
+      grandBrutto += catBrutto
+      grandNetto += catNetto
+      grandVat += catVat
+    }
+
+    csv += `\n${sep}GESAMT${sep}${grandBrutto.toFixed(2).replace('.', ',')}${sep}${grandNetto.toFixed(2).replace('.', ',')}${sep}${sep}${grandVat.toFixed(2).replace('.', ',')}${sep}${sep}\n`
+
+    const monthName = months[ausgabenMonth]
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Ausgaben_${majstorInfo?.business_name || 'Mandant'}_${monthName}_${ausgabenYear}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // DATEV Buchungsstapel (EXTF) export
+  const exportDATEV = () => {
+    const scanned = ausgaben.filter(a => a.scanned_at)
+    if (!scanned.length) { alert('Keine gescannten Belege zum Exportieren.'); return }
+
+    // SKR03 Kontenrahmen mapping
+    const SKR03 = {
+      'Material': { konto: 3400, label: 'Wareneingang' },
+      'Werkzeug': { konto: 4980, label: 'Sonstige betriebliche Aufwendungen' },
+      'Fahrzeug': { konto: 4530, label: 'Kfz-Kosten' },
+      'Büro': { konto: 4930, label: 'Bürobedarf' },
+      'Versicherung': { konto: 4360, label: 'Versicherungen' },
+      'Telefon/Internet': { konto: 4920, label: 'Telefon' },
+      'Miete': { konto: 4210, label: 'Miete' },
+      'Reise': { konto: 4660, label: 'Reisekosten' },
+      'Bewirtung': { konto: 4650, label: 'Bewirtungskosten' },
+      'Sonstiges': { konto: 4900, label: 'Sonstige betriebliche Aufwendungen' },
+    }
+
+    const GEGENKONTO = 1200 // Bank (SKR03)
+
+    // BU-Schlüssel for VAT rates
+    const buSchluessel = (rate) => {
+      const r = parseFloat(rate) || 19
+      if (r === 19) return 9
+      if (r === 7) return 8
+      return 0
+    }
+
+    const sep = ';'
+    const monthName = months[ausgabenMonth]
+
+    // DATEV EXTF header lines
+    let csv = '\uFEFF' // BOM
+    // Header line 1: EXTF metadata
+    csv += `"EXTF"${sep}700${sep}21${sep}"Buchungsstapel"${sep}7${sep}""${sep}""${sep}""${sep}""${sep}""${sep}${ausgabenYear}0101${sep}${sep}""${sep}""${sep}""${sep}""${sep}0${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}\n`
+
+    // Header line 2: Column names
+    csv += `Umsatz (ohne Soll/Haben-Kz)${sep}Soll/Haben-Kennzeichen${sep}WKZ Umsatz${sep}Kurs${sep}Basis-Umsatz${sep}WKZ Basis-Umsatz${sep}Konto${sep}Gegenkonto (ohne BU)${sep}BU-Schlüssel${sep}Belegdatum${sep}Belegfeld 1${sep}Belegfeld 2${sep}Skonto${sep}Buchungstext${sep}Postensperre${sep}Diverse Adressnummer${sep}Geschäftspartnerbank${sep}Sachverhalt${sep}Zinssperre${sep}Beleglink${sep}Beleginfo - Art 1${sep}Beleginfo - Inhalt 1${sep}Beleginfo - Art 2${sep}Beleginfo - Inhalt 2${sep}Beleginfo - Art 3${sep}Beleginfo - Inhalt 3${sep}Beleginfo - Art 4${sep}Beleginfo - Inhalt 4${sep}Beleginfo - Art 5${sep}Beleginfo - Inhalt 5${sep}Beleginfo - Art 6${sep}Beleginfo - Inhalt 6${sep}Beleginfo - Art 7${sep}Beleginfo - Inhalt 7${sep}Beleginfo - Art 8${sep}Beleginfo - Inhalt 8${sep}KOST1 - Kostenstelle${sep}KOST2 - Kostenstelle${sep}Kost-Menge${sep}EU-Land u. UStID${sep}EU-Steuersatz${sep}Abw. Versteuerungsart${sep}Sachverhalt L+L${sep}Funktionsergänzung L+L${sep}BU 49 Hauptfunktionstyp${sep}BU 49 Hauptfunktionsnummer${sep}BU 49 Funktionsergänzung${sep}Zusatzinformation - Art 1${sep}Zusatzinformation- Inhalt 1${sep}Zusatzinformation - Art 2${sep}Zusatzinformation- Inhalt 2${sep}Zusatzinformation - Art 3${sep}Zusatzinformation- Inhalt 3${sep}Zusatzinformation - Art 4${sep}Zusatzinformation- Inhalt 4${sep}Zusatzinformation - Art 5${sep}Zusatzinformation- Inhalt 5${sep}Zusatzinformation - Art 6${sep}Zusatzinformation- Inhalt 6${sep}Zusatzinformation - Art 7${sep}Zusatzinformation- Inhalt 7${sep}Zusatzinformation - Art 8${sep}Zusatzinformation- Inhalt 8${sep}Zusatzinformation - Art 9${sep}Zusatzinformation- Inhalt 9${sep}Zusatzinformation - Art 10${sep}Zusatzinformation- Inhalt 10${sep}Zusatzinformation - Art 11${sep}Zusatzinformation- Inhalt 11${sep}Zusatzinformation - Art 12${sep}Zusatzinformation- Inhalt 12${sep}Zusatzinformation - Art 13${sep}Zusatzinformation- Inhalt 13${sep}Zusatzinformation - Art 14${sep}Zusatzinformation- Inhalt 14${sep}Zusatzinformation - Art 15${sep}Zusatzinformation- Inhalt 15${sep}Zusatzinformation - Art 16${sep}Zusatzinformation- Inhalt 16${sep}Zusatzinformation - Art 17${sep}Zusatzinformation- Inhalt 17${sep}Zusatzinformation - Art 18${sep}Zusatzinformation- Inhalt 18${sep}Zusatzinformation - Art 19${sep}Zusatzinformation- Inhalt 19${sep}Zusatzinformation - Art 20${sep}Zusatzinformation- Inhalt 20${sep}Stück${sep}Gewicht${sep}Zahlweise${sep}Forderungsart${sep}Veranlagungsjahr${sep}Zugeordnete Fälligkeit${sep}Skontotyp${sep}Auftragsnummer${sep}Buchungstyp${sep}USt-Schlüssel (Anzahlungen)${sep}EU-Land (Anzahlungen)${sep}Sachverhalt L+L (Anzahlungen)${sep}EU-Steuersatz (Anzahlungen)${sep}Erlöskonto (Anzahlungen)${sep}Herkunft-Kz${sep}Buchungs GUID${sep}KOST-Datum${sep}SEPA-Mandatsreferenz${sep}Skontosperre${sep}Gesellschaftername${sep}Beteiligtennummer${sep}Identifikationsnummer${sep}Zeichnernummer${sep}Postensperre bis${sep}Bezeichnung SoBil-Sachverhalt${sep}Kennzeichen SoBil-Buchung${sep}Festschreibung${sep}Leistungsdatum${sep}Datum Zuord. Steuerperiode${sep}Fälligkeit${sep}Generalumkehr (GU)${sep}Steuersatz${sep}Land\n`
+
+    // Data rows
+    for (const a of scanned) {
+      const brutto = parseFloat(a.amount_gross) || 0
+      const cat = a.category || 'Sonstiges'
+      const kontoInfo = SKR03[cat] || SKR03['Sonstiges']
+      const bu = buSchluessel(a.vat_rate)
+      const vendor = (a.vendor || '').replace(/"/g, '""')
+      const desc = (a.description || '').replace(/"/g, '""')
+      const buchungstext = vendor ? `${vendor}${desc ? ' - ' + desc : ''}` : desc || cat
+
+      // Belegdatum: DDMM format (no year, no separators)
+      let belegdatum = ''
+      if (a.receipt_date) {
+        const d = new Date(a.receipt_date + 'T00:00:00')
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        belegdatum = dd + mm
+      }
+
+      // Umsatz with comma decimal
+      const umsatz = brutto.toFixed(2).replace('.', ',')
+
+      // Build row — only fill required fields, rest empty
+      const row = [
+        umsatz,           // Umsatz
+        '"S"',            // Soll (expense = debit)
+        '"EUR"',          // WKZ
+        '',               // Kurs
+        '',               // Basis-Umsatz
+        '',               // WKZ Basis-Umsatz
+        kontoInfo.konto,  // Konto (Aufwandskonto)
+        GEGENKONTO,       // Gegenkonto (Bank)
+        bu,               // BU-Schlüssel
+        belegdatum,       // Belegdatum DDMM
+        `"${a.filename || ''}"`, // Belegfeld 1
+        '',               // Belegfeld 2
+        '',               // Skonto
+        `"${buchungstext}"`, // Buchungstext (max 60 chars)
+      ]
+
+      // Pad remaining columns with empty values (DATEV expects 116 columns total)
+      while (row.length < 116) row.push('')
+      csv += row.join(sep) + '\n'
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Buchhaltung_Export_${majstorInfo?.business_name || 'Mandant'}_${monthName}_${ausgabenYear}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const SCAN_CATEGORIES = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
 
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
@@ -745,7 +939,7 @@ export default function BuchhalterMandantPage({ params }) {
       {/* Ausgaben Tab */}
       {activeTab === 'ausgaben' && (
         <div className="space-y-4">
-          {/* Month picker */}
+          {/* Month picker + action buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             <select
               value={ausgabenMonth}
@@ -761,7 +955,51 @@ export default function BuchhalterMandantPage({ params }) {
             >
               {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
+            <div className="flex-1" />
+            {ausgaben.some(a => !a.scanned_at) && (
+              <button
+                onClick={bulkScanAll}
+                disabled={bulkScanning || !!scanningId}
+                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+              >
+                {bulkScanning ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {bulkScanProgress.done}/{bulkScanProgress.total}</>
+                ) : (
+                  <><img src="/robot.png" alt="KI" className="w-4 h-4" /> Alle scannen</>
+                )}
+              </button>
+            )}
+            {ausgaben.some(a => a.scanned_at) && (<>
+              <button
+                onClick={exportExcel}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+              >
+                📊 Excel
+              </button>
+              <button
+                onClick={exportDATEV}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+              >
+                📁 Buchhaltung-Export
+              </button>
+            </>)}
           </div>
+
+          {/* Bulk scan progress bar */}
+          {bulkScanning && (
+            <div className="bg-slate-800 border border-violet-500/30 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-violet-400 text-sm font-medium">KI-Scan läuft...</span>
+                <span className="text-slate-400 text-sm">{bulkScanProgress.done} / {bulkScanProgress.total}</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div
+                  className="bg-violet-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${bulkScanProgress.total ? (bulkScanProgress.done / bulkScanProgress.total * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {ausgabenLoading ? (
             <div className="flex justify-center py-8">
@@ -868,7 +1106,7 @@ export default function BuchhalterMandantPage({ params }) {
                                 {isScanning ? (
                                   <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Wird gescannt...</>
                                 ) : (
-                                  <>🤖 KI-Scan</>
+                                  <><img src="/robot.png" alt="KI" className="w-4 h-4" /> KI-Scan</>
                                 )}
                               </button>
                             </>
@@ -947,7 +1185,7 @@ export default function BuchhalterMandantPage({ params }) {
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setScanEditItem(null); setScanResult(null) }}>
         <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between">
-            <h3 className="text-white font-semibold text-lg">🤖 KI-Scan Ergebnis</h3>
+            <h3 className="text-white font-semibold text-lg flex items-center gap-2"><img src="/robot.png" alt="KI" className="w-7 h-7" /> KI-Scan Ergebnis</h3>
             <button onClick={() => { setScanEditItem(null); setScanResult(null) }} className="text-slate-400 hover:text-white text-xl">×</button>
           </div>
 

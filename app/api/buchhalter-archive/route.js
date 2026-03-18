@@ -41,13 +41,27 @@ export async function GET(request) {
     const from = new Date(year, month, 1).toISOString()
     const to = new Date(year, month + 1, 0, 23, 59, 59).toISOString()
 
-    const { data, error } = await supabase
+    // Try with scan columns first, fallback to basic if columns don't exist yet
+    let { data, error } = await supabase
       .from('ausgaben')
       .select('id, storage_path, filename, created_at, vendor, receipt_date, amount_gross, amount_net, vat_rate, vat_amount, category, description, scanned_at')
       .eq('majstor_id', majstorId)
       .gte('created_at', from)
       .lte('created_at', to)
       .order('created_at', { ascending: false })
+
+    // Fallback: if scan columns don't exist yet, query basic columns only
+    if (error && error.code === '42703') {
+      const fallback = await supabase
+        .from('ausgaben')
+        .select('id, storage_path, filename, created_at')
+        .eq('majstor_id', majstorId)
+        .gte('created_at', from)
+        .lte('created_at', to)
+        .order('created_at', { ascending: false })
+      data = fallback.data
+      error = fallback.error
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
