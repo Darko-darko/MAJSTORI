@@ -13,6 +13,7 @@ import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import Link from 'next/link'
 import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
 import AIHelpChat from '@/app/components/AIHelpChat'
+import ScrollToTopButton from '@/app/components/ScrollToTopButton'
 import { useTheme } from '@/lib/context/ThemeContext'
 
 
@@ -1068,6 +1069,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
         />
 
         {!isBuchhalter && <AIHelpChat />}
+        <ScrollToTopButton />
       </div>
     </>
   )
