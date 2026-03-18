@@ -47,6 +47,10 @@ function DashboardPageContent() {
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false)
   const [showOnlyUnsent, setShowOnlyUnsent] = useState(false)
 
+  // Share preview modal
+  const [sharePreviewInvoice, setSharePreviewInvoice] = useState(null)
+  const [shareLoading, setShareLoading] = useState(false)
+
   // Shared drafts — persistent reminder to mark as sent
   const [sharedDraftIds, setSharedDraftIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('prm_shared_drafts') || '[]') } catch { return [] }
@@ -1666,32 +1670,13 @@ const HardResetModal = () => {
                     </button>
                   )}
                   
-                  {quote.pdf_storage_path && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(quote.pdf_storage_path, 600)
-                          if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
-                          const num = quote.quote_number || quote.invoice_number || ''
-                          if (navigator.share) {
-                            const res = await fetch(s.signedUrl)
-                            const blob = await res.blob()
-                            const file = new File([blob], `Angebot_${num}.pdf`, { type: 'application/pdf' })
-                            await navigator.share({ title: `Angebot ${num}`, files: [file] })
-                          } else {
-                            await navigator.clipboard.writeText(s.signedUrl)
-                            alert('PDF-Link wurde in die Zwischenablage kopiert!')
-                          }
-                        } catch (err) {
-                          if (err.name !== 'AbortError') console.error('Share error:', err)
-                        }
-                      }}
-                      className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
-                      style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
-                    >
-                      📤 Teilen
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setSharePreviewInvoice(quote)}
+                    className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
+                    style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
+                  >
+                    📤 Teilen
+                  </button>
 
                   {quote.status !== 'converted' && !hasInvoice && (
                     <button
@@ -1964,56 +1949,7 @@ const HardResetModal = () => {
                     ))}
 
                     <button
-                      onClick={async () => {
-                        try {
-                          const num = invoice.invoice_number || invoice.quote_number || ''
-                          const prefix = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Storno' : 'Rechnung'
-
-                          // Get PDF blob — from storage or generate on the fly
-                          let pdfBlob
-                          if (invoice.pdf_storage_path) {
-                            const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(invoice.pdf_storage_path, 600)
-                            if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
-                            const res = await fetch(s.signedUrl)
-                            pdfBlob = await res.blob()
-                          } else {
-                            const { data: { session } } = await supabase.auth.getSession()
-                            const res = await fetch(`/api/invoices/${invoice.id}/pdf?forceRegenerate=true`, {
-                              headers: { Authorization: `Bearer ${session.access_token}` }
-                            })
-                            if (!res.ok) { alert('PDF konnte nicht erstellt werden.'); return }
-                            pdfBlob = await res.blob()
-                            // Reload list so pdf_storage_path updates
-                            setTimeout(() => { if (majstor?.id) loadInvoicesData(majstor.id) }, 2000)
-                          }
-
-                          if (navigator.share) {
-                            const file = new File([pdfBlob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
-                            await navigator.share({
-                              title: `${prefix} ${num}`,
-                              text: `${prefix} ${num} — ${invoice.customer_name || ''} — ${formatCurrency(invoice.total_amount)}`,
-                              files: [file]
-                            })
-                            // Mark as shared draft — persistent banner will appear
-                            if (invoice.status === 'draft' && !invoice.email_sent_at) {
-                              addSharedDraft(invoice.id)
-                            }
-                          } else {
-                            if (invoice.pdf_storage_path) {
-                              const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(invoice.pdf_storage_path, 600)
-                              if (s?.signedUrl) {
-                                await navigator.clipboard.writeText(s.signedUrl)
-                                alert('PDF-Link wurde in die Zwischenablage kopiert!')
-                              }
-                            } else {
-                              const url = URL.createObjectURL(pdfBlob)
-                              window.open(url, '_blank')
-                            }
-                          }
-                        } catch (err) {
-                          if (err.name !== 'AbortError') console.error('Share error:', err)
-                        }
-                      }}
+                      onClick={() => setSharePreviewInvoice(invoice)}
                       className="px-3 py-2 rounded text-sm transition-colors border-2 text-white"
                       style={{ borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.3)' }}
                     >
@@ -2863,6 +2799,108 @@ const HardResetModal = () => {
           }}
           isReminder={true}
         />
+      )}
+
+      {/* Share Preview Modal */}
+      {sharePreviewInvoice && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !shareLoading && setSharePreviewInvoice(null)}>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-white font-bold text-lg">📤 Teilen</h3>
+              <button onClick={() => setSharePreviewInvoice(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
+            </div>
+
+            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-slate-500">Kunde:</span>
+                  <p className="text-white font-medium">{sharePreviewInvoice.customer_name || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-500">Betrag:</span>
+                  <p className="text-white font-medium">{formatCurrency(sharePreviewInvoice.total_amount)}</p>
+                </div>
+                <div>
+                  <span className="text-slate-500">{sharePreviewInvoice.type === 'quote' ? 'Angebot' : 'Rechnung'}:</span>
+                  <p className="text-white">{sharePreviewInvoice.invoice_number || sharePreviewInvoice.quote_number || 'Entwurf'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-500">Datum:</span>
+                  <p className="text-white">{formatDate(sharePreviewInvoice.issue_date)}</p>
+                </div>
+                {sharePreviewInvoice.due_date && sharePreviewInvoice.type !== 'quote' && (
+                  <div>
+                    <span className="text-slate-500">Fällig:</span>
+                    <p className="text-white">{formatDate(sharePreviewInvoice.due_date)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                disabled={shareLoading}
+                onClick={async () => {
+                  setShareLoading(true)
+                  try {
+                    const inv = sharePreviewInvoice
+                    const num = inv.invoice_number || inv.quote_number || ''
+                    const prefix = inv.type === 'quote' ? 'Angebot' : inv.type === 'storno' ? 'Storno' : 'Rechnung'
+
+                    let pdfBlob
+                    if (inv.pdf_storage_path) {
+                      const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(inv.pdf_storage_path, 600)
+                      if (!s?.signedUrl) { alert('PDF konnte nicht geladen werden.'); return }
+                      const res = await fetch(s.signedUrl)
+                      pdfBlob = await res.blob()
+                    } else {
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch(`/api/invoices/${inv.id}/pdf?forceRegenerate=true`, {
+                        headers: { Authorization: `Bearer ${session.access_token}` }
+                      })
+                      if (!res.ok) { alert('PDF konnte nicht erstellt werden.'); return }
+                      pdfBlob = await res.blob()
+                      setTimeout(() => { if (majstor?.id) loadInvoicesData(majstor.id) }, 2000)
+                    }
+
+                    if (navigator.share) {
+                      const file = new File([pdfBlob], `${prefix}_${num}.pdf`, { type: 'application/pdf' })
+                      await navigator.share({ title: `${prefix} ${num}`, files: [file] })
+                      if (inv.status === 'draft' && !inv.email_sent_at) {
+                        addSharedDraft(inv.id)
+                      }
+                    } else {
+                      if (inv.pdf_storage_path) {
+                        const { data: s } = await supabase.storage.from('invoice-pdfs').createSignedUrl(inv.pdf_storage_path, 600)
+                        if (s?.signedUrl) {
+                          await navigator.clipboard.writeText(s.signedUrl)
+                          alert('PDF-Link wurde in die Zwischenablage kopiert!')
+                        }
+                      } else {
+                        const url = URL.createObjectURL(pdfBlob)
+                        window.open(url, '_blank')
+                      }
+                    }
+                    setSharePreviewInvoice(null)
+                  } catch (err) {
+                    if (err.name !== 'AbortError') console.error('Share error:', err)
+                  } finally {
+                    setShareLoading(false)
+                  }
+                }}
+                className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-semibold transition-colors"
+              >
+                {shareLoading ? 'Wird vorbereitet…' : '📤 PDF teilen'}
+              </button>
+              <button
+                onClick={() => setSharePreviewInvoice(null)}
+                className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <HardResetModal />
