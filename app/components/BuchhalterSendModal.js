@@ -9,7 +9,6 @@ export default function BuchhalterSendModal({
   majstor,
   periodLabel,
   buchhalterEmail: initialEmail = '',
-  onEmailSaved,
 }) {
   const [loading, setLoading] = useState(false)
   const [zipUrl, setZipUrl] = useState(null)
@@ -51,25 +50,6 @@ export default function BuchhalterSendModal({
       setError(err.message)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const saveBookkeeperEmail = async (email) => {
-    if (!email?.trim() || !majstor?.id) return
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const res = await fetch('/api/buchhalter-access', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ buchhalter_email: email.trim() })
-      })
-      if (res.ok) {
-        const json = await res.json()
-        if (onEmailSaved) onEmailSaved(json.data || email.trim())
-      }
-    } catch (e) {
-      console.warn('Email save failed:', e.message)
     }
   }
 
@@ -115,14 +95,13 @@ export default function BuchhalterSendModal({
 
         <div className="p-5 space-y-4">
 
-          {/* Buchhalter Email */}
+          {/* Buchhalter Email — editierbar für einmaligen Versand, wird NICHT gespeichert */}
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">E-Mail Buchhalter <span className="text-slate-500 text-xs">(wird gespeichert)</span></label>
+            <label className="block text-sm text-slate-400 mb-1.5">Empfänger E-Mail</label>
             <input
               type="email"
               value={bookkeeperEmail}
               onChange={e => setBookkeeperEmail(e.target.value)}
-              onBlur={e => saveBookkeeperEmail(e.target.value)}
               placeholder="buchhalter@beispiel.de"
               className="w-full px-3 py-2 bg-slate-900/60 border border-slate-600 rounded-lg text-white text-sm"
             />

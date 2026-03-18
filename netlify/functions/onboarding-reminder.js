@@ -165,7 +165,8 @@ function emailDay7(firstName, deleteToken) {
 const crypto = require('crypto')
 
 function signDeleteToken(userId) {
-  const secret = process.env.INTERNAL_FUNCTION_SECRET || 'fallback-secret'
+  const secret = process.env.INTERNAL_FUNCTION_SECRET
+  if (!secret) throw new Error('INTERNAL_FUNCTION_SECRET not set')
   const payload = `${userId}:delete`
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex')
   return Buffer.from(`${payload}:${sig}`).toString('base64url')

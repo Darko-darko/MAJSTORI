@@ -1,19 +1,15 @@
 // app/api/shorten/route.js — create a short link
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import crypto from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function generateCode(length = 8) {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let code = ''
-  for (let i = 0; i < length; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return code
+function generateCode() {
+  return crypto.randomBytes(6).toString('hex')
 }
 
 export async function POST(request) {

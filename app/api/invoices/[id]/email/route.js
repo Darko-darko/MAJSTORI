@@ -226,8 +226,7 @@ export async function POST(request, routeData) {
   } catch (error) {
     console.error('❌ Email sending error:', error)
     return NextResponse.json({ 
-      error: 'E-Mail-Versand fehlgeschlagen',
-      details: error.message
+      error: 'E-Mail-Versand fehlgeschlagen'
     }, { status: 500 })
   }
 }
@@ -244,7 +243,7 @@ function generateStoragePath(invoice, majstor) {
 function generateFilename(invoice) {
   const documentType = invoice.type === 'quote' ? 'Angebot' : invoice.type === 'storno' ? 'Stornorechnung' : 'Rechnung'
   const documentNumber = invoice.invoice_number || invoice.quote_number || 'DRAFT'
-  const customerName = invoice.customer_name.replace(/[^a-zA-Z0-9]/g, '_')
+  const customerName = (invoice.customer_name || 'Kunde').replace(/[^a-zA-Z0-9]/g, '_')
 
   return `${documentType}_${documentNumber}_${customerName}.pdf`
 }

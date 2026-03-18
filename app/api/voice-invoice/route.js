@@ -106,6 +106,16 @@ export async function POST(req) {
       return Response.json({ error: 'Keine Audiodatei' }, { status: 400 })
     }
 
+    // File validation: max 25MB, audio types only
+    const MAX_SIZE = 25 * 1024 * 1024
+    const ALLOWED_PREFIXES = ['audio/', 'video/webm']
+    if (audioFile.size > MAX_SIZE) {
+      return Response.json({ error: 'Datei zu groß (max. 25 MB)' }, { status: 413 })
+    }
+    if (audioFile.type && !ALLOWED_PREFIXES.some(p => audioFile.type.startsWith(p))) {
+      return Response.json({ error: 'Ungültiges Audioformat' }, { status: 400 })
+    }
+
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
     // 3. Whisper: Audio → Text (auto-detect language)
@@ -151,8 +161,7 @@ export async function POST(req) {
   } catch (err) {
     console.error('Voice invoice error:', err)
     return Response.json({
-      error: 'Fehler bei der Sprachverarbeitung',
-      detail: err?.message || String(err)
+      error: 'Fehler bei der Sprachverarbeitung'
     }, { status: 500 })
   }
 }

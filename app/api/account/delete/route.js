@@ -25,7 +25,8 @@ function verifyDeleteToken(token) {
     if (parts.length !== 3) return null
     const [userId, action, sig] = parts
     if (action !== 'delete') return null
-    const secret = process.env.INTERNAL_FUNCTION_SECRET || 'fallback-secret'
+    const secret = process.env.INTERNAL_FUNCTION_SECRET
+    if (!secret) return null
     const payload = `${userId}:delete`
     const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex')
     if (sig !== expected) return null
