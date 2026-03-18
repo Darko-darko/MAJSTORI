@@ -150,7 +150,8 @@ RECHNUNGEN — DETAILS:
 - ERSTMALIGE EINRICHTUNG: Beim ersten Erstellen einer Rechnung erscheint automatisch ein Einrichtungs-Dialog. Dort können Sie die Startnummern für Rechnungen (RE-) und Angebote (AN-) selbst festlegen — so können Sie den aktuellen Stand aus Ihrem alten System übernehmen. Einmalig, nicht rückgängig machbar.
 - RECHNUNG/ANGEBOT LÖSCHEN: Nur die LETZTE Rechnung (höchste Nummer) kann gelöscht werden — das ist gesetzlich vorgeschrieben (GoBD: lückenlose Rechnungsnummern). Ältere Rechnungen können NICHT gelöscht werden → stattdessen Stornierung verwenden. Löschen: Rechnungen & Angebote → 🗑️ Löschen (nur bei letzter Rechnung sichtbar) → Dokumentnummer eintippen zur Bestätigung → Löschen. Nicht rückgängig machbar. Falls die letzte Rechnung storniert ist: zuerst "Storno rückgängig" machen, dann löschen. Angebote können frei gelöscht werden (keine Nummerierungspflicht), außer wenn bereits eine Rechnung daraus erstellt wurde — dann zuerst die Rechnung löschen.
 - NEUSTART (Hard Reset): Rechnungen & Angebote → Tab "Einstellungen" → roter Button "🔄 Neustart" oben rechts (nur sichtbar wenn Dokumente vorhanden). Löscht ALLE Dokumente (Angebote, Rechnungen, PDFs). Danach erscheint erneut der Einrichtungs-Dialog wo der Nutzer die Startnummern SELBST WÄHLT — es wird NICHT automatisch auf 0001 zurückgesetzt! Der Nutzer gibt die gewünschten Startnummern entsprechend seinem aktuellen Geschäftsstand ein (z.B. RE-2026-0047 wenn er bereits 46 Rechnungen hatte). Gedacht für: nach der Testphase aufräumen und mit echten Nummern neu starten. Bestätigung: "LÖSCHEN" eintippen + zweiter Dialog. Nicht rückgängig machbar!
-- Überfällige Rechnungen: Werden farblich markiert, tägliche Push-Benachrichtigung
+- Überfällige Rechnungen: Werden farblich markiert (roter "Überfällig"-Badge), tägliche Push-Benachrichtigung. Unter dem Überfällig-Badge wird zusätzlich angezeigt ob die Rechnung "Gesendet" (blau) oder "Entwurf" (gelb) ist — so sehen Sie auf einen Blick ob eine überfällige Rechnung tatsächlich verschickt wurde.
+- Nie versendete Entwürfe: Gelber Hinweis oben in der Rechnungsliste zeigt die Anzahl der Entwürfe die noch nie per E-Mail oder Teilen versendet wurden. Klick → filtert die Liste auf diese Entwürfe.
 - ZUGFeRD: Jede Rechnung ist automatisch ein ZUGFeRD-PDF — normales PDF mit unsichtbar eingebetteter XML. DATEV/Lexware kann die XML direkt importieren, keine manuelle Eingabe nötig.
 - DATEV-Export: ZUGFeRD-PDF einfach an Buchhalter weiterleiten — DATEV kann die eingebetteten Daten direkt importieren, ohne manuelle Eingabe. Hinweis: Pro-Meister ist kein zertifizierter DATEV-Partner; die Kompatibilität basiert auf dem offenen ZUGFeRD 2.4-Standard.
 
@@ -162,10 +163,13 @@ RECHNUNG PER E-MAIL AN KUNDEN SENDEN:
 - CC-Feld: Kopie an sich selbst oder Buchhalter möglich
 
 RECHNUNG/ANGEBOT TEILEN (📤 Teilen):
-- Neben "Per E-Mail senden" gibt es den Button "📤 Teilen" — erscheint sobald ein PDF generiert wurde
+- Der Button "📤 Teilen" ist bei jeder Rechnung/Angebot verfügbar — auch bei Entwürfen ohne PDF
+- Klick → Vorschau-Modal mit Rechnungsdetails (Kunde, Betrag, Datum, Fälligkeitsdatum, Status) — so können Sie prüfen ob es die richtige Rechnung ist
+- Falls noch kein PDF existiert: wird automatisch im Hintergrund generiert (kurze Ladezeit)
 - Mobilgeräte: Öffnet den nativen Teilen-Dialog (WhatsApp, Viber, Telegram, SMS, E-Mail usw.) — PDF wird direkt als Datei geteilt
 - Desktop: PDF-Link wird in die Zwischenablage kopiert
 - Ideal für Handwerker die Rechnungen per Messenger an Kunden schicken
+- Nach dem Teilen eines Entwurfs: Es erscheint ein dauerhafter Hinweis auf der Rechnung "Rechnung wurde geteilt — wurde sie erfolgreich versendet?" mit der Möglichkeit, die Rechnung als "Gesendet" zu markieren. Dieser Hinweis bleibt auch nach Seiten-Refresh bestehen, bis Sie ihn bestätigen oder schließen.
 
 RECHNUNG AN BUCHHALTER SENDEN:
 - Empfehlung: Einmal oder zweimal im Monat alle Rechnungen und Ausgaben gesammelt senden. Buchhalter → Tab wählen (Rechnungen oder Ausgaben) → Zeitraum wählen → alle auswählen → "An Buchhalter senden".
@@ -175,7 +179,7 @@ RECHNUNG AN BUCHHALTER SENDEN:
 BUCHHALTER-ZUGANG (Portal) — DETAILS:
 Was ist das: Ihr Buchhalter bekommt einen eigenen Login und kann Ihre Rechnungen und Ausgaben direkt im Portal einsehen und herunterladen — ohne dass Sie jedes Mal etwas senden müssen.
 Einrichten: Dashboard → Buchhalter (linkes Menü) → "PDF-Archiv & Buchhalter-Zugang" → E-Mail-Adresse des Buchhalters eingeben → "Portal-Zugang aktivieren"
-Was der Buchhalter sieht: Ein eigenes Dashboard mit Statistik-Karten (Rechnungen, Bezahlt, Überfällig, Umsatz), Zeitraum-Filter, Status-Filter und Kunden-Filter. Rechnungen und Ausgaben — sortiert nach Monat, als ZIP herunterladbar. Buchhalter kann Rechnungen als "bezahlt" markieren. Überfällige Rechnungen zeigen auch das Fälligkeitsdatum an.
+Was der Buchhalter sieht: Ein eigenes Dashboard mit Statistik-Karten (Rechnungen, Bezahlt, Überfällig, Umsatz), Zeitraum-Filter, Status-Filter und Kunden-Filter. Rechnungen und Ausgaben — sortiert nach Monat, als ZIP herunterladbar. Buchhalter kann Rechnungen als "bezahlt" markieren. Überfällige Rechnungen zeigen auch das Fälligkeitsdatum an. Daten werden automatisch alle 10 Minuten im Hintergrund aktualisiert — neue Rechnungen erscheinen ohne manuellen Refresh.
 Login des Buchhalters: Der Buchhalter erhält eine E-Mail mit Einladung → erstellt ein eigenes Passwort → meldet sich unter pro-meister.de/login an
 Mehrere Mandanten: Wenn ein Buchhalter mehrere Handwerker betreut, sieht er alle verbundenen Mandanten in seinem Portal.
 Verbindung trennen: Jederzeit in Einstellungen → Buchhalter-Zugang → "Zugang entfernen". Der Buchhalter verliert sofort den Zugriff.
