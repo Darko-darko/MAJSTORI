@@ -3,9 +3,27 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-function Thumbnail({ url }) {
-  if (!url) return <div className="w-full h-full bg-slate-600 animate-pulse" />
-  return <img src={url} alt="Beleg" className="w-full h-full object-cover" />
+function AusgabenThumbnail({ storagePath, filename, majstorId, getToken }) {
+  const [url, setUrl] = useState(null)
+
+  useEffect(() => {
+    if (!storagePath) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const t = await getToken()
+        const res = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(storagePath)}&bucket=ausgaben`, {
+          headers: { Authorization: `Bearer ${t}` }
+        })
+        const { signedUrl } = await res.json()
+        if (!cancelled && signedUrl) setUrl(signedUrl)
+      } catch { /* skip */ }
+    })()
+    return () => { cancelled = true }
+  }, [storagePath])
+
+  if (!url) return <div className="flex items-center justify-center h-full"><div className="h-5 w-5 border-2 border-slate-600 border-t-teal-500 rounded-full animate-spin" /></div>
+  return <img src={url} alt={filename || 'Beleg'} className="w-full h-full object-cover" />
 }
 
 function groupByMonth(ausgaben) {
@@ -699,30 +717,39 @@ export default function BuchhalterMandantPage({ params }) {
 
   return (
     <>
-    <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div>
-        <button onClick={() => router.push('/dashboard/buchhalter')} className="text-slate-400 hover:text-white text-sm mb-3 inline-block">← Zurück</button>
-        <h1 className="text-2xl font-bold text-white">
-          {majstorInfo?.business_name || majstorInfo?.full_name || 'Auftraggeber'}
-        </h1>
-        {majstorInfo?.city && <p className="text-slate-400 text-sm">{majstorInfo.city}</p>}
-      </div>
+    <div className="pb-20">
+      {/* Back button */}
+      <button onClick={() => router.push('/dashboard/buchhalter')} className="text-slate-400 hover:text-white text-sm mb-4 inline-block">← Zurück</button>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-800/50 rounded-lg p-1 w-fit">
-        {['rechnungen', 'ausgaben'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setSelectedIds(new Set()) }}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            {tab === 'rechnungen' ? '📄 Rechnungen' : '🧾 Ausgaben'}
-          </button>
-        ))}
-      </div>
+      {/* Main layout: sidebar + content */}
+      <div className="flex flex-col lg:flex-row gap-6 min-h-[60vh]">
+        {/* Left sidebar — company info + tabs */}
+        <div className="w-full lg:w-64 shrink-0 space-y-4">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <h1 className="text-lg font-bold text-white leading-tight">
+              {majstorInfo?.business_name || majstorInfo?.full_name || 'Auftraggeber'}
+            </h1>
+            {majstorInfo?.city && <p className="text-slate-400 text-sm mt-1">{majstorInfo.city}</p>}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex lg:flex-col gap-1 bg-slate-800/50 rounded-xl p-1">
+            {['rechnungen', 'ausgaben'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setSelectedIds(new Set()) }}
+                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
+                  activeTab === tab ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 border border-transparent'
+                }`}
+              >
+                {tab === 'rechnungen' ? '📄 Rechnungen' : '🧾 Ausgaben'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right content area */}
+        <div className="flex-1 min-w-0 space-y-4">
 
       {/* Rechnungen Tab */}
       {activeTab === 'rechnungen' && (
@@ -939,50 +966,53 @@ export default function BuchhalterMandantPage({ params }) {
       {/* Ausgaben Tab */}
       {activeTab === 'ausgaben' && (
         <div className="space-y-4">
-          {/* Month picker + action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={ausgabenMonth}
-              onChange={e => setAusgabenMonth(parseInt(e.target.value))}
-              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none"
-            >
-              {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select
-              value={ausgabenYear}
-              onChange={e => setAusgabenYear(parseInt(e.target.value))}
-              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none"
-            >
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <div className="flex-1" />
-            {ausgaben.some(a => !a.scanned_at) && (
-              <button
-                onClick={bulkScanAll}
-                disabled={bulkScanning || !!scanningId}
-                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+          {/* Toolbar — scanner style */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <h2 className="text-white font-semibold text-lg">{majstorInfo?.business_name || majstorInfo?.full_name || 'Auftraggeber'}</h2>
+              <select
+                value={ausgabenMonth}
+                onChange={e => setAusgabenMonth(parseInt(e.target.value))}
+                className="bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:border-teal-500"
               >
-                {bulkScanning ? (
-                  <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {bulkScanProgress.done}/{bulkScanProgress.total}</>
-                ) : (
-                  <><img src="/robot.png" alt="KI" className="w-4 h-4" /> Alle scannen</>
-                )}
-              </button>
-            )}
-            {ausgaben.some(a => a.scanned_at) && (<>
-              <button
-                onClick={exportExcel}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+                {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <select
+                value={ausgabenYear}
+                onChange={e => setAusgabenYear(parseInt(e.target.value))}
+                className="bg-slate-800 border border-slate-600 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:border-teal-500"
               >
-                📊 Excel
-              </button>
-              <button
-                onClick={exportDATEV}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
-              >
-                📁 Buchhaltung-Export
-              </button>
-            </>)}
+                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {ausgaben.some(a => !a.scanned_at) && (
+                <button
+                  onClick={bulkScanAll}
+                  disabled={bulkScanning || !!scanningId}
+                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+                >
+                  {bulkScanning ? (
+                    <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {bulkScanProgress.done}/{bulkScanProgress.total}</>
+                  ) : (
+                    <><img src="/robot.png" alt="KI" className="w-4 h-4" /> Alle scannen</>
+                  )}
+                </button>
+              )}
+              {ausgaben.some(a => a.scanned_at) && (<>
+                <button onClick={exportExcel} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
+                  📊 Excel
+                </button>
+                <button onClick={exportDATEV} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
+                  📁 Buchhaltung-Export
+                </button>
+              </>)}
+              {selectedIds.size > 0 && (
+                <button onClick={() => deleteAusgaben([...selectedIds])} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
+                  🗑️ {selectedIds.size} löschen
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Bulk scan progress bar */}
@@ -1001,17 +1031,23 @@ export default function BuchhalterMandantPage({ params }) {
             </div>
           )}
 
+          {/* Dashed border content area — like scanner */}
+          <div className="min-h-[300px] border-2 border-dashed rounded-2xl p-4 border-slate-700 hover:border-slate-600 transition-colors">
           {ausgabenLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="h-8 w-8 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
-            </div>
-          ) : ausgaben.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">Keine Ausgaben für diesen Monat</div>
-          ) : groupByMonth(ausgaben).map(group => {
+              <div className="flex items-center justify-center h-40">
+                <div className="h-8 w-8 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
+              </div>
+            ) : ausgaben.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="text-5xl mb-4">🧾</div>
+                <p className="text-slate-300 text-lg font-medium mb-2">Keine Ausgaben</p>
+                <p className="text-slate-500 text-sm">Keine Belege für diesen Monat vorhanden</p>
+              </div>
+            ) : groupByMonth(ausgaben).map(group => {
             const allSel = group.items.every(i => selectedIds.has(i.id))
             return (
-              <div key={group.key} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+              <div key={group.key} className="space-y-3">
+                <div className="flex items-center justify-between">
                   <h2 className="text-white font-semibold text-sm">{group.label}</h2>
                   <button
                     onClick={() => toggleGroup(group.items)}
@@ -1020,15 +1056,19 @@ export default function BuchhalterMandantPage({ params }) {
                     {allSel ? 'Alle abwählen' : 'Alle auswählen'}
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {group.items.map(item => {
                     const isPDF = item.storage_path?.endsWith('.pdf')
                     const selected = selectedIds.has(item.id)
                     const isScanned = !!item.scanned_at
                     const isScanning = scanningId === item.id
                     return (
-                      <div key={item.id} className={`relative rounded-lg border ${isScanned ? 'border-green-500/30 bg-slate-800/50' : 'border-slate-700'}`}>
+                      <div key={item.id} className={`bg-slate-800/80 border rounded-xl overflow-hidden transition-all ${
+                        selected ? 'border-teal-500 ring-1 ring-teal-500/30' : 'border-slate-700 hover:border-slate-600'
+                      }`}>
+                        {/* Thumbnail */}
                         <div
+                          className="relative aspect-[3/4] bg-slate-900 cursor-pointer"
                           onClick={async () => {
                             try {
                               const ft = await getFreshToken()
@@ -1045,71 +1085,58 @@ export default function BuchhalterMandantPage({ params }) {
                               setPreviewBlobUrl(URL.createObjectURL(blob))
                             } catch { /* skip */ }
                           }}
-                          className={`aspect-square rounded-t-lg overflow-hidden cursor-pointer border-b bg-slate-700 flex items-center justify-center hover:opacity-90 transition-opacity ${isScanned ? 'border-green-500/20' : 'border-slate-600'}`}
                         >
                           {isPDF ? (
-                            <div className="flex flex-col items-center justify-center w-full h-full p-2 gap-1">
-                              <span className="text-2xl">📄</span>
-                              <span className="text-slate-400 text-xs text-center leading-tight line-clamp-2 break-all">
-                                {item.filename || 'PDF'}
-                              </span>
+                            <div className="flex items-center justify-center h-full">
+                              <div className="text-center">
+                                <div className="text-4xl mb-1">📄</div>
+                                <p className="text-slate-500 text-xs">PDF</p>
+                              </div>
                             </div>
                           ) : (
-                            <Thumbnail url={item.signedUrl} />
+                            <AusgabenThumbnail storagePath={item.storage_path} filename={item.filename} majstorId={majstorId} getToken={getFreshToken} />
+                          )}
+                          {/* Select checkbox — top left */}
+                          <div className="absolute top-2 left-2 z-10" onClick={e => { e.stopPropagation(); toggleSelect(item.id) }}>
+                            <div className={`w-6 h-6 rounded border-2 flex items-center justify-center cursor-pointer transition-colors shadow-sm ${
+                              selected ? 'bg-teal-500 border-teal-500 text-white' : 'border-slate-400 bg-slate-900/60 hover:border-slate-300'
+                            }`}>
+                              {selected && <span className="text-xs font-bold">✓</span>}
+                            </div>
+                          </div>
+                          {/* Scan status badge — bottom right (only when scanned) */}
+                          {isScanned && (
+                            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md bg-green-500 text-white text-xs font-medium shadow-sm">
+                              ✓
+                            </div>
                           )}
                         </div>
-                        {/* Select checkbox */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleSelect(item.id) }}
-                          className={`absolute top-1 left-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs transition-colors ${selected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-slate-900/70 border-slate-500'}`}
-                        >
-                          {selected && '✓'}
-                        </button>
-                        {/* Delete button */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteAusgaben([item.id]) }}
-                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs flex items-center justify-center hover:bg-red-600 transition-colors"
-                        >
-                          ×
-                        </button>
-
-                        {/* Info section below thumbnail */}
-                        <div className="p-2 space-y-1">
+                        {/* Info */}
+                        <div className="p-2 space-y-1.5">
+                          <p className="text-white text-xs truncate" title={item.filename}>{item.filename}</p>
                           {isScanned ? (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <span className="text-white text-sm font-semibold truncate">{item.amount_gross?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
-                                <span className="text-green-400 text-xs">✓ KI</span>
-                              </div>
-                              <p className="text-slate-300 text-xs truncate">{item.vendor}</p>
-                              <div className="flex items-center justify-between">
-                                <span className="text-slate-500 text-xs">{item.category}</span>
-                                <span className="text-slate-500 text-xs">{item.receipt_date ? new Date(item.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''}</span>
-                              </div>
+                            <div className="space-y-0.5">
+                              <p className="text-teal-400 text-xs font-medium truncate">{item.vendor}</p>
+                              <p className="text-white text-xs font-bold">{parseFloat(item.amount_gross).toFixed(2).replace('.', ',')} €</p>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setScanEditItem({ ...item }); setScanResult(item) }}
-                                className="w-full mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                                className="text-slate-400 hover:text-white text-xs underline"
                               >
-                                ✏️ Bearbeiten
+                                Bearbeiten
                               </button>
-                            </>
+                            </div>
                           ) : (
-                            <>
-                              <p className="text-slate-500 text-xs truncate">
-                                {new Date(item.created_at).toLocaleDateString('de-DE')}
-                              </p>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); scanBeleg(item) }}
-                                disabled={isScanning || !!scanningId}
-                                className="w-full mt-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-xs py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors"
-                              >
-                                {isScanning ? (
-                                  <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Wird gescannt...</>
-                                ) : (
-                                  <><img src="/robot.png" alt="KI" className="w-4 h-4" /> KI-Scan</>
-                                )}
-                              </button>
-                            </>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); scanBeleg(item) }}
+                              disabled={isScanning || !!scanningId}
+                              className="w-full py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"
+                            >
+                              {isScanning ? (
+                                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <><img src="/robot.png" alt="KI" className="w-3.5 h-3.5" /> Scannen</>
+                              )}
+                            </button>
                           )}
                         </div>
                       </div>
@@ -1119,9 +1146,13 @@ export default function BuchhalterMandantPage({ params }) {
               </div>
             )
           })}
+          </div>{/* /dashed border */}
         </div>
       )}
-    </div>
+
+        </div>{/* /flex-1 content */}
+      </div>{/* /flex container */}
+    </div>{/* /pb-20 */}
 
     {/* Floating action bar */}
     {selectedIds.size > 0 && (

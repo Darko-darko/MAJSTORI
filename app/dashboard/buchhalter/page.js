@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 
+const SCANNER_TESTERS = ['2f9f6665-3524-44a6-9a74-215571ad5690', 'd9a02afc-1508-4e36-8a26-e53aa9bf7dc8']
+
 export default function BuchhalterDashboard() {
   const [majstors, setMajstors] = useState([]) // accepted
   const [pendingInvites, setPendingInvites] = useState([]) // pending acceptance
@@ -150,13 +152,23 @@ export default function BuchhalterDashboard() {
           <h1 className="text-2xl font-bold text-white">📒 Meine Auftraggeber</h1>
           <p className="text-slate-400 text-sm mt-1">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
         </div>
-        <a
-          href="/zugferd-validator"
-          target="_blank"
-          className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          ZUGFeRD prüfen
-        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          {user && SCANNER_TESTERS.includes(user.id) && (
+            <a
+              href="/dashboard/buchhalter/scanner"
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <img src="/robot.png" alt="KI" className="w-5 h-5" /> Belege scannen
+            </a>
+          )}
+          <a
+            href="/zugferd-validator"
+            target="_blank"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            ZUGFeRD prüfen
+          </a>
+        </div>
       </div>
 
       {/* Pending Invites */}

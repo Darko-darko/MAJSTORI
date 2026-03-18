@@ -37,6 +37,8 @@ html.light-mode {
   --color-green-200: oklch(0.448 0.119 151.328) !important;  /* → green-700 */
   --color-green-300: oklch(0.448 0.119 151.328) !important;  /* → green-700 */
   --color-green-400: oklch(0.527 0.154 150.069) !important;  /* → green-600 */
+  --color-green-600: oklch(0.620 0.150 150.0) !important;   /* light-mode: lighter green */
+  --color-green-700: oklch(0.560 0.155 150.0) !important;   /* light-mode: hover */
 
   --color-red-200: oklch(0.444 0.177 26.899) !important;     /* → red-700 */
   --color-red-300: oklch(0.444 0.177 26.899) !important;     /* → red-700 */
@@ -58,6 +60,8 @@ html.light-mode {
   --color-violet-300: oklch(0.491 0.270 292.581) !important; /* → violet-700 */
   --color-violet-400: oklch(0.541 0.281 293.009) !important; /* → violet-600 */
   --color-violet-500: oklch(0.541 0.281 293.009) !important; /* → violet-600 */
+  --color-violet-600: oklch(0.700 0.200 293.0) !important;   /* light-mode: lighter violet */
+  --color-violet-700: oklch(0.650 0.220 293.0) !important;   /* light-mode: hover */
 
   --color-teal-200: oklch(0.511 0.096 186.391) !important;   /* → teal-700 */
   --color-teal-300: oklch(0.511 0.096 186.391) !important;   /* → teal-700 */
