@@ -635,8 +635,10 @@ export default function InvoiceCreator({
   const handleCustomerNameChange = (e) => {
     const value = e.target.value
     setCustomerSearchTerm(value)
-    setFormData(prev => ({ ...prev, customer_name: value }))
-    
+    // Ako je ime promijenjeno nakon što je klijent odabran iz liste — resetuj customer_id
+    // tako da se pri snimanju kreira novi ili matchira po name+email
+    setFormData(prev => ({ ...prev, customer_name: value, customer_id: null }))
+
     if (value.length >= 2 && !isEditMode && !prefilledCustomer) {
       searchCustomers(value)
     } else {
@@ -1106,14 +1108,14 @@ export default function InvoiceCreator({
       
       if (!customerId) {
         console.log('🔍 Searching for existing customer...')
-        
-      // ✅ FIXED: Case-insensitive duplicate detection
-const { data: existingCustomers, error: searchError } = await supabase
-  .from('customers')
-  .select('id')
-  .eq('majstor_id', majstor.id)
-  .ilike('name', formData.customer_name.trim())
-  .ilike('email', formData.customer_email.trim())
+
+      // ✅ Traži po name + email (case-insensitive)
+      const { data: existingCustomers, error: searchError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('majstor_id', majstor.id)
+        .ilike('name', formData.customer_name.trim())
+        .ilike('email', formData.customer_email.trim())
 
 if (searchError) {
   console.error('ERROR searching customer:', searchError)

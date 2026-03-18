@@ -1733,11 +1733,19 @@ const HardResetModal = () => {
 
   // 🔥 UPDATED InvoicesList with overdue filter + infinity scroll
   const InvoicesList = () => {
+    // Sortiranje: storno odmah iznad svoje originalne fakture
+    const sortedInvoices = [...invoices].sort((a, b) => {
+      // Izvuci sortKey: za storno koristi invoice_number originala (bez STOR- prefixa)
+      const keyA = a.type === 'storno' ? a.invoice_number.replace('STOR-', '') + '_S' : a.invoice_number + '_R'
+      const keyB = b.type === 'storno' ? b.invoice_number.replace('STOR-', '') + '_S' : b.invoice_number + '_R'
+      return keyB.localeCompare(keyA) // DESC — noviji prvo, storno (_S) iznad originala (_R)
+    })
+
     const displayInvoices = showOnlyUnsent
-      ? invoices.filter(inv => inv.status === 'draft' && inv.type === 'invoice')
+      ? sortedInvoices.filter(inv => inv.status === 'draft' && inv.type === 'invoice')
       : showOnlyOverdue
-        ? invoices.filter(inv => isInvoiceOverdue(inv))
-        : invoices
+        ? sortedInvoices.filter(inv => isInvoiceOverdue(inv))
+        : sortedInvoices
 
     const visibleInvoices = displayInvoices.slice(0, visibleInvoiceCount)
     const hasMoreInvoices = visibleInvoiceCount < displayInvoices.length
@@ -2709,7 +2717,7 @@ const HardResetModal = () => {
               <p className="text-2xl font-bold text-white">
                 {formatCurrency(
                   invoices
-                    .filter(inv => inv.status === 'paid' && new Date(inv.issue_date || inv.created_at).getFullYear() === new Date().getFullYear())
+                    .filter(inv => inv.type === 'invoice' && inv.status === 'paid' && new Date(inv.issue_date || inv.created_at).getFullYear() === new Date().getFullYear())
                     .reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
                 )}
               </p>
