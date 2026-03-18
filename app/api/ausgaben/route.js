@@ -55,6 +55,42 @@ export async function POST(request) {
   }
 }
 
+// PATCH — update scan metadata (vendor, amount, category, etc.)
+export async function PATCH(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { id, ...updates } = await request.json()
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+    // Only allow these fields to be updated
+    const allowed = ['vendor', 'receipt_date', 'amount_gross', 'amount_net', 'vat_rate', 'vat_amount', 'category', 'description']
+    const clean = {}
+    for (const key of allowed) {
+      if (updates[key] !== undefined) clean[key] = updates[key]
+    }
+
+    if (Object.keys(clean).length === 0) {
+      return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
+    }
+
+    // Verify ownership (majstor updating own) OR buchhalter via separate route
+    const { data, error } = await admin
+      .from('ausgaben')
+      .update(clean)
+      .eq('id', id)
+      .eq('majstor_id', user.id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ausgabe: data })
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // DELETE — remove ausgabe and file from storage
 export async function DELETE(request) {
   try {

@@ -48,6 +48,14 @@ export default function BuchhalterMandantPage({ params }) {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [zipLoading, setZipLoading] = useState(false)
 
+  // AI Scan states
+  const [scanningId, setScanningId] = useState(null)
+  const [scanResult, setScanResult] = useState(null)
+  const [scanEditItem, setScanEditItem] = useState(null)
+  const [scanSaving, setScanSaving] = useState(false)
+  const [bulkScanning, setBulkScanning] = useState(false)
+  const [bulkScanProgress, setBulkScanProgress] = useState({ done: 0, total: 0 })
+
   useEffect(() => {
     loadData()
     // Silent auto-refresh every 10 minutes (no loading spinner)
@@ -325,6 +333,294 @@ export default function BuchhalterMandantPage({ params }) {
       }
     }
   }
+
+  // AI Scan functions
+  const scanBeleg = async (item) => {
+    if (scanningId) return
+    setScanningId(item.id)
+    setScanResult(null)
+    try {
+      const ft = await getFreshToken()
+      // Get fresh signed URL for the image
+      const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
+        headers: { Authorization: `Bearer ${ft}` }
+      })
+      const { signedUrl } = await signRes.json()
+      if (!signedUrl) throw new Error('Bild-URL konnte nicht erstellt werden')
+
+      const res = await fetch('/api/ausgaben/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+        body: JSON.stringify({ image_url: signedUrl, ausgabe_id: item.id })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Scan fehlgeschlagen')
+
+      setScanResult(json.data)
+      setScanEditItem({ ...item, ...json.data })
+      // Update local state
+      setAusgaben(prev => prev.map(a => a.id === item.id ? { ...a, ...json.data, scanned_at: new Date().toISOString() } : a))
+    } catch (err) {
+      alert('Scan-Fehler: ' + err.message)
+    } finally {
+      setScanningId(null)
+    }
+  }
+
+  const saveScanEdit = async () => {
+    if (!scanEditItem) return
+    setScanSaving(true)
+    try {
+      const ft = await getFreshToken()
+      const res = await fetch('/api/buchhalter-archive', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+        body: JSON.stringify({
+          majstorId,
+          type: 'ausgabe_scan',
+          ausgabeId: scanEditItem.id,
+          scanData: {
+            vendor: scanEditItem.vendor,
+            receipt_date: scanEditItem.receipt_date,
+            amount_gross: parseFloat(scanEditItem.amount_gross) || 0,
+            amount_net: parseFloat(scanEditItem.amount_net) || 0,
+            vat_rate: parseFloat(scanEditItem.vat_rate) || 19,
+            vat_amount: parseFloat(scanEditItem.vat_amount) || 0,
+            category: scanEditItem.category,
+            description: scanEditItem.description,
+          }
+        })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      // Update local state
+      setAusgaben(prev => prev.map(a => a.id === scanEditItem.id ? { ...a, ...json.ausgabe } : a))
+      setScanEditItem(null)
+      setScanResult(null)
+    } catch (err) {
+      alert('Speichern fehlgeschlagen: ' + err.message)
+    } finally {
+      setScanSaving(false)
+    }
+  }
+
+  // Delete ausgaben (buchhalter)
+  const deleteAusgaben = async (ids) => {
+    if (!ids.length) return
+    if (!confirm(`${ids.length} Beleg${ids.length > 1 ? 'e' : ''} löschen?`)) return
+    try {
+      const ft = await getFreshToken()
+      const res = await fetch('/api/buchhalter-archive', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+        body: JSON.stringify({ majstorId, ausgabenIds: ids })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setAusgaben(prev => prev.filter(a => !ids.includes(a.id)))
+      setSelectedIds(prev => {
+        const s = new Set(prev)
+        ids.forEach(id => s.delete(id))
+        return s
+      })
+    } catch (err) {
+      alert('Löschen fehlgeschlagen: ' + err.message)
+    }
+  }
+
+  // Bulk scan all unscanned ausgaben
+  const bulkScanAll = async () => {
+    const unscanned = ausgaben.filter(a => !a.scanned_at)
+    if (!unscanned.length) { alert('Alle Belege sind bereits gescannt.'); return }
+    if (!confirm(`${unscanned.length} Beleg${unscanned.length > 1 ? 'e' : ''} mit KI scannen?`)) return
+
+    setBulkScanning(true)
+    setBulkScanProgress({ done: 0, total: unscanned.length })
+
+    for (let i = 0; i < unscanned.length; i++) {
+      const item = unscanned[i]
+      try {
+        const ft = await getFreshToken()
+        const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
+          headers: { Authorization: `Bearer ${ft}` }
+        })
+        const { signedUrl } = await signRes.json()
+        if (!signedUrl) continue
+
+        const res = await fetch('/api/ausgaben/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+          body: JSON.stringify({ image_url: signedUrl, ausgabe_id: item.id })
+        })
+        const json = await res.json()
+        if (res.ok && json.data) {
+          setAusgaben(prev => prev.map(a => a.id === item.id ? { ...a, ...json.data, scanned_at: new Date().toISOString() } : a))
+        }
+      } catch { /* continue with next */ }
+      setBulkScanProgress({ done: i + 1, total: unscanned.length })
+    }
+
+    setBulkScanning(false)
+  }
+
+  // Excel export grouped by category
+  const exportExcel = () => {
+    const scanned = ausgaben.filter(a => a.scanned_at)
+    if (!scanned.length) { alert('Keine gescannten Belege zum Exportieren.'); return }
+
+    // Group by category
+    const groups = {}
+    for (const a of scanned) {
+      const cat = a.category || 'Sonstiges'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(a)
+    }
+
+    const CATEGORIES_ORDER = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
+    const sortedCats = Object.keys(groups).sort((a, b) => {
+      const ia = CATEGORIES_ORDER.indexOf(a), ib = CATEGORIES_ORDER.indexOf(b)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
+
+    // Build CSV with BOM for Excel UTF-8 compatibility
+    const sep = ';'
+    let csv = '\uFEFF' // BOM
+    let grandBrutto = 0, grandNetto = 0, grandVat = 0
+
+    for (const cat of sortedCats) {
+      const items = groups[cat]
+      csv += `\n${cat}\n`
+      csv += `Datum${sep}Händler${sep}Brutto (€)${sep}Netto (€)${sep}MwSt-Satz${sep}MwSt (€)${sep}Beschreibung${sep}Dateiname\n`
+
+      let catBrutto = 0, catNetto = 0, catVat = 0
+      for (const a of items) {
+        const brutto = parseFloat(a.amount_gross) || 0
+        const netto = parseFloat(a.amount_net) || 0
+        const vat = parseFloat(a.vat_amount) || 0
+        catBrutto += brutto
+        catNetto += netto
+        catVat += vat
+
+        const datum = a.receipt_date ? new Date(a.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''
+        const vendor = (a.vendor || '').replace(/;/g, ',')
+        const desc = (a.description || '').replace(/;/g, ',')
+        const fname = (a.filename || '').replace(/;/g, ',')
+        csv += `${datum}${sep}${vendor}${sep}${brutto.toFixed(2).replace('.', ',')}${sep}${netto.toFixed(2).replace('.', ',')}${sep}${a.vat_rate || 19}%${sep}${vat.toFixed(2).replace('.', ',')}${sep}${desc}${sep}${fname}\n`
+      }
+
+      csv += `${sep}Summe ${cat}${sep}${catBrutto.toFixed(2).replace('.', ',')}${sep}${catNetto.toFixed(2).replace('.', ',')}${sep}${sep}${catVat.toFixed(2).replace('.', ',')}${sep}${sep}\n`
+      grandBrutto += catBrutto
+      grandNetto += catNetto
+      grandVat += catVat
+    }
+
+    csv += `\n${sep}GESAMT${sep}${grandBrutto.toFixed(2).replace('.', ',')}${sep}${grandNetto.toFixed(2).replace('.', ',')}${sep}${sep}${grandVat.toFixed(2).replace('.', ',')}${sep}${sep}\n`
+
+    const monthName = months[ausgabenMonth]
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Ausgaben_${majstorInfo?.business_name || 'Mandant'}_${monthName}_${ausgabenYear}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // DATEV Buchungsstapel (EXTF) export
+  const exportDATEV = () => {
+    const scanned = ausgaben.filter(a => a.scanned_at)
+    if (!scanned.length) { alert('Keine gescannten Belege zum Exportieren.'); return }
+
+    // SKR03 Kontenrahmen mapping
+    const SKR03 = {
+      'Material': { konto: 3400, label: 'Wareneingang' },
+      'Werkzeug': { konto: 4980, label: 'Sonstige betriebliche Aufwendungen' },
+      'Fahrzeug': { konto: 4530, label: 'Kfz-Kosten' },
+      'Büro': { konto: 4930, label: 'Bürobedarf' },
+      'Versicherung': { konto: 4360, label: 'Versicherungen' },
+      'Telefon/Internet': { konto: 4920, label: 'Telefon' },
+      'Miete': { konto: 4210, label: 'Miete' },
+      'Reise': { konto: 4660, label: 'Reisekosten' },
+      'Bewirtung': { konto: 4650, label: 'Bewirtungskosten' },
+      'Sonstiges': { konto: 4900, label: 'Sonstige betriebliche Aufwendungen' },
+    }
+
+    const GEGENKONTO = 1200 // Bank (SKR03)
+
+    // BU-Schlüssel for VAT rates
+    const buSchluessel = (rate) => {
+      const r = parseFloat(rate) || 19
+      if (r === 19) return 9
+      if (r === 7) return 8
+      return 0
+    }
+
+    const sep = ';'
+    const monthName = months[ausgabenMonth]
+
+    // DATEV EXTF header lines
+    let csv = '\uFEFF' // BOM
+    // Header line 1: EXTF metadata
+    csv += `"EXTF"${sep}700${sep}21${sep}"Buchungsstapel"${sep}7${sep}""${sep}""${sep}""${sep}""${sep}""${sep}${ausgabenYear}0101${sep}${sep}""${sep}""${sep}""${sep}""${sep}0${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}\n`
+
+    // Header line 2: Column names
+    csv += `Umsatz (ohne Soll/Haben-Kz)${sep}Soll/Haben-Kennzeichen${sep}WKZ Umsatz${sep}Kurs${sep}Basis-Umsatz${sep}WKZ Basis-Umsatz${sep}Konto${sep}Gegenkonto (ohne BU)${sep}BU-Schlüssel${sep}Belegdatum${sep}Belegfeld 1${sep}Belegfeld 2${sep}Skonto${sep}Buchungstext${sep}Postensperre${sep}Diverse Adressnummer${sep}Geschäftspartnerbank${sep}Sachverhalt${sep}Zinssperre${sep}Beleglink${sep}Beleginfo - Art 1${sep}Beleginfo - Inhalt 1${sep}Beleginfo - Art 2${sep}Beleginfo - Inhalt 2${sep}Beleginfo - Art 3${sep}Beleginfo - Inhalt 3${sep}Beleginfo - Art 4${sep}Beleginfo - Inhalt 4${sep}Beleginfo - Art 5${sep}Beleginfo - Inhalt 5${sep}Beleginfo - Art 6${sep}Beleginfo - Inhalt 6${sep}Beleginfo - Art 7${sep}Beleginfo - Inhalt 7${sep}Beleginfo - Art 8${sep}Beleginfo - Inhalt 8${sep}KOST1 - Kostenstelle${sep}KOST2 - Kostenstelle${sep}Kost-Menge${sep}EU-Land u. UStID${sep}EU-Steuersatz${sep}Abw. Versteuerungsart${sep}Sachverhalt L+L${sep}Funktionsergänzung L+L${sep}BU 49 Hauptfunktionstyp${sep}BU 49 Hauptfunktionsnummer${sep}BU 49 Funktionsergänzung${sep}Zusatzinformation - Art 1${sep}Zusatzinformation- Inhalt 1${sep}Zusatzinformation - Art 2${sep}Zusatzinformation- Inhalt 2${sep}Zusatzinformation - Art 3${sep}Zusatzinformation- Inhalt 3${sep}Zusatzinformation - Art 4${sep}Zusatzinformation- Inhalt 4${sep}Zusatzinformation - Art 5${sep}Zusatzinformation- Inhalt 5${sep}Zusatzinformation - Art 6${sep}Zusatzinformation- Inhalt 6${sep}Zusatzinformation - Art 7${sep}Zusatzinformation- Inhalt 7${sep}Zusatzinformation - Art 8${sep}Zusatzinformation- Inhalt 8${sep}Zusatzinformation - Art 9${sep}Zusatzinformation- Inhalt 9${sep}Zusatzinformation - Art 10${sep}Zusatzinformation- Inhalt 10${sep}Zusatzinformation - Art 11${sep}Zusatzinformation- Inhalt 11${sep}Zusatzinformation - Art 12${sep}Zusatzinformation- Inhalt 12${sep}Zusatzinformation - Art 13${sep}Zusatzinformation- Inhalt 13${sep}Zusatzinformation - Art 14${sep}Zusatzinformation- Inhalt 14${sep}Zusatzinformation - Art 15${sep}Zusatzinformation- Inhalt 15${sep}Zusatzinformation - Art 16${sep}Zusatzinformation- Inhalt 16${sep}Zusatzinformation - Art 17${sep}Zusatzinformation- Inhalt 17${sep}Zusatzinformation - Art 18${sep}Zusatzinformation- Inhalt 18${sep}Zusatzinformation - Art 19${sep}Zusatzinformation- Inhalt 19${sep}Zusatzinformation - Art 20${sep}Zusatzinformation- Inhalt 20${sep}Stück${sep}Gewicht${sep}Zahlweise${sep}Forderungsart${sep}Veranlagungsjahr${sep}Zugeordnete Fälligkeit${sep}Skontotyp${sep}Auftragsnummer${sep}Buchungstyp${sep}USt-Schlüssel (Anzahlungen)${sep}EU-Land (Anzahlungen)${sep}Sachverhalt L+L (Anzahlungen)${sep}EU-Steuersatz (Anzahlungen)${sep}Erlöskonto (Anzahlungen)${sep}Herkunft-Kz${sep}Buchungs GUID${sep}KOST-Datum${sep}SEPA-Mandatsreferenz${sep}Skontosperre${sep}Gesellschaftername${sep}Beteiligtennummer${sep}Identifikationsnummer${sep}Zeichnernummer${sep}Postensperre bis${sep}Bezeichnung SoBil-Sachverhalt${sep}Kennzeichen SoBil-Buchung${sep}Festschreibung${sep}Leistungsdatum${sep}Datum Zuord. Steuerperiode${sep}Fälligkeit${sep}Generalumkehr (GU)${sep}Steuersatz${sep}Land\n`
+
+    // Data rows
+    for (const a of scanned) {
+      const brutto = parseFloat(a.amount_gross) || 0
+      const cat = a.category || 'Sonstiges'
+      const kontoInfo = SKR03[cat] || SKR03['Sonstiges']
+      const bu = buSchluessel(a.vat_rate)
+      const vendor = (a.vendor || '').replace(/"/g, '""')
+      const desc = (a.description || '').replace(/"/g, '""')
+      const buchungstext = vendor ? `${vendor}${desc ? ' - ' + desc : ''}` : desc || cat
+
+      // Belegdatum: DDMM format (no year, no separators)
+      let belegdatum = ''
+      if (a.receipt_date) {
+        const d = new Date(a.receipt_date + 'T00:00:00')
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        belegdatum = dd + mm
+      }
+
+      // Umsatz with comma decimal
+      const umsatz = brutto.toFixed(2).replace('.', ',')
+
+      // Build row — only fill required fields, rest empty
+      const row = [
+        umsatz,           // Umsatz
+        '"S"',            // Soll (expense = debit)
+        '"EUR"',          // WKZ
+        '',               // Kurs
+        '',               // Basis-Umsatz
+        '',               // WKZ Basis-Umsatz
+        kontoInfo.konto,  // Konto (Aufwandskonto)
+        GEGENKONTO,       // Gegenkonto (Bank)
+        bu,               // BU-Schlüssel
+        belegdatum,       // Belegdatum DDMM
+        `"${a.filename || ''}"`, // Belegfeld 1
+        '',               // Belegfeld 2
+        '',               // Skonto
+        `"${buchungstext}"`, // Buchungstext (max 60 chars)
+      ]
+
+      // Pad remaining columns with empty values (DATEV expects 116 columns total)
+      while (row.length < 116) row.push('')
+      csv += row.join(sep) + '\n'
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Buchhaltung_Export_${majstorInfo?.business_name || 'Mandant'}_${monthName}_${ausgabenYear}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const SCAN_CATEGORIES = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
 
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
@@ -643,7 +939,7 @@ export default function BuchhalterMandantPage({ params }) {
       {/* Ausgaben Tab */}
       {activeTab === 'ausgaben' && (
         <div className="space-y-4">
-          {/* Month picker */}
+          {/* Month picker + action buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             <select
               value={ausgabenMonth}
@@ -659,7 +955,51 @@ export default function BuchhalterMandantPage({ params }) {
             >
               {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
+            <div className="flex-1" />
+            {ausgaben.some(a => !a.scanned_at) && (
+              <button
+                onClick={bulkScanAll}
+                disabled={bulkScanning || !!scanningId}
+                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+              >
+                {bulkScanning ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {bulkScanProgress.done}/{bulkScanProgress.total}</>
+                ) : (
+                  <><img src="/robot.png" alt="KI" className="w-4 h-4" /> Alle scannen</>
+                )}
+              </button>
+            )}
+            {ausgaben.some(a => a.scanned_at) && (<>
+              <button
+                onClick={exportExcel}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+              >
+                📊 Excel
+              </button>
+              <button
+                onClick={exportDATEV}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors"
+              >
+                📁 Buchhaltung-Export
+              </button>
+            </>)}
           </div>
+
+          {/* Bulk scan progress bar */}
+          {bulkScanning && (
+            <div className="bg-slate-800 border border-violet-500/30 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-violet-400 text-sm font-medium">KI-Scan läuft...</span>
+                <span className="text-slate-400 text-sm">{bulkScanProgress.done} / {bulkScanProgress.total}</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div
+                  className="bg-violet-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${bulkScanProgress.total ? (bulkScanProgress.done / bulkScanProgress.total * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {ausgabenLoading ? (
             <div className="flex justify-center py-8">
@@ -680,12 +1020,14 @@ export default function BuchhalterMandantPage({ params }) {
                     {allSel ? 'Alle abwählen' : 'Alle auswählen'}
                   </button>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
                   {group.items.map(item => {
                     const isPDF = item.storage_path?.endsWith('.pdf')
                     const selected = selectedIds.has(item.id)
+                    const isScanned = !!item.scanned_at
+                    const isScanning = scanningId === item.id
                     return (
-                      <div key={item.id} className="relative">
+                      <div key={item.id} className={`relative rounded-lg border ${isScanned ? 'border-green-500/30 bg-slate-800/50' : 'border-slate-700'}`}>
                         <div
                           onClick={async () => {
                             try {
@@ -703,7 +1045,7 @@ export default function BuchhalterMandantPage({ params }) {
                               setPreviewBlobUrl(URL.createObjectURL(blob))
                             } catch { /* skip */ }
                           }}
-                          className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 bg-slate-700 flex items-center justify-center hover:border-teal-500 transition-colors ${selected ? 'border-blue-500' : 'border-transparent'}`}
+                          className={`aspect-square rounded-t-lg overflow-hidden cursor-pointer border-b bg-slate-700 flex items-center justify-center hover:opacity-90 transition-opacity ${isScanned ? 'border-green-500/20' : 'border-slate-600'}`}
                         >
                           {isPDF ? (
                             <div className="flex flex-col items-center justify-center w-full h-full p-2 gap-1">
@@ -723,9 +1065,53 @@ export default function BuchhalterMandantPage({ params }) {
                         >
                           {selected && '✓'}
                         </button>
-                        <p className="text-slate-500 text-xs mt-1 truncate px-0.5">
-                          {new Date(item.created_at).toLocaleDateString('de-DE')}
-                        </p>
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteAusgaben([item.id]) }}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs flex items-center justify-center hover:bg-red-600 transition-colors"
+                        >
+                          ×
+                        </button>
+
+                        {/* Info section below thumbnail */}
+                        <div className="p-2 space-y-1">
+                          {isScanned ? (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-white text-sm font-semibold truncate">{item.amount_gross?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
+                                <span className="text-green-400 text-xs">✓ KI</span>
+                              </div>
+                              <p className="text-slate-300 text-xs truncate">{item.vendor}</p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-500 text-xs">{item.category}</span>
+                                <span className="text-slate-500 text-xs">{item.receipt_date ? new Date(item.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''}</span>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setScanEditItem({ ...item }); setScanResult(item) }}
+                                className="w-full mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              >
+                                ✏️ Bearbeiten
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-slate-500 text-xs truncate">
+                                {new Date(item.created_at).toLocaleDateString('de-DE')}
+                              </p>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); scanBeleg(item) }}
+                                disabled={isScanning || !!scanningId}
+                                className="w-full mt-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-xs py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors"
+                              >
+                                {isScanning ? (
+                                  <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Wird gescannt...</>
+                                ) : (
+                                  <><img src="/robot.png" alt="KI" className="w-4 h-4" /> KI-Scan</>
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -762,6 +1148,14 @@ export default function BuchhalterMandantPage({ params }) {
                 }
               </button>
             )}
+            {activeTab === 'ausgaben' && (
+              <button
+                onClick={() => deleteAusgaben([...selectedIds])}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+              >
+                🗑️ Löschen
+              </button>
+            )}
             {activeTab === 'rechnungen' && getSelectedInvoiceStatus() && (
               <button
                 onClick={handleBulkTogglePaid}
@@ -782,6 +1176,136 @@ export default function BuchhalterMandantPage({ params }) {
           {activeTab === 'rechnungen' && (filters.dateRange === 'year' || filters.dateRange === 'all') && (
             <p className="text-slate-400 text-xs">ZIP-Download ist nur im Monatsfilter verfügbar.</p>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* Scan Edit Modal */}
+    {scanEditItem && (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setScanEditItem(null); setScanResult(null) }}>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-white font-semibold text-lg flex items-center gap-2"><img src="/robot.png" alt="KI" className="w-7 h-7" /> KI-Scan Ergebnis</h3>
+            <button onClick={() => { setScanEditItem(null); setScanResult(null) }} className="text-slate-400 hover:text-white text-xl">×</button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-slate-400 text-xs mb-1">Händler</label>
+              <input
+                type="text"
+                value={scanEditItem.vendor || ''}
+                onChange={e => setScanEditItem(prev => ({ ...prev, vendor: e.target.value }))}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Brutto (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={scanEditItem.amount_gross || ''}
+                  onChange={e => {
+                    const gross = parseFloat(e.target.value) || 0
+                    const rate = parseFloat(scanEditItem.vat_rate) || 19
+                    const net = Math.round(gross / (1 + rate / 100) * 100) / 100
+                    const vat = Math.round((gross - net) * 100) / 100
+                    setScanEditItem(prev => ({ ...prev, amount_gross: e.target.value, amount_net: net, vat_amount: vat }))
+                  }}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Netto (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={scanEditItem.amount_net || ''}
+                  readOnly
+                  className="w-full bg-slate-900/30 border border-slate-700 rounded-lg px-3 py-2 text-slate-400 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">MwSt-Satz (%)</label>
+                <select
+                  value={scanEditItem.vat_rate || 19}
+                  onChange={e => {
+                    const rate = parseFloat(e.target.value)
+                    const gross = parseFloat(scanEditItem.amount_gross) || 0
+                    const net = Math.round(gross / (1 + rate / 100) * 100) / 100
+                    const vat = Math.round((gross - net) * 100) / 100
+                    setScanEditItem(prev => ({ ...prev, vat_rate: rate, amount_net: net, vat_amount: vat }))
+                  }}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                >
+                  <option value="19">19%</option>
+                  <option value="7">7%</option>
+                  <option value="0">0%</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">MwSt (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={scanEditItem.vat_amount || ''}
+                  readOnly
+                  className="w-full bg-slate-900/30 border border-slate-700 rounded-lg px-3 py-2 text-slate-400 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Datum</label>
+                <input
+                  type="date"
+                  value={scanEditItem.receipt_date || ''}
+                  onChange={e => setScanEditItem(prev => ({ ...prev, receipt_date: e.target.value }))}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Kategorie</label>
+                <select
+                  value={scanEditItem.category || 'Sonstiges'}
+                  onChange={e => setScanEditItem(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                >
+                  {SCAN_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-xs mb-1">Beschreibung</label>
+              <input
+                type="text"
+                value={scanEditItem.description || ''}
+                onChange={e => setScanEditItem(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                placeholder="z.B. Schrauben, Dübel, Silikon"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => { setScanEditItem(null); setScanResult(null) }}
+              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm transition-colors"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={saveScanEdit}
+              disabled={scanSaving}
+              className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+            >
+              {scanSaving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '💾'}
+              Speichern
+            </button>
+          </div>
         </div>
       </div>
     )}
