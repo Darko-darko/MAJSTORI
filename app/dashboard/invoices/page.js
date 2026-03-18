@@ -1610,7 +1610,7 @@ const HardResetModal = () => {
             const hasInvoice = quoteHasInvoice(quote.id)
             
             return (
-              <div key={quote.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <div key={quote.id} id={`quote-${quote.id}`} className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h4 className="text-white font-semibold text-lg">{quote.quote_number}</h4>
