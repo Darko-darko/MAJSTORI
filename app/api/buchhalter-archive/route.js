@@ -43,7 +43,7 @@ export async function GET(request) {
 
     const { data, error } = await supabase
       .from('ausgaben')
-      .select('id, storage_path, filename, created_at')
+      .select('id, storage_path, filename, created_at, vendor, receipt_date, amount_gross, amount_net, vat_rate, vat_amount, category, description, scanned_at')
       .eq('majstor_id', majstorId)
       .gte('created_at', from)
       .lte('created_at', to)
@@ -88,18 +88,48 @@ export async function GET(request) {
   return NextResponse.json({ data: signedData })
 }
 
-// PATCH — toggle paid status for invoices (buchhalter)
+// PATCH — toggle paid status for invoices OR update ausgabe scan data (buchhalter)
 export async function PATCH(request) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-    const { majstorId, invoiceIds, action } = await request.json()
+    const body = await request.json()
+    const { majstorId, type } = body
 
-    if (!majstorId || !invoiceIds?.length || !action) {
-      return NextResponse.json({ error: 'majstorId, invoiceIds, action required' }, { status: 400 })
-    }
+    if (!majstorId) return NextResponse.json({ error: 'majstorId required' }, { status: 400 })
 
     const hasAccess = await verifyAccess(token, majstorId)
     if (!hasAccess) return NextResponse.json({ error: 'Kein Zugang' }, { status: 403 })
+
+    // Update ausgabe scan metadata
+    if (type === 'ausgabe_scan') {
+      const { ausgabeId, scanData } = body
+      if (!ausgabeId || !scanData) {
+        return NextResponse.json({ error: 'ausgabeId and scanData required' }, { status: 400 })
+      }
+
+      const allowed = ['vendor', 'receipt_date', 'amount_gross', 'amount_net', 'vat_rate', 'vat_amount', 'category', 'description']
+      const clean = {}
+      for (const key of allowed) {
+        if (scanData[key] !== undefined) clean[key] = scanData[key]
+      }
+
+      const { data, error } = await supabase
+        .from('ausgaben')
+        .update(clean)
+        .eq('id', ausgabeId)
+        .eq('majstor_id', majstorId)
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ success: true, ausgabe: data })
+    }
+
+    // Default: toggle paid status for invoices
+    const { invoiceIds, action } = body
+    if (!invoiceIds?.length || !action) {
+      return NextResponse.json({ error: 'invoiceIds and action required' }, { status: 400 })
+    }
 
     const updateData = action === 'paid'
       ? { status: 'paid', paid_date: new Date().toISOString().split('T')[0], updated_at: new Date().toISOString() }
@@ -225,6 +255,41 @@ export async function POST(request) {
       .createSignedUrl(zipPath, 60 * 60 * 24 * 7, { download: `Ausgaben_${new Date().toLocaleDateString('de-DE').replace(/\./g, '-')}.zip` })
 
     return NextResponse.json({ success: true, zipUrl: signedUrlData?.signedUrl, count: validFiles.length })
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+// DELETE — remove ausgaben (buchhalter)
+export async function DELETE(request) {
+  try {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    const { majstorId, ausgabenIds } = await request.json()
+
+    if (!majstorId || !ausgabenIds?.length) {
+      return NextResponse.json({ error: 'majstorId and ausgabenIds required' }, { status: 400 })
+    }
+
+    const hasAccess = await verifyAccess(token, majstorId)
+    if (!hasAccess) return NextResponse.json({ error: 'Kein Zugang' }, { status: 403 })
+
+    // Fetch storage paths
+    const { data: items } = await supabase
+      .from('ausgaben')
+      .select('id, storage_path')
+      .in('id', ausgabenIds)
+      .eq('majstor_id', majstorId)
+
+    if (!items?.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    // Delete from storage
+    const paths = items.map(i => i.storage_path).filter(Boolean)
+    if (paths.length) await supabase.storage.from('ausgaben').remove(paths)
+
+    // Delete from DB
+    await supabase.from('ausgaben').delete().in('id', items.map(i => i.id))
+
+    return NextResponse.json({ success: true, deleted: items.length })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

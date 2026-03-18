@@ -145,6 +145,22 @@ export default function AusgabenPage() {
     setSelectedIds(prev => { const s = new Set(prev); s.delete(id); return s })
   }
 
+  async function handleBulkDelete() {
+    if (!selectedIds.size) return
+    if (!confirm(`${selectedIds.size} Beleg${selectedIds.size > 1 ? 'e' : ''} löschen?`)) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const ids = [...selectedIds]
+    for (const id of ids) {
+      await fetch('/api/ausgaben', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id })
+      })
+    }
+    setAusgaben(prev => prev.filter(a => !selectedIds.has(a.id)))
+    setSelectedIds(new Set())
+  }
+
   async function openPreview(item) {
     const { data } = await supabase.storage.from('ausgaben').createSignedUrl(item.storage_path, 300)
     if (!data?.signedUrl) return
@@ -354,6 +370,12 @@ export default function AusgabenPage() {
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
             >
               📤 An Buchhalter senden
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+            >
+              🗑️ Löschen
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}

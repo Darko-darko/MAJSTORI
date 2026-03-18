@@ -48,6 +48,12 @@ export default function BuchhalterMandantPage({ params }) {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [zipLoading, setZipLoading] = useState(false)
 
+  // AI Scan states
+  const [scanningId, setScanningId] = useState(null)
+  const [scanResult, setScanResult] = useState(null)
+  const [scanEditItem, setScanEditItem] = useState(null)
+  const [scanSaving, setScanSaving] = useState(false)
+
   useEffect(() => {
     loadData()
     // Silent auto-refresh every 10 minutes (no loading spinner)
@@ -325,6 +331,102 @@ export default function BuchhalterMandantPage({ params }) {
       }
     }
   }
+
+  // AI Scan functions
+  const scanBeleg = async (item) => {
+    if (scanningId) return
+    setScanningId(item.id)
+    setScanResult(null)
+    try {
+      const ft = await getFreshToken()
+      // Get fresh signed URL for the image
+      const signRes = await fetch(`/api/buchhalter-archive/sign?majstor_id=${majstorId}&path=${encodeURIComponent(item.storage_path)}&bucket=ausgaben`, {
+        headers: { Authorization: `Bearer ${ft}` }
+      })
+      const { signedUrl } = await signRes.json()
+      if (!signedUrl) throw new Error('Bild-URL konnte nicht erstellt werden')
+
+      const res = await fetch('/api/ausgaben/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+        body: JSON.stringify({ image_url: signedUrl, ausgabe_id: item.id })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Scan fehlgeschlagen')
+
+      setScanResult(json.data)
+      setScanEditItem({ ...item, ...json.data })
+      // Update local state
+      setAusgaben(prev => prev.map(a => a.id === item.id ? { ...a, ...json.data, scanned_at: new Date().toISOString() } : a))
+    } catch (err) {
+      alert('Scan-Fehler: ' + err.message)
+    } finally {
+      setScanningId(null)
+    }
+  }
+
+  const saveScanEdit = async () => {
+    if (!scanEditItem) return
+    setScanSaving(true)
+    try {
+      const ft = await getFreshToken()
+      const res = await fetch('/api/buchhalter-archive', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+        body: JSON.stringify({
+          majstorId,
+          type: 'ausgabe_scan',
+          ausgabeId: scanEditItem.id,
+          scanData: {
+            vendor: scanEditItem.vendor,
+            receipt_date: scanEditItem.receipt_date,
+            amount_gross: parseFloat(scanEditItem.amount_gross) || 0,
+            amount_net: parseFloat(scanEditItem.amount_net) || 0,
+            vat_rate: parseFloat(scanEditItem.vat_rate) || 19,
+            vat_amount: parseFloat(scanEditItem.vat_amount) || 0,
+            category: scanEditItem.category,
+            description: scanEditItem.description,
+          }
+        })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      // Update local state
+      setAusgaben(prev => prev.map(a => a.id === scanEditItem.id ? { ...a, ...json.ausgabe } : a))
+      setScanEditItem(null)
+      setScanResult(null)
+    } catch (err) {
+      alert('Speichern fehlgeschlagen: ' + err.message)
+    } finally {
+      setScanSaving(false)
+    }
+  }
+
+  // Delete ausgaben (buchhalter)
+  const deleteAusgaben = async (ids) => {
+    if (!ids.length) return
+    if (!confirm(`${ids.length} Beleg${ids.length > 1 ? 'e' : ''} löschen?`)) return
+    try {
+      const ft = await getFreshToken()
+      const res = await fetch('/api/buchhalter-archive', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+        body: JSON.stringify({ majstorId, ausgabenIds: ids })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setAusgaben(prev => prev.filter(a => !ids.includes(a.id)))
+      setSelectedIds(prev => {
+        const s = new Set(prev)
+        ids.forEach(id => s.delete(id))
+        return s
+      })
+    } catch (err) {
+      alert('Löschen fehlgeschlagen: ' + err.message)
+    }
+  }
+
+  const SCAN_CATEGORIES = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
 
   const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
@@ -680,12 +782,14 @@ export default function BuchhalterMandantPage({ params }) {
                     {allSel ? 'Alle abwählen' : 'Alle auswählen'}
                   </button>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
                   {group.items.map(item => {
                     const isPDF = item.storage_path?.endsWith('.pdf')
                     const selected = selectedIds.has(item.id)
+                    const isScanned = !!item.scanned_at
+                    const isScanning = scanningId === item.id
                     return (
-                      <div key={item.id} className="relative">
+                      <div key={item.id} className={`relative rounded-lg border ${isScanned ? 'border-green-500/30 bg-slate-800/50' : 'border-slate-700'}`}>
                         <div
                           onClick={async () => {
                             try {
@@ -703,7 +807,7 @@ export default function BuchhalterMandantPage({ params }) {
                               setPreviewBlobUrl(URL.createObjectURL(blob))
                             } catch { /* skip */ }
                           }}
-                          className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 bg-slate-700 flex items-center justify-center hover:border-teal-500 transition-colors ${selected ? 'border-blue-500' : 'border-transparent'}`}
+                          className={`aspect-square rounded-t-lg overflow-hidden cursor-pointer border-b bg-slate-700 flex items-center justify-center hover:opacity-90 transition-opacity ${isScanned ? 'border-green-500/20' : 'border-slate-600'}`}
                         >
                           {isPDF ? (
                             <div className="flex flex-col items-center justify-center w-full h-full p-2 gap-1">
@@ -723,9 +827,53 @@ export default function BuchhalterMandantPage({ params }) {
                         >
                           {selected && '✓'}
                         </button>
-                        <p className="text-slate-500 text-xs mt-1 truncate px-0.5">
-                          {new Date(item.created_at).toLocaleDateString('de-DE')}
-                        </p>
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteAusgaben([item.id]) }}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/80 text-white text-xs flex items-center justify-center hover:bg-red-600 transition-colors"
+                        >
+                          ×
+                        </button>
+
+                        {/* Info section below thumbnail */}
+                        <div className="p-2 space-y-1">
+                          {isScanned ? (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-white text-sm font-semibold truncate">{item.amount_gross?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
+                                <span className="text-green-400 text-xs">✓ KI</span>
+                              </div>
+                              <p className="text-slate-300 text-xs truncate">{item.vendor}</p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-500 text-xs">{item.category}</span>
+                                <span className="text-slate-500 text-xs">{item.receipt_date ? new Date(item.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''}</span>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setScanEditItem({ ...item }); setScanResult(item) }}
+                                className="w-full mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              >
+                                ✏️ Bearbeiten
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-slate-500 text-xs truncate">
+                                {new Date(item.created_at).toLocaleDateString('de-DE')}
+                              </p>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); scanBeleg(item) }}
+                                disabled={isScanning || !!scanningId}
+                                className="w-full mt-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-xs py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors"
+                              >
+                                {isScanning ? (
+                                  <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Wird gescannt...</>
+                                ) : (
+                                  <>🤖 KI-Scan</>
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -762,6 +910,14 @@ export default function BuchhalterMandantPage({ params }) {
                 }
               </button>
             )}
+            {activeTab === 'ausgaben' && (
+              <button
+                onClick={() => deleteAusgaben([...selectedIds])}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+              >
+                🗑️ Löschen
+              </button>
+            )}
             {activeTab === 'rechnungen' && getSelectedInvoiceStatus() && (
               <button
                 onClick={handleBulkTogglePaid}
@@ -782,6 +938,136 @@ export default function BuchhalterMandantPage({ params }) {
           {activeTab === 'rechnungen' && (filters.dateRange === 'year' || filters.dateRange === 'all') && (
             <p className="text-slate-400 text-xs">ZIP-Download ist nur im Monatsfilter verfügbar.</p>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* Scan Edit Modal */}
+    {scanEditItem && (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setScanEditItem(null); setScanResult(null) }}>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-white font-semibold text-lg">🤖 KI-Scan Ergebnis</h3>
+            <button onClick={() => { setScanEditItem(null); setScanResult(null) }} className="text-slate-400 hover:text-white text-xl">×</button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-slate-400 text-xs mb-1">Händler</label>
+              <input
+                type="text"
+                value={scanEditItem.vendor || ''}
+                onChange={e => setScanEditItem(prev => ({ ...prev, vendor: e.target.value }))}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Brutto (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={scanEditItem.amount_gross || ''}
+                  onChange={e => {
+                    const gross = parseFloat(e.target.value) || 0
+                    const rate = parseFloat(scanEditItem.vat_rate) || 19
+                    const net = Math.round(gross / (1 + rate / 100) * 100) / 100
+                    const vat = Math.round((gross - net) * 100) / 100
+                    setScanEditItem(prev => ({ ...prev, amount_gross: e.target.value, amount_net: net, vat_amount: vat }))
+                  }}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Netto (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={scanEditItem.amount_net || ''}
+                  readOnly
+                  className="w-full bg-slate-900/30 border border-slate-700 rounded-lg px-3 py-2 text-slate-400 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">MwSt-Satz (%)</label>
+                <select
+                  value={scanEditItem.vat_rate || 19}
+                  onChange={e => {
+                    const rate = parseFloat(e.target.value)
+                    const gross = parseFloat(scanEditItem.amount_gross) || 0
+                    const net = Math.round(gross / (1 + rate / 100) * 100) / 100
+                    const vat = Math.round((gross - net) * 100) / 100
+                    setScanEditItem(prev => ({ ...prev, vat_rate: rate, amount_net: net, vat_amount: vat }))
+                  }}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                >
+                  <option value="19">19%</option>
+                  <option value="7">7%</option>
+                  <option value="0">0%</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">MwSt (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={scanEditItem.vat_amount || ''}
+                  readOnly
+                  className="w-full bg-slate-900/30 border border-slate-700 rounded-lg px-3 py-2 text-slate-400 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Datum</label>
+                <input
+                  type="date"
+                  value={scanEditItem.receipt_date || ''}
+                  onChange={e => setScanEditItem(prev => ({ ...prev, receipt_date: e.target.value }))}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 text-xs mb-1">Kategorie</label>
+                <select
+                  value={scanEditItem.category || 'Sonstiges'}
+                  onChange={e => setScanEditItem(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                >
+                  {SCAN_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-xs mb-1">Beschreibung</label>
+              <input
+                type="text"
+                value={scanEditItem.description || ''}
+                onChange={e => setScanEditItem(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+                placeholder="z.B. Schrauben, Dübel, Silikon"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => { setScanEditItem(null); setScanResult(null) }}
+              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-lg text-sm transition-colors"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={saveScanEdit}
+              disabled={scanSaving}
+              className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+            >
+              {scanSaving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '💾'}
+              Speichern
+            </button>
+          </div>
         </div>
       </div>
     )}
