@@ -115,7 +115,8 @@ export async function POST(request) {
       const clean = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
       parsed = JSON.parse(clean)
     } catch {
-      return NextResponse.json({ error: 'AI-Antwort konnte nicht verarbeitet werden', raw }, { status: 500 })
+      console.error('AI parse error, raw:', raw)
+      return NextResponse.json({ error: 'AI-Antwort konnte nicht verarbeitet werden' }, { status: 500 })
     }
 
     // Validate and sanitize
@@ -130,12 +131,13 @@ export async function POST(request) {
       description: String(parsed.description || '').slice(0, 200),
     }
 
-    // If ausgabe_id provided, auto-save to DB
+    // If ausgabe_id provided, auto-save to DB (with ownership check)
     if (ausgabe_id) {
       await supabase
         .from('ausgaben')
         .update({ ...result, scanned_at: new Date().toISOString() })
         .eq('id', ausgabe_id)
+        .eq('majstor_id', user.id)
     }
 
     // Increment scan count
@@ -152,6 +154,6 @@ export async function POST(request) {
     })
   } catch (err) {
     console.error('Scan error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Interner Fehler beim Scannen' }, { status: 500 })
   }
 }

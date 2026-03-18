@@ -217,7 +217,8 @@ export async function POST(request) {
         const clean = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
         parsed = JSON.parse(clean)
       } catch {
-        return NextResponse.json({ error: 'AI-Antwort konnte nicht verarbeitet werden', raw }, { status: 500 })
+        console.error('AI parse error, raw:', raw)
+        return NextResponse.json({ error: 'AI-Antwort konnte nicht verarbeitet werden' }, { status: 500 })
       }
 
       const result = {
