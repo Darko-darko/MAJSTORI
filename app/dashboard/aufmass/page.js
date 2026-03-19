@@ -10,6 +10,318 @@ import FirstVisitHint from '@/app/components/FirstVisitHint'
 const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
 
+const GEWERKE = [
+  { id: 'allgemein', label: 'Allgemein', icon: '📐', vobThreshold: null, din: null },
+  { id: 'maler', label: 'Maler', icon: '🖌️', vobThreshold: 2.5, din: '18363' },
+  { id: 'fensterbau', label: 'Fensterbau', icon: '🪟', vobThreshold: null, din: null },
+  { id: 'fliesen', label: 'Fliesen', icon: '🔲', vobThreshold: 0.1, din: '18352' },
+  { id: 'trockenbau', label: 'Trockenbau', icon: '🧱', vobThreshold: 2.5, din: '18340' },
+  { id: 'estrich', label: 'Estrich', icon: '🏗️', vobThreshold: 0.5, din: '18353' },
+  { id: 'bodenbelag', label: 'Bodenbelag', icon: '🟫', vobThreshold: 0.5, din: '18365' },
+]
+
+// ─── Fensterbau ─────────────────────────────────────────
+const FENSTER_PRESETS = [
+  { id: '1-kd-l', label: '1-flg. DK', panels: [{ type: 'kipp-dreh', hinge: 'left' }] },
+  { id: '2-kd', label: '2-flg. DK', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }] },
+  { id: '1-fix', label: 'Fest', panels: [{ type: 'fix' }] },
+  { id: '1-kipp', label: 'Kipp', panels: [{ type: 'kipp' }] },
+  { id: 'kd-fix', label: 'DK + Fest', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }] },
+  { id: '3-kd', label: '3-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }, { type: 'kipp-dreh', hinge: 'right' }] },
+  { id: '1-kd-ob', label: 'DK + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }], oberlicht: true },
+  { id: '2-kd-ob', label: '2-flg. + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }], oberlicht: true },
+]
+const FENSTER_MATERIALS = ['Kunststoff', 'Holz', 'Aluminium', 'Holz-Alu']
+const FENSTER_GLAZING = ['2-fach Verglasung', '3-fach Verglasung']
+
+// DIN window symbol lines for a single panel
+function panelSymbolLines(x, y, w, h, type, hinge) {
+  const cx = x + w / 2, cy = y + h / 2
+  const lines = []
+  if (type === 'fix') {
+    lines.push({ x1: x, y1: y, x2: x + w, y2: y + h, dash: true })
+    lines.push({ x1: x + w, y1: y, x2: x, y2: y + h, dash: true })
+  }
+  if (type === 'kipp' || type === 'kipp-dreh') {
+    lines.push({ x1: x, y1: y + h, x2: cx, y2: y, dash: true })
+    lines.push({ x1: x + w, y1: y + h, x2: cx, y2: y, dash: true })
+  }
+  if (type === 'dreh' || type === 'kipp-dreh') {
+    if (hinge === 'left' || !hinge) {
+      lines.push({ x1: x, y1: y, x2: x + w, y2: cy })
+      lines.push({ x1: x, y1: y + h, x2: x + w, y2: cy })
+    } else {
+      lines.push({ x1: x + w, y1: y, x2: x, y2: cy })
+      lines.push({ x1: x + w, y1: y + h, x2: x, y2: cy })
+    }
+  }
+  return lines
+}
+
+// SVG window sketch (used in type selector and position preview)
+function FensterSketch({ panels, oberlicht, size = 'sm' }) {
+  const isSm = size === 'sm'
+  const vw = isSm ? 48 : 140, vh = isSm ? 36 : 100
+  const pad = isSm ? 3 : 6
+  const frameW = vw - 2 * pad, frameH = vh - 2 * pad
+  const olH = oberlicht ? frameH * 0.28 : 0
+  const panelH = frameH - olH
+  const sw = isSm ? 0.8 : 1.2
+
+  // Proportional panel widths
+  const hasCustomWidths = panels.some(p => p.width > 0)
+  const totalW = hasCustomWidths ? panels.reduce((s, p) => s + (parseFloat(p.width) || 1), 0) : panels.length
+  const panelWidths = panels.map(p => hasCustomWidths ? (parseFloat(p.width) || 1) / totalW * frameW : frameW / panels.length)
+  let xOff = pad
+
+  return (
+    <svg width={vw} height={vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400">
+      <rect x={pad} y={pad} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 1.4} />
+      {oberlicht && (
+        <>
+          <line x1={pad} y1={pad + olH} x2={pad + frameW} y2={pad + olH} stroke="currentColor" strokeWidth={sw} />
+          <line x1={pad} y1={pad} x2={pad + frameW} y2={pad + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
+          <line x1={pad + frameW} y1={pad} x2={pad} y2={pad + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
+        </>
+      )}
+      {panels.map((p, i) => {
+        const px = xOff, py = pad + olH, pw = panelWidths[i]
+        xOff += pw
+        const lines = panelSymbolLines(px, py, pw, panelH, p.type, p.hinge)
+        return (
+          <g key={i}>
+            {i > 0 && <line x1={px} y1={py} x2={px} y2={py + panelH} stroke="currentColor" strokeWidth={sw} />}
+            {lines.map((l, j) => (
+              <line key={j} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                stroke="currentColor" strokeWidth={sw * 0.7}
+                strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+            ))}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+function newFensterPosition() {
+  return {
+    id: newId(),
+    name: '',
+    preset: '1-kd-l',
+    panels: [{ type: 'kipp-dreh', hinge: 'left' }],
+    oberlicht: false,
+    width: '',
+    height: '',
+    count: '1',
+    material: 'Kunststoff',
+    glazing: '2-fach Verglasung',
+    color: '',
+    notes: '',
+  }
+}
+
+const PANEL_TYPES = [
+  { id: 'kipp-dreh', label: 'Dreh-Kipp' },
+  { id: 'dreh', label: 'Dreh' },
+  { id: 'kipp', label: 'Kipp' },
+  { id: 'fix', label: 'Fest' },
+]
+
+function FensterPositionCard({ pos, index, onChange, onRemove }) {
+  const update = (key, val) => onChange({ ...pos, [key]: val })
+  const [showCustom, setShowCustom] = useState(false)
+
+  const selectPreset = (preset) => {
+    onChange({
+      ...pos,
+      preset: preset.id,
+      panels: JSON.parse(JSON.stringify(preset.panels)),
+      oberlicht: !!preset.oberlicht,
+    })
+    setShowCustom(false)
+  }
+
+  const updatePanel = (idx, field, val) => {
+    const panels = JSON.parse(JSON.stringify(pos.panels))
+    panels[idx][field] = val
+    onChange({ ...pos, panels, preset: 'custom' })
+  }
+
+  const addPanel = () => {
+    const panels = [...pos.panels, { type: 'fix', hinge: 'left' }]
+    onChange({ ...pos, panels, preset: 'custom' })
+  }
+
+  const removePanel = (idx) => {
+    if (pos.panels.length <= 1) return
+    const panels = pos.panels.filter((_, i) => i !== idx)
+    onChange({ ...pos, panels, preset: 'custom' })
+  }
+
+  const toggleOberlicht = () => {
+    onChange({ ...pos, oberlicht: !pos.oberlicht, preset: 'custom' })
+  }
+
+  return (
+    <div className="border border-slate-600 rounded-xl p-3 space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500 font-mono">Pos. {index + 1}</span>
+        <input
+          type="text"
+          value={pos.name}
+          onChange={e => update('name', e.target.value)}
+          placeholder="z.B. Küchenfenster, Haustür..."
+          className="flex-1 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <button onClick={onRemove} className="text-red-400 hover:text-red-300 text-sm px-1">✕</button>
+      </div>
+
+      {/* Typ-Auswahl */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <label className="text-xs text-slate-500">Fenstertyp</label>
+          <button
+            type="button"
+            onClick={() => setShowCustom(o => !o)}
+            className="text-[10px] text-blue-400 hover:text-blue-300"
+          >
+            {showCustom ? '← Vorlagen' : 'Anpassen ⚙'}
+          </button>
+        </div>
+
+        {!showCustom ? (
+          <div className="flex flex-wrap gap-1.5">
+            {FENSTER_PRESETS.map(fp => (
+              <button
+                key={fp.id}
+                type="button"
+                onClick={() => selectPreset(fp)}
+                className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all ${
+                  pos.preset === fp.id
+                    ? 'border-blue-500 bg-blue-500/20'
+                    : 'border-slate-600 bg-slate-800 hover:border-slate-500'
+                }`}
+              >
+                <FensterSketch panels={fp.panels} oberlicht={fp.oberlicht} size="sm" />
+                <span className="text-[10px] text-slate-400">{fp.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-3">
+            {pos.panels.map((panel, pi) => (
+              <div key={pi} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500 min-w-[52px]">Flügel {pi + 1}</span>
+                  <select
+                    value={panel.type}
+                    onChange={e => updatePanel(pi, 'type', e.target.value)}
+                    className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                  >
+                    {PANEL_TYPES.map(pt => (
+                      <option key={pt.id} value={pt.id}>{pt.label}</option>
+                    ))}
+                  </select>
+                  {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
+                    <select
+                      value={panel.hinge || 'left'}
+                      onChange={e => updatePanel(pi, 'hinge', e.target.value)}
+                      className="min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                    >
+                      <option value="left">Band links</option>
+                      <option value="right">Band rechts</option>
+                    </select>
+                  )}
+                  {pos.panels.length > 1 && (
+                    <button onClick={() => removePanel(pi)} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-[52px]">
+                  <label className="text-[10px] text-slate-500">Breite:</label>
+                  <input
+                    type="number"
+                    value={panel.width || ''}
+                    onChange={e => updatePanel(pi, 'width', e.target.value)}
+                    placeholder="optional"
+                    className="w-20 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-center"
+                  />
+                  <span className="text-[10px] text-slate-500">mm</span>
+                </div>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <button onClick={addPanel} className="text-[10px] text-blue-400 hover:text-blue-300">+ Flügel</button>
+              <button onClick={toggleOberlicht}
+                className={`text-[10px] ${pos.oberlicht ? 'text-green-400' : 'text-slate-500 hover:text-slate-400'}`}
+              >
+                {pos.oberlicht ? '✓ Oberlicht' : '+ Oberlicht'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Vorschau + Maße */}
+      <div className="flex gap-3 items-start">
+        <div className="bg-slate-800 rounded-lg p-2 border border-slate-700">
+          <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" />
+          {pos.width && pos.height && (
+            <p className="text-center text-xs text-slate-400 mt-1">{pos.width} × {pos.height} mm</p>
+          )}
+        </div>
+        <div className="flex-1 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
+              <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
+                placeholder="1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Höhe (mm)</label>
+              <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
+                placeholder="1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Anzahl</label>
+              <input type="number" value={pos.count} onChange={e => update('count', e.target.value)}
+                min="1" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Material</label>
+              <select value={pos.material} onChange={e => update('material', e.target.value)}
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                {FENSTER_MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Verglasung</label>
+              <select value={pos.glazing} onChange={e => update('glazing', e.target.value)}
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                {FENSTER_GLAZING.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-0.5">Farbe / Dekor</label>
+            <input type="text" value={pos.color} onChange={e => update('color', e.target.value)}
+              placeholder="z.B. Weiß, Anthrazit DB 703..."
+              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-0.5">Bemerkungen</label>
+            <input type="text" value={pos.notes} onChange={e => update('notes', e.target.value)}
+              placeholder="Optional..."
+              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const SK = '#94a3b8'
 const SF = '#1e293b'
 
@@ -905,6 +1217,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     rooms: aufmass?.rooms || [],
     notes: aufmass?.notes || '',
     materials: aufmass?.materials || [],
+    gewerk: aufmass?.gewerk || 'allgemein',
   })
   const [signature, setSignature] = useState(null)
   const [signatureRaw, setSignatureRaw] = useState(null)
@@ -1186,40 +1499,94 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               />
             </div>
 
-            {/* Sobe */}
-            <div className="border border-slate-600 rounded-xl overflow-hidden">
-              <div
-                className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
-                onClick={() => setBereicheOpen(o => !o)}
-              >
-                <span className="text-white text-sm font-semibold flex-1">📐 Bereiche <span className="text-slate-400 font-normal text-xs">({form.rooms.length})</span></span>
-                {totalEntries.length > 0 && (
-                  <span className="text-slate-400 text-xs font-mono mr-2">
-                    {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
-                  </span>
-                )}
-                <span className="text-slate-400 text-xs">{bereicheOpen ? '▲' : '▼'}</span>
+            {/* Gewerk */}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Gewerk</label>
+              <div className="flex flex-wrap gap-1.5">
+                {GEWERKE.map(g => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, gewerk: g.id }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      form.gewerk === g.id
+                        ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    {g.icon} {g.label}
+                  </button>
+                ))}
               </div>
-              {bereicheOpen && <div className="p-3 space-y-0">
-              {form.rooms.map((room, idx) => (
-                <div key={room.id}>
-                  {idx > 0 && <div className="border-t border-slate-600/50 my-3" />}
-                  <RoomSection
-                    room={room}
-                    onChange={r => updateRoom(idx, r)}
+              {form.gewerk !== 'allgemein' && (() => {
+                const g = GEWERKE.find(x => x.id === form.gewerk)
+                return g?.vobThreshold != null ? (
+                  <p className="text-xs text-slate-500 mt-1">
+                    VOB/C DIN {g.din}: Öffnungen ≤ {g.vobThreshold} m² werden übermessen
+                  </p>
+                ) : null
+              })()}
+            </div>
+
+            {/* Fensterbau: Positionen statt Bereiche */}
+            {form.gewerk === 'fensterbau' ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm font-semibold">🪟 Positionen</span>
+                  <span className="text-slate-400 text-xs">({form.rooms.length})</span>
+                </div>
+                {form.rooms.map((pos, idx) => (
+                  <FensterPositionCard
+                    key={pos.id}
+                    pos={pos}
+                    index={idx}
+                    onChange={p => updateRoom(idx, p)}
                     onRemove={() => removeRoom(idx)}
                   />
+                ))}
+                <button
+                  onClick={() => setForm(f => ({ ...f, rooms: [...f.rooms, newFensterPosition()] }))}
+                  className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors"
+                >
+                  + Position hinzufügen
+                </button>
+              </div>
+            ) : (
+              /* Bereiche (Allgemein, Maler, etc.) */
+              <div className="border border-slate-600 rounded-xl overflow-hidden">
+                <div
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
+                  onClick={() => setBereicheOpen(o => !o)}
+                >
+                  <span className="text-white text-sm font-semibold flex-1">📐 Bereiche <span className="text-slate-400 font-normal text-xs">({form.rooms.length})</span></span>
+                  {totalEntries.length > 0 && (
+                    <span className="text-slate-400 text-xs font-mono mr-2">
+                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
+                    </span>
+                  )}
+                  <span className="text-slate-400 text-xs">{bereicheOpen ? '▲' : '▼'}</span>
                 </div>
-              ))}
-              {form.rooms.length > 0 && <div className="border-t border-slate-600/50 mt-3 mb-1" />}
-              <button
-                onClick={addRoom}
-                className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors mt-2"
-              >
-                + Bereich hinzufügen
-              </button>
-              </div>}
-            </div>
+                {bereicheOpen && <div className="p-3 space-y-0">
+                {form.rooms.map((room, idx) => (
+                  <div key={room.id}>
+                    {idx > 0 && <div className="border-t border-slate-600/50 my-3" />}
+                    <RoomSection
+                      room={room}
+                      onChange={r => updateRoom(idx, r)}
+                      onRemove={() => removeRoom(idx)}
+                    />
+                  </div>
+                ))}
+                {form.rooms.length > 0 && <div className="border-t border-slate-600/50 mt-3 mb-1" />}
+                <button
+                  onClick={addRoom}
+                  className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors mt-2"
+                >
+                  + Bereich hinzufügen
+                </button>
+                </div>}
+              </div>
+            )}
 
 
             {/* Materialien */}

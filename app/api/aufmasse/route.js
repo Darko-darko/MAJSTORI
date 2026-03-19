@@ -52,7 +52,7 @@ export async function POST(request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { title, customer_name, date, rooms, notes, materials } = body
+  const { title, customer_name, date, rooms, notes, materials, gewerk } = body
 
   if (!title?.trim()) {
     return NextResponse.json({ error: 'Titel ist erforderlich' }, { status: 400 })
@@ -69,6 +69,7 @@ export async function POST(request) {
       rooms: rooms || [],
       notes: notes || null,
       materials: materials || [],
+      gewerk: gewerk || 'allgemein',
     })
     .select()
     .single()
@@ -88,7 +89,7 @@ export async function PATCH(request) {
   if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 })
 
   // Dozvoljeni update fajlovi
-  const allowed = ['title', 'customer_name', 'date', 'rooms', 'notes', 'status', 'materials']
+  const allowed = ['title', 'customer_name', 'date', 'rooms', 'notes', 'status', 'materials', 'gewerk']
   const update = {}
   for (const key of allowed) {
     if (key in fields) update[key] = fields[key]
