@@ -22,7 +22,7 @@ export async function GET(request) {
 
     const { data, error } = await admin
       .from('ausgaben')
-      .select('id, filename, storage_path, created_at')
+      .select('id, filename, storage_path, created_at, uploaded_by')
       .eq('majstor_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -44,7 +44,7 @@ export async function POST(request) {
 
     const { data, error } = await admin
       .from('ausgaben')
-      .insert({ majstor_id: user.id, storage_path, filename: filename || null })
+      .insert({ majstor_id: user.id, storage_path, filename: filename || null, uploaded_by: user.id })
       .select()
       .single()
 

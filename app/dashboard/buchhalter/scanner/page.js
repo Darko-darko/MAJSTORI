@@ -369,7 +369,7 @@ export default function BuchhalterScanner() {
         const brutto = parseFloat(b.amount_gross) || 0, netto = parseFloat(b.amount_net) || 0, vat = parseFloat(b.vat_amount) || 0
         catB += brutto; catN += netto; catV += vat
         const datum = b.receipt_date ? new Date(b.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''
-        csv += `${datum}${sep}${(b.vendor||'').replace(/;/g,',')}${sep}${brutto.toFixed(2).replace('.',',')}${sep}${netto.toFixed(2).replace('.',',')}${sep}${b.vat_rate||19}%${sep}${vat.toFixed(2).replace('.',',')}${sep}${(b.description||'').replace(/;/g,',')}${sep}${(b.filename||'').replace(/;/g,',')}\n`
+        csv += `${datum}${sep}${(b.vendor||'').replace(/;/g,',')}${sep}${brutto.toFixed(2).replace('.',',')}${sep}${netto.toFixed(2).replace('.',',')}${sep}${b.vat_rate != null ? b.vat_rate : 19}%${sep}${vat.toFixed(2).replace('.',',')}${sep}${(b.description||'').replace(/;/g,',')}${sep}${(b.filename||'').replace(/;/g,',')}\n`
       }
       csv += `${sep}Summe ${cat}${sep}${catB.toFixed(2).replace('.',',')}${sep}${catN.toFixed(2).replace('.',',')}${sep}${sep}${catV.toFixed(2).replace('.',',')}${sep}${sep}\n`
       grandBrutto += catB; grandNetto += catN; grandVat += catV
@@ -395,7 +395,7 @@ export default function BuchhalterScanner() {
       'Miete': { konto: 4210 }, 'Reise': { konto: 4660 }, 'Bewirtung': { konto: 4650 }, 'Sonstiges': { konto: 4900 },
     }
     const GEGENKONTO = 1200
-    const buSchluessel = (rate) => { const r = parseFloat(rate) || 19; if (r === 19) return 9; if (r === 7) return 8; return 0 }
+    const buSchluessel = (rate) => { const r = rate != null ? parseFloat(rate) : 19; if (r === 19) return 9; if (r === 7) return 8; return 0 }
 
     const sep = ';'
     let csv = '\uFEFF'
@@ -703,6 +703,19 @@ export default function BuchhalterScanner() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {/* Add more card — first position */}
+                    <div className="border-2 border-dashed border-slate-400 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2">
+                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
+                        Dateien auswählen
+                        <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
+                      </label>
+                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
+                        Ordner hochladen
+                        <input type="file" className="hidden" webkitdirectory="" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
+                      </label>
+                      <span className="text-[10px] text-slate-400 text-center">oder hierher ziehen<br/>JPG · PNG · PDF</span>
+                    </div>
                     {belege.map(b => (
                       <BelegCard
                         key={b.id}
@@ -724,19 +737,6 @@ export default function BuchhalterScanner() {
                         onShowPricing={() => setShowPricing(true)}
                       />
                     ))}
-                    {/* Add more card */}
-                    <div className="border-2 border-dashed border-slate-400 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2">
-                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
-                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
-                        Dateien auswählen
-                        <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
-                      </label>
-                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
-                        Ordner hochladen
-                        <input type="file" className="hidden" webkitdirectory="" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
-                      </label>
-                      <span className="text-[10px] text-slate-400 text-center">oder hierher ziehen<br/>JPG · PNG · PDF</span>
-                    </div>
                   </div>
                 )}
               </div>
@@ -975,7 +975,7 @@ function BelegThumbnail({ storagePath, filename, isPdf }) {
     return (
       <div className="relative w-full h-full bg-white flex items-center justify-center">
         <canvas ref={canvasRef} className="w-full h-full object-cover" />
-        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+        <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
       </div>
     )
   }
@@ -1047,17 +1047,12 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
                 className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-slate-400 text-xs">MwSt %</label>
-              <select value={form.vat_rate} onChange={e => updateField('vat_rate', e.target.value)}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500">
-                <option value="19">19%</option>
-                <option value="16">16%</option>
-                <option value="13">13%</option>
-                <option value="10">10%</option>
-                <option value="7">7%</option>
-                <option value="5">5%</option>
-                <option value="0">0%</option>
-              </select>
+              <label className="text-slate-400 text-xs">MwSt</label>
+              <div className="relative">
+                <input type="number" min="0" max="100" step="any" value={form.vat_rate} onChange={e => updateField('vat_rate', e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 pr-8 text-white text-sm focus:outline-none focus:border-teal-500" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">%</span>
+              </div>
             </div>
             <div>
               <label className="text-slate-400 text-xs">Netto (€)</label>

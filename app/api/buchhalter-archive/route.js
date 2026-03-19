@@ -44,7 +44,7 @@ export async function GET(request) {
     // Try with scan columns first, fallback to basic if columns don't exist yet
     let { data, error } = await supabase
       .from('ausgaben')
-      .select('id, storage_path, filename, created_at, vendor, receipt_date, amount_gross, amount_net, vat_rate, vat_amount, category, description, scanned_at')
+      .select('id, storage_path, filename, created_at, vendor, receipt_date, amount_gross, amount_net, vat_rate, vat_amount, category, description, scanned_at, uploaded_by')
       .eq('majstor_id', majstorId)
       .gte('created_at', from)
       .lte('created_at', to)
@@ -164,7 +164,7 @@ export async function PATCH(request) {
   }
 }
 
-// POST — ZIP download for selected ausgaben or invoices (buchhalter)
+// POST — ZIP download OR upload ausgabe (buchhalter)
 export async function POST(request) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -175,6 +175,44 @@ export async function POST(request) {
 
     const hasAccess = await verifyAccess(token, majstorId)
     if (!hasAccess) return NextResponse.json({ error: 'Kein Zugang' }, { status: 403 })
+
+    // --- UPLOAD AUSGABE (buchhalter uploading for majstor) ---
+    if (type === 'upload_ausgabe') {
+      const { data: { user } } = await supabase.auth.getUser(token)
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+      const { storage_path, filename } = body
+      if (!storage_path) return NextResponse.json({ error: 'storage_path required' }, { status: 400 })
+
+      const { data, error } = await supabase
+        .from('ausgaben')
+        .insert({
+          majstor_id: majstorId,
+          storage_path,
+          filename: filename || null,
+          uploaded_by: user.id
+        })
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ success: true, ausgabe: data })
+    }
+
+    // --- SIGNED UPLOAD URL (buchhalter needs this to upload to storage) ---
+    if (type === 'upload_url') {
+      const { path } = body
+      if (!path) return NextResponse.json({ error: 'path required' }, { status: 400 })
+      // Ensure path is under the majstor's folder
+      if (!path.startsWith(`${majstorId}/`)) return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
+
+      const { data, error } = await supabase.storage
+        .from('ausgaben')
+        .createSignedUploadUrl(path)
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ signedUrl: data.signedUrl, token: data.token, path: data.path })
+    }
 
     // --- INVOICES ZIP ---
     if (type === 'invoices') {

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { pdfToImages } from '@/lib/pdfToImages'
 
@@ -53,7 +53,7 @@ function AusgabenThumbnail({ storagePath, filename, majstorId, getToken, isPdf }
     return (
       <div className="relative w-full h-full bg-white flex items-center justify-center">
         <canvas ref={canvasRef} className="w-full h-full object-cover" />
-        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+        <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
       </div>
     )
   }
@@ -76,11 +76,12 @@ function groupByMonth(ausgaben) {
 export default function BuchhalterMandantPage({ params }) {
   const { majstorId } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [majstorInfo, setMajstorInfo] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [ausgaben, setAusgaben] = useState([])
-  const [activeTab, setActiveTab] = useState('rechnungen')
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'rechnungen')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [token, setToken] = useState(null)
@@ -96,6 +97,8 @@ export default function BuchhalterMandantPage({ params }) {
   })
   const [invoicesLoading, setInvoicesLoading] = useState(false)
   const [ausgabenLoading, setAusgabenLoading] = useState(false)
+  const [ausgabenUploading, setAusgabenUploading] = useState(false)
+  const ausgabenFileRef = useRef(null)
   const [previewItem, setPreviewItem] = useState(null)
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -492,6 +495,75 @@ export default function BuchhalterMandantPage({ params }) {
     }
   }
 
+  // Upload ausgaben (buchhalter uploading for majstor)
+  const compressImage = (file, maxWidth = 1600) => new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(resolve, 'image/jpeg', 0.82)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+
+  const handleAusgabenUpload = async (files) => {
+    if (!files?.length) return
+    setAusgabenUploading(true)
+    try {
+      const ft = await getFreshToken()
+      for (const file of Array.from(files)) {
+        const isPDF = file.type === 'application/pdf'
+        let uploadBlob = file
+        let ext = 'pdf'
+        if (!isPDF) {
+          uploadBlob = await compressImage(file)
+          ext = 'jpg'
+        }
+        const timestamp = Date.now()
+        const path = `${majstorId}/${timestamp}_${Math.random().toString(36).slice(2)}.${ext}`
+
+        // Get signed upload URL from API
+        const urlRes = await fetch('/api/buchhalter-archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+          body: JSON.stringify({ majstorId, type: 'upload_url', path })
+        })
+        const urlData = await urlRes.json()
+        if (!urlRes.ok) { console.error(urlData.error); continue }
+
+        // Upload directly to storage using signed URL
+        const uploadRes = await fetch(urlData.signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': isPDF ? 'application/pdf' : 'image/jpeg' },
+          body: uploadBlob
+        })
+        if (!uploadRes.ok) { console.error('Upload failed'); continue }
+
+        // Create DB record
+        await fetch('/api/buchhalter-archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+          body: JSON.stringify({
+            majstorId,
+            type: 'upload_ausgabe',
+            storage_path: path,
+            filename: file.name.replace(/\.[^.]+$/, '') + '.' + ext
+          })
+        })
+      }
+      // Refresh list
+      await loadAusgaben(ausgabenMonth, ausgabenYear)
+    } catch (err) {
+      alert('Upload fehlgeschlagen: ' + err.message)
+    } finally {
+      setAusgabenUploading(false)
+      if (ausgabenFileRef.current) ausgabenFileRef.current.value = ''
+    }
+  }
+
   // Bulk scan all unscanned ausgaben
   const bulkScanAll = async () => {
     const unscanned = ausgaben.filter(a => !a.scanned_at)
@@ -582,7 +654,7 @@ export default function BuchhalterMandantPage({ params }) {
         const vendor = (a.vendor || '').replace(/;/g, ',')
         const desc = (a.description || '').replace(/;/g, ',')
         const fname = (a.filename || '').replace(/;/g, ',')
-        csv += `${datum}${sep}${vendor}${sep}${brutto.toFixed(2).replace('.', ',')}${sep}${netto.toFixed(2).replace('.', ',')}${sep}${a.vat_rate || 19}%${sep}${vat.toFixed(2).replace('.', ',')}${sep}${desc}${sep}${fname}\n`
+        csv += `${datum}${sep}${vendor}${sep}${brutto.toFixed(2).replace('.', ',')}${sep}${netto.toFixed(2).replace('.', ',')}${sep}${a.vat_rate != null ? a.vat_rate : 19}%${sep}${vat.toFixed(2).replace('.', ',')}${sep}${desc}${sep}${fname}\n`
       }
 
       csv += `${sep}Summe ${cat}${sep}${catBrutto.toFixed(2).replace('.', ',')}${sep}${catNetto.toFixed(2).replace('.', ',')}${sep}${sep}${catVat.toFixed(2).replace('.', ',')}${sep}${sep}\n`
@@ -626,7 +698,7 @@ export default function BuchhalterMandantPage({ params }) {
 
     // BU-Schlüssel for VAT rates
     const buSchluessel = (rate) => {
-      const r = parseFloat(rate) || 19
+      const r = rate != null ? parseFloat(rate) : 19
       if (r === 19) return 9
       if (r === 7) return 8
       return 0
@@ -796,7 +868,7 @@ export default function BuchhalterMandantPage({ params }) {
             {['rechnungen', 'ausgaben'].map(tab => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedIds(new Set()) }}
+                onClick={() => { setActiveTab(tab); setSelectedIds(new Set()); const url = new URL(window.location); url.searchParams.set('tab', tab); window.history.replaceState({}, '', url) }}
                 className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
                   activeTab === tab ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 border border-transparent'
                 }`}
@@ -1045,6 +1117,14 @@ export default function BuchhalterMandantPage({ params }) {
               </select>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <input
+                ref={ausgabenFileRef}
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                className="hidden"
+                onChange={e => { handleAusgabenUpload(e.target.files); }}
+              />
               {ausgaben.some(a => !a.scanned_at) && (
                 <button
                   onClick={bulkScanAll}
@@ -1097,12 +1177,24 @@ export default function BuchhalterMandantPage({ params }) {
                 <div className="h-8 w-8 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
               </div>
             ) : ausgaben.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="text-5xl mb-4">🧾</div>
-                <p className="text-slate-300 text-lg font-medium mb-2">Keine Ausgaben</p>
-                <p className="text-slate-500 text-sm">Keine Belege für diesen Monat vorhanden</p>
+              <div
+                onClick={() => ausgabenFileRef.current?.click()}
+                className="flex flex-col items-center justify-center py-16 cursor-pointer hover:bg-slate-800/30 rounded-xl transition-colors"
+              >
+                {ausgabenUploading ? (
+                  <>
+                    <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-slate-400 text-sm">Wird hochgeladen...</p>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-10 h-10 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                    <p className="text-slate-300 text-lg font-medium mb-2">Keine Ausgaben</p>
+                    <p className="text-slate-500 text-sm">Klicken zum Hochladen — JPG, PNG oder PDF</p>
+                  </>
+                )}
               </div>
-            ) : groupByMonth(ausgaben).map(group => {
+            ) : groupByMonth(ausgaben).map((group, gi) => {
             const allSel = group.items.every(i => selectedIds.has(i.id))
             return (
               <div key={group.key} className="space-y-3">
@@ -1164,6 +1256,9 @@ export default function BuchhalterMandantPage({ params }) {
                         {/* Info */}
                         <div className="p-2 space-y-1.5">
                           <p className="text-white text-xs truncate" title={item.filename}>{item.filename}</p>
+                          {item.uploaded_by && item.uploaded_by !== majstorId && (
+                            <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded">Vom Buchhalter</span>
+                          )}
                           {isScanned ? (
                             <div className="space-y-0.5">
                               <p className="text-teal-400 text-xs font-medium truncate">{item.vendor}</p>
@@ -1193,6 +1288,25 @@ export default function BuchhalterMandantPage({ params }) {
                       </div>
                     )
                   })}
+                  {/* Upload card — last item in newest group */}
+                  {gi === 0 && (
+                    <div
+                      onClick={() => ausgabenFileRef.current?.click()}
+                      className="border-2 border-dashed border-slate-500 hover:border-teal-500 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2 cursor-pointer transition-colors"
+                    >
+                      {ausgabenUploading ? (
+                        <>
+                          <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-slate-400 text-xs">Hochladen...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                          <span className="text-slate-400 text-xs text-center">Beleg hinzufügen</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -1311,26 +1425,25 @@ export default function BuchhalterMandantPage({ params }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-400 text-xs mb-1">MwSt-Satz (%)</label>
-                <select
-                  value={scanEditItem.vat_rate != null ? scanEditItem.vat_rate : 19}
-                  onChange={e => {
-                    const rate = parseFloat(e.target.value)
-                    const gross = parseFloat(scanEditItem.amount_gross) || 0
-                    const net = rate === 0 ? gross : Math.round(gross / (1 + rate / 100) * 100) / 100
-                    const vat = rate === 0 ? 0 : Math.round((gross - net) * 100) / 100
-                    setScanEditItem(prev => ({ ...prev, vat_rate: rate, amount_net: net, vat_amount: vat }))
-                  }}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-                >
-                  <option value="19">19%</option>
-                  <option value="16">16%</option>
-                  <option value="13">13%</option>
-                  <option value="10">10%</option>
-                  <option value="7">7%</option>
-                  <option value="5">5%</option>
-                  <option value="0">0%</option>
-                </select>
+                <label className="block text-slate-400 text-xs mb-1">MwSt-Satz</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={scanEditItem.vat_rate != null ? scanEditItem.vat_rate : 19}
+                    onChange={e => {
+                      const rate = parseFloat(e.target.value) || 0
+                      const gross = parseFloat(scanEditItem.amount_gross) || 0
+                      const net = rate === 0 ? gross : Math.round(gross / (1 + rate / 100) * 100) / 100
+                      const vat = rate === 0 ? 0 : Math.round((gross - net) * 100) / 100
+                      setScanEditItem(prev => ({ ...prev, vat_rate: rate, amount_net: net, vat_amount: vat }))
+                    }}
+                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 pr-8 text-white text-sm focus:outline-none focus:border-violet-500"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">%</span>
+                </div>
               </div>
               <div>
                 <label className="block text-slate-400 text-xs mb-1">MwSt (€)</label>
