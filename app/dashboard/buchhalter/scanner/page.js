@@ -1051,11 +1051,7 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
               <select value={form.vat_rate} onChange={e => updateField('vat_rate', e.target.value)}
                 className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500">
                 <option value="19">19%</option>
-                <option value="16">16%</option>
-                <option value="13">13%</option>
-                <option value="10">10%</option>
                 <option value="7">7%</option>
-                <option value="5">5%</option>
                 <option value="0">0%</option>
               </select>
             </div>
