@@ -16,7 +16,9 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // ✅ SCRIPTS: Cloudflare Turnstile + Paddle + FastSpring + Google Ads
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://d1f8f9xcsvx3ha.cloudfront.net https://*.onfastspring.com https://www.googletagmanager.com https://www.googleadservices.com https://pagead2.googlesyndication.com https://www.google.com https://googleads.g.doubleclick.net",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com https://d1f8f9xcsvx3ha.cloudfront.net https://*.onfastspring.com https://www.googletagmanager.com https://www.googleadservices.com https://pagead2.googlesyndication.com https://www.google.com https://googleads.g.doubleclick.net https://cdnjs.cloudflare.com",
+              // ✅ WORKER: pdf.js Web Worker
+              "worker-src 'self' blob: https://cdnjs.cloudflare.com",
               // ✅ STYLES: Paddle + FastSpring
               "style-src 'self' 'unsafe-inline' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://*.onfastspring.com",
               // ✅ IMAGES: Allow all HTTPS (za FastSpring product images)

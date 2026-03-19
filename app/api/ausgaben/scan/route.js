@@ -31,10 +31,21 @@ const SYSTEM_PROMPT = `Du bist ein Experte für deutsche Belege und Kassenbons. 
   "description": "kurze Beschreibung (max 50 Zeichen, was wurde gekauft)"
 }
 
+WICHTIG — Definitionen:
+- amount_gross = GESAMTBETRAG inkl. MwSt (der Betrag der bezahlt wird, z.B. "Gesamt", "Total", "Za uplatu", "Brutto", "Summe")
+- amount_net = Nettobetrag OHNE MwSt (z.B. "Netto", "Osnovica", "Zwischensumme")
+- vat_amount = Steuerbetrag (z.B. "MwSt", "USt", "PDV", "Mehrwertsteuer")
+- amount_gross = amount_net + vat_amount (IMMER!)
+
 Regeln:
 - Beträge immer als Zahl mit 2 Dezimalstellen (Punkt als Trennzeichen)
-- vat_rate: 19 oder 7 (Standard in Deutschland). Falls gemischte Sätze, nimm den höheren.
-- Falls kein MwSt erkennbar: vat_rate=19, berechne amount_net = amount_gross / 1.19, vat_amount = amount_gross - amount_net
+- Suche den HÖCHSTEN Gesamtbetrag auf dem Beleg — das ist amount_gross
+- vat_rate: Lies den EXAKTEN Steuersatz vom Beleg ab (z.B. 19, 7, 10, 13, 5, 0 etc.). Nicht raten!
+- Falls gemischte Sätze auf dem Beleg: nimm den höheren
+- Kleinunternehmerregelung (§19 UStG): Wenn "Steuer nicht ausgewiesen", "Kleinunternehmer", "kein Ausweis von USt" o.ä. → vat_rate=0, vat_amount=0, amount_gross=amount_net
+- NUR falls kein MwSt-Satz erkennbar UND kein Kleinunternehmer: vat_rate=19, berechne amount_net = amount_gross / 1.19, vat_amount = amount_gross - amount_net
+- amount_gross, amount_net und vat_amount immer DIREKT vom Beleg ablesen, nicht selbst berechnen!
+- Prüfe: amount_gross MUSS größer oder gleich amount_net sein!
 - category muss eine von: ${CATEGORIES.join(', ')}
 - receipt_date im ISO-Format YYYY-MM-DD
 - description: kurze Zusammenfassung der gekauften Artikel (deutsch)
@@ -82,10 +93,13 @@ export async function POST(request) {
       }, { status: 429 })
     }
 
-    const { image_url, ausgabe_id } = await request.json()
-    if (!image_url) {
+    const { image_url, image_urls, ausgabe_id } = await request.json()
+    const urls = image_urls || (image_url ? [image_url] : [])
+    if (!urls.length) {
       return NextResponse.json({ error: 'image_url required' }, { status: 400 })
     }
+
+    const imageContent = urls.map(u => ({ type: 'image_url', image_url: { url: u, detail: 'high' } }))
 
     // Call GPT-4o Vision
     const response = await openai.chat.completions.create({
@@ -95,8 +109,10 @@ export async function POST(request) {
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Analysiere diesen Beleg:' },
-            { type: 'image_url', image_url: { url: image_url, detail: 'high' } }
+            { type: 'text', text: urls.length > 1
+              ? `Analysiere diesen Beleg (${urls.length} Seiten). Fasse alle Seiten zu EINEM Ergebnis zusammen:`
+              : 'Analysiere diesen Beleg:' },
+            ...imageContent
           ]
         }
       ],
@@ -120,13 +136,43 @@ export async function POST(request) {
     }
 
     // Validate and sanitize
+    let gross = parseFloat(parsed.amount_gross) || 0
+    let net = parseFloat(parsed.amount_net) || 0
+    let rate = parsed.vat_rate != null ? parseFloat(parsed.vat_rate) : 19
+    if (isNaN(rate)) rate = 19
+    let vat = parseFloat(parsed.vat_amount) || 0
+
+    // Kleinunternehmer: if gross == net and vat == 0, force rate to 0
+    if (gross > 0 && net > 0 && Math.abs(gross - net) < 0.01 && vat === 0) {
+      rate = 0
+    }
+
+    // Sanity check: if AI swapped gross/net, fix it
+    if (gross > 0 && net > 0 && gross < net) {
+      ;[gross, net] = [net, gross]
+      vat = gross - net
+    }
+    // If only one amount provided, derive the other
+    if (gross > 0 && net === 0 && rate > 0) {
+      net = Math.round((gross / (1 + rate / 100)) * 100) / 100
+      vat = Math.round((gross - net) * 100) / 100
+    }
+    if (net > 0 && gross === 0 && rate > 0) {
+      gross = Math.round(net * (1 + rate / 100) * 100) / 100
+      vat = Math.round((gross - net) * 100) / 100
+    }
+    // If vat_amount is 0 but we have both, derive it
+    if (vat === 0 && gross > 0 && net > 0) {
+      vat = Math.round((gross - net) * 100) / 100
+    }
+
     const result = {
       vendor: String(parsed.vendor || '').slice(0, 200),
       receipt_date: parsed.receipt_date || null,
-      amount_gross: parseFloat(parsed.amount_gross) || 0,
-      amount_net: parseFloat(parsed.amount_net) || 0,
-      vat_rate: parseFloat(parsed.vat_rate) || 19,
-      vat_amount: parseFloat(parsed.vat_amount) || 0,
+      amount_gross: gross,
+      amount_net: net,
+      vat_rate: rate,
+      vat_amount: vat,
       category: CATEGORIES.includes(parsed.category) ? parsed.category : 'Sonstiges',
       description: String(parsed.description || '').slice(0, 200),
     }

@@ -2,6 +2,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { pdfToImages } from '@/lib/pdfToImages'
 
 function AusgabenThumbnail({ storagePath, filename, majstorId, getToken }) {
   const [url, setUrl] = useState(null)
@@ -366,10 +367,21 @@ export default function BuchhalterMandantPage({ params }) {
       const { signedUrl } = await signRes.json()
       if (!signedUrl) throw new Error('Bild-URL konnte nicht erstellt werden')
 
+      const isPdf = item.storage_path?.toLowerCase().endsWith('.pdf') || item.filename?.toLowerCase().endsWith('.pdf')
+      let scanBody = { ausgabe_id: item.id }
+
+      if (isPdf) {
+        const pages = await pdfToImages(signedUrl)
+        if (!pages.length) throw new Error('PDF konnte nicht gelesen werden')
+        scanBody.image_urls = pages
+      } else {
+        scanBody.image_url = signedUrl
+      }
+
       const res = await fetch('/api/ausgaben/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
-        body: JSON.stringify({ image_url: signedUrl, ausgabe_id: item.id })
+        body: JSON.stringify(scanBody)
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Scan fehlgeschlagen')
@@ -402,7 +414,7 @@ export default function BuchhalterMandantPage({ params }) {
             receipt_date: scanEditItem.receipt_date,
             amount_gross: parseFloat(scanEditItem.amount_gross) || 0,
             amount_net: parseFloat(scanEditItem.amount_net) || 0,
-            vat_rate: parseFloat(scanEditItem.vat_rate) || 19,
+            vat_rate: parseFloat(scanEditItem.vat_rate) ?? 19,
             vat_amount: parseFloat(scanEditItem.vat_amount) || 0,
             category: scanEditItem.category,
             description: scanEditItem.description,
@@ -465,10 +477,23 @@ export default function BuchhalterMandantPage({ params }) {
         const { signedUrl } = await signRes.json()
         if (!signedUrl) continue
 
+        const isPdf = item.storage_path?.toLowerCase().endsWith('.pdf') || item.filename?.toLowerCase().endsWith('.pdf')
+        let scanBody = { ausgabe_id: item.id }
+
+        if (isPdf) {
+          try {
+            const pages = await pdfToImages(signedUrl)
+            if (!pages.length) continue
+            scanBody.image_urls = pages
+          } catch { continue }
+        } else {
+          scanBody.image_url = signedUrl
+        }
+
         const res = await fetch('/api/ausgaben/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
-          body: JSON.stringify({ image_url: signedUrl, ausgabe_id: item.id })
+          body: JSON.stringify(scanBody)
         })
         const json = await res.json()
         if (res.ok && json.data) {
@@ -1118,6 +1143,7 @@ export default function BuchhalterMandantPage({ params }) {
                             <div className="space-y-0.5">
                               <p className="text-teal-400 text-xs font-medium truncate">{item.vendor}</p>
                               <p className="text-white text-xs font-bold">{parseFloat(item.amount_gross).toFixed(2).replace('.', ',')} €</p>
+                              {item.receipt_date && <p className="text-slate-400 text-[10px]">{new Date(item.receipt_date + 'T00:00:00').toLocaleDateString('de-DE')}</p>}
                               <button
                                 onClick={(e) => { e.stopPropagation(); setScanEditItem({ ...item }); setScanResult(item) }}
                                 className="text-slate-400 hover:text-white text-xs underline"
@@ -1239,9 +1265,9 @@ export default function BuchhalterMandantPage({ params }) {
                   value={scanEditItem.amount_gross || ''}
                   onChange={e => {
                     const gross = parseFloat(e.target.value) || 0
-                    const rate = parseFloat(scanEditItem.vat_rate) || 19
-                    const net = Math.round(gross / (1 + rate / 100) * 100) / 100
-                    const vat = Math.round((gross - net) * 100) / 100
+                    const rate = parseFloat(scanEditItem.vat_rate) ?? 19
+                    const net = rate === 0 ? gross : Math.round(gross / (1 + rate / 100) * 100) / 100
+                    const vat = rate === 0 ? 0 : Math.round((gross - net) * 100) / 100
                     setScanEditItem(prev => ({ ...prev, amount_gross: e.target.value, amount_net: net, vat_amount: vat }))
                   }}
                   className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
@@ -1262,18 +1288,22 @@ export default function BuchhalterMandantPage({ params }) {
               <div>
                 <label className="block text-slate-400 text-xs mb-1">MwSt-Satz (%)</label>
                 <select
-                  value={scanEditItem.vat_rate || 19}
+                  value={scanEditItem.vat_rate != null ? scanEditItem.vat_rate : 19}
                   onChange={e => {
                     const rate = parseFloat(e.target.value)
                     const gross = parseFloat(scanEditItem.amount_gross) || 0
-                    const net = Math.round(gross / (1 + rate / 100) * 100) / 100
-                    const vat = Math.round((gross - net) * 100) / 100
+                    const net = rate === 0 ? gross : Math.round(gross / (1 + rate / 100) * 100) / 100
+                    const vat = rate === 0 ? 0 : Math.round((gross - net) * 100) / 100
                     setScanEditItem(prev => ({ ...prev, vat_rate: rate, amount_net: net, vat_amount: vat }))
                   }}
                   className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
                 >
                   <option value="19">19%</option>
+                  <option value="16">16%</option>
+                  <option value="13">13%</option>
+                  <option value="10">10%</option>
                   <option value="7">7%</option>
+                  <option value="5">5%</option>
                   <option value="0">0%</option>
                 </select>
               </div>
@@ -1343,18 +1373,15 @@ export default function BuchhalterMandantPage({ params }) {
 
     {/* Image preview modal */}
     {previewItem && (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setPreviewItem(null); if (previewBlobUrl?.startsWith('blob:')) URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }}>
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 cursor-pointer" onClick={() => { setPreviewItem(null); if (previewBlobUrl?.startsWith('blob:')) URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }}>
         <div className="max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-slate-400 text-sm">{new Date(previewItem.created_at).toLocaleDateString('de-DE')}</span>
-            <button onClick={() => { setPreviewItem(null); if (previewBlobUrl?.startsWith('blob:')) URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
-          </div>
           {previewBlobUrl
             ? <img src={previewBlobUrl} alt="Beleg" className="w-full rounded-xl max-h-[70vh] object-contain bg-slate-900" />
             : <div className="w-full h-64 bg-slate-800 rounded-xl flex items-center justify-center">
                 <div className="h-8 w-8 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
               </div>
           }
+          <p className="text-slate-400 text-sm text-center mt-2">{previewItem.filename}</p>
         </div>
       </div>
     )}
