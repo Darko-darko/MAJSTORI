@@ -1047,13 +1047,12 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
                 className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" />
             </div>
             <div>
-              <label className="text-slate-400 text-xs">MwSt %</label>
-              <select value={form.vat_rate} onChange={e => updateField('vat_rate', e.target.value)}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500">
-                <option value="19">19%</option>
-                <option value="7">7%</option>
-                <option value="0">0%</option>
-              </select>
+              <label className="text-slate-400 text-xs">MwSt</label>
+              <div className="relative">
+                <input type="number" min="0" max="100" step="any" value={form.vat_rate} onChange={e => updateField('vat_rate', e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 pr-8 text-white text-sm focus:outline-none focus:border-teal-500" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">%</span>
+              </div>
             </div>
             <div>
               <label className="text-slate-400 text-xs">Netto (€)</label>
