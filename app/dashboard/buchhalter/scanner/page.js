@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { pdfToImages } from '@/lib/pdfToImages'
 
 const SCAN_CATEGORIES = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
 const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
@@ -9,11 +10,12 @@ const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','No
 const SCANNER_TESTERS = ['2f9f6665-3524-44a6-9a74-215571ad5690', 'd9a02afc-1508-4e36-8a26-e53aa9bf7dc8']
 
 const PRICING_PLANS = [
-  { name: 'Mini', scans: 500, price: '14,90', color: 'slate' },
-  { name: 'Pro', scans: 1000, price: '19,90', color: 'blue', popular: true },
+  { name: 'Mikro', scans: 250, price: '7,90', color: 'slate' },
+  { name: 'Mini', scans: 500, price: '12,90', color: 'zinc' },
+  { name: 'Pro', scans: 1000, price: '19,90', color: 'teal', popular: true },
   { name: 'Pro+', scans: 3000, price: '34,90', color: 'violet' },
-  { name: 'Max', scans: 5000, price: '59,90', color: 'amber' },
-  { name: 'Ultra', scans: 10000, price: '99,90', color: 'teal' },
+  { name: 'Max', scans: 5000, price: '54,90', color: 'amber' },
+  { name: 'Ultra', scans: 10000, price: '89,90', color: 'rose' },
 ]
 
 export default function BuchhalterScanner() {
@@ -44,7 +46,7 @@ export default function BuchhalterScanner() {
 
   // Scan
   const [scanCount, setScanCount] = useState(0)
-  const [scanLimit, setScanLimit] = useState(500)
+  const [scanLimit, setScanLimit] = useState(200)
   const [scanningId, setScanningId] = useState(null)
   const [bulkScanning, setBulkScanning] = useState(false)
   const [bulkScanProgress, setBulkScanProgress] = useState({ done: 0, total: 0 })
@@ -223,6 +225,7 @@ export default function BuchhalterScanner() {
   // Delete belege
   const deleteBelege = async (ids) => {
     const idsArray = Array.isArray(ids) ? ids : [ids]
+    if (!confirm(`${idsArray.length} Beleg${idsArray.length > 1 ? 'e' : ''} endgültig löschen?`)) return
     try {
       await fetch(`/api/buchhalter-scanner?beleg_ids=${idsArray.join(',')}`, {
         method: 'DELETE',
@@ -247,10 +250,21 @@ export default function BuchhalterScanner() {
       const imageUrl = await getImageUrl(beleg.storage_path)
       if (!imageUrl) { alert('Bild konnte nicht geladen werden'); return }
 
+      const isPdf = beleg.file_type?.includes('pdf')
+      let scanBody = { action: 'scan', beleg_id: beleg.id }
+
+      if (isPdf) {
+        const pages = await pdfToImages(imageUrl)
+        if (!pages.length) { alert('PDF konnte nicht gelesen werden'); return }
+        scanBody.image_urls = pages
+      } else {
+        scanBody.image_url = imageUrl
+      }
+
       const res = await fetch('/api/buchhalter-scanner', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ action: 'scan', image_url: imageUrl, beleg_id: beleg.id })
+        body: JSON.stringify(scanBody)
       })
       const data = await res.json()
       if (data.limit_reached) { setShowPricing(true); return }
@@ -267,7 +281,7 @@ export default function BuchhalterScanner() {
   }
 
   const bulkScanAll = async () => {
-    const unscanned = belege.filter(b => !b.scanned_at && !b.file_type?.includes('pdf'))
+    const unscanned = belege.filter(b => !b.scanned_at)
     if (!unscanned.length) return
     if (scanCount >= scanLimit) { setShowPricing(true); return }
 
@@ -281,10 +295,23 @@ export default function BuchhalterScanner() {
         const imageUrl = await getImageUrl(b.storage_path)
         if (!imageUrl) continue
 
+        const isPdf = b.file_type?.includes('pdf')
+        let scanBody = { action: 'scan', beleg_id: b.id }
+
+        if (isPdf) {
+          try {
+            const pages = await pdfToImages(imageUrl)
+            if (!pages.length) continue
+            scanBody.image_urls = pages
+          } catch { continue }
+        } else {
+          scanBody.image_url = imageUrl
+        }
+
         const res = await fetch('/api/buchhalter-scanner', {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({ action: 'scan', image_url: imageUrl, beleg_id: b.id })
+          body: JSON.stringify(scanBody)
         })
         const data = await res.json()
         if (data.limit_reached) { setShowPricing(true); break }
@@ -421,7 +448,7 @@ export default function BuchhalterScanner() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <img src="/robot.png" alt="KI" className="w-8 h-8" /> Beleg-Scanner
+              <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#e8edf2' }}><img src="/robot.png" alt="KI" className="w-7 h-7" /></span> Beleg-Scanner
             </h1>
           </div>
           <p className="text-slate-400 text-sm mt-1 ml-8">Belege hochladen, scannen und exportieren</p>
@@ -475,11 +502,11 @@ export default function BuchhalterScanner() {
                 ? 'Upgraden für weitere Scans'
                 : `${scanLimit - scanCount} kostenlose Scans übrig`}
             </p>
-            <button className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            <button className={`w-full py-2 rounded-lg text-sm font-bold transition-colors ${
               isLimitReached
-                ? 'bg-red-600 hover:bg-red-500 text-white'
-                : 'bg-teal-600 hover:bg-teal-500 text-white'
-            }`}>
+                ? 'bg-red-600 hover:bg-red-500'
+                : 'bg-teal-600 hover:bg-teal-500'
+            }`} style={{ color: '#fff' }}>
               {isLimitReached ? 'Jetzt upgraden' : 'Jetzt abonnieren'}
             </button>
           </div>
@@ -500,9 +527,10 @@ export default function BuchhalterScanner() {
               <button
                 onClick={createFolder}
                 disabled={creatingFolder || !newFolderName.trim()}
-                className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                className="disabled:opacity-50 w-8 h-8 flex items-center justify-center rounded-md transition-colors flex-shrink-0 hover:opacity-90"
+                style={{ backgroundColor: '#115e59' }}
               >
-                +
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={3}><path strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
               </button>
             </div>
 
@@ -529,14 +557,14 @@ export default function BuchhalterScanner() {
                   ) : (
                     <div
                       className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        selectedFolder?.id === f.id ? 'bg-teal-600/20 border border-teal-500/40 text-teal-300' : 'hover:bg-slate-700/50 text-slate-300'
+                        selectedFolder?.id === f.id ? 'bg-teal-600/20 border border-teal-500/40 text-teal-300' : 'hover:bg-teal-500/10 text-slate-300'
                       }`}
                       onClick={() => selectFolder(f)}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-lg">📁</span>
+                        <svg className="w-4 h-4 flex-shrink-0" style={{ color: '#f59e0b' }} fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
                         <span className="text-sm truncate">{f.name}</span>
-                        {f.beleg_count > 0 && <span className="text-xs text-slate-500">({f.beleg_count})</span>}
+                        {f.beleg_count > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-medium">{f.beleg_count}</span>}
                       </div>
                       <div className="hidden group-hover:flex items-center gap-1" onClick={e => e.stopPropagation()}>
                         <button onClick={() => { setRenamingFolder(f.id); setRenameValue(f.name) }} className="text-slate-400 hover:text-white text-xs p-1" title="Umbenennen">✏️</button>
@@ -555,7 +583,7 @@ export default function BuchhalterScanner() {
         <div className="flex-1 space-y-4">
           {!selectedFolder ? (
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-              <div className="text-5xl mb-4">📁</div>
+              <svg className="w-12 h-12 mx-auto mb-4" style={{ color: '#f59e0b' }} fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
               <h3 className="text-white font-semibold text-lg mb-2">Firma auswählen</h3>
               <p className="text-slate-400 text-sm">Wählen Sie links eine Firma aus oder erstellen Sie eine neue, um Belege hochzuladen.</p>
             </div>
@@ -582,18 +610,6 @@ export default function BuchhalterScanner() {
                   </select>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Upload button */}
-                  <label className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors flex items-center gap-1.5">
-                    📎 Hochladen
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={e => handleFileUpload(Array.from(e.target.files))}
-                    />
-                  </label>
                   {/* Bulk scan */}
                   {unscannedCount > 0 && !isLimitReached && (
                     <button
@@ -708,6 +724,19 @@ export default function BuchhalterScanner() {
                         onShowPricing={() => setShowPricing(true)}
                       />
                     ))}
+                    {/* Add more card */}
+                    <div className="border-2 border-dashed border-slate-400 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2">
+                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
+                        Dateien auswählen
+                        <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
+                      </label>
+                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
+                        Ordner hochladen
+                        <input type="file" className="hidden" webkitdirectory="" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
+                      </label>
+                      <span className="text-[10px] text-slate-400 text-center">oder hierher ziehen<br/>JPG · PNG · PDF</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -749,9 +778,8 @@ export default function BuchhalterScanner() {
 
       {/* Preview Modal */}
       {previewImage && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setPreviewImage(null)}>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 cursor-pointer" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-4xl max-h-[90vh]">
-            <button onClick={() => setPreviewImage(null)} className="absolute -top-3 -right-3 bg-slate-700 hover:bg-slate-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg z-10">×</button>
             <img src={previewImage.url} alt={previewImage.filename} className="max-h-[85vh] rounded-lg" />
             <p className="text-slate-400 text-sm text-center mt-2">{previewImage.filename}</p>
           </div>
@@ -794,37 +822,44 @@ export default function BuchhalterScanner() {
             </p>
 
             {/* Plans grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {PRICING_PLANS.map(plan => (
+            <div className="grid grid-cols-3 gap-3">
+              {PRICING_PLANS.map(plan => {
+                const colorMap = {
+                  slate: { border: 'border-slate-400', bg: 'bg-slate-400/5', ring: 'ring-slate-400/20', btn: 'bg-slate-500 hover:bg-slate-400', badge: 'bg-slate-500', text: 'text-slate-400' },
+                  zinc: { border: 'border-zinc-500', bg: 'bg-zinc-500/15', ring: 'ring-zinc-500/20', btn: 'bg-zinc-600 hover:bg-zinc-500', badge: 'bg-zinc-500', text: 'text-zinc-400' },
+                  blue: { border: 'border-blue-500', bg: 'bg-blue-500/10', ring: 'ring-blue-500/20', btn: 'bg-blue-600 hover:bg-blue-500', badge: 'bg-blue-500', text: 'text-blue-400' },
+                  teal: { border: 'border-teal-500', bg: 'bg-teal-500/10', ring: 'ring-teal-500/20', btn: 'bg-teal-600 hover:bg-teal-500', badge: 'bg-teal-500', text: 'text-teal-400' },
+                  violet: { border: 'border-violet-500', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20', btn: 'bg-violet-600 hover:bg-violet-500', badge: 'bg-violet-500', text: 'text-violet-400' },
+                  amber: { border: 'border-amber-500', bg: 'bg-amber-500/10', ring: 'ring-amber-500/20', btn: 'bg-amber-600 hover:bg-amber-500', badge: 'bg-amber-500', text: 'text-amber-400' },
+                  rose: { border: 'border-rose-500', bg: 'bg-rose-500/10', ring: 'ring-rose-500/20', btn: 'bg-rose-600 hover:bg-rose-500', badge: 'bg-rose-500', text: 'text-rose-400' },
+                }
+                const c = colorMap[plan.color] || colorMap.slate
+                return (
                 <div
                   key={plan.name}
-                  className={`relative border rounded-xl p-4 space-y-2 transition-all hover:scale-[1.02] ${
-                    plan.popular ? 'border-teal-500 bg-teal-500/10 ring-1 ring-teal-500/20' : 'border-slate-600 bg-slate-900/50 hover:border-slate-500'
-                  }`}
+                  className={`relative border rounded-xl p-4 space-y-2 transition-all hover:scale-[1.02] ${c.border} ${c.bg} ${plan.popular ? `ring-1 ${c.ring}` : ''}`}
                 >
                   {plan.popular && (
-                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    <div className={`absolute -top-2.5 left-1/2 -translate-x-1/2 ${c.badge} text-white text-xs font-bold px-2 py-0.5 rounded-full`}>
                       Beliebt
                     </div>
                   )}
                   <h4 className="text-white font-bold text-lg">{plan.name}</h4>
-                  <p className="text-slate-400 text-xs">{plan.scans.toLocaleString('de-DE')} Scans/Monat</p>
+                  <p className={`text-xs ${c.text}`}>{plan.scans.toLocaleString('de-DE')}<br/>Scans/Monat</p>
                   <p className="text-white text-xl font-bold">{plan.price}€<span className="text-xs text-slate-400 font-normal">/Mo.</span></p>
                   <button
                     onClick={() => {
                       // TODO: FastSpring checkout integration
                       alert(`${plan.name}-Paket wird bald verfügbar sein. Kontaktieren Sie uns: info@pro-meister.de`)
                     }}
-                    className={`w-full mt-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      plan.popular
-                        ? 'bg-teal-600 hover:bg-teal-500 text-white'
-                        : 'bg-slate-700 hover:bg-slate-600 text-white'
-                    }`}
+                    className={`w-full mt-2 py-2 rounded-lg text-sm font-medium transition-colors ${c.btn}`}
+                    style={{ color: '#fff' }}
                   >
                     Jetzt upgraden
                   </button>
                 </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="flex items-center justify-between text-xs text-slate-500">
@@ -849,16 +884,7 @@ function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, 
     }`}>
       {/* Thumbnail */}
       <div className="relative aspect-[3/4] bg-slate-900 cursor-pointer" onClick={onView}>
-        {isPdf ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="text-4xl mb-1">📄</div>
-              <p className="text-slate-500 text-xs">PDF</p>
-            </div>
-          </div>
-        ) : (
-          <BelegThumbnail storagePath={beleg.storage_path} filename={beleg.filename} />
-        )}
+        <BelegThumbnail storagePath={beleg.storage_path} filename={beleg.filename} isPdf={isPdf} />
         {/* Select checkbox — top left */}
         <div className="absolute top-2 left-2 z-10" onClick={e => { e.stopPropagation(); onToggleSelect() }}>
           <div className={`w-6 h-6 rounded border-2 flex items-center justify-center cursor-pointer transition-colors shadow-sm ${
@@ -881,6 +907,7 @@ function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, 
           <div className="space-y-0.5">
             <p className="text-teal-400 text-xs font-medium truncate">{beleg.vendor}</p>
             <p className="text-white text-xs font-bold">{parseFloat(beleg.amount_gross).toFixed(2).replace('.', ',')} €</p>
+            {beleg.receipt_date && <p className="text-slate-400 text-[10px]">{new Date(beleg.receipt_date + 'T00:00:00').toLocaleDateString('de-DE')}</p>}
             <button onClick={onEdit} className="text-slate-400 hover:text-white text-xs underline">Bearbeiten</button>
           </div>
         ) : (
@@ -905,9 +932,10 @@ function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, 
   )
 }
 
-// ---- Beleg Thumbnail (lazy load signed URL) ----
-function BelegThumbnail({ storagePath, filename }) {
+// ---- Beleg Thumbnail (lazy load signed URL, supports PDF) ----
+function BelegThumbnail({ storagePath, filename, isPdf }) {
   const [url, setUrl] = useState(null)
+  const canvasRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -917,7 +945,41 @@ function BelegThumbnail({ storagePath, filename }) {
     return () => { cancelled = true }
   }, [storagePath])
 
+  useEffect(() => {
+    if (!url || !isPdf || !canvasRef.current) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { pdfToImages } = await import('@/lib/pdfToImages')
+        const pages = await pdfToImages(url, { scale: 1, quality: 0.7, maxPages: 1 })
+        if (!cancelled && pages[0] && canvasRef.current) {
+          const img = new Image()
+          img.onload = () => {
+            if (cancelled || !canvasRef.current) return
+            const canvas = canvasRef.current
+            const ctx = canvas.getContext('2d')
+            canvas.width = canvas.offsetWidth * 2
+            canvas.height = canvas.offsetHeight * 2
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          }
+          img.src = pages[0]
+        }
+      } catch { /* fallback to PDF icon handled by canvasRef being empty */ }
+    })()
+    return () => { cancelled = true }
+  }, [url, isPdf])
+
   if (!url) return <div className="flex items-center justify-center h-full"><div className="h-5 w-5 border-2 border-slate-600 border-t-teal-500 rounded-full animate-spin" /></div>
+
+  if (isPdf) {
+    return (
+      <div className="relative w-full h-full bg-white flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-full object-cover" />
+        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+      </div>
+    )
+  }
+
   return <img src={url} alt={filename} className="w-full h-full object-cover" />
 }
 
@@ -928,7 +990,7 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
     receipt_date: result?.receipt_date || '',
     amount_gross: result?.amount_gross || 0,
     amount_net: result?.amount_net || 0,
-    vat_rate: result?.vat_rate || 19,
+    vat_rate: result?.vat_rate != null ? result.vat_rate : 19,
     vat_amount: result?.vat_amount || 0,
     category: result?.category || 'Sonstiges',
     description: result?.description || '',
@@ -938,9 +1000,14 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
     const next = { ...prev, [key]: val }
     if (key === 'amount_gross' || key === 'vat_rate') {
       const gross = key === 'amount_gross' ? parseFloat(val) || 0 : parseFloat(next.amount_gross) || 0
-      const rate = key === 'vat_rate' ? parseFloat(val) || 19 : parseFloat(next.vat_rate) || 19
-      next.amount_net = parseFloat((gross / (1 + rate / 100)).toFixed(2))
-      next.vat_amount = parseFloat((gross - next.amount_net).toFixed(2))
+      const rate = key === 'vat_rate' ? (parseFloat(val) ?? 19) : (parseFloat(next.vat_rate) ?? 19)
+      if (rate === 0) {
+        next.amount_net = gross
+        next.vat_amount = 0
+      } else {
+        next.amount_net = parseFloat((gross / (1 + rate / 100)).toFixed(2))
+        next.vat_amount = parseFloat((gross - next.amount_net).toFixed(2))
+      }
     }
     return next
   })
@@ -984,7 +1051,11 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
               <select value={form.vat_rate} onChange={e => updateField('vat_rate', e.target.value)}
                 className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500">
                 <option value="19">19%</option>
+                <option value="16">16%</option>
+                <option value="13">13%</option>
+                <option value="10">10%</option>
                 <option value="7">7%</option>
+                <option value="5">5%</option>
                 <option value="0">0%</option>
               </select>
             </div>
@@ -1008,7 +1079,7 @@ function ScanEditModal({ item, result, categories, onSave, onClose }) {
               receipt_date: form.receipt_date || null,
               amount_gross: parseFloat(form.amount_gross) || 0,
               amount_net: parseFloat(form.amount_net) || 0,
-              vat_rate: parseFloat(form.vat_rate) || 19,
+              vat_rate: parseFloat(form.vat_rate) ?? 19,
               vat_amount: parseFloat(form.vat_amount) || 0,
               category: form.category,
               description: form.description,

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
+import { pdfToImages } from '@/lib/pdfToImages'
 
 // Client-side image compression (same pattern as AvatarUpload)
 function compressImage(file, maxWidth = 1600) {
@@ -321,16 +322,7 @@ export default function AusgabenPage() {
                         onClick={() => openPreview(item)}
                         className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-colors ${selected ? 'border-blue-500' : 'border-transparent'} bg-slate-700 flex items-center justify-center`}
                       >
-                        {isPDF ? (
-                          <div className="flex flex-col items-center justify-center w-full h-full p-2 gap-1">
-                            <span className="text-2xl">📄</span>
-                            <span className="text-slate-400 text-xs text-center leading-tight line-clamp-2 break-all">
-                              {item.filename || 'PDF'}
-                            </span>
-                          </div>
-                        ) : (
-                          <StorageThumbnail path={item.storage_path} />
-                        )}
+                          <StorageThumbnail path={item.storage_path} isPdf={isPDF} />
                       </div>
                       {/* Select checkbox */}
                       <button
@@ -483,14 +475,48 @@ export default function AusgabenPage() {
   )
 }
 
-// Thumbnail component — loads signed URL on mount
-function StorageThumbnail({ path }) {
+// Thumbnail component — loads signed URL on mount, renders PDF first page as image
+function StorageThumbnail({ path, isPdf }) {
   const [url, setUrl] = useState(null)
+  const canvasRef = useRef(null)
+  const [pdfReady, setPdfReady] = useState(false)
+
   useEffect(() => {
     supabase.storage.from('ausgaben').createSignedUrl(path, 300).then(({ data }) => {
       if (data?.signedUrl) setUrl(data.signedUrl)
     })
   }, [path])
+
+  useEffect(() => {
+    if (!isPdf || !url || !canvasRef.current) return
+    let cancelled = false
+    pdfToImages(url, { scale: 1, quality: 0.7, maxPages: 1 }).then(imgs => {
+      if (cancelled || !imgs.length || !canvasRef.current) return
+      const img = new Image()
+      img.onload = () => {
+        if (cancelled || !canvasRef.current) return
+        const canvas = canvasRef.current
+        canvas.width = img.width
+        canvas.height = img.height
+        canvas.getContext('2d').drawImage(img, 0, 0)
+        setPdfReady(true)
+      }
+      img.src = imgs[0]
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [isPdf, url])
+
   if (!url) return <div className="w-full h-full bg-slate-600 animate-pulse" />
+
+  if (isPdf) {
+    return (
+      <div className="relative w-full h-full">
+        <canvas ref={canvasRef} className="w-full h-full object-cover" style={pdfReady ? {} : { display: 'none' }} />
+        {!pdfReady && <div className="w-full h-full bg-slate-600 animate-pulse" />}
+        <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: '#fff', backgroundColor: '#dc2626' }}>PDF</span>
+      </div>
+    )
+  }
+
   return <img src={url} alt="Beleg" className="w-full h-full object-cover" />
 }
