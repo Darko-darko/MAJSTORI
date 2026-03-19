@@ -95,7 +95,7 @@ export async function POST(request) {
         }, { status: 429 })
       }
     }
-    const urls = image_urls || (image_url ? [image_url] : [])
+    const urls = (image_urls || (image_url ? [image_url] : [])).slice(0, 2)
     if (!urls.length) {
       return NextResponse.json({ error: 'image_url required' }, { status: 400 })
     }

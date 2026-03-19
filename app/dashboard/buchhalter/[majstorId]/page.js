@@ -408,7 +408,7 @@ export default function BuchhalterMandantPage({ params }) {
       let scanBody = { ausgabe_id: item.id }
 
       if (isPdf) {
-        const pages = await pdfToImages(signedUrl)
+        const pages = await pdfToImages(signedUrl, { maxPages: 2 })
         if (!pages.length) throw new Error('PDF konnte nicht gelesen werden')
         scanBody.image_urls = pages
       } else {
@@ -588,7 +588,7 @@ export default function BuchhalterMandantPage({ params }) {
 
         if (isPdf) {
           try {
-            const pages = await pdfToImages(signedUrl)
+            const pages = await pdfToImages(signedUrl, { maxPages: 2 })
             if (!pages.length) continue
             scanBody.image_urls = pages
           } catch { continue }

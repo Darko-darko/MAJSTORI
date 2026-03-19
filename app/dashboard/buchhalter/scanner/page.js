@@ -254,7 +254,7 @@ export default function BuchhalterScanner() {
       let scanBody = { action: 'scan', beleg_id: beleg.id }
 
       if (isPdf) {
-        const pages = await pdfToImages(imageUrl)
+        const pages = await pdfToImages(imageUrl, { maxPages: 2 })
         if (!pages.length) { alert('PDF konnte nicht gelesen werden'); return }
         scanBody.image_urls = pages
       } else {
@@ -300,7 +300,7 @@ export default function BuchhalterScanner() {
 
         if (isPdf) {
           try {
-            const pages = await pdfToImages(imageUrl)
+            const pages = await pdfToImages(imageUrl, { maxPages: 2 })
             if (!pages.length) continue
             scanBody.image_urls = pages
           } catch { continue }
