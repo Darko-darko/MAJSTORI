@@ -44,6 +44,7 @@ export default function AusgabenPage() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [previewItem, setPreviewItem] = useState(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewImages, setPreviewImages] = useState([])
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [zipModal, setZipModal] = useState(false)
   const [zipLoading, setZipLoading] = useState(false)
@@ -165,13 +166,20 @@ export default function AusgabenPage() {
   async function openPreview(item) {
     const { data } = await supabase.storage.from('ausgaben').createSignedUrl(item.storage_path, 300)
     if (!data?.signedUrl) return
-    if (item.storage_path?.endsWith('.pdf')) {
-      window.open(data.signedUrl, '_blank')
-      return
-    }
     setPreviewItem(item)
-    setPreviewLoading(false)
-    setPreviewUrl(data.signedUrl)
+    setPreviewImages([])
+    if (item.storage_path?.endsWith('.pdf')) {
+      setPreviewLoading(true)
+      setPreviewUrl(null)
+      try {
+        const imgs = await pdfToImages(data.signedUrl, { scale: 2, quality: 0.85, maxPages: 5 })
+        setPreviewImages(imgs)
+      } catch { /* fallback: no images */ }
+      setPreviewLoading(false)
+    } else {
+      setPreviewLoading(false)
+      setPreviewUrl(data.signedUrl)
+    }
   }
 
   function toggleSelect(id) {
@@ -388,9 +396,15 @@ export default function AusgabenPage() {
               <button onClick={() => setPreviewItem(null)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
             </div>
             {previewLoading
-              ? <div className="w-full h-64 bg-slate-800 rounded-xl animate-pulse" />
-              : previewItem.storage_path?.endsWith('.pdf')
-                ? <iframe src={previewUrl} className="w-full h-[70vh] rounded-xl" />
+              ? <div className="w-full h-64 bg-slate-800 rounded-xl animate-pulse flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              : previewImages.length > 0
+                ? <div className="space-y-3 max-h-[70vh] overflow-y-auto rounded-xl">
+                    {previewImages.map((src, i) => (
+                      <img key={i} src={src} alt={`Seite ${i + 1}`} className="w-full rounded-xl object-contain bg-white" />
+                    ))}
+                  </div>
                 : <img src={previewUrl} alt="Beleg" className="w-full rounded-xl max-h-[70vh] object-contain bg-slate-900" />
             }
           </div>
