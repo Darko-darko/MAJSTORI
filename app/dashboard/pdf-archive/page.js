@@ -1780,7 +1780,12 @@ function AusgabenTab({ ausgaben, ausgabenLoading, selected, setSelected, month, 
                   className={`absolute top-1 left-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs ${sel ? 'bg-blue-500 border-blue-500 text-white' : 'bg-slate-900/70 border-slate-500'}`}>
                   {sel && '✓'}
                 </button>
-                <p className="text-slate-500 text-xs mt-1 truncate">{new Date(item.created_at).toLocaleDateString('de-DE')}</p>
+                <p className="text-slate-500 text-xs mt-1 truncate">
+                  {new Date(item.created_at).toLocaleDateString('de-DE')}
+                  {item.uploaded_by && item.uploaded_by !== majstor?.id && (
+                    <span className="ml-1 text-[9px] text-teal-400">Buchhalter</span>
+                  )}
+                </p>
               </div>
             )
           })}
@@ -1909,7 +1914,7 @@ function AusgabeThumbnail({ path, isPdf }) {
       <div className="relative w-full h-full">
         <canvas ref={canvasRef} className="w-full h-full object-cover" style={pdfReady ? {} : { display: 'none' }} />
         {!pdfReady && <div className="w-full h-full bg-slate-600 animate-pulse" />}
-        <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: '#fff', backgroundColor: '#dc2626' }}>PDF</span>
+        <span className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: '#fff', backgroundColor: '#dc2626' }}>PDF</span>
       </div>
     )
   }

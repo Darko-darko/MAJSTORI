@@ -348,6 +348,9 @@ export default function AusgabenPage() {
                       </button>
                       <p className="text-slate-500 text-xs mt-1 truncate px-0.5">
                         {new Date(item.created_at).toLocaleDateString('de-DE')}
+                        {item.uploaded_by && item.uploaded_by !== majstor?.id && (
+                          <span className="ml-1 text-[9px] text-teal-400">Buchhalter</span>
+                        )}
                       </p>
                     </div>
                   )
@@ -527,7 +530,7 @@ function StorageThumbnail({ path, isPdf }) {
       <div className="relative w-full h-full">
         <canvas ref={canvasRef} className="w-full h-full object-cover" style={pdfReady ? {} : { display: 'none' }} />
         {!pdfReady && <div className="w-full h-full bg-slate-600 animate-pulse" />}
-        <span className="absolute top-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: '#fff', backgroundColor: '#dc2626' }}>PDF</span>
+        <span className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ color: '#fff', backgroundColor: '#dc2626' }}>PDF</span>
       </div>
     )
   }

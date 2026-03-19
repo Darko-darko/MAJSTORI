@@ -53,7 +53,7 @@ function AusgabenThumbnail({ storagePath, filename, majstorId, getToken, isPdf }
     return (
       <div className="relative w-full h-full bg-white flex items-center justify-center">
         <canvas ref={canvasRef} className="w-full h-full object-cover" />
-        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+        <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
       </div>
     )
   }
@@ -96,6 +96,8 @@ export default function BuchhalterMandantPage({ params }) {
   })
   const [invoicesLoading, setInvoicesLoading] = useState(false)
   const [ausgabenLoading, setAusgabenLoading] = useState(false)
+  const [ausgabenUploading, setAusgabenUploading] = useState(false)
+  const ausgabenFileRef = useRef(null)
   const [previewItem, setPreviewItem] = useState(null)
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -489,6 +491,75 @@ export default function BuchhalterMandantPage({ params }) {
       })
     } catch (err) {
       alert('Löschen fehlgeschlagen: ' + err.message)
+    }
+  }
+
+  // Upload ausgaben (buchhalter uploading for majstor)
+  const compressImage = (file, maxWidth = 1600) => new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(resolve, 'image/jpeg', 0.82)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+
+  const handleAusgabenUpload = async (files) => {
+    if (!files?.length) return
+    setAusgabenUploading(true)
+    try {
+      const ft = await getFreshToken()
+      for (const file of Array.from(files)) {
+        const isPDF = file.type === 'application/pdf'
+        let uploadBlob = file
+        let ext = 'pdf'
+        if (!isPDF) {
+          uploadBlob = await compressImage(file)
+          ext = 'jpg'
+        }
+        const timestamp = Date.now()
+        const path = `${majstorId}/${timestamp}_${Math.random().toString(36).slice(2)}.${ext}`
+
+        // Get signed upload URL from API
+        const urlRes = await fetch('/api/buchhalter-archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+          body: JSON.stringify({ majstorId, type: 'upload_url', path })
+        })
+        const urlData = await urlRes.json()
+        if (!urlRes.ok) { console.error(urlData.error); continue }
+
+        // Upload directly to storage using signed URL
+        const uploadRes = await fetch(urlData.signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': isPDF ? 'application/pdf' : 'image/jpeg' },
+          body: uploadBlob
+        })
+        if (!uploadRes.ok) { console.error('Upload failed'); continue }
+
+        // Create DB record
+        await fetch('/api/buchhalter-archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ft}` },
+          body: JSON.stringify({
+            majstorId,
+            type: 'upload_ausgabe',
+            storage_path: path,
+            filename: file.name.replace(/\.[^.]+$/, '') + '.' + ext
+          })
+        })
+      }
+      // Refresh list
+      await loadAusgaben(ausgabenMonth, ausgabenYear)
+    } catch (err) {
+      alert('Upload fehlgeschlagen: ' + err.message)
+    } finally {
+      setAusgabenUploading(false)
+      if (ausgabenFileRef.current) ausgabenFileRef.current.value = ''
     }
   }
 
@@ -1045,6 +1116,14 @@ export default function BuchhalterMandantPage({ params }) {
               </select>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <input
+                ref={ausgabenFileRef}
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                className="hidden"
+                onChange={e => { handleAusgabenUpload(e.target.files); }}
+              />
               {ausgaben.some(a => !a.scanned_at) && (
                 <button
                   onClick={bulkScanAll}
@@ -1097,12 +1176,24 @@ export default function BuchhalterMandantPage({ params }) {
                 <div className="h-8 w-8 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" />
               </div>
             ) : ausgaben.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="text-5xl mb-4">🧾</div>
-                <p className="text-slate-300 text-lg font-medium mb-2">Keine Ausgaben</p>
-                <p className="text-slate-500 text-sm">Keine Belege für diesen Monat vorhanden</p>
+              <div
+                onClick={() => ausgabenFileRef.current?.click()}
+                className="flex flex-col items-center justify-center py-16 cursor-pointer hover:bg-slate-800/30 rounded-xl transition-colors"
+              >
+                {ausgabenUploading ? (
+                  <>
+                    <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-slate-400 text-sm">Wird hochgeladen...</p>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-10 h-10 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                    <p className="text-slate-300 text-lg font-medium mb-2">Keine Ausgaben</p>
+                    <p className="text-slate-500 text-sm">Klicken zum Hochladen — JPG, PNG oder PDF</p>
+                  </>
+                )}
               </div>
-            ) : groupByMonth(ausgaben).map(group => {
+            ) : groupByMonth(ausgaben).map((group, gi) => {
             const allSel = group.items.every(i => selectedIds.has(i.id))
             return (
               <div key={group.key} className="space-y-3">
@@ -1164,6 +1255,9 @@ export default function BuchhalterMandantPage({ params }) {
                         {/* Info */}
                         <div className="p-2 space-y-1.5">
                           <p className="text-white text-xs truncate" title={item.filename}>{item.filename}</p>
+                          {item.uploaded_by && item.uploaded_by !== majstorId && (
+                            <span className="text-[9px] bg-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded">Vom Buchhalter</span>
+                          )}
                           {isScanned ? (
                             <div className="space-y-0.5">
                               <p className="text-teal-400 text-xs font-medium truncate">{item.vendor}</p>
@@ -1193,6 +1287,25 @@ export default function BuchhalterMandantPage({ params }) {
                       </div>
                     )
                   })}
+                  {/* Upload card — last item in newest group */}
+                  {gi === 0 && (
+                    <div
+                      onClick={() => ausgabenFileRef.current?.click()}
+                      className="border-2 border-dashed border-slate-500 hover:border-teal-500 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2 cursor-pointer transition-colors"
+                    >
+                      {ausgabenUploading ? (
+                        <>
+                          <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-slate-400 text-xs">Hochladen...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                          <span className="text-slate-400 text-xs text-center">Beleg hinzufügen</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )

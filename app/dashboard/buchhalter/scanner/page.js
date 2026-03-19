@@ -703,6 +703,19 @@ export default function BuchhalterScanner() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {/* Add more card — first position */}
+                    <div className="border-2 border-dashed border-slate-400 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2">
+                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
+                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
+                        Dateien auswählen
+                        <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
+                      </label>
+                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
+                        Ordner hochladen
+                        <input type="file" className="hidden" webkitdirectory="" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
+                      </label>
+                      <span className="text-[10px] text-slate-400 text-center">oder hierher ziehen<br/>JPG · PNG · PDF</span>
+                    </div>
                     {belege.map(b => (
                       <BelegCard
                         key={b.id}
@@ -724,19 +737,6 @@ export default function BuchhalterScanner() {
                         onShowPricing={() => setShowPricing(true)}
                       />
                     ))}
-                    {/* Add more card */}
-                    <div className="border-2 border-dashed border-slate-400 rounded-xl flex flex-col items-center justify-center min-h-[200px] gap-3 px-2">
-                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#94a3b8' }}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13" /></svg>
-                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
-                        Dateien auswählen
-                        <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
-                      </label>
-                      <label className="text-xs text-teal-600 hover:text-teal-500 cursor-pointer font-medium hover:underline">
-                        Ordner hochladen
-                        <input type="file" className="hidden" webkitdirectory="" onChange={e => { handleFileUpload(Array.from(e.target.files)); e.target.value = '' }} />
-                      </label>
-                      <span className="text-[10px] text-slate-400 text-center">oder hierher ziehen<br/>JPG · PNG · PDF</span>
-                    </div>
                   </div>
                 )}
               </div>
@@ -975,7 +975,7 @@ function BelegThumbnail({ storagePath, filename, isPdf }) {
     return (
       <div className="relative w-full h-full bg-white flex items-center justify-center">
         <canvas ref={canvasRef} className="w-full h-full object-cover" />
-        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+        <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
       </div>
     )
   }
