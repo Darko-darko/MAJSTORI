@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { pdfToImages } from '@/lib/pdfToImages'
 
@@ -76,11 +76,12 @@ function groupByMonth(ausgaben) {
 export default function BuchhalterMandantPage({ params }) {
   const { majstorId } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [majstorInfo, setMajstorInfo] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [ausgaben, setAusgaben] = useState([])
-  const [activeTab, setActiveTab] = useState('rechnungen')
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'rechnungen')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [token, setToken] = useState(null)
@@ -653,7 +654,7 @@ export default function BuchhalterMandantPage({ params }) {
         const vendor = (a.vendor || '').replace(/;/g, ',')
         const desc = (a.description || '').replace(/;/g, ',')
         const fname = (a.filename || '').replace(/;/g, ',')
-        csv += `${datum}${sep}${vendor}${sep}${brutto.toFixed(2).replace('.', ',')}${sep}${netto.toFixed(2).replace('.', ',')}${sep}${a.vat_rate || 19}%${sep}${vat.toFixed(2).replace('.', ',')}${sep}${desc}${sep}${fname}\n`
+        csv += `${datum}${sep}${vendor}${sep}${brutto.toFixed(2).replace('.', ',')}${sep}${netto.toFixed(2).replace('.', ',')}${sep}${a.vat_rate != null ? a.vat_rate : 19}%${sep}${vat.toFixed(2).replace('.', ',')}${sep}${desc}${sep}${fname}\n`
       }
 
       csv += `${sep}Summe ${cat}${sep}${catBrutto.toFixed(2).replace('.', ',')}${sep}${catNetto.toFixed(2).replace('.', ',')}${sep}${sep}${catVat.toFixed(2).replace('.', ',')}${sep}${sep}\n`
@@ -697,7 +698,7 @@ export default function BuchhalterMandantPage({ params }) {
 
     // BU-Schlüssel for VAT rates
     const buSchluessel = (rate) => {
-      const r = parseFloat(rate) || 19
+      const r = rate != null ? parseFloat(rate) : 19
       if (r === 19) return 9
       if (r === 7) return 8
       return 0
@@ -867,7 +868,7 @@ export default function BuchhalterMandantPage({ params }) {
             {['rechnungen', 'ausgaben'].map(tab => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedIds(new Set()) }}
+                onClick={() => { setActiveTab(tab); setSelectedIds(new Set()); const url = new URL(window.location); url.searchParams.set('tab', tab); window.history.replaceState({}, '', url) }}
                 className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
                   activeTab === tab ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-700/50 border border-transparent'
                 }`}

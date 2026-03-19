@@ -68,32 +68,33 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Feature nicht verfügbar' }, { status: 403 })
     }
 
-    // Check scan limit (10 free, unlimited if 3+ majstors)
-    const { data: profile } = await supabase
-      .from('majstors')
-      .select('scan_count')
-      .eq('id', user.id)
-      .single()
-
-    const scanCount = profile?.scan_count || 0
-
-    // Check if buchhalter has 3+ active majstors → unlimited
-    const { count: majstorCount } = await supabase
-      .from('buchhalter_access')
-      .select('id', { count: 'exact', head: true })
-      .eq('buchhalter_id', user.id)
-      .eq('status', 'active')
-
-    const isUnlimited = (majstorCount || 0) >= 3
-    if (!isUnlimited && scanCount >= 10) {
-      return NextResponse.json({
-        error: 'Scan-Limit erreicht (10 kostenlose Scans). Mit 3+ Mandanten ist der Service kostenlos.',
-        limit_reached: true,
-        scan_count: scanCount
-      }, { status: 429 })
-    }
-
     const { image_url, image_urls, ausgabe_id } = await request.json()
+
+    // Scan from Buchhalter Portal (ausgabe_id = majstor's receipt) → always free
+    // Standalone Beleg-Scanner (no ausgabe_id) → 200 free, then subscription
+    let isUnlimited = false
+
+    if (ausgabe_id) {
+      // Scanning a platform majstor's receipt → always unlimited
+      isUnlimited = true
+    } else {
+      // Standalone scanner — check limit
+      const { data: profile } = await supabase
+        .from('majstors')
+        .select('scan_count')
+        .eq('id', user.id)
+        .single()
+
+      const scanCount = profile?.scan_count || 0
+
+      if (scanCount >= 200) {
+        return NextResponse.json({
+          error: 'Scan-Limit erreicht (200 kostenlose Scans). Bitte wählen Sie ein Abo für weitere Scans.',
+          limit_reached: true,
+          scan_count: scanCount
+        }, { status: 429 })
+      }
+    }
     const urls = image_urls || (image_url ? [image_url] : [])
     if (!urls.length) {
       return NextResponse.json({ error: 'image_url required' }, { status: 400 })
@@ -177,25 +178,45 @@ export async function POST(request) {
       description: String(parsed.description || '').slice(0, 200),
     }
 
-    // If ausgabe_id provided, auto-save to DB (with ownership check)
+    // If ausgabe_id provided, auto-save to DB
     if (ausgabe_id) {
-      await supabase
+      // Get the ausgabe to verify ownership or buchhalter access
+      const { data: ausgabe } = await supabase
         .from('ausgaben')
-        .update({ ...result, scanned_at: new Date().toISOString() })
+        .select('majstor_id')
         .eq('id', ausgabe_id)
-        .eq('majstor_id', user.id)
+        .single()
+
+      if (ausgabe) {
+        const isMajstor = ausgabe.majstor_id === user.id
+        let hasBuchhalterAccess = false
+        if (!isMajstor) {
+          const { count } = await supabase
+            .from('buchhalter_access')
+            .select('id', { count: 'exact', head: true })
+            .eq('buchhalter_id', user.id)
+            .eq('majstor_id', ausgabe.majstor_id)
+            .eq('status', 'active')
+          hasBuchhalterAccess = (count || 0) > 0
+        }
+        if (isMajstor || hasBuchhalterAccess) {
+          await supabase
+            .from('ausgaben')
+            .update({ ...result, scanned_at: new Date().toISOString() })
+            .eq('id', ausgabe_id)
+        }
+      }
     }
 
-    // Increment scan count
-    await supabase
-      .from('majstors')
-      .update({ scan_count: scanCount + 1 })
-      .eq('id', user.id)
+    // Increment scan count (only for standalone scanner, not platform scans)
+    if (!isUnlimited) {
+      const { data: curr } = await supabase.from('majstors').select('scan_count').eq('id', user.id).single()
+      await supabase.from('majstors').update({ scan_count: (curr?.scan_count || 0) + 1 }).eq('id', user.id)
+    }
 
     return NextResponse.json({
       success: true,
       data: result,
-      scan_count: scanCount + 1,
       is_unlimited: isUnlimited
     })
   } catch (err) {

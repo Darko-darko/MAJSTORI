@@ -369,7 +369,7 @@ export default function BuchhalterScanner() {
         const brutto = parseFloat(b.amount_gross) || 0, netto = parseFloat(b.amount_net) || 0, vat = parseFloat(b.vat_amount) || 0
         catB += brutto; catN += netto; catV += vat
         const datum = b.receipt_date ? new Date(b.receipt_date + 'T00:00:00').toLocaleDateString('de-DE') : ''
-        csv += `${datum}${sep}${(b.vendor||'').replace(/;/g,',')}${sep}${brutto.toFixed(2).replace('.',',')}${sep}${netto.toFixed(2).replace('.',',')}${sep}${b.vat_rate||19}%${sep}${vat.toFixed(2).replace('.',',')}${sep}${(b.description||'').replace(/;/g,',')}${sep}${(b.filename||'').replace(/;/g,',')}\n`
+        csv += `${datum}${sep}${(b.vendor||'').replace(/;/g,',')}${sep}${brutto.toFixed(2).replace('.',',')}${sep}${netto.toFixed(2).replace('.',',')}${sep}${b.vat_rate != null ? b.vat_rate : 19}%${sep}${vat.toFixed(2).replace('.',',')}${sep}${(b.description||'').replace(/;/g,',')}${sep}${(b.filename||'').replace(/;/g,',')}\n`
       }
       csv += `${sep}Summe ${cat}${sep}${catB.toFixed(2).replace('.',',')}${sep}${catN.toFixed(2).replace('.',',')}${sep}${sep}${catV.toFixed(2).replace('.',',')}${sep}${sep}\n`
       grandBrutto += catB; grandNetto += catN; grandVat += catV
@@ -395,7 +395,7 @@ export default function BuchhalterScanner() {
       'Miete': { konto: 4210 }, 'Reise': { konto: 4660 }, 'Bewirtung': { konto: 4650 }, 'Sonstiges': { konto: 4900 },
     }
     const GEGENKONTO = 1200
-    const buSchluessel = (rate) => { const r = parseFloat(rate) || 19; if (r === 19) return 9; if (r === 7) return 8; return 0 }
+    const buSchluessel = (rate) => { const r = rate != null ? parseFloat(rate) : 19; if (r === 19) return 9; if (r === 7) return 8; return 0 }
 
     const sep = ';'
     let csv = '\uFEFF'
