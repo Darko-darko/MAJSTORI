@@ -884,16 +884,7 @@ function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, 
     }`}>
       {/* Thumbnail */}
       <div className="relative aspect-[3/4] bg-slate-900 cursor-pointer" onClick={onView}>
-        {isPdf ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="text-4xl mb-1">📄</div>
-              <p className="text-slate-500 text-xs">PDF</p>
-            </div>
-          </div>
-        ) : (
-          <BelegThumbnail storagePath={beleg.storage_path} filename={beleg.filename} />
-        )}
+        <BelegThumbnail storagePath={beleg.storage_path} filename={beleg.filename} isPdf={isPdf} />
         {/* Select checkbox — top left */}
         <div className="absolute top-2 left-2 z-10" onClick={e => { e.stopPropagation(); onToggleSelect() }}>
           <div className={`w-6 h-6 rounded border-2 flex items-center justify-center cursor-pointer transition-colors shadow-sm ${
@@ -941,9 +932,10 @@ function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, 
   )
 }
 
-// ---- Beleg Thumbnail (lazy load signed URL) ----
-function BelegThumbnail({ storagePath, filename }) {
+// ---- Beleg Thumbnail (lazy load signed URL, supports PDF) ----
+function BelegThumbnail({ storagePath, filename, isPdf }) {
   const [url, setUrl] = useState(null)
+  const canvasRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -953,7 +945,41 @@ function BelegThumbnail({ storagePath, filename }) {
     return () => { cancelled = true }
   }, [storagePath])
 
+  useEffect(() => {
+    if (!url || !isPdf || !canvasRef.current) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { pdfToImages } = await import('@/lib/pdfToImages')
+        const pages = await pdfToImages(url, { scale: 1, quality: 0.7, maxPages: 1 })
+        if (!cancelled && pages[0] && canvasRef.current) {
+          const img = new Image()
+          img.onload = () => {
+            if (cancelled || !canvasRef.current) return
+            const canvas = canvasRef.current
+            const ctx = canvas.getContext('2d')
+            canvas.width = canvas.offsetWidth * 2
+            canvas.height = canvas.offsetHeight * 2
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          }
+          img.src = pages[0]
+        }
+      } catch { /* fallback to PDF icon handled by canvasRef being empty */ }
+    })()
+    return () => { cancelled = true }
+  }, [url, isPdf])
+
   if (!url) return <div className="flex items-center justify-center h-full"><div className="h-5 w-5 border-2 border-slate-600 border-t-teal-500 rounded-full animate-spin" /></div>
+
+  if (isPdf) {
+    return (
+      <div className="relative w-full h-full bg-white flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-full object-cover" />
+        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+      </div>
+    )
+  }
+
   return <img src={url} alt={filename} className="w-full h-full object-cover" />
 }
 

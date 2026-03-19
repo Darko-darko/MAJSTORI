@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { pdfToImages } from '@/lib/pdfToImages'
 
-function AusgabenThumbnail({ storagePath, filename, majstorId, getToken }) {
+function AusgabenThumbnail({ storagePath, filename, majstorId, getToken, isPdf }) {
   const [url, setUrl] = useState(null)
+  const canvasRef = useRef(null)
 
   useEffect(() => {
     if (!storagePath) return
@@ -23,7 +24,40 @@ function AusgabenThumbnail({ storagePath, filename, majstorId, getToken }) {
     return () => { cancelled = true }
   }, [storagePath])
 
+  useEffect(() => {
+    if (!url || !isPdf || !canvasRef.current) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const pages = await pdfToImages(url, { scale: 1, quality: 0.7, maxPages: 1 })
+        if (!cancelled && pages[0] && canvasRef.current) {
+          const img = new Image()
+          img.onload = () => {
+            if (cancelled || !canvasRef.current) return
+            const canvas = canvasRef.current
+            const ctx = canvas.getContext('2d')
+            canvas.width = canvas.offsetWidth * 2
+            canvas.height = canvas.offsetHeight * 2
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          }
+          img.src = pages[0]
+        }
+      } catch { /* fallback — canvas stays empty */ }
+    })()
+    return () => { cancelled = true }
+  }, [url, isPdf])
+
   if (!url) return <div className="flex items-center justify-center h-full"><div className="h-5 w-5 border-2 border-slate-600 border-t-teal-500 rounded-full animate-spin" /></div>
+
+  if (isPdf) {
+    return (
+      <div className="relative w-full h-full bg-white flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-full object-cover" />
+        <div className="absolute bottom-1 right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PDF</div>
+      </div>
+    )
+  }
+
   return <img src={url} alt={filename || 'Beleg'} className="w-full h-full object-cover" />
 }
 
@@ -1111,16 +1145,7 @@ export default function BuchhalterMandantPage({ params }) {
                             } catch { /* skip */ }
                           }}
                         >
-                          {isPDF ? (
-                            <div className="flex items-center justify-center h-full">
-                              <div className="text-center">
-                                <div className="text-4xl mb-1">📄</div>
-                                <p className="text-slate-500 text-xs">PDF</p>
-                              </div>
-                            </div>
-                          ) : (
-                            <AusgabenThumbnail storagePath={item.storage_path} filename={item.filename} majstorId={majstorId} getToken={getFreshToken} />
-                          )}
+                          <AusgabenThumbnail storagePath={item.storage_path} filename={item.filename} majstorId={majstorId} getToken={getFreshToken} isPdf={isPDF} />
                           {/* Select checkbox — top left */}
                           <div className="absolute top-2 left-2 z-10" onClick={e => { e.stopPropagation(); toggleSelect(item.id) }}>
                             <div className={`w-6 h-6 rounded border-2 flex items-center justify-center cursor-pointer transition-colors shadow-sm ${
