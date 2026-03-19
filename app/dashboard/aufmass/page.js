@@ -1360,34 +1360,63 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const transferTo = async (docType) => {
     if (isNew && form.title.trim()) await save()
     const flatItems = []
-    for (const room of form.rooms) {
-      // Compute netto per unit: regular + forms - subtracts
-      const nettoByUnit = {}
-      for (const item of room.items) {
-        if (!item.result) continue
-        const rawU = item.unit || ''
-        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
-        const sign = item.subtract ? -1 : 1
-        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
-      }
-      for (const [unit, netto] of Object.entries(nettoByUnit)) {
-        if (netto <= 0) continue
-        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
-        const matchUnits = unit === 'm²' ? m2Units : [unit]
-        const descs = room.items
-          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
-          .map(i => i.description)
-          .filter(Boolean)
-          .join(', ')
+
+    if (form.gewerk === 'fensterbau') {
+      // Fensterbau: each position = one invoice item
+      for (const pos of form.rooms) {
+        const panels = pos.panels || []
+        const typLabels = panels.map(p =>
+          p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+        )
+        const typStr = typLabels.join(' + ') + (pos.oberlicht ? ' + Oberlicht' : '')
+        const parts = [
+          pos.name,
+          pos.material,
+          typStr,
+          pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
+          pos.glazing,
+          pos.color,
+        ].filter(Boolean)
         flatItems.push({
-          description: [room.name, descs].filter(Boolean).join(': '),
-          quantity: Math.round(netto * 100) / 100,
-          unit,
+          description: parts.join(', '),
+          quantity: parseInt(pos.count) || 1,
+          unit: 'Stk',
           unit_price: 0,
           total_price: 0,
         })
       }
+    } else {
+      // Room-based: compute netto per unit
+      for (const room of form.rooms) {
+        const nettoByUnit = {}
+        for (const item of room.items) {
+          if (!item.result) continue
+          const rawU = item.unit || ''
+          const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
+          const sign = item.subtract ? -1 : 1
+          nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+        }
+        for (const [unit, netto] of Object.entries(nettoByUnit)) {
+          if (netto <= 0) continue
+          const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
+          const matchUnits = unit === 'm²' ? m2Units : [unit]
+          const descs = room.items
+            .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
+            .map(i => i.description)
+            .filter(Boolean)
+            .join(', ')
+          flatItems.push({
+            description: [room.name, descs].filter(Boolean).join(': '),
+            quantity: Math.round(netto * 100) / 100,
+            unit,
+            unit_price: 0,
+            total_price: 0,
+          })
+        }
+      }
     }
+
+    // Materials (shared for all gewerke)
     for (const mat of (form.materials || [])) {
       if (!mat.description) continue
       flatItems.push({

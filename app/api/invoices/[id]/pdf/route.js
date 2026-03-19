@@ -49,11 +49,21 @@ export async function GET(request, routeData) {
       return NextResponse.json({ error: 'Geschäftsdaten nicht gefunden' }, { status: 404 })
     }
 
+    // Load Aufmaß data if linked
+    let aufmassData = null
+    if (invoice.aufmass_id) {
+      const { data: aufmass } = await supabase
+        .from('aufmasse').select('*').eq('id', invoice.aufmass_id).single()
+      if (aufmass) aufmassData = aufmass
+    }
+
     // ⚡ FAST PATH: Serve cached PDF if exists and up-to-date
     if (!forceRegenerate && invoice.pdf_storage_path && invoice.pdf_generated_at) {
-      const pdfOutdated = new Date(invoice.updated_at) > new Date(invoice.pdf_generated_at)
+      const pdfGenAt = new Date(invoice.pdf_generated_at)
+      const invoiceOutdated = new Date(invoice.updated_at) > pdfGenAt
+      const aufmassOutdated = aufmassData && aufmassData.updated_at && new Date(aufmassData.updated_at) > pdfGenAt
 
-      if (!pdfOutdated) {
+      if (!invoiceOutdated && !aufmassOutdated) {
         console.log('✅ Serving cached PDF (up-to-date)')
         return await servePDFFromArchive(invoice)
       }
@@ -70,7 +80,7 @@ export async function GET(request, routeData) {
     // Generate new PDF
     console.log('🔄 Regenerating PDF...')
     const pdfService = new InvoicePDFService()
-    const pdfBuffer = await pdfService.generateInvoice({ ...invoice, stornoOfNumber }, majstor)
+    const pdfBuffer = await pdfService.generateInvoice({ ...invoice, stornoOfNumber }, majstor, aufmassData)
 
     // Archive in background — don't block the response
     archivePDF(pdfBuffer, invoice, majstor.id).catch(err =>
