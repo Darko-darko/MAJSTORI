@@ -202,7 +202,7 @@ export async function POST(request) {
       }
 
       const { image_url, image_urls, beleg_id } = body
-      const urls = image_urls || (image_url ? [image_url] : [])
+      const urls = (image_urls || (image_url ? [image_url] : [])).slice(0, 2)
       if (!urls.length) return NextResponse.json({ error: 'image_url required' }, { status: 400 })
 
       const imageContent = urls.map(u => ({ type: 'image_url', image_url: { url: u, detail: 'high' } }))
