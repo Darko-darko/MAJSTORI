@@ -59,33 +59,47 @@ function panelSymbolLines(x, y, w, h, type, hinge) {
 }
 
 // SVG window sketch (used in type selector and position preview)
-function FensterSketch({ panels, oberlicht, size = 'sm' }) {
+function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0 }) {
   const isSm = size === 'sm'
-  const vw = isSm ? 48 : 140, vh = isSm ? 36 : 100
+  const dimSpace = isSm ? 0 : 28 // extra space for dimension lines (lg only)
+  const vw = isSm ? 48 : 140 + dimSpace, vh = isSm ? 36 : 100 + dimSpace
   const pad = isSm ? 3 : 6
-  const frameW = vw - 2 * pad, frameH = vh - 2 * pad
+  const frameW = (isSm ? 48 : 140) - 2 * pad, frameH = (isSm ? 36 : 100) - 2 * pad
+  const fX = pad, fY = pad // frame origin
   const olH = oberlicht ? frameH * 0.28 : 0
   const panelH = frameH - olH
   const sw = isSm ? 0.8 : 1.2
 
-  // Proportional panel widths
-  const hasCustomWidths = panels.some(p => p.width > 0)
-  const totalW = hasCustomWidths ? panels.reduce((s, p) => s + (parseFloat(p.width) || 1), 0) : panels.length
-  const panelWidths = panels.map(p => hasCustomWidths ? (parseFloat(p.width) || 1) / totalW * frameW : frameW / panels.length)
-  let xOff = pad
+  // Proportional panel widths — last panel = remainder of posWidth
+  const totalPosW = parseFloat(posWidth) || 0
+  const totalPosH = parseFloat(posHeight) || 0
+  const effWidths = panels.map((p, i) => {
+    if (i === panels.length - 1 && panels.length > 1 && totalPosW > 0) {
+      const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
+      return Math.max(1, totalPosW - others)
+    }
+    return parseFloat(p.width) || 0
+  })
+  const hasCustomWidths = effWidths.some(w => w > 0)
+  const totalW = hasCustomWidths ? effWidths.reduce((s, w) => s + (w || 1), 0) : panels.length
+  const panelWidths = effWidths.map(w => hasCustomWidths ? (w || 1) / totalW * frameW : frameW / panels.length)
+  let xOff = fX
+
+  // Dimension line helper
+  const dimTick = 3, dimOff1 = 6, dimOff2 = 18, fontSize = 7.5
 
   return (
     <svg width={vw} height={vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400">
-      <rect x={pad} y={pad} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 1.4} />
+      <rect x={fX} y={fY} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 1.4} />
       {oberlicht && (
         <>
-          <line x1={pad} y1={pad + olH} x2={pad + frameW} y2={pad + olH} stroke="currentColor" strokeWidth={sw} />
-          <line x1={pad} y1={pad} x2={pad + frameW} y2={pad + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
-          <line x1={pad + frameW} y1={pad} x2={pad} y2={pad + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
+          <line x1={fX} y1={fY + olH} x2={fX + frameW} y2={fY + olH} stroke="currentColor" strokeWidth={sw} />
+          <line x1={fX} y1={fY} x2={fX + frameW} y2={fY + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
+          <line x1={fX + frameW} y1={fY} x2={fX} y2={fY + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
         </>
       )}
       {panels.map((p, i) => {
-        const px = xOff, py = pad + olH, pw = panelWidths[i]
+        const px = xOff, py = fY + olH, pw = panelWidths[i]
         xOff += pw
         const lines = panelSymbolLines(px, py, pw, panelH, p.type, p.hinge)
         return (
@@ -99,6 +113,46 @@ function FensterSketch({ panels, oberlicht, size = 'sm' }) {
           </g>
         )
       })}
+
+      {/* Dimension lines — only for lg size */}
+      {!isSm && totalPosW > 0 && (
+        <g className="text-slate-500" fill="currentColor" stroke="currentColor" strokeWidth={0.5}>
+          {/* Bottom: total width */}
+          <line x1={fX} y1={fY + frameH + dimOff1} x2={fX} y2={fY + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
+          <line x1={fX + frameW} y1={fY + frameH + dimOff1} x2={fX + frameW} y2={fY + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
+          <line x1={fX} y1={fY + frameH + dimOff2} x2={fX + frameW} y2={fY + frameH + dimOff2} />
+          <text x={fX + frameW / 2} y={fY + frameH + dimOff2 + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalPosW}</text>
+
+          {/* Bottom: individual panel widths (if different) */}
+          {hasCustomWidths && panels.length > 1 && (() => {
+            let cx = fX
+            return panels.map((_, i) => {
+              const pw = panelWidths[i]
+              const ew = effWidths[i]
+              const x1 = cx, x2 = cx + pw
+              cx += pw
+              return (
+                <g key={`pw${i}`}>
+                  <line x1={x1} y1={fY + frameH + 2} x2={x1} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
+                  <line x1={x2} y1={fY + frameH + 2} x2={x2} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
+                  <line x1={x1} y1={fY + frameH + dimOff1} x2={x2} y2={fY + frameH + dimOff1} />
+                  <text x={x1 + pw / 2} y={fY + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{ew > 0 ? Math.round(ew) : ''}</text>
+                </g>
+              )
+            })
+          })()}
+
+          {/* Right: total height */}
+          {totalPosH > 0 && (
+            <>
+              <line x1={fX + frameW + dimOff1} y1={fY} x2={fX + frameW + dimOff2 + dimTick} y2={fY} strokeWidth={0.4} />
+              <line x1={fX + frameW + dimOff1} y1={fY + frameH} x2={fX + frameW + dimOff2 + dimTick} y2={fY + frameH} strokeWidth={0.4} />
+              <line x1={fX + frameW + dimOff2} y1={fY} x2={fX + frameW + dimOff2} y2={fY + frameH} />
+              <text x={fX + frameW + dimOff2 + 3} y={fY + frameH / 2 + 3} fontSize={fontSize} stroke="none" writingMode="vertical-rl">{totalPosH}</text>
+            </>
+          )}
+        </g>
+      )}
     </svg>
   )
 }
@@ -209,45 +263,32 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             ))}
           </div>
         ) : (
-          <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-3">
+          <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2">
             {pos.panels.map((panel, pi) => (
-              <div key={pi} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500 min-w-[52px]">Flügel {pi + 1}</span>
+              <div key={pi} className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500 min-w-[52px]">Flügel {pi + 1}</span>
+                <select
+                  value={panel.type}
+                  onChange={e => updatePanel(pi, 'type', e.target.value)}
+                  className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                >
+                  {PANEL_TYPES.map(pt => (
+                    <option key={pt.id} value={pt.id}>{pt.label}</option>
+                  ))}
+                </select>
+                {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
                   <select
-                    value={panel.type}
-                    onChange={e => updatePanel(pi, 'type', e.target.value)}
-                    className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                    value={panel.hinge || 'left'}
+                    onChange={e => updatePanel(pi, 'hinge', e.target.value)}
+                    className="min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
                   >
-                    {PANEL_TYPES.map(pt => (
-                      <option key={pt.id} value={pt.id}>{pt.label}</option>
-                    ))}
+                    <option value="left">Band links</option>
+                    <option value="right">Band rechts</option>
                   </select>
-                  {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
-                    <select
-                      value={panel.hinge || 'left'}
-                      onChange={e => updatePanel(pi, 'hinge', e.target.value)}
-                      className="min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
-                    >
-                      <option value="left">Band links</option>
-                      <option value="right">Band rechts</option>
-                    </select>
-                  )}
-                  {pos.panels.length > 1 && (
-                    <button onClick={() => removePanel(pi)} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 ml-[52px]">
-                  <label className="text-[10px] text-slate-500">Breite:</label>
-                  <input
-                    type="number"
-                    value={panel.width || ''}
-                    onChange={e => updatePanel(pi, 'width', e.target.value)}
-                    placeholder="optional"
-                    className="w-20 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-center"
-                  />
-                  <span className="text-[10px] text-slate-500">mm</span>
-                </div>
+                )}
+                {pos.panels.length > 1 && (
+                  <button onClick={() => removePanel(pi)} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
+                )}
               </div>
             ))}
             <div className="flex gap-2">
@@ -262,10 +303,54 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
         )}
       </div>
 
+      {/* Individuelle Flügelbreiten — nur bei 2+ Flügeln und eingegebener Gesamtbreite */}
+      {pos.panels.length > 1 && parseFloat(pos.width) > 0 && (() => {
+        const totalW = parseFloat(pos.width)
+        const anyHasWidth = pos.panels.some(p => parseFloat(p.width) > 0)
+        const othersSum = pos.panels.slice(0, -1).reduce((s, p) => s + (parseFloat(p.width) || 0), 0)
+        const lastRest = totalW - othersSum
+        return (
+          <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2">
+            <p className="text-[10px] text-slate-500 mb-1.5">Flügelbreiten (optional — leer = gleich breit)</p>
+            <div className="space-y-1.5">
+              {pos.panels.map((panel, pi) => {
+                const isLast = pi === pos.panels.length - 1
+                return (
+                  <div key={pi} className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-500 w-14">Flügel {pi + 1}:</span>
+                    {isLast && anyHasWidth ? (
+                      <>
+                        <span className={`w-20 min-h-[32px] px-2 py-1 bg-slate-600/50 border border-slate-600 rounded text-xs text-center flex items-center justify-center ${lastRest > 0 ? 'text-slate-300' : 'text-red-400'}`}>
+                          {lastRest > 0 ? lastRest : 'Fehler'}
+                        </span>
+                        <span className="text-[10px] text-slate-500">mm</span>
+                        {lastRest > 0 && <span className="text-[9px] text-slate-500 italic">auto</span>}
+                        {lastRest <= 0 && <span className="text-[9px] text-red-400">zu breit!</span>}
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="number"
+                          value={panel.width || ''}
+                          onChange={e => updatePanel(pi, 'width', e.target.value)}
+                          placeholder={isLast ? 'auto' : ''}
+                          className="w-20 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-center"
+                        />
+                        <span className="text-[10px] text-slate-500">mm</span>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Vorschau + Maße */}
       <div className="flex gap-3 items-start">
         <div className="bg-slate-800 rounded-lg p-2 border border-slate-700">
-          <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" />
+          <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} />
           {pos.width && pos.height && (
             <p className="text-center text-xs text-slate-400 mt-1">{pos.width} × {pos.height} mm</p>
           )}
