@@ -692,7 +692,9 @@ export default function InvoiceCreator({
       const quantity = parseFloat(value) || 0
       if (newItems[index].price_source === 'brutto') {
         const gross = parseFloat(newItems[index].price_gross) || 0
-        newItems[index].total = parseFloat((quantity * gross / taxMultiplier).toFixed(2))
+        const itemBrutto = parseFloat((quantity * gross).toFixed(2))
+        const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
+        newItems[index].total = parseFloat((itemBrutto - itemTax).toFixed(2))
       } else {
         const price = parseFloat(newItems[index].price) || 0
         newItems[index].total = parseFloat((quantity * price).toFixed(2))
@@ -711,9 +713,11 @@ export default function InvoiceCreator({
       const gross = parseFloat(value) || 0
       const net = parseFloat((gross / taxMultiplier).toFixed(2))
       const quantity = parseFloat(newItems[index].quantity) || 0
+      const itemBrutto = parseFloat((quantity * gross).toFixed(2))
+      const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
       newItems[index].price_source = 'brutto'
       newItems[index].price = net
-      newItems[index].total = parseFloat((quantity * gross / taxMultiplier).toFixed(2))
+      newItems[index].total = parseFloat((itemBrutto - itemTax).toFixed(2))
     }
 
     setFormData(prev => ({ ...prev, items: newItems }))
@@ -837,19 +841,40 @@ export default function InvoiceCreator({
 
     const taxRate = parseFloat(formData.tax_rate) || 0
 
-    // Sum per-item rounded netto totals — each item rounded first, then summed
-    const subtotal = parseFloat(items.reduce((sum, item) =>
-      sum + parseFloat((item.total || 0).toFixed(2)), 0).toFixed(2))
-    // Tax rounded per item, then summed (German accounting standard)
-    const taxAmount = parseFloat(items.reduce((sum, item) =>
-      sum + parseFloat(((item.total || 0) * taxRate / 100).toFixed(2)), 0).toFixed(2))
-    const totalAmount = parseFloat((subtotal + taxAmount).toFixed(2))
+    // Per-item calculation, then sum
+    let totalNetto = 0
+    let totalTax = 0
+    let totalBrutto = 0
+    for (const item of items) {
+      const qty = parseFloat(item.quantity) || 0
+      if (item.price_source === 'brutto') {
+        // Brutto entered: brutto is exact, MwSt = brutto × rate / (100 + rate)
+        const gross = parseFloat(item.price_gross) || 0
+        const itemBrutto = parseFloat((qty * gross).toFixed(2))
+        const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
+        const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
+        totalBrutto += itemBrutto
+        totalTax += itemTax
+        totalNetto += itemNetto
+      } else {
+        // Netto entered: netto is exact, MwSt = netto × rate / 100
+        const itemNetto = parseFloat((item.total || 0).toFixed(2))
+        const itemTax = parseFloat((itemNetto * taxRate / 100).toFixed(2))
+        const itemBrutto = parseFloat((itemNetto + itemTax).toFixed(2))
+        totalNetto += itemNetto
+        totalTax += itemTax
+        totalBrutto += itemBrutto
+      }
+    }
+    totalNetto = parseFloat(totalNetto.toFixed(2))
+    totalTax = parseFloat(totalTax.toFixed(2))
+    totalBrutto = parseFloat(totalBrutto.toFixed(2))
 
     setFormData(prev => ({
       ...prev,
-      subtotal,
-      tax_amount: taxAmount,
-      total_amount: totalAmount
+      subtotal: totalNetto,
+      tax_amount: totalTax,
+      total_amount: totalBrutto
     }))
   }
 
@@ -2028,16 +2053,19 @@ if (searchError) {
                     <div className="md:col-span-2">
                       <label className="block text-sm text-slate-400 mb-1">Gesamt</label>
                       <div className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm">
-                        {!formData.is_kleinunternehmer ? formatCurrency(
-                          item.price_source === 'brutto'
-                            ? parseFloat(((parseFloat(item.quantity) || 0) * (parseFloat(item.price_gross) || 0)).toFixed(2))
-                            : parseFloat((item.total * (1 + (parseFloat(formData.tax_rate) || 0) / 100)).toFixed(2))
-                        ) : formatCurrency(item.total)}
-                        {!formData.is_kleinunternehmer && (
-                          <span className="text-slate-400 text-xs ml-1">
-                            ({formatCurrency(item.total)} netto)
-                          </span>
-                        )}
+                        {(() => {
+                          const qty = parseFloat(item.quantity) || 0
+                          const rate = parseFloat(formData.tax_rate) || 0
+                          if (formData.is_kleinunternehmer) return formatCurrency(item.total)
+                          if (item.price_source === 'brutto') {
+                            const itemBrutto = parseFloat((qty * (parseFloat(item.price_gross) || 0)).toFixed(2))
+                            const itemTax = parseFloat((itemBrutto * rate / (100 + rate)).toFixed(2))
+                            const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
+                            return <>{formatCurrency(itemBrutto)} <span className="text-slate-400 text-xs ml-1">({formatCurrency(itemNetto)} netto)</span></>
+                          }
+                          const itemBrutto = parseFloat((item.total * (1 + rate / 100)).toFixed(2))
+                          return <>{formatCurrency(itemBrutto)} <span className="text-slate-400 text-xs ml-1">({formatCurrency(item.total)} netto)</span></>
+                        })()}
                       </div>
                     </div>
                     
