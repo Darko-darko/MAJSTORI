@@ -119,13 +119,10 @@ export default function InvoiceCreator({
   // Attachments
   const [pendingAttachments, setPendingAttachments] = useState([]) // {file, localId}
   const [savedAttachments, setSavedAttachments] = useState([])     // from DB
-  const [aufmassAttached, setAufmassAttached] = useState(false)
-  const [aufmassAttaching, setAufmassAttaching] = useState(false)
-  const [aufmassLocalId, setAufmassLocalId] = useState(null)
   const [showAufmassPicker, setShowAufmassPicker] = useState(false)
   const [aufmassPickerList, setAufmassPickerList] = useState([])
   const [aufmassPickerLoading, setAufmassPickerLoading] = useState(false)
-  const [selectedAufmassId, setSelectedAufmassId] = useState(aufmassId)
+  const [selectedAufmassIds, setSelectedAufmassIds] = useState(aufmassId ? [aufmassId] : [])
 
   // Check business data completeness on mount
   useEffect(() => {
@@ -136,7 +133,9 @@ export default function InvoiceCreator({
       }
       loadServices()
       initializeFormData()
-      setAufmassAttached(false)
+      // Restore linked Aufmaß IDs
+      const ids = editData?.aufmass_ids || (editData?.aufmass_id ? [editData.aufmass_id] : (aufmassId ? [aufmassId] : []))
+      setSelectedAufmassIds(ids)
     }
   }, [isOpen, majstor?.id, type, editData, isEditMode, businessDataComplete, prefilledItems])
 
@@ -761,59 +760,91 @@ export default function InvoiceCreator({
     }
   }
 
-  // Import Aufmaß items into current invoice (append)
+  // Import Aufmaß: link aufmass_id + populate invoice items from positions/rooms
   const importAufmass = (aufmass) => {
     const flatItems = []
-    for (const room of (aufmass.rooms || [])) {
-      const nettoByUnit = {}
-      for (const item of (room.items || [])) {
-        if (!item.result) continue
-        const rawU = item.unit || ''
-        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
-        const sign = item.subtract ? -1 : 1
-        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+
+    if (aufmass.gewerk === 'fensterbau') {
+      for (const pos of (aufmass.rooms || [])) {
+        if (pos.preset === 'mehrteilig' && pos.segments?.length > 0) {
+          const segDescs = pos.segments.map((seg, i) => {
+            const letter = String.fromCharCode(65 + i)
+            const typLabels = (seg.panels || []).map(p =>
+              p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+            )
+            let typStr = typLabels.join('+')
+            if (seg.oberlicht) typStr += '+OL'
+            if (seg.unterlicht) typStr += '+UL'
+            return `${letter}: ${seg.width || '?'}×${seg.height || '?'} (${typStr})`
+          })
+          const totalW = pos.segments.reduce((s, seg) => s + (parseFloat(seg.width) || 0), 0)
+          const maxH = Math.max(...pos.segments.map(seg => parseFloat(seg.height) || 0))
+          const parts = [
+            pos.material,
+            `Mehrteilig ${totalW}×${maxH} mm`,
+            segDescs.join(', '),
+            pos.glazing, pos.color,
+          ].filter(Boolean)
+          flatItems.push({ description: parts.join(', '), quantity: parseInt(pos.count) || 1, unit: 'Stk' })
+        } else {
+          const panels = pos.panels || []
+          const typLabels = panels.map(p =>
+            p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+          )
+          const typStr = typLabels.join(' + ') + (pos.oberlicht ? ' + Oberlicht' : '')
+          const parts = [
+            pos.material, typStr,
+            pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
+            pos.glazing, pos.color,
+          ].filter(Boolean)
+          flatItems.push({ description: parts.join(', '), quantity: parseInt(pos.count) || 1, unit: 'Stk' })
+        }
       }
-      for (const [unit, netto] of Object.entries(nettoByUnit)) {
-        if (netto <= 0) continue
-        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
-        const matchUnits = unit === 'm²' ? m2Units : [unit]
-        const descs = room.items
-          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
-          .map(i => i.description)
-          .filter(Boolean)
-          .join(', ')
-        flatItems.push({
-          description: [room.name, descs].filter(Boolean).join(': '),
-          quantity: Math.round(netto * 100) / 100,
-          unit,
-          price: 0,
-          price_gross: 0,
-          total: 0,
-          price_source: 'netto',
-        })
+    } else {
+      // Room-based (allgemein, maler, etc.)
+      for (const room of (aufmass.rooms || [])) {
+        const nettoByUnit = {}
+        for (const item of (room.items || [])) {
+          if (!item.result) continue
+          const rawU = item.unit || ''
+          const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
+          const sign = item.subtract ? -1 : 1
+          nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+        }
+        for (const [unit, netto] of Object.entries(nettoByUnit)) {
+          if (netto <= 0) continue
+          const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
+          const matchUnits = unit === 'm²' ? m2Units : [unit]
+          const descs = room.items
+            .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
+            .map(i => i.description).filter(Boolean).join(', ')
+          flatItems.push({
+            description: [room.name, descs].filter(Boolean).join(': '),
+            quantity: Math.round(netto * 100) / 100, unit,
+          })
+        }
       }
     }
-    // Add materials
+
+    // Materials
     for (const mat of (aufmass.materials || [])) {
       if (!mat.description) continue
-      flatItems.push({
-        description: mat.description,
-        quantity: parseFloat(mat.quantity) || 1,
-        unit: mat.unit || 'Stk',
-        price: 0,
-        price_gross: 0,
-        total: 0,
-        price_source: 'netto',
+      flatItems.push({ description: mat.description, quantity: parseFloat(mat.quantity) || 1, unit: mat.unit || 'Stk' })
+    }
+
+    if (flatItems.length > 0) {
+      const items = flatItems.map(i => ({
+        description: i.description, quantity: i.quantity, unit: i.unit,
+        price: 0, price_gross: 0, total: 0, price_source: 'netto',
+      }))
+      setFormData(prev => {
+        const existing = prev.items.filter(i => i.description || i.price || i.quantity > 1)
+        return { ...prev, items: [...existing, ...items] }
       })
     }
-    if (flatItems.length === 0) return
-    // Append to existing items (remove trailing empty items first)
-    setFormData(prev => {
-      const existingItems = prev.items.filter(i => i.description || i.price || i.quantity > 1)
-      return { ...prev, items: [...existingItems, ...flatItems] }
-    })
-    setSelectedAufmassId(aufmass.id)
-    setAufmassAttached(false) // reset so banner shows
+
+    // Add to linked aufmass IDs (skip if already linked)
+    setSelectedAufmassIds(prev => prev.includes(aufmass.id) ? prev : [...prev, aufmass.id])
     setShowAufmassPicker(false)
   }
 
@@ -1270,7 +1301,8 @@ if (searchError) {
         valid_until: type === 'quote' ? formData.valid_until : null,
         is_kleinunternehmer: formData.is_kleinunternehmer,
         converted_from_quote_id: editData?.converted_from_quote_id || null,
-        aufmass_id: selectedAufmassId || aufmassId || editData?.aufmass_id || null
+        aufmass_id: selectedAufmassIds[0] || aufmassId || editData?.aufmass_id || null,
+        aufmass_ids: selectedAufmassIds.length > 0 ? selectedAufmassIds : (editData?.aufmass_ids || null)
       }
 
       let result
@@ -1359,9 +1391,6 @@ if (searchError) {
         .eq('invoice_id', editData.id)
         .then(({ data }) => {
           setSavedAttachments(data || [])
-          if ((data || []).some(a => a.filename?.startsWith('Aufmass_'))) {
-            setAufmassAttached(true)
-          }
         })
     } else {
       setSavedAttachments([])
@@ -1394,10 +1423,6 @@ if (searchError) {
 
   const removePendingAttachment = (localId) => {
     setPendingAttachments(prev => prev.filter(a => a.localId !== localId))
-    if (localId === aufmassLocalId) {
-      setAufmassAttached(false)
-      setAufmassLocalId(null)
-    }
   }
 
   const handlePreviewSavedAttachment = async (att) => {
@@ -1414,13 +1439,7 @@ if (searchError) {
   const handleDeleteSavedAttachment = async (att) => {
     await supabase.storage.from('invoice-pdfs').remove([att.storage_path])
     await supabase.from('invoice_attachments').delete().eq('id', att.id)
-    setSavedAttachments(prev => {
-      const next = prev.filter(a => a.id !== att.id)
-      if (att.filename?.startsWith('Aufmass_') && !next.some(a => a.filename?.startsWith('Aufmass_'))) {
-        setAufmassAttached(false)
-      }
-      return next
-    })
+    setSavedAttachments(prev => prev.filter(a => a.id !== att.id))
   }
 
   // Format currency
@@ -2154,40 +2173,6 @@ if (searchError) {
                       📎 Anhang hinzufügen
                     </label>
                   )}
-                  {(selectedAufmassId || aufmassId || editData?.aufmass_id) && !aufmassAttached && (
-                    <button
-                      type="button"
-                      disabled={aufmassAttaching}
-                      onClick={async () => {
-                        const id = selectedAufmassId || aufmassId || editData?.aufmass_id
-                        if (!id) return
-                        setAufmassAttaching(true)
-                        try {
-                          const { data: { session } } = await supabase.auth.getSession()
-                          const res = await fetch(`/api/aufmasse?id=${id}`, {
-                            headers: { Authorization: `Bearer ${session?.access_token}` }
-                          })
-                          const json = await res.json()
-                          if (!json.aufmass) throw new Error('Nicht gefunden')
-                          const { generateAufmassPDFBlob } = await import('@/lib/pdf/AufmassPDF')
-                          const blob = await generateAufmassPDFBlob(json.aufmass, majstor)
-                          const filename = `Aufmass_${json.aufmass.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Aufmass'}.pdf`
-                          const file = new File([blob], filename, { type: 'application/pdf' })
-                          const localId = crypto.randomUUID()
-                          setPendingAttachments(prev => [...prev, { file, localId }])
-                          setAufmassLocalId(localId)
-                          setAufmassAttached(true)
-                        } catch (e) {
-                          console.error('Aufmaß attach error:', e)
-                        } finally {
-                          setAufmassAttaching(false)
-                        }
-                      }}
-                      className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 cursor-pointer mt-1 py-2 border border-dashed border-blue-500/50 hover:border-blue-400 rounded-lg transition-colors w-full disabled:opacity-50"
-                    >
-                      {aufmassAttaching ? '⏳ Wird generiert...' : '📐 Aufmaß als Anhang hinzufügen'}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -2340,8 +2325,9 @@ if (searchError) {
                           {a.customer_name && <p className="text-slate-400 text-sm">{a.customer_name}</p>}
                         </div>
                         <div className="text-right">
+                          {a.gewerk && <p className="text-blue-400 text-xs font-medium mb-0.5">{a.gewerk === 'fensterbau' ? 'Fensterbau' : a.gewerk}</p>}
                           <p className="text-slate-400 text-xs">{a.date ? new Date(a.date).toLocaleDateString('de-DE') : ''}</p>
-                          <p className="text-slate-500 text-xs">{(a.rooms || []).length} {(a.rooms || []).length === 1 ? 'Raum' : 'Räume'}</p>
+                          <p className="text-slate-500 text-xs">{(a.rooms || []).length} {a.gewerk === 'fensterbau' ? 'Pos.' : ((a.rooms || []).length === 1 ? 'Raum' : 'Räume')}</p>
                         </div>
                       </div>
                     </button>
