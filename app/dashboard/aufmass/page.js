@@ -65,9 +65,9 @@ function panelSymbolLines(x, y, w, h, type, hinge) {
 function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0, oberlichtHeight = 0, oberlichtType = 'fix', unterlicht = false, unterlichtHeight = 0, unterlichtType = 'fix' }) {
   const isSm = size === 'sm'
   const isXl = size === 'xl'
-  const dimSpace = isSm ? 0 : isXl ? 45 : 28 // extra space for dimension lines
-  const maxW = isSm ? 48 : isXl ? 280 : 140
-  const maxH = isSm ? 36 : isXl ? 200 : 100
+  const dimSpace = isSm ? 0 : isXl ? 55 : 28 // extra space for dimension lines
+  const maxW = isSm ? 48 : isXl ? 360 : 140
+  const maxH = isSm ? 36 : isXl ? 240 : 100
   const pad = isSm ? 3 : isXl ? 10 : 6
   const availW = maxW - 2 * pad, availH = maxH - 2 * pad
   // Proportional frame based on actual dimensions
@@ -1072,7 +1072,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
         </div>
         {zoomSketch && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setZoomSketch(false)}>
-            <div className="bg-slate-800 rounded-xl p-6 border border-slate-600 max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="bg-slate-800 rounded-xl p-6 border border-slate-600 max-w-lg w-full" onClick={e => e.stopPropagation()}>
               {pos.preset === 'mehrteilig' ? (
                 <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="xl" />
               ) : (
