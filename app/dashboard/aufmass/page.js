@@ -2134,7 +2134,6 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           const totalW = pos.segments.reduce((s, seg) => s + (parseFloat(seg.width) || 0), 0)
           const maxH = Math.max(...pos.segments.map(seg => parseFloat(seg.height) || 0))
           const parts = [
-            pos.name,
             pos.material,
             `Mehrteilig ${totalW}×${maxH} mm`,
             segDescs.join(', '),
@@ -2155,7 +2154,6 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           )
           const typStr = typLabels.join(' + ') + (pos.oberlicht ? ' + Oberlicht' : '')
           const parts = [
-            pos.name,
             pos.material,
             typStr,
             pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
