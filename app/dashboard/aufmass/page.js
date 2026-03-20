@@ -448,9 +448,10 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
           </div>
           <div>
             <label className="block text-[10px] text-slate-500 mb-0.5">Bemerkungen</label>
-            <input type="text" value={pos.notes} onChange={e => update('notes', e.target.value)}
+            <textarea value={pos.notes} onChange={e => update('notes', e.target.value)}
               placeholder="Optional..."
-              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              rows={2}
+              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y" />
           </div>
         </div>
       </div>
