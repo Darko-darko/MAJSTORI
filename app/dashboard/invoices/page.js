@@ -634,6 +634,7 @@ pdfTab.document.close()
     setEditingItem(null)
     setIsEditMode(false)
     setAufmassImportItems(null)
+    setAufmassImportId(null)
   }
 
   const handleEmailClick = (item) => {
