@@ -322,9 +322,20 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         const panelH = segH - olH - ulH
         const panelY = segY + olH
 
-        // Panel widths within segment
+        // Panel widths within segment — proportional if custom widths set
         const panels = seg.panels || [{ type: 'fix' }]
-        const pw = segW / panels.length
+        const segRealW = parseFloat(seg.width) || 0
+        const panelEffWidths = panels.map((p, i) => {
+          if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
+            const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
+            return Math.max(1, segRealW - others)
+          }
+          return parseFloat(p.width) || 0
+        })
+        const hasSegCustomW = panelEffWidths.some(w => w > 0)
+        const totalSegPW = hasSegCustomW ? panelEffWidths.reduce((s, w) => s + (w || 1), 0) : panels.length
+        const panelWs = panelEffWidths.map(w => hasSegCustomW ? (w || 1) / totalSegPW * segW : segW / panels.length)
+        let pxOff2 = segX
 
         return (
           <g key={seg.id || si}>
@@ -356,7 +367,9 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
 
             {/* Panels */}
             {panels.map((p, pi) => {
-              const px = segX + pi * pw
+              const pw = panelWs[pi]
+              const px = pxOff2
+              pxOff2 += pw
               const ix = px + inset, iy = panelY + inset, iw = pw - 2 * inset, ih = panelH - 2 * inset
               if (iw <= 0 || ih <= 0) return null
               const lines = panelSymbolLines(ix, iy, iw, ih, p.type, p.hinge)
@@ -707,11 +720,18 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                     </div>
                   </div>
                   {/* Segment Flügel */}
-                  {seg.panels.map((panel, pi) => (
-                    <div key={pi} className="flex items-center gap-2">
+                  {seg.panels.map((panel, pi) => {
+                    const segTotalW = parseFloat(seg.width) || 0
+                    const isLast = pi === seg.panels.length - 1
+                    const showWidths = seg.panels.length > 1 && segTotalW > 0
+                    const othersSum = seg.panels.reduce((s, p, j) => j !== pi && j !== seg.panels.length - 1 ? s + (parseFloat(p.width) || 0) : s, 0)
+                    const lastRest = segTotalW - seg.panels.slice(0, -1).reduce((s, p) => s + (parseFloat(p.width) || 0), 0)
+                    const anyHasWidth = seg.panels.some(p => parseFloat(p.width) > 0)
+                    return (
+                    <div key={pi} className="flex items-center gap-2 flex-wrap">
                       <span className="text-[10px] text-slate-500 min-w-[44px]">Flügel {pi + 1}</span>
                       <select value={panel.type} onChange={e => updateSegPanel(pi, 'type', e.target.value)}
-                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs min-w-[80px]">
                         {PANEL_TYPES.map(pt => <option key={pt.id} value={pt.id}>{pt.label}</option>)}
                       </select>
                       {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
@@ -721,11 +741,22 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                           <option value="right">Band rechts</option>
                         </select>
                       )}
+                      {showWidths && (
+                        isLast && anyHasWidth ? (
+                          <span className={`w-14 min-h-[32px] px-1 py-1 bg-slate-600/50 border border-slate-600 rounded text-[10px] text-center flex items-center justify-center ${lastRest > 0 ? 'text-slate-300' : 'text-red-400'}`}>
+                            {lastRest > 0 ? lastRest : '!'}
+                          </span>
+                        ) : (
+                          <input type="number" value={panel.width || ''} onChange={e => updateSegPanel(pi, 'width', e.target.value)}
+                            placeholder="B" className="w-14 min-h-[32px] px-1 py-1 bg-slate-700 border border-slate-600 rounded text-white text-[10px] text-center" />
+                        )
+                      )}
                       {seg.panels.length > 1 && (
                         <button onClick={() => removeSegPanel(pi)} className="text-red-400 text-sm px-1">✕</button>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                   {/* Segment OL/UL */}
                   {seg.oberlicht && (
                     <div className="flex items-center gap-2">
