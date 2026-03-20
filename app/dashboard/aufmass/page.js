@@ -61,14 +61,17 @@ function panelSymbolLines(x, y, w, h, type, hinge) {
 // SVG window sketch (used in type selector and position preview)
 function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0 }) {
   const isSm = size === 'sm'
-  const dimSpace = isSm ? 0 : 28 // extra space for dimension lines (lg only)
-  const vw = isSm ? 48 : 140 + dimSpace, vh = isSm ? 36 : 100 + dimSpace
-  const pad = isSm ? 3 : 6
-  const frameW = (isSm ? 48 : 140) - 2 * pad, frameH = (isSm ? 36 : 100) - 2 * pad
+  const isXl = size === 'xl'
+  const dimSpace = isSm ? 0 : 28 // extra space for dimension lines (lg/xl only)
+  const baseW = isSm ? 48 : isXl ? 280 : 140
+  const baseH = isSm ? 36 : isXl ? 200 : 100
+  const vw = baseW + (isSm ? 0 : dimSpace), vh = baseH + (isSm ? 0 : dimSpace)
+  const pad = isSm ? 3 : isXl ? 10 : 6
+  const frameW = baseW - 2 * pad, frameH = baseH - 2 * pad
   const fX = pad, fY = pad // frame origin
   const olH = oberlicht ? frameH * 0.28 : 0
   const panelH = frameH - olH
-  const sw = isSm ? 0.8 : 1.2
+  const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
 
   // Proportional panel widths — last panel = remainder of posWidth
   const totalPosW = parseFloat(posWidth) || 0
@@ -86,30 +89,56 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   let xOff = fX
 
   // Dimension line helper
-  const dimTick = 3, dimOff1 = 6, dimOff2 = 18, fontSize = 7.5
+  const dimTick = isSm ? 3 : isXl ? 5 : 3
+  const dimOff1 = isSm ? 6 : isXl ? 10 : 6
+  const dimOff2 = isSm ? 18 : isXl ? 28 : 18
+  const fontSize = isSm ? 7.5 : isXl ? 11 : 7.5
+
+  // Frame inset for inner panel frame
+  const inset = isSm ? 2 : isXl ? 10 : 5
+  // Handle dimensions
+  const handleW = isSm ? 1.2 : isXl ? 4 : 2.5
+  const handleH = isSm ? 4 : isXl ? 18 : 10
 
   return (
     <svg width={vw} height={vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400">
-      <rect x={fX} y={fY} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 1.4} />
+      {/* Outer frame (Blendrahmen) */}
+      <rect x={fX} y={fY} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 2} />
       {oberlicht && (
         <>
           <line x1={fX} y1={fY + olH} x2={fX + frameW} y2={fY + olH} stroke="currentColor" strokeWidth={sw} />
-          <line x1={fX} y1={fY} x2={fX + frameW} y2={fY + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
-          <line x1={fX + frameW} y1={fY} x2={fX} y2={fY + olH} stroke="currentColor" strokeWidth={sw * 0.6} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
+          {/* Inner frame for oberlicht */}
+          <rect x={fX + inset} y={fY + inset} width={frameW - 2 * inset} height={olH - 2 * inset} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+          <line x1={fX + inset} y1={fY + inset} x2={fX + frameW - inset} y2={fY + olH - inset} stroke="currentColor" strokeWidth={sw * 0.5} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
+          <line x1={fX + frameW - inset} y1={fY + inset} x2={fX + inset} y2={fY + olH - inset} stroke="currentColor" strokeWidth={sw * 0.5} strokeDasharray={isSm ? '1.5 1.5' : '3 3'} />
         </>
       )}
       {panels.map((p, i) => {
         const px = xOff, py = fY + olH, pw = panelWidths[i]
         xOff += pw
-        const lines = panelSymbolLines(px, py, pw, panelH, p.type, p.hinge)
+        // Inner frame per panel (Flügelrahmen) — equal inset on all sides
+        const ix = px + inset, iy = py + inset, iw = pw - 2 * inset, ih = panelH - 2 * inset
+        const lines = panelSymbolLines(ix, iy, iw, ih, p.type, p.hinge)
+        // Handle position: opposite side of hinge, vertically centered
+        const isLeft = p.hinge === 'left' || !p.hinge
+        const hx = isLeft ? ix + iw - handleW - (isSm ? 0.5 : 1) : ix + (isSm ? 0.5 : 1)
+        const hy = iy + ih / 2 - handleH / 2
+        const showHandle = p.type === 'dreh' || p.type === 'kipp-dreh' || p.type === 'kipp'
         return (
           <g key={i}>
             {i > 0 && <line x1={px} y1={py} x2={px} y2={py + panelH} stroke="currentColor" strokeWidth={sw} />}
+            {/* Inner panel frame */}
+            <rect x={ix} y={iy} width={iw} height={ih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+            {/* DIN symbols */}
             {lines.map((l, j) => (
               <line key={j} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
                 stroke="currentColor" strokeWidth={sw * 0.7}
                 strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
             ))}
+            {/* Handle (Griff) */}
+            {showHandle && (
+              <rect x={hx} y={hy} width={handleW} height={handleH} rx={isSm ? 0.3 : 0.8} fill="currentColor" />
+            )}
           </g>
         )
       })}
@@ -148,7 +177,7 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
               <line x1={fX + frameW + dimOff1} y1={fY} x2={fX + frameW + dimOff2 + dimTick} y2={fY} strokeWidth={0.4} />
               <line x1={fX + frameW + dimOff1} y1={fY + frameH} x2={fX + frameW + dimOff2 + dimTick} y2={fY + frameH} strokeWidth={0.4} />
               <line x1={fX + frameW + dimOff2} y1={fY} x2={fX + frameW + dimOff2} y2={fY + frameH} />
-              <text x={fX + frameW + dimOff2 + 3} y={fY + frameH / 2 + 3} fontSize={fontSize} stroke="none" writingMode="vertical-rl">{totalPosH}</text>
+              <text x={fX + frameW + dimOff2 + 6} y={fY + frameH / 2} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${fX + frameW + dimOff2 + 6}, ${fY + frameH / 2})`}>{totalPosH}</text>
             </>
           )}
         </g>
@@ -184,6 +213,7 @@ const PANEL_TYPES = [
 function FensterPositionCard({ pos, index, onChange, onRemove }) {
   const update = (key, val) => onChange({ ...pos, [key]: val })
   const [showCustom, setShowCustom] = useState(false)
+  const [zoomSketch, setZoomSketch] = useState(false)
 
   const selectPreset = (preset) => {
     onChange({
@@ -349,12 +379,17 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
 
       {/* Vorschau + Maße */}
       <div className="flex gap-3 items-start">
-        <div className="bg-slate-800 rounded-lg p-2 border border-slate-700">
+        <div className="bg-slate-800 rounded-lg p-2 border border-slate-700 cursor-pointer hover:border-blue-500 transition-colors" onClick={() => setZoomSketch(true)}>
           <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} />
-          {pos.width && pos.height && (
-            <p className="text-center text-xs text-slate-400 mt-1">{pos.width} × {pos.height} mm</p>
-          )}
         </div>
+        {zoomSketch && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setZoomSketch(false)}>
+            <div className="bg-slate-800 rounded-xl p-6 border border-slate-600 max-w-sm" onClick={e => e.stopPropagation()}>
+              <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="xl" posWidth={pos.width} posHeight={pos.height} />
+              <button onClick={() => setZoomSketch(false)} className="mt-4 w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">Schließen</button>
+            </div>
+          </div>
+        )}
         <div className="flex-1 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div>
