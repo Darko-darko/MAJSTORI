@@ -1323,13 +1323,19 @@ function calcItem(item) {
   return { ...item, result: Math.round(result * 100) / 100, calculation }
 }
 
-function computeTotals(rooms) {
+function computeTotals(rooms, gewerk) {
   const t = { 'm²': 0, 'lfm': 0, 'm³': 0, 'Stk': 0 }
+  const vobThr = gewerk === 'maler' ? 2.5 : 0
   for (const r of rooms) {
     for (const i of r.items || []) {
       if (i.result == null) continue
       const unit = (i.unit === 'Wand' || i.unit === 'Bogen' || i.unit === 'Trap') ? 'm²' : i.unit
-      const sign = i.subtract ? -1 : 1
+      let sign = i.subtract ? -1 : 1
+      if (i.subtract && vobThr > 0) {
+        const cnt = parseFloat(i.count) || 1
+        const singleArea = cnt > 0 ? i.result / cnt : i.result
+        if (singleArea < vobThr) sign = 0
+      }
       if (unit) t[unit] = (t[unit] || 0) + i.result * sign
     }
   }
@@ -2311,7 +2317,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
 
   const removeRoom = (idx) => setForm(f => ({ ...f, rooms: f.rooms.filter((_, i) => i !== idx) }))
 
-  const totals = computeTotals(form.rooms)
+  const totals = computeTotals(form.rooms, form.gewerk)
   const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
 
   const save = async () => {
@@ -2398,29 +2404,37 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         }
       }
     } else {
-      // Room-based: compute netto per unit
+      // Room-based: each position = separate invoice item
+      const vobThr = GEWERKE.find(g => g.id === form.gewerk)?.vobThreshold || 0
       for (const room of form.rooms) {
-        const nettoByUnit = {}
-        for (const item of room.items) {
-          if (!item.result) continue
+        // Compute total deduction for m² (respecting Übermessung)
+        const openings = (room.items || []).filter(i => i.subtract)
+        let totalAbzugM2 = 0
+        for (const op of openings) {
+          const total = op.result || 0
+          const cnt = parseFloat(op.count) || 1
+          const singleArea = cnt > 0 ? total / cnt : total
+          if (vobThr > 0 && singleArea < vobThr) continue // übermessen
+          totalAbzugM2 += total
+        }
+
+        // Each non-subtract position → separate invoice item
+        const positions = (room.items || []).filter(i => !i.subtract && !i.isForm)
+        for (const item of positions) {
+          if (!item.result || item.result <= 0) continue
           const rawU = item.unit || ''
           const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
-          const sign = item.subtract ? -1 : 1
-          nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
-        }
-        for (const [unit, netto] of Object.entries(nettoByUnit)) {
-          if (netto <= 0) continue
-          const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
-          const matchUnits = unit === 'm²' ? m2Units : [unit]
-          const descs = room.items
-            .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
-            .map(i => i.description)
-            .filter(Boolean)
-            .join(', ')
+          let qty = item.result
+          // For Wand (wall area): subtract openings proportionally
+          if (rawU === 'Wand' && totalAbzugM2 > 0) {
+            qty = Math.max(0, qty - totalAbzugM2)
+            totalAbzugM2 = 0 // only subtract from first m² position (Wand)
+          }
+          if (qty <= 0) continue
           flatItems.push({
-            description: [room.name, descs].filter(Boolean).join(': '),
-            quantity: Math.round(netto * 100) / 100,
-            unit,
+            description: [room.name, item.description].filter(Boolean).join(': '),
+            quantity: Math.round(qty * 100) / 100,
+            unit: u,
             unit_price: 0,
             total_price: 0,
           })
@@ -2837,7 +2851,7 @@ export default function AufmassPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {aufmasse.map(a => {
-            const totals = computeTotals(a.rooms || [])
+            const totals = computeTotals(a.rooms || [], a.gewerk)
             const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
             return (
               <div key={a.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 hover:border-slate-600 transition-colors">

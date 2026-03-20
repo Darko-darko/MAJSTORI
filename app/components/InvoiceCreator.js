@@ -801,26 +801,32 @@ export default function InvoiceCreator({
         }
       }
     } else {
-      // Room-based (allgemein, maler, etc.)
+      // Room-based: each position = separate invoice item
+      const vobThr = aufmass.gewerk === 'maler' ? 2.5 : 0
       for (const room of (aufmass.rooms || [])) {
-        const nettoByUnit = {}
-        for (const item of (room.items || [])) {
-          if (!item.result) continue
+        const openings = (room.items || []).filter(i => i.subtract)
+        let totalAbzugM2 = 0
+        for (const op of openings) {
+          const total = op.result || 0
+          const cnt = parseFloat(op.count) || 1
+          const singleArea = cnt > 0 ? total / cnt : total
+          if (vobThr > 0 && singleArea < vobThr) continue
+          totalAbzugM2 += total
+        }
+        const positions = (room.items || []).filter(i => !i.subtract && !i.isForm)
+        for (const item of positions) {
+          if (!item.result || item.result <= 0) continue
           const rawU = item.unit || ''
           const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
-          const sign = item.subtract ? -1 : 1
-          nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
-        }
-        for (const [unit, netto] of Object.entries(nettoByUnit)) {
-          if (netto <= 0) continue
-          const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
-          const matchUnits = unit === 'm²' ? m2Units : [unit]
-          const descs = room.items
-            .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
-            .map(i => i.description).filter(Boolean).join(', ')
+          let qty = item.result
+          if (rawU === 'Wand' && totalAbzugM2 > 0) {
+            qty = Math.max(0, qty - totalAbzugM2)
+            totalAbzugM2 = 0
+          }
+          if (qty <= 0) continue
           flatItems.push({
-            description: [room.name, descs].filter(Boolean).join(': '),
-            quantity: Math.round(netto * 100) / 100, unit,
+            description: [room.name, item.description].filter(Boolean).join(': '),
+            quantity: Math.round(qty * 100) / 100, unit: u,
           })
         }
       }
