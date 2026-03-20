@@ -140,29 +140,6 @@ export default function InvoiceCreator({
     }
   }, [isOpen, majstor?.id, type, editData, isEditMode, businessDataComplete, prefilledItems])
 
-  // Auto-attach Aufmaß PDF for non-fensterbau gewerke (VOB/B §14: Aufmaß als Anlage)
-  useEffect(() => {
-    if (!isOpen || !aufmassId || !majstor?.id) return
-    const autoAttach = async () => {
-      try {
-        const token = (await supabase.auth.getSession()).data.session?.access_token
-        if (!token) return
-        const res = await fetch(`/api/aufmasse?id=${aufmassId}`, { headers: { Authorization: `Bearer ${token}` } })
-        const aufmass = await res.json()
-        if (!aufmass || aufmass.gewerk === 'fensterbau') return // Fensterbau has inline sketches
-        // Check if already attached
-        if (pendingAttachments.some(a => a.localId === `aufmass_${aufmassId}`)) return
-        const blob = await generateAufmassPDFBlob(aufmass, majstor)
-        const fileName = `Aufmass_${(aufmass.title || 'Raum').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`
-        const file = new File([blob], fileName, { type: 'application/pdf' })
-        setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aufmassId}` }])
-      } catch (e) {
-        console.error('Auto-attach Aufmaß failed:', e)
-      }
-    }
-    autoAttach()
-  }, [isOpen, aufmassId, majstor?.id])
-
   // Monitor majstor changes
   useEffect(() => {
     if (majstor) {
@@ -785,7 +762,7 @@ export default function InvoiceCreator({
   }
 
   // Import Aufmaß: link aufmass_id + populate invoice items from positions/rooms
-  const importAufmass = async (aufmass) => {
+  const importAufmass = (aufmass) => {
     const flatItems = []
 
     if (aufmass.gewerk === 'fensterbau') {
@@ -875,20 +852,6 @@ export default function InvoiceCreator({
 
     // Add to linked aufmass IDs (skip if already linked)
     setSelectedAufmassIds(prev => prev.includes(aufmass.id) ? prev : [...prev, aufmass.id])
-
-    // For non-fensterbau: auto-attach Aufmaß PDF as Anlage (VOB/B §14)
-    // Fensterbau has inline sketches in the invoice PDF, so no attachment needed
-    if (aufmass.gewerk !== 'fensterbau') {
-      try {
-        const blob = await generateAufmassPDFBlob(aufmass, majstor)
-        const fileName = `Aufmass_${(aufmass.title || 'Raum').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`
-        const file = new File([blob], fileName, { type: 'application/pdf' })
-        setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aufmass.id}` }])
-      } catch (e) {
-        console.error('Aufmaß PDF attachment failed:', e)
-      }
-    }
-
     setShowAufmassPicker(false)
   }
 
@@ -2216,6 +2179,29 @@ if (searchError) {
                       <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                       📎 Anhang hinzufügen
                     </label>
+                  )}
+                  {selectedAufmassIds.length > 0 && !pendingAttachments.some(a => a.localId?.startsWith('aufmass_')) && !savedAttachments.some(a => a.file_name?.startsWith('Aufmass_')) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const token = (await supabase.auth.getSession()).data.session?.access_token
+                          for (const aId of selectedAufmassIds) {
+                            if (pendingAttachments.some(a => a.localId === `aufmass_${aId}`)) continue
+                            const res = await fetch(`/api/aufmasse?id=${aId}`, { headers: { Authorization: `Bearer ${token}` } })
+                            const aufmass = await res.json()
+                            if (!aufmass || aufmass.gewerk === 'fensterbau') continue
+                            const blob = await generateAufmassPDFBlob(aufmass, majstor)
+                            const fileName = `Aufmass_${(aufmass.title || 'Raum').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`
+                            const file = new File([blob], fileName, { type: 'application/pdf' })
+                            setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aId}` }])
+                          }
+                        } catch (e) { console.error('Aufmaß attach failed:', e) }
+                      }}
+                      className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 mt-1 py-2 border border-dashed border-blue-600/40 hover:border-blue-500 rounded-lg transition-colors w-full"
+                    >
+                      📐 Aufmaß als Anlage hinzufügen
+                    </button>
                   )}
                 </div>
               </div>
