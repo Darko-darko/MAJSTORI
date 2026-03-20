@@ -2457,6 +2457,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       title: form.title,
       items: flatItems,
       aufmass_id: aufmass?.id || null,
+      gewerk: form.gewerk,
       docType,
     }))
     router.push('/dashboard/invoices?from=aufmass')

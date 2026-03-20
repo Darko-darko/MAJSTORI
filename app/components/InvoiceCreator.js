@@ -26,6 +26,7 @@ function compressImage(file, maxWidth = 1920) {
 }
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { generateAufmassPDFBlob } from '@/lib/pdf/AufmassPDF'
 import InvoiceNumbersSetupModal from './InvoiceNumbersSetupModal'
 
 export default function InvoiceCreator({
@@ -138,6 +139,29 @@ export default function InvoiceCreator({
       setSelectedAufmassIds(ids)
     }
   }, [isOpen, majstor?.id, type, editData, isEditMode, businessDataComplete, prefilledItems])
+
+  // Auto-attach Aufmaß PDF for non-fensterbau gewerke (VOB/B §14: Aufmaß als Anlage)
+  useEffect(() => {
+    if (!isOpen || !aufmassId || !majstor?.id) return
+    const autoAttach = async () => {
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token
+        if (!token) return
+        const res = await fetch(`/api/aufmasse?id=${aufmassId}`, { headers: { Authorization: `Bearer ${token}` } })
+        const aufmass = await res.json()
+        if (!aufmass || aufmass.gewerk === 'fensterbau') return // Fensterbau has inline sketches
+        // Check if already attached
+        if (pendingAttachments.some(a => a.localId === `aufmass_${aufmassId}`)) return
+        const blob = await generateAufmassPDFBlob(aufmass, majstor)
+        const fileName = `Aufmass_${(aufmass.title || 'Raum').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`
+        const file = new File([blob], fileName, { type: 'application/pdf' })
+        setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aufmassId}` }])
+      } catch (e) {
+        console.error('Auto-attach Aufmaß failed:', e)
+      }
+    }
+    autoAttach()
+  }, [isOpen, aufmassId, majstor?.id])
 
   // Monitor majstor changes
   useEffect(() => {
@@ -761,7 +785,7 @@ export default function InvoiceCreator({
   }
 
   // Import Aufmaß: link aufmass_id + populate invoice items from positions/rooms
-  const importAufmass = (aufmass) => {
+  const importAufmass = async (aufmass) => {
     const flatItems = []
 
     if (aufmass.gewerk === 'fensterbau') {
@@ -851,6 +875,20 @@ export default function InvoiceCreator({
 
     // Add to linked aufmass IDs (skip if already linked)
     setSelectedAufmassIds(prev => prev.includes(aufmass.id) ? prev : [...prev, aufmass.id])
+
+    // For non-fensterbau: auto-attach Aufmaß PDF as Anlage (VOB/B §14)
+    // Fensterbau has inline sketches in the invoice PDF, so no attachment needed
+    if (aufmass.gewerk !== 'fensterbau') {
+      try {
+        const blob = await generateAufmassPDFBlob(aufmass, majstor)
+        const fileName = `Aufmass_${(aufmass.title || 'Raum').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`
+        const file = new File([blob], fileName, { type: 'application/pdf' })
+        setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aufmass.id}` }])
+      } catch (e) {
+        console.error('Aufmaß PDF attachment failed:', e)
+      }
+    }
+
     setShowAufmassPicker(false)
   }
 
