@@ -1809,6 +1809,241 @@ function MaterialienSection({ materials, onChange }) {
   )
 }
 
+// ─── Maler room card ──────────────────────────────────────────────────────────
+function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
+  const [open, setOpen] = useState(true)
+  const [openingsOpen, setOpeningsOpen] = useState(false)
+
+  const rL = parseFloat(room.length) || 0
+  const rB = parseFloat(room.width) || 0
+  const rH = parseFloat(room.height) || 0
+  const hasDims = rL > 0 && rB > 0 && rH > 0
+
+  // Computed values from room dimensions
+  const wandflaeche = hasDims ? Math.round(2 * (rL + rB) * rH * 100) / 100 : 0
+  const deckenflaeche = rL > 0 && rB > 0 ? Math.round(rL * rB * 100) / 100 : 0
+  const umfang = rL > 0 && rB > 0 ? Math.round(2 * (rL + rB) * 100) / 100 : 0
+
+  // Items management
+  const positions = (room.items || []).filter(i => !i.subtract)
+  const openings = (room.items || []).filter(i => i.subtract)
+
+  const setItems = (newPositions, newOpenings) => {
+    onChange({ ...room, items: [...(newPositions || positions), ...(newOpenings || openings)] })
+  }
+
+  const addPosition = (desc, unit, length, width, height, count) => {
+    const item = calcItem({
+      id: newId(), description: desc, unit, dim_unit: 'm',
+      length: String(length), width: String(width), height: String(height),
+      count: count > 1 ? String(count) : '', result: 0, calculation: '', subtract: false
+    })
+    setItems([...positions, item], undefined)
+  }
+
+  const removePosition = (idx) => setItems(positions.filter((_, i) => i !== idx), undefined)
+
+  const addOpening = () => {
+    const item = calcItem({
+      id: newId(), description: '', unit: 'm²', dim_unit: 'm',
+      length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: true
+    })
+    setItems(undefined, [...openings, item])
+  }
+
+  const updateOpening = (idx, field, val) => {
+    const updated = [...openings]
+    updated[idx] = calcItem({ ...updated[idx], [field]: val })
+    setItems(undefined, updated)
+  }
+
+  const removeOpening = (idx) => setItems(undefined, openings.filter((_, i) => i !== idx))
+
+  // Totals
+  const bruttoM2 = positions.reduce((s, i) => {
+    const u = ['Wand', 'Bogen', 'Trap'].includes(i.unit) ? 'm²' : i.unit
+    return u === 'm²' ? s + (i.result || 0) : s
+  }, 0)
+  const totalAbzug = openings.reduce((s, i) => {
+    // VOB: Übermessung based on single opening area (B×H), not total (B×H×count)
+    const total = i.result || 0
+    const cnt = parseFloat(i.count) || 1
+    const singleArea = cnt > 0 ? total / cnt : total
+    return singleArea >= (vobThreshold || 0) ? s + total : s
+  }, 0)
+  const nettoM2 = Math.round((bruttoM2 - totalAbzug) * 100) / 100
+
+  // Check which quick-positions are already added
+  const hasWaende = positions.some(i => i.unit === 'Wand')
+  const hasDecke = positions.some(i => i.description?.includes('Decke'))
+  const hasSockel = positions.some(i => i.unit === 'lfm' && i.description?.includes('Sockel'))
+
+  return (
+    <div className="rounded-xl border border-slate-600 overflow-hidden">
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 px-3 py-2.5 bg-slate-700/60 cursor-pointer"
+        onClick={() => setOpen(o => !o)}
+      >
+        {open ? (
+          <input
+            type="text"
+            value={room.name}
+            onChange={e => { e.stopPropagation(); onChange({ ...room, name: e.target.value }) }}
+            onClick={e => e.stopPropagation()}
+            placeholder="Raumname (z.B. Wohnzimmer)"
+            className="flex-1 bg-transparent text-white text-sm font-medium focus:outline-none placeholder-slate-500 min-w-0"
+          />
+        ) : (
+          <span className="flex-1 text-white text-sm font-medium truncate">
+            {room.name || <span className="text-slate-500">Raumname</span>}
+            {nettoM2 > 0 && <span className="text-slate-400 text-xs font-mono ml-2">{formatNum(nettoM2)} m²</span>}
+          </span>
+        )}
+        <button onClick={e => { e.stopPropagation(); onRemove() }} className="text-red-400/60 hover:text-red-400 text-lg px-1">✕</button>
+        <span className="text-slate-400 text-xs">{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div className="p-3 space-y-3">
+          {/* Room dimensions L / B / H */}
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">L (m)</label>
+              <input type="number" step="0.01" value={room.length || ''} onChange={e => onChange({ ...room, length: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+            </div>
+            <span className="text-slate-500 pb-2">×</span>
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">B (m)</label>
+              <input type="number" step="0.01" value={room.width || ''} onChange={e => onChange({ ...room, width: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+            </div>
+            <span className="text-slate-500 pb-2">×</span>
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">H (m)</label>
+              <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+            </div>
+          </div>
+
+          {/* Auto-computed hints */}
+          {hasDims && (
+            <div className="flex gap-3 text-xs text-slate-400 bg-slate-800/50 rounded px-2 py-1.5">
+              <span>Wände: <span className="text-white font-mono">{formatNum(wandflaeche)} m²</span></span>
+              <span>Decke: <span className="text-white font-mono">{formatNum(deckenflaeche)} m²</span></span>
+              <span>Umfang: <span className="text-white font-mono">{formatNum(umfang)} m</span></span>
+            </div>
+          )}
+
+          {/* Schnellpositionen */}
+          {hasDims && (
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => addPosition('Wandfläche', 'Wand', rL, rB, rH, 1)} disabled={hasWaende}
+                className="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30">
+                + Wände
+              </button>
+              <button onClick={() => addPosition('Deckenfläche', 'm²', rL, rB, '', 1)} disabled={hasDecke}
+                className="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30">
+                + Decke
+              </button>
+              <button onClick={() => addPosition('Sockelleiste', 'lfm', umfang, '', '', 1)} disabled={hasSockel}
+                className="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30">
+                + Sockelleiste
+              </button>
+              <button onClick={() => addPosition('Tür lackieren', 'Stk', '', '', '', 1)}
+                className="px-2.5 py-1 rounded text-xs font-medium transition-colors bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 border border-slate-600/30">
+                + Tür
+              </button>
+              <button onClick={() => addPosition('Fenster lackieren', 'Stk', '', '', '', 1)}
+                className="px-2.5 py-1 rounded text-xs font-medium transition-colors bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 border border-slate-600/30">
+                + Fenster
+              </button>
+            </div>
+          )}
+
+          {/* Positions list */}
+          {positions.length > 0 && (
+            <div className="space-y-1">
+              {positions.map((item, idx) => (
+                <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 bg-slate-800/60 rounded text-sm">
+                  <span className="flex-1 text-white truncate">{item.description || '—'}</span>
+                  <span className="text-slate-400 text-xs font-mono">{item.calculation}</span>
+                  <span className="text-white font-mono text-xs font-semibold min-w-[60px] text-right">
+                    {formatNum(item.result)} {['Wand', 'Bogen', 'Trap'].includes(item.unit) ? 'm²' : item.unit}
+                  </span>
+                  <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Öffnungen */}
+          <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer"
+              onClick={() => setOpeningsOpen(o => !o)}
+            >
+              <span className="text-xs font-medium text-red-300/80 flex-1">
+                🔲 Öffnungen {openings.length > 0 && `(${openings.length})`}
+              </span>
+              {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
+              <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
+            </div>
+            {openingsOpen && (
+              <div className="p-2 space-y-1.5">
+                {openings.map((op, idx) => {
+                  const totalArea = op.result || 0
+                  const cnt = parseFloat(op.count) || 1
+                  const singleArea = cnt > 0 ? totalArea / cnt : totalArea
+                  const isUebermessen = vobThreshold && singleArea > 0 && singleArea < vobThreshold
+                  return (
+                    <div key={op.id} className="flex items-center gap-1.5 text-xs">
+                      <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                        placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0" />
+                      <span className="text-slate-400">B</span>
+                      <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                      <span className="text-slate-400">×H</span>
+                      <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                      <span className="text-slate-400">×</span>
+                      <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
+                        className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                      <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
+                      {isUebermessen ? (
+                        <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobThreshold} m² — übermessen`}>✓</span>
+                      ) : totalArea > 0 ? (
+                        <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobThreshold} m² — abgezogen`}>−</span>
+                      ) : <span className="min-w-[24px]" />}
+                      <button onClick={() => removeOpening(idx)} className="text-red-400/40 hover:text-red-400">✕</button>
+                    </div>
+                  )
+                })}
+                <button onClick={addOpening}
+                  className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
+                  + Öffnung
+                </button>
+                {vobThreshold && (
+                  <p className="text-[10px] text-slate-500 mt-1">VOB/C: Öffnungen &lt; {vobThreshold} m² werden übermessen (✓ = kein Abzug)</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Netto summary */}
+          {bruttoM2 > 0 && (
+            <div className="flex justify-between items-center px-2 py-1.5 bg-slate-800/40 rounded text-xs">
+              <span className="text-slate-400">Netto Wandfläche:</span>
+              <span className="text-white font-mono font-semibold">{formatNum(nettoM2)} m²</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Room section ─────────────────────────────────────────────────────────────
 function RoomSection({ room, onChange, onRemove }) {
   const [open, setOpen] = useState(true)
@@ -2291,7 +2526,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               })()}
             </div>
 
-            {/* Fensterbau: Positionen statt Bereiche */}
+            {/* Trade-specific editors */}
             {form.gewerk === 'fensterbau' ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -2314,8 +2549,35 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   + Position hinzufügen
                 </button>
               </div>
+            ) : form.gewerk === 'maler' ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm font-semibold">🖌️ Räume</span>
+                  <span className="text-slate-400 text-xs">({form.rooms.length})</span>
+                  {totalEntries.length > 0 && (
+                    <span className="text-slate-400 text-xs font-mono ml-auto">
+                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
+                    </span>
+                  )}
+                </div>
+                {form.rooms.map((room, idx) => (
+                  <MalerRaumCard
+                    key={room.id}
+                    room={room}
+                    onChange={r => updateRoom(idx, r)}
+                    onRemove={() => removeRoom(idx)}
+                    vobThreshold={GEWERKE.find(g => g.id === 'maler')?.vobThreshold}
+                  />
+                ))}
+                <button
+                  onClick={addRoom}
+                  className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors"
+                >
+                  + Raum hinzufügen
+                </button>
+              </div>
             ) : (
-              /* Bereiche (Allgemein, Maler, etc.) */
+              /* Bereiche (Fliesen, Trockenbau, Bodenbelag, etc.) */
               <div className="border border-slate-600 rounded-xl overflow-hidden">
                 <div
                   className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
