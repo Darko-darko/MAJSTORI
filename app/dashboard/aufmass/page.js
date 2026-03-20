@@ -1324,19 +1324,28 @@ function calcItem(item) {
 }
 
 function computeTotals(rooms, gewerk) {
-  const t = { 'm²': 0, 'lfm': 0, 'm³': 0, 'Stk': 0 }
+  const t = {}
   const vobThr = gewerk === 'maler' ? 2.5 : 0
+  const isMaler = gewerk === 'maler'
   for (const r of rooms) {
     for (const i of r.items || []) {
       if (i.result == null) continue
-      const unit = (i.unit === 'Wand' || i.unit === 'Bogen' || i.unit === 'Trap') ? 'm²' : i.unit
+      const rawU = i.unit || ''
+      // Maler: keep Wand separate from m² (Decke) so Abzug only applies to Wand
+      const unit = isMaler
+        ? (['Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU)
+        : (['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU)
       let sign = i.subtract ? -1 : 1
       if (i.subtract && vobThr > 0) {
         const cnt = parseFloat(i.count) || 1
         const singleArea = cnt > 0 ? i.result / cnt : i.result
         if (singleArea < vobThr) sign = 0
       }
-      if (unit) t[unit] = (t[unit] || 0) + i.result * sign
+      if (isMaler && i.subtract) {
+        t['Wand'] = (t['Wand'] || 0) + i.result * sign
+      } else if (unit) {
+        t[unit] = (t[unit] || 0) + i.result * sign
+      }
     }
   }
   return t
@@ -2571,7 +2580,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   <span className="text-slate-400 text-xs">({form.rooms.length})</span>
                   {totalEntries.length > 0 && (
                     <span className="text-slate-400 text-xs font-mono ml-auto">
-                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
+                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit === 'Wand' ? 'm²' : unit}`).join(' · ')}
                     </span>
                   )}
                 </div>
@@ -2601,7 +2610,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   <span className="text-white text-sm font-semibold flex-1">📐 Bereiche <span className="text-slate-400 font-normal text-xs">({form.rooms.length})</span></span>
                   {totalEntries.length > 0 && (
                     <span className="text-slate-400 text-xs font-mono mr-2">
-                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
+                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit === 'Wand' ? 'm²' : unit}`).join(' · ')}
                     </span>
                   )}
                   <span className="text-slate-400 text-xs">{bereicheOpen ? '▲' : '▼'}</span>
@@ -2870,7 +2879,7 @@ export default function AufmassPage() {
                   <div className="flex flex-wrap gap-2 mb-3">
                     {totalEntries.map(([unit, val]) => (
                       <span key={unit} className="text-xs px-2 py-0.5 bg-slate-700 text-slate-300 rounded-full">
-                        {formatNum(val)} {unit}
+                        {formatNum(val)} {unit === 'Wand' ? 'm²' : unit}
                       </span>
                     ))}
                   </div>
