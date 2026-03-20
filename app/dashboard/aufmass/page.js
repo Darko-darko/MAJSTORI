@@ -63,7 +63,7 @@ function panelSymbolLines(x, y, w, h, type, hinge) {
 }
 
 // SVG window sketch (used in type selector and position preview)
-function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0, oberlichtHeight = 0, oberlichtType = 'fix' }) {
+function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0, oberlichtHeight = 0, oberlichtType = 'fix', unterlicht = false, unterlichtHeight = 0, unterlichtType = 'fix' }) {
   const isSm = size === 'sm'
   const isXl = size === 'xl'
   const dimSpace = isSm ? 0 : isXl ? 45 : 28 // extra space for dimension lines
@@ -84,8 +84,10 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
   const fX = pad, fY = pad // frame origin
   const olHmm = parseFloat(oberlichtHeight) || 0
-  const olH = oberlicht ? (olHmm > 0 && ph0 > 0 ? frameH * olHmm / ph0 : frameH * 0.28) : 0
-  const panelH = frameH - olH
+  const olH = oberlicht ? (olHmm > 0 && ph0 > 0 ? frameH * olHmm / ph0 : frameH * 0.22) : 0
+  const ulHmm = parseFloat(unterlichtHeight) || 0
+  const ulH = unterlicht ? (ulHmm > 0 && ph0 > 0 ? frameH * ulHmm / ph0 : frameH * 0.22) : 0
+  const panelH = frameH - olH - ulH
   const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
 
   // Proportional panel widths — last panel = remainder of posWidth
@@ -171,6 +173,31 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
         )
       })}
 
+      {/* Unterlicht */}
+      {unterlicht && (() => {
+        const ulY = fY + frameH - ulH
+        const uix = fX + inset, uiy = ulY + inset, uiw = frameW - 2 * inset, uih = ulH - 2 * inset
+        const ulType2 = unterlichtType || 'fix'
+        const ulLines = panelSymbolLines(uix, uiy, uiw, uih, ulType2, 'left')
+        const ulShowHandle = ulType2 === 'kipp' || ulType2 === 'klapp'
+        const ulHx = uix + uiw / 2 - handleH / 2
+        const ulHy = ulType2 === 'kipp' ? (ulY + uiy) / 2 - handleW / 2 : (uiy + uih + ulY + ulH) / 2 - handleW / 2
+        return (
+          <>
+            <line x1={fX} y1={ulY} x2={fX + frameW} y2={ulY} stroke="currentColor" strokeWidth={sw} />
+            <rect x={uix} y={uiy} width={uiw} height={uih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+            {ulLines.map((l, j) => (
+              <line key={`ul${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                stroke="currentColor" strokeWidth={sw * 0.7}
+                strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+            ))}
+            {ulShowHandle && (
+              <rect x={ulHx} y={ulHy} width={handleH} height={handleW} rx={isSm ? 0.3 : 0.8} fill="currentColor" />
+            )}
+          </>
+        )
+      })()}
+
       {/* Dimension lines — only for lg size */}
       {!isSm && totalPosW > 0 && (
         <g className="text-slate-500" fill="currentColor" stroke="currentColor" strokeWidth={0.5}>
@@ -201,38 +228,36 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
 
           {/* Right: height dimensions */}
           {totalPosH > 0 && (() => {
-            const fluegelH = olHmm > 0 ? totalPosH - olHmm : 0
-            const hasOlDim = oberlicht && olHmm > 0 && fluegelH > 0
-            // Individual heights (oberlicht + panel) on inner line
-            if (hasOlDim) {
-              const olY1 = fY, olY2 = fY + olH
-              const flY1 = fY + olH, flY2 = fY + frameH
+            const hasOlDim = oberlicht && olHmm > 0
+            const hasUlDim = unterlicht && ulHmm > 0
+            const hasSections = hasOlDim || hasUlDim
+            const fluegelHmm = totalPosH - (hasOlDim ? olHmm : 0) - (hasUlDim ? ulHmm : 0)
+            // Build sections: [{y1, y2, label}]
+            const sections = []
+            if (hasOlDim) sections.push({ y1: fY, y2: fY + olH, label: olHmm })
+            sections.push({ y1: fY + olH, y2: fY + olH + panelH, label: hasSections ? fluegelHmm : null })
+            if (hasUlDim) sections.push({ y1: fY + frameH - ulH, y2: fY + frameH, label: ulHmm })
+
+            const dimLine = (x, y1, y2, label, fs, textOff = 6) => {
+              const mid = y1 + (y2 - y1) / 2
+              const tx = x + textOff
               return (
                 <>
-                  {/* Oberlicht height */}
-                  <line x1={fX + frameW + 2} y1={olY1} x2={fX + frameW + dimOff1 + dimTick} y2={olY1} strokeWidth={0.4} />
-                  <line x1={fX + frameW + 2} y1={olY2} x2={fX + frameW + dimOff1 + dimTick} y2={olY2} strokeWidth={0.4} />
-                  <line x1={fX + frameW + dimOff1} y1={olY1} x2={fX + frameW + dimOff1} y2={olY2} />
-                  <text x={fX + frameW + dimOff1 + 3} y={fY + olH / 2} fontSize={fontSize - 1} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${fX + frameW + dimOff1 + 3}, ${fY + olH / 2})`}>{olHmm}</text>
-                  {/* Panel height */}
-                  <line x1={fX + frameW + 2} y1={flY2} x2={fX + frameW + dimOff1 + dimTick} y2={flY2} strokeWidth={0.4} />
-                  <line x1={fX + frameW + dimOff1} y1={flY1} x2={fX + frameW + dimOff1} y2={flY2} />
-                  <text x={fX + frameW + dimOff1 + 3} y={flY1 + (flY2 - flY1) / 2} fontSize={fontSize - 1} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${fX + frameW + dimOff1 + 3}, ${flY1 + (flY2 - flY1) / 2})`}>{fluegelH}</text>
-                  {/* Total height on outer line */}
-                  <line x1={fX + frameW + 2} y1={fY} x2={fX + frameW + dimOff2 + dimTick} y2={fY} strokeWidth={0.4} />
-                  <line x1={fX + frameW + 2} y1={fY + frameH} x2={fX + frameW + dimOff2 + dimTick} y2={fY + frameH} strokeWidth={0.4} />
-                  <line x1={fX + frameW + dimOff2} y1={fY} x2={fX + frameW + dimOff2} y2={fY + frameH} />
-                  <text x={fX + frameW + dimOff2 + 6} y={fY + frameH / 2} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${fX + frameW + dimOff2 + 6}, ${fY + frameH / 2})`}>{totalPosH}</text>
+                  <line x1={fX + frameW + 2} y1={y1} x2={x + dimTick} y2={y1} strokeWidth={0.4} />
+                  <line x1={fX + frameW + 2} y1={y2} x2={x + dimTick} y2={y2} strokeWidth={0.4} />
+                  <line x1={x} y1={y1} x2={x} y2={y2} />
+                  <text x={tx} y={mid} fontSize={fs} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{label}</text>
                 </>
               )
             }
-            // No oberlicht dim — just total
+
             return (
               <>
-                <line x1={fX + frameW + dimOff1} y1={fY} x2={fX + frameW + dimOff2 + dimTick} y2={fY} strokeWidth={0.4} />
-                <line x1={fX + frameW + dimOff1} y1={fY + frameH} x2={fX + frameW + dimOff2 + dimTick} y2={fY + frameH} strokeWidth={0.4} />
-                <line x1={fX + frameW + dimOff2} y1={fY} x2={fX + frameW + dimOff2} y2={fY + frameH} />
-                <text x={fX + frameW + dimOff2 + 6} y={fY + frameH / 2} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${fX + frameW + dimOff2 + 6}, ${fY + frameH / 2})`}>{totalPosH}</text>
+                {hasSections && sections.filter(s => s.label !== null).map((s, i) => (
+                  <g key={`sec${i}`}>{dimLine(fX + frameW + dimOff1, s.y1, s.y2, s.label, fontSize - 1)}</g>
+                ))}
+                {/* Total height — outer line */}
+                {dimLine(fX + frameW + (hasSections ? dimOff2 : dimOff2), fY, fY + frameH, totalPosH, fontSize)}
               </>
             )
           })()}
@@ -251,6 +276,9 @@ function newFensterPosition() {
     oberlicht: false,
     oberlichtHeight: '',
     oberlichtType: 'fix',
+    unterlicht: false,
+    unterlichtHeight: '',
+    unterlichtType: 'fix',
     width: '',
     height: '',
     count: '1',
@@ -302,6 +330,9 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
 
   const toggleOberlicht = () => {
     onChange({ ...pos, oberlicht: !pos.oberlicht, preset: 'custom' })
+  }
+  const toggleUnterlicht = () => {
+    onChange({ ...pos, unterlicht: !pos.unterlicht, preset: 'custom' })
   }
 
   return (
@@ -400,10 +431,34 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <button onClick={toggleOberlicht} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
               </div>
             )}
+            {pos.unterlicht && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500 min-w-[52px]">Unterlicht</span>
+                <select
+                  value={pos.unterlichtType || 'fix'}
+                  onChange={e => update('unterlichtType', e.target.value)}
+                  className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                >
+                  <option value="fix">Fest</option>
+                  <option value="kipp">Kipp</option>
+                  <option value="klapp">Klapp</option>
+                </select>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500">Höhe:</span>
+                  <input type="number" value={pos.unterlichtHeight || ''} onChange={e => update('unterlichtHeight', e.target.value)}
+                    placeholder="300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                  <span className="text-[10px] text-slate-500">mm</span>
+                </div>
+                <button onClick={toggleUnterlicht} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
+              </div>
+            )}
             <div className="flex gap-2">
               <button onClick={addPanel} className="text-[10px] text-blue-400 hover:text-blue-300">+ Flügel</button>
               {!pos.oberlicht && (
                 <button onClick={toggleOberlicht} className="text-[10px] text-slate-500 hover:text-slate-400">+ Oberlicht</button>
+              )}
+              {!pos.unterlicht && (
+                <button onClick={toggleUnterlicht} className="text-[10px] text-slate-500 hover:text-slate-400">+ Unterlicht</button>
               )}
             </div>
           </div>
@@ -457,12 +512,12 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
       {/* Vorschau + Maße */}
       <div className="flex gap-3 items-start">
         <div className="bg-slate-800 rounded-lg p-2 border border-slate-700 cursor-pointer hover:border-blue-500 transition-colors" onClick={() => setZoomSketch(true)}>
-          <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} />
+          <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
         </div>
         {zoomSketch && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setZoomSketch(false)}>
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-600 max-w-sm" onClick={e => e.stopPropagation()}>
-              <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="xl" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} />
+              <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="xl" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
               <button onClick={() => setZoomSketch(false)} className="mt-4 w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">Schließen</button>
             </div>
           </div>
@@ -478,8 +533,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               <label className="block text-[10px] text-slate-500 mb-0.5">Höhe gesamt (mm)</label>
               <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
                 placeholder="1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-              {pos.oberlicht && pos.height && pos.oberlichtHeight && (
-                <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - parseFloat(pos.oberlichtHeight)} mm</p>
+              {pos.height && (pos.oberlichtHeight || pos.unterlichtHeight) && (
+                <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - (parseFloat(pos.oberlichtHeight) || 0) - (parseFloat(pos.unterlichtHeight) || 0)} mm</p>
               )}
             </div>
           </div>
