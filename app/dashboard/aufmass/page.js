@@ -273,10 +273,24 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
   if (!segments || segments.length === 0) return null
   const isSm = size === 'sm'
   const isXl = size === 'xl'
+  // Count how many right-side dim columns we need
+  // Each segment gets its own total-height column + optional breakdown column (if OL/UL)
+  // Layout right to left: Seg0 total | Seg0 breakdown? | Seg1 total | Seg1 breakdown? | ...
+  const segsWithBreakdown = segments.filter(s =>
+    (s.oberlicht && parseFloat(s.oberlichtHeight) > 0) || (s.unterlicht && parseFloat(s.unterlichtHeight) > 0)
+  )
+  const dimCols = segments.length + segsWithBreakdown.length
   const maxW = isSm ? 48 : isXl ? 320 : 160
   const maxH = isSm ? 36 : isXl ? 220 : 110
   const pad = isSm ? 3 : isXl ? 12 : 6
-  const dimSpace = isSm ? 0 : isXl ? 50 : 30
+  const colSpacing = isXl ? 22 : 14
+  const dimSpaceRight = isSm ? 0 : dimCols * colSpacing + 8
+  const hasPanelWidthsEarly = segments.some(seg => {
+    const panels = seg.panels || []
+    return panels.length > 1 && panels.some(p => parseFloat(p.width) > 0)
+  })
+  const bottomRows = 1 + (segments.length > 1 ? 1 : 0) + (hasPanelWidthsEarly ? 1 : 0)
+  const dimSpaceBottom = isSm ? 0 : bottomRows * (isXl ? 18 : 12) + 8
   const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
   const inset = isSm ? 1.5 : isXl ? 8 : 4
   const handleW = isSm ? 1 : isXl ? 3.5 : 2
@@ -295,8 +309,8 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
   const frameW = totalRealW * scale
   const frameH = maxRealH * scale
 
-  const vw = frameW + 2 * pad + (isSm ? 0 : dimSpace)
-  const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
+  const vw = frameW + 2 * pad + (isSm ? 0 : dimSpaceRight)
+  const vh = frameH + 2 * pad + (isSm ? 0 : dimSpaceBottom)
 
   let xOff = pad
 
@@ -422,10 +436,68 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
       {!isSm && (() => {
         const dimOff1 = isXl ? 10 : 6
         const dimOff2 = isXl ? 28 : 18
+        const dimOff3 = isXl ? 46 : 30
         const dimTick = isXl ? 5 : 3
+
+        // Check if any segment has multiple panels with custom widths → need panel-width row
+        const hasPanelWidths = segments.some(seg => {
+          const panels = seg.panels || []
+          return panels.length > 1 && panels.some(p => parseFloat(p.width) > 0)
+        })
+
+        // Row offsets: if panel widths exist, they go closest (row 1), segment widths row 2, total row 3
+        // If no panel widths: segment widths row 1, total row 2
+        const panelRowY = pad + frameH + dimOff1
+        const segRowY = hasPanelWidths ? pad + frameH + dimOff2 : pad + frameH + dimOff1
+        const totalRowY = hasPanelWidths ? pad + frameH + dimOff3 : pad + frameH + dimOff2
+
         let cx = pad
         return (
           <g className="text-slate-500" fill="currentColor" stroke="currentColor" strokeWidth={0.5}>
+            {/* Bottom row 1 (if applicable): per-panel widths within segments */}
+            {hasPanelWidths && (() => {
+              let px = pad
+              return segments.map((seg, si) => {
+                const segPx = px
+                const sw2 = segWidths[si] * scale
+                const panels = seg.panels || [{ type: 'fix' }]
+                const segRealW = parseFloat(seg.width) || 0
+                const panelEffWidths = panels.map((p, i) => {
+                  if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
+                    const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
+                    return Math.max(1, segRealW - others)
+                  }
+                  return parseFloat(p.width) || 0
+                })
+                const hasCustomW = panelEffWidths.some(w => w > 0)
+                const totalPW = hasCustomW ? panelEffWidths.reduce((s, w) => s + (w || 1), 0) : panels.length
+                const panelWs = panelEffWidths.map(w => hasCustomW ? (w || 1) / totalPW * sw2 : sw2 / panels.length)
+                px += sw2
+
+                // Only show panel kote if this segment has >1 panel with custom widths
+                if (panels.length <= 1 || !hasCustomW) return null
+                let ppx = segPx
+                return (
+                  <g key={`pw${si}`}>
+                    {panels.map((p, pi) => {
+                      const pw = panelWs[pi]
+                      const x1 = ppx, x2 = ppx + pw
+                      ppx += pw
+                      const wLabel = Math.round(panelEffWidths[pi])
+                      if (!wLabel) return null
+                      return (
+                        <g key={`pw${si}-${pi}`}>
+                          <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={panelRowY + dimTick} strokeWidth={0.4} />
+                          <line x1={x2} y1={pad + frameH + 2} x2={x2} y2={panelRowY + dimTick} strokeWidth={0.4} />
+                          <line x1={x1} y1={panelRowY} x2={x2} y2={panelRowY} />
+                          <text x={x1 + pw / 2} y={panelRowY + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{wLabel}</text>
+                        </g>
+                      )
+                    })}
+                  </g>
+                )
+              })
+            })()}
             {/* Bottom: individual segment widths */}
             {segments.map((seg, si) => {
               const sw2 = segWidths[si] * scale
@@ -433,59 +505,102 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
               cx += sw2
               return (
                 <g key={`sw${si}`}>
-                  <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={pad + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
-                  <line x1={x2} y1={pad + frameH + 2} x2={x2} y2={pad + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
-                  <line x1={x1} y1={pad + frameH + dimOff1} x2={x2} y2={pad + frameH + dimOff1} />
-                  <text x={x1 + sw2 / 2} y={pad + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{segWidths[si]}</text>
+                  <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={segRowY + dimTick} strokeWidth={0.4} />
+                  <line x1={x2} y1={pad + frameH + 2} x2={x2} y2={segRowY + dimTick} strokeWidth={0.4} />
+                  <line x1={x1} y1={segRowY} x2={x2} y2={segRowY} />
+                  <text x={x1 + sw2 / 2} y={segRowY + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{segWidths[si]}</text>
                 </g>
               )
             })}
             {/* Bottom: total width */}
             {segments.length > 1 && (
               <>
-                <line x1={pad} y1={pad + frameH + dimOff1 + dimTick + 2} x2={pad} y2={pad + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
-                <line x1={pad + frameW} y1={pad + frameH + dimOff1 + dimTick + 2} x2={pad + frameW} y2={pad + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
-                <line x1={pad} y1={pad + frameH + dimOff2} x2={pad + frameW} y2={pad + frameH + dimOff2} />
-                <text x={pad + frameW / 2} y={pad + frameH + dimOff2 + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalRealW}</text>
+                <line x1={pad} y1={segRowY + dimTick + 2} x2={pad} y2={totalRowY + dimTick} strokeWidth={0.4} />
+                <line x1={pad + frameW} y1={segRowY + dimTick + 2} x2={pad + frameW} y2={totalRowY + dimTick} strokeWidth={0.4} />
+                <line x1={pad} y1={totalRowY} x2={pad + frameW} y2={totalRowY} />
+                <text x={pad + frameW / 2} y={totalRowY + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalRealW}</text>
               </>
             )}
-            {/* Right: segment heights (if different) */}
+            {/* Right: per-segment heights + OL/UL sub-kote */}
+            {/* Sorted by height desc — tallest segment rightmost, breakdown left of it */}
             {(() => {
-              const allSame = segHeights.every(h => h === segHeights[0])
-              if (allSame) {
-                // Single height dimension
-                const rightX = pad + frameW + dimOff1
-                const y1 = pad, y2 = pad + frameH
-                const mid = (y1 + y2) / 2
-                const tx = rightX + 6
+              // Full dim line with horizontal extensions to frame
+              const dimLine = (x, y1, y2, label, fs, textOff = 6) => {
+                if (y2 - y1 < 3) return null
+                const mid = y1 + (y2 - y1) / 2
+                const tx = x + textOff
                 return (
                   <>
-                    <line x1={pad + frameW + 2} y1={y1} x2={rightX + dimTick} y2={y1} strokeWidth={0.4} />
-                    <line x1={pad + frameW + 2} y1={y2} x2={rightX + dimTick} y2={y2} strokeWidth={0.4} />
-                    <line x1={rightX} y1={y1} x2={rightX} y2={y2} />
-                    <text x={tx} y={mid} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{maxRealH}</text>
+                    <line x1={pad + frameW + 2} y1={y1} x2={x + dimTick} y2={y1} strokeWidth={0.4} />
+                    <line x1={pad + frameW + 2} y1={y2} x2={x + dimTick} y2={y2} strokeWidth={0.4} />
+                    <line x1={x} y1={y1} x2={x} y2={y2} />
+                    <text x={tx} y={mid} fontSize={fs} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{label}</text>
                   </>
                 )
               }
-              // Per-segment heights with labels
-              let sx = pad
-              return segments.map((seg, si) => {
-                const sw2 = segWidths[si] * scale
+              // Sub dim line — short ticks only, no extension to frame
+              const dimLineSub = (x, y1, y2, label, fs, textOff = 6) => {
+                if (y2 - y1 < 3) return null
+                const mid = y1 + (y2 - y1) / 2
+                const tx = x + textOff
+                return (
+                  <>
+                    <line x1={x - dimTick} y1={y1} x2={x + dimTick} y2={y1} strokeWidth={0.4} />
+                    <line x1={x - dimTick} y1={y2} x2={x + dimTick} y2={y2} strokeWidth={0.4} />
+                    <line x1={x} y1={y1} x2={x} y2={y2} />
+                    <text x={tx} y={mid} fontSize={fs} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{label}</text>
+                  </>
+                )
+              }
+
+              // Sort segments by height descending — tallest gets rightmost column
+              const sortedIdxs = segments.map((_, i) => i).sort((a, b) => segHeights[b] - segHeights[a])
+              let colIdx = dimCols - 1
+
+              return sortedIdxs.map(si => {
+                const seg = segments[si]
                 const segH = segHeights[si] * scale
+                const segRealH = segHeights[si]
                 let segY = pad
                 if (alignment === 'bottom') segY = pad + frameH - segH
                 else if (alignment === 'center') segY = pad + (frameH - segH) / 2
-                const rightX = sx + sw2 + (si === segments.length - 1 ? dimOff1 : 2)
-                const mid = segY + segH / 2
-                const tx = rightX + 6
-                sx += sw2
-                if (si !== segments.length - 1) return null // only show rightmost for cleanliness
+
+                const hasOlUl = seg.oberlicht || seg.unterlicht
+
+                // OL/UL proportional heights
+                const olHmm = parseFloat(seg.oberlichtHeight) || 0
+                const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+                const ulHmm = parseFloat(seg.unterlichtHeight) || 0
+                const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+                // Only show breakdown kote when actual heights are entered
+                const olDispMm = seg.oberlicht && olHmm > 0 ? olHmm : 0
+                const ulDispMm = seg.unterlicht && ulHmm > 0 ? ulHmm : 0
+                const hasBreakdown = olDispMm > 0 || ulDispMm > 0
+                const fluegelHmm = hasBreakdown ? segRealH - olDispMm - ulDispMm : 0
+
+                // Total height column (rightmost of this segment's pair)
+                const totalX = pad + frameW + dimOff1 + colIdx * colSpacing
+                colIdx--
+                // Breakdown column (left of total, only if actual heights entered)
+                const breakdownX = hasBreakdown ? pad + frameW + dimOff1 + colIdx * colSpacing : 0
+                if (hasBreakdown) colIdx--
+
                 return (
                   <g key={`sh${si}`}>
-                    <line x1={sx + 2} y1={segY} x2={rightX + dimTick} y2={segY} strokeWidth={0.4} />
-                    <line x1={sx + 2} y1={segY + segH} x2={rightX + dimTick} y2={segY + segH} strokeWidth={0.4} />
-                    <line x1={rightX} y1={segY} x2={rightX} y2={segY + segH} />
-                    <text x={tx} y={mid} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{segHeights[si]}</text>
+                    {/* Total height — full extension lines to frame */}
+                    <g>{dimLine(totalX, segY, segY + segH, segRealH, fontSize)}</g>
+                    {/* Breakdown: short ticks only, only when heights are entered */}
+                    {hasBreakdown && (
+                      <>
+                        {olDispMm > 0 && (
+                          <g>{dimLineSub(breakdownX, segY, segY + olH, olDispMm, fontSize - 1)}</g>
+                        )}
+                        <g>{dimLineSub(breakdownX, segY + olH, segY + segH - ulH, fluegelHmm, fontSize - 1)}</g>
+                        {ulDispMm > 0 && (
+                          <g>{dimLineSub(breakdownX, segY + segH - ulH, segY + segH, ulDispMm, fontSize - 1)}</g>
+                        )}
+                      </>
+                    )}
                   </g>
                 )
               })
