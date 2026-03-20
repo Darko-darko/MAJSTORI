@@ -427,6 +427,12 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               </select>
             </div>
             <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Profil</label>
+              <input type="text" value={pos.profil || ''} onChange={e => update('profil', e.target.value)}
+                placeholder="z.B. Iglo 5 Classic..."
+                className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Verglasung</label>
               <select value={pos.glazing} onChange={e => update('glazing', e.target.value)}
                 className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
