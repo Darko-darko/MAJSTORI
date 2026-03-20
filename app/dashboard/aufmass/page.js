@@ -30,7 +30,7 @@ const FENSTER_PRESETS = [
   { id: '2-kd-ob', label: '2-flg. + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }], oberlicht: true },
   { id: 'mehrteilig', label: 'Mehrteilig', panels: [], segments: true },
 ]
-const FENSTER_MATERIALS = ['Kunststoff', 'Holz', 'Aluminium', 'Holz-Alu']
+const FENSTER_MATERIALS = ['Kunststoff', 'Kunststoff-Alu', 'Holz', 'Holz-Alu', 'Aluminium', 'Stahl']
 const FENSTER_GLAZING = ['2-fach Verglasung', '3-fach Verglasung']
 
 // DIN window symbol lines for a single panel
@@ -117,7 +117,7 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const handleH = isSm ? 4 : isXl ? 18 : 10
 
   return (
-    <svg width={vw} height={vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400">
+    <svg width={isXl ? '100%' : vw} height={isXl ? undefined : vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400" style={isXl ? { maxHeight: '60vh' } : undefined}>
       {/* Outer frame (Blendrahmen) */}
       <rect x={fX} y={fY} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 2} />
       {oberlicht && (() => {
@@ -313,7 +313,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
   let xOff = pad
 
   return (
-    <svg width={vw} height={vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400">
+    <svg width={isXl ? '100%' : vw} height={isXl ? undefined : vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400" style={isXl ? { maxHeight: '60vh' } : undefined}>
       {segments.map((seg, si) => {
         const segW = segWidths[si] * scale
         const segH = segHeights[si] * scale
@@ -607,10 +607,6 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         )
       })()}
 
-      {/* "Ansicht von innen" label */}
-      {!isSm && (
-        <text x={pad + frameW / 2} y={pad - 2} textAnchor="middle" fontSize={isSm ? 5 : isXl ? 8 : 6} fill="currentColor" className="text-slate-500">Ansicht von innen</text>
-      )}
     </svg>
   )
 }
@@ -822,7 +818,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               }
               const letter = String.fromCharCode(65 + si)
               return (
-                <div key={seg.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2">
+                <div key={seg.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2 overflow-hidden">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-white font-semibold">Segment {letter}</span>
                     {seg.width && seg.height && <span className="text-[10px] text-slate-500">({seg.width}×{seg.height})</span>}
@@ -834,15 +830,15 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                   {/* Segment dimensions */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-slate-500 min-w-[32px]">B:</span>
+                      <span className="text-[10px] text-slate-500 w-[20px] shrink-0">B:</span>
                       <input type="number" value={seg.width || ''} onChange={e => updateSeg('width', e.target.value)}
-                        placeholder="600" className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-slate-500 min-w-[32px]">H:</span>
+                      <span className="text-[10px] text-slate-500 w-[20px] shrink-0">H:</span>
                       <input type="number" value={seg.height || ''} onChange={e => updateSeg('height', e.target.value)}
-                        placeholder="1400" className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="1400" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                   </div>
@@ -855,38 +851,40 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                     const lastRest = segTotalW - seg.panels.slice(0, -1).reduce((s, p) => s + (parseFloat(p.width) || 0), 0)
                     const anyHasWidth = seg.panels.some(p => parseFloat(p.width) > 0)
                     return (
-                    <div key={pi} className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] text-slate-500 min-w-[44px]">Flügel {pi + 1}</span>
-                      <select value={panel.type} onChange={e => updateSegPanel(pi, 'type', e.target.value)}
-                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs min-w-[80px]">
-                        {PANEL_TYPES.map(pt => <option key={pt.id} value={pt.id}>{pt.label}</option>)}
-                      </select>
-                      {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
-                        <select value={panel.hinge || 'left'} onChange={e => updateSegPanel(pi, 'hinge', e.target.value)}
-                          className="min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
-                          <option value="left">Band links</option>
-                          <option value="right">Band rechts</option>
+                    <div key={pi} className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
+                        <select value={panel.type} onChange={e => updateSegPanel(pi, 'type', e.target.value)}
+                          className="flex-1 min-h-[32px] px-1.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                          {PANEL_TYPES.map(pt => <option key={pt.id} value={pt.id}>{pt.label}</option>)}
                         </select>
-                      )}
-                      {showWidths && (
-                        isLast && anyHasWidth ? (
-                          <span className={`w-14 min-h-[32px] px-1 py-1 bg-slate-600/50 border border-slate-600 rounded text-[10px] text-center flex items-center justify-center ${lastRest > 0 ? 'text-slate-300' : 'text-red-400'}`}>
-                            {lastRest > 0 ? lastRest : '!'}
-                          </span>
-                        ) : (
-                          <input type="number" value={panel.width || ''} onChange={e => updateSegPanel(pi, 'width', e.target.value)}
-                            placeholder="B" className="w-14 min-h-[32px] px-1 py-1 bg-slate-700 border border-slate-600 rounded text-white text-[10px] text-center" />
-                        )
-                      )}
-                      {seg.panels.length > 1 && (
-                        <button onClick={() => removeSegPanel(pi)} className="text-red-400 text-sm px-1">✕</button>
-                      )}
+                        {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
+                          <select value={panel.hinge || 'left'} onChange={e => updateSegPanel(pi, 'hinge', e.target.value)}
+                            className="min-h-[32px] px-1.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                            <option value="left">Band L</option>
+                            <option value="right">Band R</option>
+                          </select>
+                        )}
+                        {showWidths && (
+                          isLast && anyHasWidth ? (
+                            <span className={`w-12 min-h-[32px] px-0.5 py-1 bg-slate-600/50 border border-slate-600 rounded text-[10px] text-center flex items-center justify-center shrink-0 ${lastRest > 0 ? 'text-slate-300' : 'text-red-400'}`}>
+                              {lastRest > 0 ? lastRest : '!'}
+                            </span>
+                          ) : (
+                            <input type="number" value={panel.width || ''} onChange={e => updateSegPanel(pi, 'width', e.target.value)}
+                              placeholder="B" className="w-12 min-h-[32px] px-0.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-[10px] text-center shrink-0" />
+                          )
+                        )}
+                        {seg.panels.length > 1 && (
+                          <button onClick={() => removeSegPanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
+                        )}
+                      </div>
                     </div>
                     )
                   })}
                   {/* Segment OL/UL */}
                   {seg.oberlicht && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-500 min-w-[44px]">OL</span>
                       <select value={seg.oberlichtType || 'fix'} onChange={e => updateSeg('oberlichtType', e.target.value)}
                         className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
@@ -897,11 +895,11 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                       <input type="number" value={seg.oberlichtHeight || ''} onChange={e => updateSeg('oberlichtHeight', e.target.value)}
                         placeholder="400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
-                      <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400 text-sm px-1">✕</button>
+                      <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
                   )}
                   {seg.unterlicht && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-500 min-w-[44px]">UL</span>
                       <select value={seg.unterlichtType || 'fix'} onChange={e => updateSeg('unterlichtType', e.target.value)}
                         className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
@@ -912,7 +910,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                       <input type="number" value={seg.unterlichtHeight || ''} onChange={e => updateSeg('unterlichtHeight', e.target.value)}
                         placeholder="300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
-                      <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400 text-sm px-1">✕</button>
+                      <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
                   )}
                   <div className="flex gap-2">
@@ -936,12 +934,12 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
           /* ── Standard: Flügel/OL/UL editor ── */
           <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2">
             {pos.panels.map((panel, pi) => (
-              <div key={pi} className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500 min-w-[52px]">Flügel {pi + 1}</span>
+              <div key={pi} className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
                 <select
                   value={panel.type}
                   onChange={e => updatePanel(pi, 'type', e.target.value)}
-                  className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                  className="flex-1 min-h-[36px] px-1.5 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
                 >
                   {PANEL_TYPES.map(pt => (
                     <option key={pt.id} value={pt.id}>{pt.label}</option>
@@ -951,19 +949,19 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                   <select
                     value={panel.hinge || 'left'}
                     onChange={e => updatePanel(pi, 'hinge', e.target.value)}
-                    className="min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                    className="min-h-[36px] px-1.5 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
                   >
-                    <option value="left">Band links</option>
-                    <option value="right">Band rechts</option>
+                    <option value="left">Band L</option>
+                    <option value="right">Band R</option>
                   </select>
                 )}
                 {pos.panels.length > 1 && (
-                  <button onClick={() => removePanel(pi)} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
+                  <button onClick={() => removePanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
                 )}
               </div>
             ))}
             {pos.oberlicht && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] text-slate-500 min-w-[52px]">Oberlicht</span>
                 <select
                   value={pos.oberlichtType || 'fix'}
@@ -980,11 +978,11 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                     placeholder="400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
-                <button onClick={toggleOberlicht} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
+                <button onClick={toggleOberlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
               </div>
             )}
             {pos.unterlicht && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] text-slate-500 min-w-[52px]">Unterlicht</span>
                 <select
                   value={pos.unterlichtType || 'fix'}
@@ -1001,7 +999,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                     placeholder="300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
-                <button onClick={toggleUnterlicht} className="text-red-400 text-sm px-1 min-h-[36px]">✕</button>
+                <button onClick={toggleUnterlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
               </div>
             )}
             <div className="flex gap-2">
@@ -1062,8 +1060,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
       })()}
 
       {/* Vorschau + Maße */}
-      <div className="flex gap-3 items-start">
-        <div className="bg-slate-800 rounded-lg p-2 border border-slate-700 cursor-pointer hover:border-blue-500 transition-colors" onClick={() => setZoomSketch(true)}>
+      <div className="flex flex-col sm:flex-row gap-3 items-start">
+        <div className="bg-slate-800 rounded-lg p-2 border border-slate-700 cursor-pointer hover:border-blue-500 transition-colors self-center sm:self-start" onClick={() => setZoomSketch(true)}>
           {pos.preset === 'mehrteilig' ? (
             <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="lg" />
           ) : (
@@ -1072,7 +1070,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
         </div>
         {zoomSketch && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setZoomSketch(false)}>
-            <div className="bg-slate-800 rounded-xl p-6 border border-slate-600 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-600 max-w-lg w-full overflow-x-auto" onClick={e => e.stopPropagation()}>
               {pos.preset === 'mehrteilig' ? (
                 <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="xl" />
               ) : (
@@ -1092,7 +1090,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
                 <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
@@ -1108,7 +1106,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               </div>
             </div>
           )}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Anzahl</label>
               <input type="number" value={pos.count} onChange={e => update('count', e.target.value)}
@@ -2698,32 +2696,32 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           </div>
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-2 px-5 py-4 pb-20 border-t border-slate-700">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 px-5 py-4 pb-20 border-t border-slate-700">
             <button
               onClick={save}
               disabled={saving}
-              className="flex-1 py-2.5 disabled:opacity-50 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 disabled:opacity-50 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
             >
-              {saving ? 'Speichern...' : <><span>💾</span><span>Speichern</span></>}
+              {saving ? '...' : <><span>💾</span><span>Speichern</span></>}
             </button>
             <button
               onClick={() => transferTo('quote')}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#15803d', color: '#ffffff' }}
             >
-              <span>📋</span><span>In Angebot</span>
+              <span>📋</span><span className="leading-tight text-center">In<br className="sm:hidden" /> Angebot</span>
             </button>
             <button
               onClick={() => transferTo('invoice')}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#c2410c', color: '#ffffff' }}
             >
-              <span>🧾</span><span>In Rechnung</span>
+              <span>🧾</span><span className="leading-tight text-center">In<br className="sm:hidden" /> Rechnung</span>
             </button>
             <button
               onClick={downloadPDF}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#475569', color: '#ffffff' }}
             >
               <span>📄</span><span>PDF</span>
@@ -2743,7 +2741,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   URL.revokeObjectURL(url)
                 }
               }}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#7c3aed', color: '#ffffff' }}
             >
               <span>📤</span><span>Teilen</span>
