@@ -30,6 +30,7 @@ const FENSTER_PRESETS = [
   { id: '3-kd', label: '3-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }, { type: 'kipp-dreh', hinge: 'right' }] },
   { id: '1-kd-ob', label: 'DK + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }], oberlicht: true },
   { id: '2-kd-ob', label: '2-flg. + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }], oberlicht: true },
+  { id: 'mehrteilig', label: 'Mehrteilig', panels: [], segments: true },
 ]
 const FENSTER_MATERIALS = ['Kunststoff', 'Holz', 'Aluminium', 'Holz-Alu']
 const FENSTER_GLAZING = ['2-fach Verglasung', '3-fach Verglasung']
@@ -267,6 +268,242 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   )
 }
 
+// SVG sketch for Mehrteilig (multi-segment) windows
+function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
+  if (!segments || segments.length === 0) return null
+  const isSm = size === 'sm'
+  const isXl = size === 'xl'
+  const maxW = isSm ? 48 : isXl ? 320 : 160
+  const maxH = isSm ? 36 : isXl ? 220 : 110
+  const pad = isSm ? 3 : isXl ? 12 : 6
+  const dimSpace = isSm ? 0 : isXl ? 50 : 30
+  const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
+  const inset = isSm ? 1.5 : isXl ? 8 : 4
+  const handleW = isSm ? 1 : isXl ? 3.5 : 2
+  const handleH = isSm ? 3.5 : isXl ? 16 : 8
+  const fontSize = isSm ? 6 : isXl ? 10 : 7
+
+  // Compute real dimensions
+  const segWidths = segments.map(s => parseFloat(s.width) || 100)
+  const segHeights = segments.map(s => parseFloat(s.height) || 100)
+  const totalRealW = segWidths.reduce((a, b) => a + b, 0)
+  const maxRealH = Math.max(...segHeights)
+
+  const availW = maxW - 2 * pad
+  const availH = maxH - 2 * pad
+  const scale = Math.min(availW / totalRealW, availH / maxRealH)
+  const frameW = totalRealW * scale
+  const frameH = maxRealH * scale
+
+  const vw = frameW + 2 * pad + (isSm ? 0 : dimSpace)
+  const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
+
+  let xOff = pad
+
+  return (
+    <svg width={vw} height={vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400">
+      {segments.map((seg, si) => {
+        const segW = segWidths[si] * scale
+        const segH = segHeights[si] * scale
+        const segX = xOff
+        xOff += segW
+
+        // Alignment Y
+        let segY = pad
+        if (alignment === 'bottom') segY = pad + frameH - segH
+        else if (alignment === 'center') segY = pad + (frameH - segH) / 2
+
+        // OL/UL proportional heights
+        const segRealH = segHeights[si]
+        const olHmm = parseFloat(seg.oberlichtHeight) || 0
+        const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+        const ulHmm = parseFloat(seg.unterlichtHeight) || 0
+        const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+        const panelH = segH - olH - ulH
+        const panelY = segY + olH
+
+        // Panel widths within segment
+        const panels = seg.panels || [{ type: 'fix' }]
+        const pw = segW / panels.length
+
+        return (
+          <g key={seg.id || si}>
+            {/* Segment outer frame */}
+            <rect x={segX} y={segY} width={segW} height={segH} fill="none" stroke="currentColor" strokeWidth={sw * 2} />
+
+            {/* Oberlicht */}
+            {seg.oberlicht && (() => {
+              const oix = segX + inset, oiy = segY + inset, oiw = segW - 2 * inset, oih = olH - 2 * inset
+              if (oiw <= 0 || oih <= 0) return null
+              const olType = seg.oberlichtType || 'fix'
+              const olLines = panelSymbolLines(oix, oiy, oiw, oih, olType, 'left')
+              const olShowHandle = olType === 'kipp' || olType === 'klapp'
+              const olHx = oix + oiw / 2 - handleH / 2
+              const olHy = olType === 'klapp' ? (segY + olH + oiy + oih) / 2 - handleW / 2 : (segY + oiy) / 2 - handleW / 2
+              return (
+                <>
+                  <line x1={segX} y1={segY + olH} x2={segX + segW} y2={segY + olH} stroke="currentColor" strokeWidth={sw} />
+                  <rect x={oix} y={oiy} width={oiw} height={oih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+                  {olLines.map((l, j) => (
+                    <line key={`ol${si}-${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="currentColor" strokeWidth={sw * 0.7}
+                      strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+                  ))}
+                  {olShowHandle && <rect x={olHx} y={olHy} width={handleH} height={handleW} rx={0.5} fill="currentColor" />}
+                </>
+              )
+            })()}
+
+            {/* Panels */}
+            {panels.map((p, pi) => {
+              const px = segX + pi * pw
+              const ix = px + inset, iy = panelY + inset, iw = pw - 2 * inset, ih = panelH - 2 * inset
+              if (iw <= 0 || ih <= 0) return null
+              const lines = panelSymbolLines(ix, iy, iw, ih, p.type, p.hinge)
+              const isLeft = p.hinge === 'left' || !p.hinge
+              const hx = isLeft ? (ix + iw + px + pw) / 2 - handleW / 2 : (px + ix) / 2 - handleW / 2
+              const hy = iy + ih / 2 - handleH / 2
+              const showHandle = p.type === 'dreh' || p.type === 'kipp-dreh' || p.type === 'kipp'
+              return (
+                <g key={`p${si}-${pi}`}>
+                  {pi > 0 && <line x1={px} y1={panelY} x2={px} y2={panelY + panelH} stroke="currentColor" strokeWidth={sw} />}
+                  <rect x={ix} y={iy} width={iw} height={ih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+                  {lines.map((l, j) => (
+                    <line key={j} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="currentColor" strokeWidth={sw * 0.7}
+                      strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+                  ))}
+                  {showHandle && <rect x={hx} y={hy} width={handleW} height={handleH} rx={isSm ? 0.3 : 0.8} fill="currentColor" />}
+                </g>
+              )
+            })}
+
+            {/* Unterlicht */}
+            {seg.unterlicht && (() => {
+              const ulY = segY + segH - ulH
+              const uix = segX + inset, uiy = ulY + inset, uiw = segW - 2 * inset, uih = ulH - 2 * inset
+              if (uiw <= 0 || uih <= 0) return null
+              const ulType = seg.unterlichtType || 'fix'
+              const ulLines = panelSymbolLines(uix, uiy, uiw, uih, ulType, 'left')
+              const ulShowHandle = ulType === 'kipp' || ulType === 'klapp'
+              const ulHx = uix + uiw / 2 - handleH / 2
+              const ulHy = ulType === 'kipp' ? (ulY + uiy) / 2 - handleW / 2 : (uiy + uih + ulY + ulH) / 2 - handleW / 2
+              return (
+                <>
+                  <line x1={segX} y1={ulY} x2={segX + segW} y2={ulY} stroke="currentColor" strokeWidth={sw} />
+                  <rect x={uix} y={uiy} width={uiw} height={uih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+                  {ulLines.map((l, j) => (
+                    <line key={`ul${si}-${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="currentColor" strokeWidth={sw * 0.7}
+                      strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+                  ))}
+                  {ulShowHandle && <rect x={ulHx} y={ulHy} width={handleH} height={handleW} rx={0.5} fill="currentColor" />}
+                </>
+              )
+            })()}
+          </g>
+        )
+      })}
+
+      {/* Dimension lines */}
+      {!isSm && (() => {
+        const dimOff1 = isXl ? 10 : 6
+        const dimOff2 = isXl ? 28 : 18
+        const dimTick = isXl ? 5 : 3
+        let cx = pad
+        return (
+          <g className="text-slate-500" fill="currentColor" stroke="currentColor" strokeWidth={0.5}>
+            {/* Bottom: individual segment widths */}
+            {segments.map((seg, si) => {
+              const sw2 = segWidths[si] * scale
+              const x1 = cx, x2 = cx + sw2
+              cx += sw2
+              return (
+                <g key={`sw${si}`}>
+                  <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={pad + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
+                  <line x1={x2} y1={pad + frameH + 2} x2={x2} y2={pad + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
+                  <line x1={x1} y1={pad + frameH + dimOff1} x2={x2} y2={pad + frameH + dimOff1} />
+                  <text x={x1 + sw2 / 2} y={pad + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{segWidths[si]}</text>
+                </g>
+              )
+            })}
+            {/* Bottom: total width */}
+            {segments.length > 1 && (
+              <>
+                <line x1={pad} y1={pad + frameH + dimOff1 + dimTick + 2} x2={pad} y2={pad + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
+                <line x1={pad + frameW} y1={pad + frameH + dimOff1 + dimTick + 2} x2={pad + frameW} y2={pad + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
+                <line x1={pad} y1={pad + frameH + dimOff2} x2={pad + frameW} y2={pad + frameH + dimOff2} />
+                <text x={pad + frameW / 2} y={pad + frameH + dimOff2 + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalRealW}</text>
+              </>
+            )}
+            {/* Right: segment heights (if different) */}
+            {(() => {
+              const allSame = segHeights.every(h => h === segHeights[0])
+              if (allSame) {
+                // Single height dimension
+                const rightX = pad + frameW + dimOff1
+                const y1 = pad, y2 = pad + frameH
+                const mid = (y1 + y2) / 2
+                const tx = rightX + 6
+                return (
+                  <>
+                    <line x1={pad + frameW + 2} y1={y1} x2={rightX + dimTick} y2={y1} strokeWidth={0.4} />
+                    <line x1={pad + frameW + 2} y1={y2} x2={rightX + dimTick} y2={y2} strokeWidth={0.4} />
+                    <line x1={rightX} y1={y1} x2={rightX} y2={y2} />
+                    <text x={tx} y={mid} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{maxRealH}</text>
+                  </>
+                )
+              }
+              // Per-segment heights with labels
+              let sx = pad
+              return segments.map((seg, si) => {
+                const sw2 = segWidths[si] * scale
+                const segH = segHeights[si] * scale
+                let segY = pad
+                if (alignment === 'bottom') segY = pad + frameH - segH
+                else if (alignment === 'center') segY = pad + (frameH - segH) / 2
+                const rightX = sx + sw2 + (si === segments.length - 1 ? dimOff1 : 2)
+                const mid = segY + segH / 2
+                const tx = rightX + 6
+                sx += sw2
+                if (si !== segments.length - 1) return null // only show rightmost for cleanliness
+                return (
+                  <g key={`sh${si}`}>
+                    <line x1={sx + 2} y1={segY} x2={rightX + dimTick} y2={segY} strokeWidth={0.4} />
+                    <line x1={sx + 2} y1={segY + segH} x2={rightX + dimTick} y2={segY + segH} strokeWidth={0.4} />
+                    <line x1={rightX} y1={segY} x2={rightX} y2={segY + segH} />
+                    <text x={tx} y={mid} fontSize={fontSize} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{segHeights[si]}</text>
+                  </g>
+                )
+              })
+            })()}
+          </g>
+        )
+      })()}
+
+      {/* "Ansicht von innen" label */}
+      {!isSm && (
+        <text x={pad + frameW / 2} y={pad - 2} textAnchor="middle" fontSize={isSm ? 5 : isXl ? 8 : 6} fill="currentColor" className="text-slate-500">Ansicht von innen</text>
+      )}
+    </svg>
+  )
+}
+
+function newSegment() {
+  return {
+    id: newId(),
+    width: '',
+    height: '',
+    panels: [{ type: 'kipp-dreh', hinge: 'left' }],
+    oberlicht: false,
+    oberlichtHeight: '',
+    oberlichtType: 'fix',
+    unterlicht: false,
+    unterlichtHeight: '',
+    unterlichtType: 'fix',
+  }
+}
+
 function newFensterPosition() {
   return {
     id: newId(),
@@ -286,6 +523,9 @@ function newFensterPosition() {
     glazing: '2-fach Verglasung',
     color: '',
     notes: '',
+    // Mehrteilig fields (only used when preset === 'mehrteilig')
+    segments: [],
+    alignment: 'top',
   }
 }
 
@@ -302,11 +542,21 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
   const [zoomSketch, setZoomSketch] = useState(false)
 
   const selectPreset = (preset) => {
+    if (preset.id === 'mehrteilig') {
+      onChange({
+        ...pos,
+        preset: 'mehrteilig',
+        segments: pos.segments && pos.segments.length > 0 ? pos.segments : [newSegment(), newSegment()],
+      })
+      setShowCustom(true)
+      return
+    }
     onChange({
       ...pos,
       preset: preset.id,
       panels: JSON.parse(JSON.stringify(preset.panels)),
       oberlicht: !!preset.oberlicht,
+      segments: [],
     })
     setShowCustom(false)
   }
@@ -376,12 +626,156 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                     : 'border-slate-600 bg-slate-800 hover:border-slate-500'
                 }`}
               >
-                <FensterSketch panels={fp.panels} oberlicht={fp.oberlicht} size="sm" />
+                {fp.id === 'mehrteilig' ? (
+                  <svg width="48" height="36" viewBox="0 0 48 36" className="text-slate-400">
+                    <rect x="3" y="3" width="18" height="30" fill="none" stroke="currentColor" strokeWidth={1.6} />
+                    <rect x="21" y="8" width="14" height="25" fill="none" stroke="currentColor" strokeWidth={1.6} />
+                    <rect x="35" y="3" width="10" height="30" fill="none" stroke="currentColor" strokeWidth={1.6} />
+                  </svg>
+                ) : (
+                  <FensterSketch panels={fp.panels} oberlicht={fp.oberlicht} size="sm" />
+                )}
                 <span className="text-[10px] text-slate-400">{fp.label}</span>
               </button>
             ))}
           </div>
+        ) : pos.preset === 'mehrteilig' ? (
+          /* ── Mehrteilig: Segment editor ── */
+          <div className="space-y-2">
+            {/* Alignment selector */}
+            <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-600 rounded-lg px-2 py-1.5">
+              <span className="text-[11px] text-slate-500">Ausrichtung:</span>
+              {['top', 'bottom', 'center'].map(a => (
+                <button key={a} type="button"
+                  onClick={() => update('alignment', a)}
+                  className={`text-[10px] px-2 py-0.5 rounded ${pos.alignment === a ? 'bg-blue-500/30 text-blue-400 border border-blue-500' : 'text-slate-400 border border-slate-600 hover:border-slate-500'}`}
+                >{a === 'top' ? 'Oben' : a === 'bottom' ? 'Unten' : 'Mitte'}</button>
+              ))}
+            </div>
+
+            {/* Segment cards */}
+            {(pos.segments || []).map((seg, si) => {
+              const updateSeg = (field, val) => {
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si][field] = val
+                onChange({ ...pos, segments: segs })
+              }
+              const updateSegPanel = (pi, field, val) => {
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels[pi][field] = val
+                onChange({ ...pos, segments: segs })
+              }
+              const addSegPanel = () => {
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels.push({ type: 'fix', hinge: 'left' })
+                onChange({ ...pos, segments: segs })
+              }
+              const removeSegPanel = (pi) => {
+                if (seg.panels.length <= 1) return
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels = segs[si].panels.filter((_, j) => j !== pi)
+                onChange({ ...pos, segments: segs })
+              }
+              const removeSeg = () => {
+                if ((pos.segments || []).length <= 1) return
+                onChange({ ...pos, segments: pos.segments.filter((_, j) => j !== si) })
+              }
+              const letter = String.fromCharCode(65 + si)
+              return (
+                <div key={seg.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-white font-semibold">Segment {letter}</span>
+                    {seg.width && seg.height && <span className="text-[10px] text-slate-500">({seg.width}×{seg.height})</span>}
+                    <div className="flex-1" />
+                    {(pos.segments || []).length > 1 && (
+                      <button onClick={removeSeg} className="text-red-400 hover:text-red-300 text-sm px-1">✕</button>
+                    )}
+                  </div>
+                  {/* Segment dimensions */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-slate-500 min-w-[32px]">B:</span>
+                      <input type="number" value={seg.width || ''} onChange={e => updateSeg('width', e.target.value)}
+                        placeholder="600" className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-slate-500 min-w-[32px]">H:</span>
+                      <input type="number" value={seg.height || ''} onChange={e => updateSeg('height', e.target.value)}
+                        placeholder="1400" className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                    </div>
+                  </div>
+                  {/* Segment Flügel */}
+                  {seg.panels.map((panel, pi) => (
+                    <div key={pi} className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500 min-w-[44px]">Flügel {pi + 1}</span>
+                      <select value={panel.type} onChange={e => updateSegPanel(pi, 'type', e.target.value)}
+                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                        {PANEL_TYPES.map(pt => <option key={pt.id} value={pt.id}>{pt.label}</option>)}
+                      </select>
+                      {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
+                        <select value={panel.hinge || 'left'} onChange={e => updateSegPanel(pi, 'hinge', e.target.value)}
+                          className="min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                          <option value="left">Band links</option>
+                          <option value="right">Band rechts</option>
+                        </select>
+                      )}
+                      {seg.panels.length > 1 && (
+                        <button onClick={() => removeSegPanel(pi)} className="text-red-400 text-sm px-1">✕</button>
+                      )}
+                    </div>
+                  ))}
+                  {/* Segment OL/UL */}
+                  {seg.oberlicht && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500 min-w-[44px]">OL</span>
+                      <select value={seg.oberlichtType || 'fix'} onChange={e => updateSeg('oberlichtType', e.target.value)}
+                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                        <option value="fix">Fest</option>
+                        <option value="kipp">Kipp</option>
+                        <option value="klapp">Klapp</option>
+                      </select>
+                      <input type="number" value={seg.oberlichtHeight || ''} onChange={e => updateSeg('oberlichtHeight', e.target.value)}
+                        placeholder="400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                      <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400 text-sm px-1">✕</button>
+                    </div>
+                  )}
+                  {seg.unterlicht && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500 min-w-[44px]">UL</span>
+                      <select value={seg.unterlichtType || 'fix'} onChange={e => updateSeg('unterlichtType', e.target.value)}
+                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                        <option value="fix">Fest</option>
+                        <option value="kipp">Kipp</option>
+                        <option value="klapp">Klapp</option>
+                      </select>
+                      <input type="number" value={seg.unterlichtHeight || ''} onChange={e => updateSeg('unterlichtHeight', e.target.value)}
+                        placeholder="300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                      <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400 text-sm px-1">✕</button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={addSegPanel} className="text-[10px] text-blue-400 hover:text-blue-300">+ Flügel</button>
+                    {!seg.oberlicht && (
+                      <button onClick={() => updateSeg('oberlicht', true)} className="text-[10px] text-slate-500 hover:text-slate-400">+ Oberlicht</button>
+                    )}
+                    {!seg.unterlicht && (
+                      <button onClick={() => updateSeg('unterlicht', true)} className="text-[10px] text-slate-500 hover:text-slate-400">+ Unterlicht</button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            <button
+              onClick={() => onChange({ ...pos, segments: [...(pos.segments || []), newSegment()] })}
+              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-lg text-xs font-medium transition-colors"
+            >+ Segment</button>
+          </div>
         ) : (
+          /* ── Standard: Flügel/OL/UL editor ── */
           <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2">
             {pos.panels.map((panel, pi) => (
               <div key={pi} className="flex items-center gap-2">
@@ -465,8 +859,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
         )}
       </div>
 
-      {/* Individuelle Flügelbreiten — nur bei 2+ Flügeln und eingegebener Gesamtbreite */}
-      {pos.panels.length > 1 && parseFloat(pos.width) > 0 && (() => {
+      {/* Individuelle Flügelbreiten — nur bei Standard-Typ mit 2+ Flügeln */}
+      {pos.preset !== 'mehrteilig' && pos.panels.length > 1 && parseFloat(pos.width) > 0 && (() => {
         const totalW = parseFloat(pos.width)
         const anyHasWidth = pos.panels.some(p => parseFloat(p.width) > 0)
         const othersSum = pos.panels.slice(0, -1).reduce((s, p) => s + (parseFloat(p.width) || 0), 0)
@@ -512,32 +906,50 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
       {/* Vorschau + Maße */}
       <div className="flex gap-3 items-start">
         <div className="bg-slate-800 rounded-lg p-2 border border-slate-700 cursor-pointer hover:border-blue-500 transition-colors" onClick={() => setZoomSketch(true)}>
-          <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
+          {pos.preset === 'mehrteilig' ? (
+            <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="lg" />
+          ) : (
+            <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
+          )}
         </div>
         {zoomSketch && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setZoomSketch(false)}>
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-600 max-w-sm" onClick={e => e.stopPropagation()}>
-              <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="xl" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
+              {pos.preset === 'mehrteilig' ? (
+                <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="xl" />
+              ) : (
+                <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="xl" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
+              )}
               <button onClick={() => setZoomSketch(false)} className="mt-4 w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">Schließen</button>
             </div>
           </div>
         )}
         <div className="flex-1 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
-              <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
-                placeholder="1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          {pos.preset === 'mehrteilig' ? (
+            /* Mehrteilig: auto-computed dimensions summary */
+            <div className="bg-slate-800/50 border border-slate-600 rounded-lg px-2 py-1.5">
+              <p className="text-[10px] text-slate-500">
+                Gesamt: {(pos.segments || []).reduce((s, seg) => s + (parseFloat(seg.width) || 0), 0)} × {Math.max(...(pos.segments || []).map(seg => parseFloat(seg.height) || 0), 0)} mm
+                <span className="ml-2">({(pos.segments || []).length} Segmente)</span>
+              </p>
             </div>
-            <div>
-              <label className="block text-[10px] text-slate-500 mb-0.5">Höhe gesamt (mm)</label>
-              <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
-                placeholder="1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-              {pos.height && (pos.oberlichtHeight || pos.unterlichtHeight) && (
-                <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - (parseFloat(pos.oberlichtHeight) || 0) - (parseFloat(pos.unterlichtHeight) || 0)} mm</p>
-              )}
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
+                <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
+                  placeholder="1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-0.5">Höhe gesamt (mm)</label>
+                <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
+                  placeholder="1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                {pos.height && (pos.oberlichtHeight || pos.unterlichtHeight) && (
+                  <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - (parseFloat(pos.oberlichtHeight) || 0) - (parseFloat(pos.unterlichtHeight) || 0)} mm</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Anzahl</label>
@@ -1541,26 +1953,57 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     if (form.gewerk === 'fensterbau') {
       // Fensterbau: each position = one invoice item
       for (const pos of form.rooms) {
-        const panels = pos.panels || []
-        const typLabels = panels.map(p =>
-          p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
-        )
-        const typStr = typLabels.join(' + ') + (pos.oberlicht ? ' + Oberlicht' : '')
-        const parts = [
-          pos.name,
-          pos.material,
-          typStr,
-          pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
-          pos.glazing,
-          pos.color,
-        ].filter(Boolean)
-        flatItems.push({
-          description: parts.join(', '),
-          quantity: parseInt(pos.count) || 1,
-          unit: 'Stk',
-          unit_price: 0,
-          total_price: 0,
-        })
+        if (pos.preset === 'mehrteilig' && pos.segments?.length > 0) {
+          // Mehrteilig: describe all segments
+          const segDescs = pos.segments.map((seg, i) => {
+            const letter = String.fromCharCode(65 + i)
+            const typLabels = (seg.panels || []).map(p =>
+              p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+            )
+            let typStr = typLabels.join('+')
+            if (seg.oberlicht) typStr += '+OL'
+            if (seg.unterlicht) typStr += '+UL'
+            return `${letter}: ${seg.width || '?'}×${seg.height || '?'} (${typStr})`
+          })
+          const totalW = pos.segments.reduce((s, seg) => s + (parseFloat(seg.width) || 0), 0)
+          const maxH = Math.max(...pos.segments.map(seg => parseFloat(seg.height) || 0))
+          const parts = [
+            pos.name,
+            pos.material,
+            `Mehrteilig ${totalW}×${maxH} mm`,
+            segDescs.join(', '),
+            pos.glazing,
+            pos.color,
+          ].filter(Boolean)
+          flatItems.push({
+            description: parts.join(', '),
+            quantity: parseInt(pos.count) || 1,
+            unit: 'Stk',
+            unit_price: 0,
+            total_price: 0,
+          })
+        } else {
+          const panels = pos.panels || []
+          const typLabels = panels.map(p =>
+            p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+          )
+          const typStr = typLabels.join(' + ') + (pos.oberlicht ? ' + Oberlicht' : '')
+          const parts = [
+            pos.name,
+            pos.material,
+            typStr,
+            pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
+            pos.glazing,
+            pos.color,
+          ].filter(Boolean)
+          flatItems.push({
+            description: parts.join(', '),
+            quantity: parseInt(pos.count) || 1,
+            unit: 'Stk',
+            unit_price: 0,
+            total_price: 0,
+          })
+        }
       }
     } else {
       // Room-based: compute netto per unit
