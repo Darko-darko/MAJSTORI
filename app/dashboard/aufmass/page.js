@@ -46,6 +46,10 @@ function panelSymbolLines(x, y, w, h, type, hinge) {
     lines.push({ x1: x, y1: y + h, x2: cx, y2: y, dash: true })
     lines.push({ x1: x + w, y1: y + h, x2: cx, y2: y, dash: true })
   }
+  if (type === 'klapp') {
+    lines.push({ x1: x, y1: y, x2: cx, y2: y + h, dash: true })
+    lines.push({ x1: x + w, y1: y, x2: cx, y2: y + h, dash: true })
+  }
   if (type === 'dreh' || type === 'kipp-dreh') {
     if (hinge === 'left' || !hinge) {
       lines.push({ x1: x, y1: y, x2: x + w, y2: cy })
@@ -119,9 +123,9 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
         const oix = fX + inset, oiy = fY + inset, oiw = frameW - 2 * inset, oih = olH - 2 * inset
         const olType = oberlichtType || 'fix'
         const olLines = panelSymbolLines(oix, oiy, oiw, oih, olType, 'left')
-        const olShowHandle = olType === 'kipp'
-        const olHx = oix + oiw / 2 - handleH / 2 // horizontal handle for kipp
-        const olHy = (fY + oiy) / 2 - handleW / 2
+        const olShowHandle = olType === 'kipp' || olType === 'klapp'
+        const olHx = oix + oiw / 2 - handleH / 2 // horizontal handle
+        const olHy = olType === 'klapp' ? (fY + olH + oiy + oih) / 2 - handleW / 2 : (fY + oiy) / 2 - handleW / 2
         return (
           <>
             <line x1={fX} y1={fY + olH} x2={fX + frameW} y2={fY + olH} stroke="currentColor" strokeWidth={sw} />
@@ -385,6 +389,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 >
                   <option value="fix">Fest</option>
                   <option value="kipp">Kipp</option>
+                  <option value="klapp">Klapp</option>
                 </select>
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
