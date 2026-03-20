@@ -63,11 +63,21 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const isSm = size === 'sm'
   const isXl = size === 'xl'
   const dimSpace = isSm ? 0 : isXl ? 45 : 28 // extra space for dimension lines
-  const baseW = isSm ? 48 : isXl ? 280 : 140
-  const baseH = isSm ? 36 : isXl ? 200 : 100
-  const vw = baseW + (isSm ? 0 : dimSpace), vh = baseH + (isSm ? 0 : dimSpace)
+  const maxW = isSm ? 48 : isXl ? 280 : 140
+  const maxH = isSm ? 36 : isXl ? 200 : 100
   const pad = isSm ? 3 : isXl ? 10 : 6
-  const frameW = baseW - 2 * pad, frameH = baseH - 2 * pad
+  const availW = maxW - 2 * pad, availH = maxH - 2 * pad
+  // Proportional frame based on actual dimensions
+  const pw0 = parseFloat(posWidth) || 0, ph0 = parseFloat(posHeight) || 0
+  let frameW, frameH
+  if (pw0 > 0 && ph0 > 0) {
+    const scale = Math.min(availW / pw0, availH / ph0)
+    frameW = pw0 * scale; frameH = ph0 * scale
+  } else {
+    frameW = availW; frameH = availH
+  }
+  const vw = frameW + 2 * pad + (isSm ? 0 : dimSpace)
+  const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
   const fX = pad, fY = pad // frame origin
   const olH = oberlicht ? frameH * 0.28 : 0
   const panelH = frameH - olH
