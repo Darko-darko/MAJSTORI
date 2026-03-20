@@ -62,7 +62,7 @@ function panelSymbolLines(x, y, w, h, type, hinge) {
 function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0 }) {
   const isSm = size === 'sm'
   const isXl = size === 'xl'
-  const dimSpace = isSm ? 0 : 28 // extra space for dimension lines (lg/xl only)
+  const dimSpace = isSm ? 0 : isXl ? 45 : 28 // extra space for dimension lines
   const baseW = isSm ? 48 : isXl ? 280 : 140
   const baseH = isSm ? 36 : isXl ? 200 : 100
   const vw = baseW + (isSm ? 0 : dimSpace), vh = baseH + (isSm ? 0 : dimSpace)
@@ -119,9 +119,9 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
         // Inner frame per panel (Flügelrahmen) — equal inset on all sides
         const ix = px + inset, iy = py + inset, iw = pw - 2 * inset, ih = panelH - 2 * inset
         const lines = panelSymbolLines(ix, iy, iw, ih, p.type, p.hinge)
-        // Handle position: opposite side of hinge, vertically centered
+        // Handle position: centered in frame (between outer and inner rect), opposite side of hinge
         const isLeft = p.hinge === 'left' || !p.hinge
-        const hx = isLeft ? ix + iw - handleW - (isSm ? 0.5 : 1) : ix + (isSm ? 0.5 : 1)
+        const hx = isLeft ? (ix + iw + px + pw) / 2 - handleW / 2 : (px + ix) / 2 - handleW / 2
         const hy = iy + ih / 2 - handleH / 2
         const showHandle = p.type === 'dreh' || p.type === 'kipp-dreh' || p.type === 'kipp'
         return (
