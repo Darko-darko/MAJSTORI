@@ -1146,9 +1146,15 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
           <div>
             <label className="block text-[10px] text-slate-500 mb-0.5">Bemerkungen</label>
             <textarea value={pos.notes} onChange={e => update('notes', e.target.value)}
-              placeholder="Optional..."
+              placeholder="Optional... (max. 80 Zeichen)"
+              maxLength={80}
               rows={2}
-              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y" />
+              className={`w-full px-2 py-1 bg-slate-800 border rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y ${(pos.notes?.length || 0) >= 70 ? 'border-amber-500' : 'border-slate-600'}`} />
+            {(pos.notes?.length || 0) >= 60 && (
+              <span className={`text-[10px] ${(pos.notes?.length || 0) >= 70 ? 'text-amber-400' : 'text-slate-500'}`}>
+                {pos.notes.length}/80
+              </span>
+            )}
           </div>
         </div>
       </div>
