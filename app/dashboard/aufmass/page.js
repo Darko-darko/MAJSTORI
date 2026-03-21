@@ -95,22 +95,17 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const maxH = isSm ? 36 : isXl ? 240 : 100
   const pad = isSm ? 3 : isXl ? 10 : 6
   const availW = maxW - 2 * pad, availH = maxH - 2 * pad
-  // Proportional frame based on actual dimensions
-  const pw0 = parseFloat(posWidth) || 0, ph0 = parseFloat(posHeight) || 0
-  let frameW, frameH
-  if (pw0 > 0 && ph0 > 0) {
-    const scale = Math.min(availW / pw0, availH / ph0)
-    frameW = pw0 * scale; frameH = ph0 * scale
-  } else {
-    frameW = availW; frameH = availH
-  }
+  // Proportional frame — fallback to placeholder hints when no real values
+  const pw0 = parseFloat(posWidth) || 1200, ph0 = parseFloat(posHeight) || 1400
+  const scale = Math.min(availW / pw0, availH / ph0)
+  const frameW = pw0 * scale, frameH = ph0 * scale
   const vw = frameW + 2 * pad + (isSm ? 0 : dimSpace)
   const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
   const fX = pad, fY = pad // frame origin
   const olHmm = parseFloat(oberlichtHeight) || 0
-  const olH = oberlicht ? (olHmm > 0 && ph0 > 0 ? frameH * olHmm / ph0 : frameH * 0.22) : 0
+  const olH = oberlicht ? frameH * (olHmm > 0 ? olHmm : 300) / ph0 : 0
   const ulHmm = parseFloat(unterlichtHeight) || 0
-  const ulH = unterlicht ? (ulHmm > 0 && ph0 > 0 ? frameH * ulHmm / ph0 : frameH * 0.22) : 0
+  const ulH = unterlicht ? frameH * (ulHmm > 0 ? ulHmm : 300) / ph0 : 0
   const panelH = frameH - olH - ulH
   const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
 
@@ -120,7 +115,7 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const effWidths = panels.map((p, i) => {
     if (i === panels.length - 1 && panels.length > 1 && totalPosW > 0) {
       const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
-      return Math.max(1, totalPosW - others)
+      if (others > 0) return Math.max(1, totalPosW - others)
     }
     return parseFloat(p.width) || 0
   })
@@ -231,12 +226,13 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
           <line x1={fX} y1={fY + frameH + dimOff2} x2={fX + frameW} y2={fY + frameH + dimOff2} />
           <text x={fX + frameW / 2} y={fY + frameH + dimOff2 + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalPosW}</text>
 
-          {/* Bottom: individual panel widths (if different) */}
+          {/* Bottom: individual panel widths (only when real values entered) */}
           {hasCustomWidths && panels.length > 1 && (() => {
             let cx = fX
             return panels.map((_, i) => {
               const pw = panelWidths[i]
               const ew = effWidths[i]
+              const label = ew > 0 ? Math.round(ew) : ''
               const x1 = cx, x2 = cx + pw
               cx += pw
               return (
@@ -244,7 +240,7 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
                   <line x1={x1} y1={fY + frameH + 2} x2={x1} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
                   <line x1={x2} y1={fY + frameH + 2} x2={x2} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
                   <line x1={x1} y1={fY + frameH + dimOff1} x2={x2} y2={fY + frameH + dimOff1} />
-                  <text x={x1 + pw / 2} y={fY + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{ew > 0 ? Math.round(ew) : ''}</text>
+                  <text x={x1 + pw / 2} y={fY + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{label}</text>
                 </g>
               )
             })
