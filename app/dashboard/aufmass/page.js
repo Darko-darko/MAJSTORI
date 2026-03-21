@@ -317,8 +317,13 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
   const fontSize = isSm ? 6 : isXl ? 10 : 7
 
   // Compute real dimensions
-  const segWidths = segments.map(s => parseFloat(s.width) || 100)
-  const segHeights = segments.map(s => parseFloat(s.height) || 100)
+  // Fallback to placeholder values when no real dimensions entered
+  const defaultH = [1400, 1200, 1000, 800]
+  const segWidths = segments.map(s => parseFloat(s.width) || 600)
+  const segHeights = segments.map((s, i) => parseFloat(s.height) || (defaultH[i] || 1200))
+  const segHasRealW = segments.map(s => parseFloat(s.width) > 0)
+  const segHasRealH = segments.map(s => parseFloat(s.height) > 0)
+  const anyRealDims = segHasRealW.some(Boolean) || segHasRealH.some(Boolean)
   const totalRealW = segWidths.reduce((a, b) => a + b, 0)
   const maxRealH = Math.max(...segHeights)
 
@@ -349,9 +354,9 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         // OL/UL proportional heights
         const segRealH = segHeights[si]
         const olHmm = parseFloat(seg.oberlichtHeight) || 0
-        const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+        const olH = seg.oberlicht ? segH * (olHmm > 0 ? olHmm : 300) / segRealH : 0
         const ulHmm = parseFloat(seg.unterlichtHeight) || 0
-        const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+        const ulH = seg.unterlicht ? segH * (ulHmm > 0 ? ulHmm : 300) / segRealH : 0
         const panelH = segH - olH - ulH
         const panelY = segY + olH
 
@@ -361,7 +366,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         const panelEffWidths = panels.map((p, i) => {
           if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
             const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
-            return Math.max(1, segRealW - others)
+            if (others > 0) return Math.max(1, segRealW - others)
           }
           return parseFloat(p.width) || 0
         })
@@ -451,8 +456,8 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         )
       })}
 
-      {/* Dimension lines */}
-      {!isSm && (() => {
+      {/* Dimension lines — only when real values entered */}
+      {!isSm && anyRealDims && (() => {
         const dimOff1 = isXl ? 10 : 6
         const dimOff2 = isXl ? 28 : 18
         const dimOff3 = isXl ? 46 : 30
@@ -484,7 +489,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
                 const panelEffWidths = panels.map((p, i) => {
                   if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
                     const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
-                    return Math.max(1, segRealW - others)
+                    if (others > 0) return Math.max(1, segRealW - others)
                   }
                   return parseFloat(p.width) || 0
                 })
@@ -588,9 +593,9 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
 
                 // OL/UL proportional heights
                 const olHmm = parseFloat(seg.oberlichtHeight) || 0
-                const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+                const olH = seg.oberlicht ? segH * (olHmm > 0 ? olHmm : 300) / segRealH : 0
                 const ulHmm = parseFloat(seg.unterlichtHeight) || 0
-                const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+                const ulH = seg.unterlicht ? segH * (ulHmm > 0 ? ulHmm : 300) / segRealH : 0
                 // Only show breakdown kote when actual heights are entered
                 const olDispMm = seg.oberlicht && olHmm > 0 ? olHmm : 0
                 const ulDispMm = seg.unterlicht && ulHmm > 0 ? ulHmm : 0
@@ -668,7 +673,7 @@ function newFensterPosition() {
     notes: '',
     // Mehrteilig fields (only used when preset === 'mehrteilig')
     segments: [],
-    alignment: 'top',
+    alignment: 'bottom',
   }
 }
 
@@ -853,13 +858,13 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-slate-500 w-[20px] shrink-0">B:</span>
                       <input type="number" value={seg.width || ''} onChange={e => updateSeg('width', e.target.value)}
-                        placeholder="600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="z.B. 600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-slate-500 w-[20px] shrink-0">H:</span>
                       <input type="number" value={seg.height || ''} onChange={e => updateSeg('height', e.target.value)}
-                        placeholder="1400" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder={`z.B. ${[1400, 1200, 1000, 800][si] || 1200}`} className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                   </div>
