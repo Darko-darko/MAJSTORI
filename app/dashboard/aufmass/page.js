@@ -1182,12 +1182,17 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Material</label>
-              <input type="text" list="fenster-materials" value={pos.material === '__custom__' ? '' : (pos.material || '')} onChange={e => update('material', e.target.value)}
-                placeholder="z.B. Kunststoff"
-                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-              <datalist id="fenster-materials">
-                {FENSTER_MATERIALS.map(m => <option key={m} value={m} />)}
-              </datalist>
+              <select value={FENSTER_MATERIALS.includes(pos.material) ? pos.material : '__custom__'}
+                onChange={e => update('material', e.target.value)}
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                {FENSTER_MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
+                <option value="__custom__">Sonstiges...</option>
+              </select>
+              {!FENSTER_MATERIALS.includes(pos.material) && (
+                <input type="text" value={pos.material === '__custom__' ? '' : pos.material} onChange={e => update('material', e.target.value || '__custom__')}
+                  placeholder="Material eingeben..."
+                  className="w-full mt-1 px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+              )}
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Profil</label>
@@ -1197,12 +1202,17 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Verglasung</label>
-              <input type="text" list="fenster-glazing" value={pos.glazing === '__custom__' ? '' : (pos.glazing || '')} onChange={e => update('glazing', e.target.value)}
-                placeholder="z.B. 2-fach"
-                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-              <datalist id="fenster-glazing">
-                {FENSTER_GLAZING.map(g => <option key={g} value={g} />)}
-              </datalist>
+              <select value={FENSTER_GLAZING.includes(pos.glazing) ? pos.glazing : '__custom__'}
+                onChange={e => update('glazing', e.target.value)}
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                {FENSTER_GLAZING.map(g => <option key={g} value={g}>{g}</option>)}
+                <option value="__custom__">Sonstiges...</option>
+              </select>
+              {!FENSTER_GLAZING.includes(pos.glazing) && (
+                <input type="text" value={pos.glazing === '__custom__' ? '' : pos.glazing} onChange={e => update('glazing', e.target.value || '__custom__')}
+                  placeholder="Verglasung eingeben..."
+                  className="w-full mt-1 px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+              )}
             </div>
           </div>
           <div>
@@ -2467,7 +2477,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   }
 
   const save = async () => {
-    if (!validateForm()) return
+    if (!validateForm()) return null
     setSaving(true); setError('')
     try {
       const method = isNew ? 'POST' : 'PATCH'
@@ -2480,8 +2490,10 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       onSave(data.aufmass)
+      return data.aufmass
     } catch (e) {
       setError(e.message)
+      return null
     } finally {
       setSaving(false)
     }
@@ -2494,7 +2506,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
 
   const transferTo = async (docType) => {
     if (!validateForm()) return
-    await save()
+    const saved = await save()
+    if (!saved) return
     const flatItems = []
 
     if (form.gewerk === 'fensterbau') {
@@ -2607,7 +2620,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     sessionStorage.setItem('prm_aufmass_import', JSON.stringify({
       title: form.title,
       items: flatItems,
-      aufmass_id: aufmass?.id || null,
+      aufmass_id: saved.id || aufmass?.id || null,
       gewerk: form.gewerk,
       docType,
       attachAufmass: attachPdf,
