@@ -679,7 +679,7 @@ const PANEL_TYPES = [
   { id: 'fix', label: 'Fest' },
 ]
 
-function FensterPositionCard({ pos, index, onChange, onRemove }) {
+function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
   const update = (key, val) => onChange({ ...pos, [key]: val })
   const [showCustom, setShowCustom] = useState(false)
   const [zoomSketch, setZoomSketch] = useState(false)
@@ -998,7 +998,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
                   <input type="number" value={pos.oberlichtHeight || ''} onChange={e => update('oberlichtHeight', e.target.value)}
-                    placeholder="z.B. 400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
+                    placeholder="z.B. 400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                    style={validated && !parseFloat(pos.oberlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
                 <button onClick={toggleOberlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
@@ -1019,7 +1020,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
                   <input type="number" value={pos.unterlichtHeight || ''} onChange={e => update('unterlichtHeight', e.target.value)}
-                    placeholder="z.B. 300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
+                    placeholder="z.B. 300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                    style={validated && !parseFloat(pos.unterlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
                 <button onClick={toggleUnterlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
@@ -1076,6 +1078,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                       }}
                       placeholder={`z.B. ${totalW > 0 ? Math.round(totalW / pos.panels.length) : 600}`}
                       className="w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center placeholder:text-slate-500 bg-slate-700 text-white"
+                      style={validated && !parseFloat(panel.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                     />
                     <span className="text-[10px] text-slate-500">mm</span>
                   </div>
@@ -2375,6 +2378,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const [bereicheOpen, setBereicheOpen] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [validated, setValidated] = useState(false)
 
 
   const addRoom = () => setForm(f => ({
@@ -2392,6 +2396,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
 
   const validateForm = () => {
+    setValidated(true)
     if (!form.title.trim()) { setError('Bitte Titel eingeben'); return false }
     if (form.gewerk === 'fensterbau') {
       for (let i = 0; i < form.rooms.length; i++) {
@@ -2587,6 +2592,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="z.B. Renovierung Musterstr. 5"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={validated && !form.title.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                 />
               </div>
               <div>
@@ -2657,6 +2663,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                     index={idx}
                     onChange={p => updateRoom(idx, p)}
                     onRemove={() => removeRoom(idx)}
+                    validated={validated}
                   />
                 ))}
                 <button
