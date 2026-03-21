@@ -2358,9 +2358,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     materials: aufmass?.materials || [],
     gewerk: aufmass?.gewerk || 'maler',
   })
-  const [signature, setSignature] = useState(null)
-  const [signatureRaw, setSignatureRaw] = useState(null)
-  const [showSig, setShowSig] = useState(false)
+  const [signature, setSignature] = useState(aufmass?.signature || null)
   const [bereicheOpen, setBereicheOpen] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -2713,41 +2711,18 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               />
             </div>
 
-            {/* Potpis */}
-            <div>
-              <label className="block text-xs text-slate-400 mb-2">Unterschrift (optional)</label>
-              {signature ? (
-                <div className="relative group">
-                  <img
-                    src={signature}
-                    alt="Unterschrift"
-                    className="w-full h-20 object-contain rounded-lg border border-slate-400"
-                    style={{ backgroundColor: '#ffffff' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSig(true)}
-                    className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 hover:bg-black/10 active:bg-black/20 transition-colors"
-                  >
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-slate-700 text-xs px-2 py-1 rounded shadow">
-                      ✏️ Ändern
-                    </span>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowSig(true)}
-                  className="w-full h-20 rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
+            {/* Unterschrift — nur Anzeige wenn vorhanden (signiert wird aus der Liste) */}
+            {signature && (
+              <div>
+                <label className="block text-xs text-slate-400 mb-2">Unterschrift</label>
+                <img
+                  src={signature}
+                  alt="Unterschrift"
+                  className="w-full h-20 object-contain rounded-lg border border-slate-400"
                   style={{ backgroundColor: '#ffffff' }}
-                >
-                  <div className="text-center pointer-events-none">
-                    <div className="text-2xl mb-0.5">✍️</div>
-                    <div className="text-slate-500 text-xs">Tippen zum Unterschreiben</div>
-                  </div>
-                </button>
-              )}
-            </div>
+                />
+              </div>
+            )}
 
             {error && (
               <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
@@ -2816,13 +2791,6 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       </div>
 
 
-      {showSig && (
-        <SignatureModal
-          existingDataUrl={signatureRaw}
-          onConfirm={(rotated, raw) => { setSignature(rotated); setSignatureRaw(raw) }}
-          onClose={() => setShowSig(false)}
-        />
-      )}
     </>
   )
 }
@@ -2836,6 +2804,7 @@ export default function AufmassPage() {
   const [loading, setLoading] = useState(true)
   const [editor, setEditor] = useState(null) // null | 'new' | aufmass object
   const [deleting, setDeleting] = useState(null)
+  const [sigTarget, setSigTarget] = useState(null) // aufmass object to sign
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -2877,6 +2846,18 @@ export default function AufmassPage() {
     })
     setAufmasse(prev => prev.filter(a => a.id !== id))
     setDeleting(null)
+  }
+
+  const handleSign = async (rotated, raw) => {
+    if (!sigTarget) return
+    // Save both: rotated (for PDF) + raw (for re-editing without double-rotation)
+    await fetch('/api/aufmasse', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: sigTarget.id, signature: rotated, signature_raw: raw }),
+    })
+    setAufmasse(prev => prev.map(a => a.id === sigTarget.id ? { ...a, signature: rotated, signature_raw: raw } : a))
+    setSigTarget(null)
   }
 
   return (
@@ -2950,11 +2931,22 @@ export default function AufmassPage() {
                     ✏️ Öffnen
                   </button>
                   <button
-                    onClick={() => generateAufmassPDF(a, majstor)}
+                    onClick={() => generateAufmassPDF(a, majstor, a.signature || null)}
                     className="flex-1 py-2 text-sm rounded-lg transition-colors"
                     style={{ backgroundColor: '#475569', color: '#ffffff' }}
                   >
                     📄 PDF
+                  </button>
+                  <button
+                    onClick={() => setSigTarget(a)}
+                    className={`py-2 px-3 text-sm rounded-lg transition-colors ${
+                      a.signature
+                        ? 'bg-green-600/10 hover:bg-green-600/20 text-green-400'
+                        : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                    }`}
+                    title={a.signature ? 'Unterschrift ändern' : 'Unterschreiben'}
+                  >
+                    ✍️
                   </button>
                   <button
                     onClick={() => handleDelete(a.id)}
@@ -2978,6 +2970,15 @@ export default function AufmassPage() {
           token={token}
           onSave={handleSave}
           onClose={() => setEditor(null)}
+        />
+      )}
+
+      {/* Signature modal (from list) */}
+      {sigTarget && (
+        <SignatureModal
+          existingDataUrl={sigTarget.signature_raw || null}
+          onConfirm={(rotated, raw) => handleSign(rotated, raw)}
+          onClose={() => setSigTarget(null)}
         />
       )}
     </div>

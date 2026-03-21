@@ -89,7 +89,7 @@ export async function PATCH(request) {
   if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 })
 
   // Dozvoljeni update fajlovi
-  const allowed = ['title', 'customer_name', 'date', 'rooms', 'notes', 'status', 'materials', 'gewerk']
+  const allowed = ['title', 'customer_name', 'date', 'rooms', 'notes', 'status', 'materials', 'gewerk', 'signature', 'signature_raw']
   const update = {}
   for (const key of allowed) {
     if (key in fields) update[key] = fields[key]
