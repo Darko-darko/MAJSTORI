@@ -1082,6 +1082,12 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 )
               })}
             </div>
+            {(() => {
+              const sum = pos.panels.reduce((s, p) => s + (p.manual ? (parseFloat(p.width) || 0) : 0), 0)
+              return sum > totalW ? (
+                <p className="text-[10px] text-red-400 mt-1">⚠ Summe ({sum}) überschreitet Breite ({totalW})</p>
+              ) : null
+            })()}
           </div>
         )
       })()}
