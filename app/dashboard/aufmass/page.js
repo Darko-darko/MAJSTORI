@@ -1046,27 +1046,36 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             <p className="text-[10px] text-slate-500 mb-1.5">Flügelbreiten (optional — leer = gleich breit)</p>
             <div className="space-y-1.5">
               {pos.panels.map((panel, pi) => {
-                const otherVal = pos.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
-                const autoVal = totalW - otherVal
-                const isAuto = !parseFloat(panel.width) && otherVal > 0
                 return (
                   <div key={pi} className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-500 w-14">Flügel {pi + 1}:</span>
                     <input
                       type="number"
-                      value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                      value={panel.width || ''}
                       onChange={e => {
                         const val = e.target.value
-                        const rest = totalW - (parseFloat(val) || 0)
-                        const othersCount = pos.panels.length - 1
-                        const each = othersCount > 0 ? Math.round(rest / othersCount) : 0
-                        const panels = pos.panels.map((p, j) => j === pi
-                          ? { ...p, width: val }
-                          : { ...p, width: each > 0 ? String(each) : '' })
-                        onChange({ ...pos, panels })
+                        const newVal = parseFloat(val) || 0
+                        const newPanels = pos.panels.map((p, j) => j === pi
+                          ? { ...p, width: val, manual: val !== '' }
+                          : { ...p })
+                        if (totalW > 0) {
+                          const autoIdxs = []
+                          let manualSum = 0
+                          newPanels.forEach((p, j) => {
+                            if (j === pi) return
+                            if (p.manual) manualSum += parseFloat(p.width) || 0
+                            else autoIdxs.push(j)
+                          })
+                          const remainder = totalW - newVal - manualSum
+                          if (autoIdxs.length > 0) {
+                            const each = remainder > 0 ? Math.round(remainder / autoIdxs.length) : 0
+                            autoIdxs.forEach(j => { newPanels[j] = { ...newPanels[j], width: each > 0 ? String(each) : '' } })
+                          }
+                        }
+                        onChange({ ...pos, panels: newPanels })
                       }}
                       placeholder={`z.B. ${totalW > 0 ? Math.round(totalW / pos.panels.length) : 600}`}
-                      className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center placeholder:text-slate-500 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
+                      className="w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center placeholder:text-slate-500 bg-slate-700 text-white"
                     />
                     <span className="text-[10px] text-slate-500">mm</span>
                   </div>
