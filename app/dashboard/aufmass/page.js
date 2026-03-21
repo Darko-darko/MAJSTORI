@@ -527,6 +527,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
               const sw2 = segWidths[si] * scale
               const x1 = cx, x2 = cx + sw2
               cx += sw2
+              if (!segHasRealW[si]) return null
               return (
                 <g key={`sw${si}`}>
                   <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={segRowY + dimTick} strokeWidth={0.4} />
@@ -537,7 +538,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
               )
             })}
             {/* Bottom: total width */}
-            {segments.length > 1 && (
+            {segments.length > 1 && segHasRealW.every(Boolean) && (
               <>
                 <line x1={pad} y1={segRowY + dimTick + 2} x2={pad} y2={totalRowY + dimTick} strokeWidth={0.4} />
                 <line x1={pad + frameW} y1={segRowY + dimTick + 2} x2={pad + frameW} y2={totalRowY + dimTick} strokeWidth={0.4} />
@@ -609,6 +610,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
                 const breakdownX = hasBreakdown ? pad + frameW + dimOff1 + colIdx * colSpacing : 0
                 if (hasBreakdown) colIdx--
 
+                if (!segHasRealH[si]) return null
                 return (
                   <g key={`sh${si}`}>
                     {/* Total height — full extension lines to frame */}
