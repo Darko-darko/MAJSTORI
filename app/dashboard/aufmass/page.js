@@ -742,7 +742,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
           value={pos.name}
           onChange={e => update('name', e.target.value)}
           placeholder="z.B. Küchenfenster, Haustür..."
-          className="flex-1 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button onClick={onRemove} className="text-red-400 hover:text-red-300 text-sm px-1">✕</button>
       </div>
@@ -1062,9 +1062,11 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                       onChange={e => {
                         const val = e.target.value
                         const rest = totalW - (parseFloat(val) || 0)
+                        const othersCount = pos.panels.length - 1
+                        const each = othersCount > 0 ? Math.round(rest / othersCount) : 0
                         const panels = pos.panels.map((p, j) => j === pi
                           ? { ...p, width: val }
-                          : { ...p, width: rest > 0 ? String(rest) : '' })
+                          : { ...p, width: each > 0 ? String(each) : '' })
                         onChange({ ...pos, panels })
                       }}
                       placeholder=""
@@ -1114,12 +1116,12 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               <div>
                 <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
                 <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
-                  placeholder="1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  placeholder="z.B. 1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-[10px] text-slate-500 mb-0.5">Höhe gesamt (mm)</label>
                 <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
-                  placeholder="1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  placeholder="z.B. 1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 {pos.height && (pos.oberlichtHeight || pos.unterlichtHeight) && (
                   <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - (parseFloat(pos.oberlichtHeight) || 0) - (parseFloat(pos.unterlichtHeight) || 0)} mm</p>
                 )}
@@ -1130,13 +1132,13 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Anzahl</label>
               <input type="number" value={pos.count} onChange={e => update('count', e.target.value)}
-                min="1" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                min="1" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Material</label>
-              <input type="text" list="fenster-materials" value={pos.material} onChange={e => update('material', e.target.value)}
-                placeholder="Kunststoff"
-                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input type="text" list="fenster-materials" value={pos.material === '__custom__' ? '' : (pos.material || '')} onChange={e => update('material', e.target.value)}
+                placeholder="z.B. Kunststoff"
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
               <datalist id="fenster-materials">
                 {FENSTER_MATERIALS.map(m => <option key={m} value={m} />)}
               </datalist>
@@ -1145,13 +1147,13 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               <label className="block text-[10px] text-slate-500 mb-0.5">Profil</label>
               <input type="text" value={pos.profil || ''} onChange={e => update('profil', e.target.value)}
                 placeholder="z.B. Iglo 5 Classic..."
-                className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Verglasung</label>
-              <input type="text" list="fenster-glazing" value={pos.glazing} onChange={e => update('glazing', e.target.value)}
-                placeholder="2-fach Verglasung"
-                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input type="text" list="fenster-glazing" value={pos.glazing === '__custom__' ? '' : (pos.glazing || '')} onChange={e => update('glazing', e.target.value)}
+                placeholder="z.B. 2-fach"
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
               <datalist id="fenster-glazing">
                 {FENSTER_GLAZING.map(g => <option key={g} value={g} />)}
               </datalist>
@@ -1161,7 +1163,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             <label className="block text-[10px] text-slate-500 mb-0.5">Farbe / Dekor</label>
             <input type="text" value={pos.color} onChange={e => update('color', e.target.value)}
               placeholder="z.B. Weiß, Anthrazit DB 703..."
-              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-[10px] text-slate-500 mb-0.5">Bemerkungen</label>
@@ -2432,7 +2434,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             segDescs.join(', '),
             pos.glazing,
             pos.color,
-          ].filter(Boolean)
+          ].filter(v => v && v !== '__custom__')
           flatItems.push({
             description: parts.join(', '),
             quantity: parseInt(pos.count) || 1,
@@ -2452,7 +2454,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
             pos.glazing,
             pos.color,
-          ].filter(Boolean)
+          ].filter(v => v && v !== '__custom__')
           flatItems.push({
             description: parts.join(', '),
             quantity: parseInt(pos.count) || 1,
@@ -2493,7 +2495,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           }
           if (qty <= 0) continue
           flatItems.push({
-            description: [room.name, item.description].filter(Boolean).join(': '),
+            description: [room.name, item.description].filter(v => v && v !== '__custom__').join(': '),
             quantity: Math.round(qty * 100) / 100,
             unit: u,
             unit_price: 0,
