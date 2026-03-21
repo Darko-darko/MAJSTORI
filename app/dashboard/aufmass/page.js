@@ -845,14 +845,12 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                   {/* Segment Flügel */}
                   {seg.panels.map((panel, pi) => {
                     const segTotalW = parseFloat(seg.width) || 0
-                    const isLast = pi === seg.panels.length - 1
                     const showWidths = seg.panels.length > 1 && segTotalW > 0
-                    const othersSum = seg.panels.reduce((s, p, j) => j !== pi && j !== seg.panels.length - 1 ? s + (parseFloat(p.width) || 0) : s, 0)
-                    const lastRest = segTotalW - seg.panels.slice(0, -1).reduce((s, p) => s + (parseFloat(p.width) || 0), 0)
-                    const anyHasWidth = seg.panels.some(p => parseFloat(p.width) > 0)
+                    const otherVal = seg.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
+                    const autoVal = segTotalW - otherVal
+                    const isAuto = showWidths && !parseFloat(panel.width) && otherVal > 0
                     return (
-                    <div key={pi} className="space-y-1">
-                      <div className="flex items-center gap-1.5">
+                    <div key={pi} className="flex items-center gap-1.5">
                         <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
                         <select value={panel.type} onChange={e => updateSegPanel(pi, 'type', e.target.value)}
                           className="flex-1 min-h-[32px] px-1.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
@@ -866,19 +864,29 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                           </select>
                         )}
                         {showWidths && (
-                          isLast && anyHasWidth ? (
-                            <span className={`w-12 min-h-[32px] px-0.5 py-1 bg-slate-600/50 border border-slate-600 rounded text-[10px] text-center flex items-center justify-center shrink-0 ${lastRest > 0 ? 'text-slate-300' : 'text-red-400'}`}>
-                              {lastRest > 0 ? lastRest : '!'}
+                          isAuto ? (
+                            <span className="w-12 min-h-[32px] px-0.5 py-1 bg-slate-600/50 border border-slate-600 rounded text-[10px] text-center flex items-center justify-center shrink-0 text-slate-300 cursor-pointer"
+                              onClick={() => {
+                                const segs = JSON.parse(JSON.stringify(pos.segments))
+                                segs[si].panels.forEach((p, j) => { if (j !== pi) p.width = '' })
+                                segs[si].panels[pi] = { ...segs[si].panels[pi], width: String(autoVal > 0 ? autoVal : '') }
+                                onChange({ ...pos, segments: segs })
+                              }}>
+                              {autoVal > 0 ? autoVal : ''}
                             </span>
                           ) : (
-                            <input type="number" value={panel.width || ''} onChange={e => updateSegPanel(pi, 'width', e.target.value)}
+                            <input type="number" value={panel.width || ''} onChange={e => {
+                              const segs = JSON.parse(JSON.stringify(pos.segments))
+                              segs[si].panels.forEach((p, j) => { if (j !== pi) p.width = '' })
+                              segs[si].panels[pi] = { ...segs[si].panels[pi], width: e.target.value }
+                              onChange({ ...pos, segments: segs })
+                            }}
                               placeholder="B" className="w-12 min-h-[32px] px-0.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-[10px] text-center shrink-0" />
                           )
                         )}
                         {seg.panels.length > 1 && (
                           <button onClick={() => removeSegPanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                         )}
-                      </div>
                     </div>
                     )
                   })}
@@ -1018,34 +1026,39 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
       {/* Individuelle Flügelbreiten — nur bei Standard-Typ mit 2+ Flügeln */}
       {pos.preset !== 'mehrteilig' && pos.panels.length > 1 && parseFloat(pos.width) > 0 && (() => {
         const totalW = parseFloat(pos.width)
-        const anyHasWidth = pos.panels.some(p => parseFloat(p.width) > 0)
-        const othersSum = pos.panels.slice(0, -1).reduce((s, p) => s + (parseFloat(p.width) || 0), 0)
-        const lastRest = totalW - othersSum
         return (
           <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2">
             <p className="text-[10px] text-slate-500 mb-1.5">Flügelbreiten (optional — leer = gleich breit)</p>
             <div className="space-y-1.5">
               {pos.panels.map((panel, pi) => {
-                const isLast = pi === pos.panels.length - 1
+                const otherVal = pos.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
+                const autoVal = totalW - otherVal
+                const isAuto = !parseFloat(panel.width) && otherVal > 0
                 return (
                   <div key={pi} className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-500 w-14">Flügel {pi + 1}:</span>
-                    {isLast && anyHasWidth ? (
+                    {isAuto ? (
                       <>
-                        <span className={`w-20 min-h-[32px] px-2 py-1 bg-slate-600/50 border border-slate-600 rounded text-xs text-center flex items-center justify-center ${lastRest > 0 ? 'text-slate-300' : 'text-red-400'}`}>
-                          {lastRest > 0 ? lastRest : 'Fehler'}
+                        <span className="w-20 min-h-[32px] px-2 py-1 bg-slate-600/50 border border-slate-600 rounded text-xs text-center flex items-center justify-center text-slate-300 cursor-pointer"
+                          onClick={() => {
+                            const panels = pos.panels.map((p, j) => j === pi ? { ...p, width: String(autoVal > 0 ? autoVal : '') } : { ...p, width: '' })
+                            onChange({ ...pos, panels })
+                          }}>
+                          {autoVal > 0 ? autoVal : ''}
                         </span>
                         <span className="text-[10px] text-slate-500">mm</span>
-                        {lastRest > 0 && <span className="text-[9px] text-slate-500 italic">auto</span>}
-                        {lastRest <= 0 && <span className="text-[9px] text-red-400">zu breit!</span>}
+                        <span className="text-[9px] text-slate-500 italic">auto</span>
                       </>
                     ) : (
                       <>
                         <input
                           type="number"
                           value={panel.width || ''}
-                          onChange={e => updatePanel(pi, 'width', e.target.value)}
-                          placeholder={isLast ? 'auto' : ''}
+                          onChange={e => {
+                            const panels = pos.panels.map((p, j) => j === pi ? { ...p, width: e.target.value } : { ...p, width: '' })
+                            onChange({ ...pos, panels })
+                          }}
+                          placeholder=""
                           className="w-20 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-center"
                         />
                         <span className="text-[10px] text-slate-500">mm</span>
