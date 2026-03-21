@@ -1134,8 +1134,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Material</label>
-              <input type="text" list="fenster-materials" value={pos.material} onChange={e => update('material', e.target.value)}
-                placeholder="Kunststoff"
+              <input type="text" list="fenster-materials" value={pos.material === '__custom__' ? '' : (pos.material || '')} onChange={e => update('material', e.target.value)}
+                placeholder="z.B. Kunststoff"
                 className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
               <datalist id="fenster-materials">
                 {FENSTER_MATERIALS.map(m => <option key={m} value={m} />)}
@@ -1149,8 +1149,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             </div>
             <div>
               <label className="block text-[10px] text-slate-500 mb-0.5">Verglasung</label>
-              <input type="text" list="fenster-glazing" value={pos.glazing} onChange={e => update('glazing', e.target.value)}
-                placeholder="2-fach Verglasung"
+              <input type="text" list="fenster-glazing" value={pos.glazing === '__custom__' ? '' : (pos.glazing || '')} onChange={e => update('glazing', e.target.value)}
+                placeholder="z.B. 2-fach"
                 className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
               <datalist id="fenster-glazing">
                 {FENSTER_GLAZING.map(g => <option key={g} value={g} />)}
@@ -2432,7 +2432,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             segDescs.join(', '),
             pos.glazing,
             pos.color,
-          ].filter(Boolean)
+          ].filter(v => v && v !== '__custom__')
           flatItems.push({
             description: parts.join(', '),
             quantity: parseInt(pos.count) || 1,
@@ -2452,7 +2452,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
             pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
             pos.glazing,
             pos.color,
-          ].filter(Boolean)
+          ].filter(v => v && v !== '__custom__')
           flatItems.push({
             description: parts.join(', '),
             quantity: parseInt(pos.count) || 1,
@@ -2493,7 +2493,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           }
           if (qty <= 0) continue
           flatItems.push({
-            description: [room.name, item.description].filter(Boolean).join(': '),
+            description: [room.name, item.description].filter(v => v && v !== '__custom__').join(': '),
             quantity: Math.round(qty * 100) / 100,
             unit: u,
             unit_price: 0,
