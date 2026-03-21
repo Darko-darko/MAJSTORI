@@ -1062,9 +1062,11 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                       onChange={e => {
                         const val = e.target.value
                         const rest = totalW - (parseFloat(val) || 0)
+                        const othersCount = pos.panels.length - 1
+                        const each = othersCount > 0 ? Math.round(rest / othersCount) : 0
                         const panels = pos.panels.map((p, j) => j === pi
                           ? { ...p, width: val }
-                          : { ...p, width: rest > 0 ? String(rest) : '' })
+                          : { ...p, width: each > 0 ? String(each) : '' })
                         onChange({ ...pos, panels })
                       }}
                       placeholder=""
