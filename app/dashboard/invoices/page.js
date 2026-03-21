@@ -37,6 +37,7 @@ function DashboardPageContent() {
   const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
   const [aufmassImportItems, setAufmassImportItems] = useState(null)
   const [aufmassImportId, setAufmassImportId] = useState(null)
+  const [aufmassAttachPdf, setAufmassAttachPdf] = useState(false)
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
@@ -129,10 +130,11 @@ function DashboardPageContent() {
     if (fromInvoice === 'aufmass') {
       const raw = sessionStorage.getItem('prm_aufmass_import')
       if (raw) {
-        const { items, aufmass_id, docType } = JSON.parse(raw)
+        const { items, aufmass_id, docType, attachAufmass } = JSON.parse(raw)
         sessionStorage.removeItem('prm_aufmass_import')
         setAufmassImportItems(items || [])
         setAufmassImportId(aufmass_id || null)
+        setAufmassAttachPdf(!!attachAufmass)
         setCreateType(docType === 'invoice' ? 'invoice' : 'quote')
         setIsEditMode(false)
         setEditingItem(null)
@@ -634,6 +636,7 @@ pdfTab.document.close()
     setEditingItem(null)
     setIsEditMode(false)
     setAufmassImportItems(null)
+    setAufmassImportId(null)
   }
 
   const handleEmailClick = (item) => {
@@ -1616,13 +1619,18 @@ const HardResetModal = () => {
                     <h4 className="text-white font-semibold text-lg">{quote.quote_number}</h4>
                     <p className="text-slate-400">{quote.customer_name}</p>
                     <p className="text-slate-500 text-sm">{quote.customer_email}</p>
-                    {hasInvoice && (
-                      <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {quote.aufmass_id && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded text-amber-300 text-xs">
+                          Aufmaß
+                        </span>
+                      )}
+                      {hasInvoice && (
                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300 text-xs">
                           Hat zugehörige Rechnung
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(quote.status)}`}>
                     {quote.status === 'draft' && 'Entwurf'}
@@ -1853,13 +1861,18 @@ const HardResetModal = () => {
                       </div>
                       <p className="text-slate-400">{invoice.customer_name}</p>
                       <p className="text-slate-500 text-sm">{invoice.customer_email}</p>
-                      {invoice.converted_from_quote_id && (
-                        <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {invoice.aufmass_id && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded text-amber-300 text-xs">
+                            Aufmaß
+                          </span>
+                        )}
+                        {invoice.converted_from_quote_id && (
                           <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-green-300 text-xs">
                             Aus Angebot erstellt
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <span className={`px-3 py-1 rounded-full text-sm border ${invoice.type === 'storno' ? getStatusColor('storno') : isInvoiceOverdue(invoice) ? getStatusColor('overdue') : getStatusColor(invoice.status)}`}>
@@ -2807,6 +2820,7 @@ const HardResetModal = () => {
           isEditMode={isEditMode}
           prefilledItems={aufmassImportItems}
           aufmassId={aufmassImportId}
+          aufmassAttachPdf={aufmassAttachPdf}
         />
       )}
 

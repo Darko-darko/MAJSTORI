@@ -10,6 +10,1178 @@ import FirstVisitHint from '@/app/components/FirstVisitHint'
 const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
 
+const GEWERKE = [
+  { id: 'fensterbau', label: 'Fensterbau', icon: '🏠', vobWand: null, vobBoden: null, din: null },
+  { id: 'maler', label: 'Maler', icon: '🖌️', vobWand: 2.5, vobBoden: 2.5, din: '18363' },
+  { id: 'fliesen', label: 'Fliesen', icon: '🔲', vobWand: 2.5, vobBoden: 0.5, din: '18352' },
+  { id: 'trockenbau', label: 'Trockenbau', icon: '🧱', vobWand: 2.5, vobBoden: 0.5, din: '18340' },
+  { id: 'bodenbelag', label: 'Bodenbelag', icon: '🟫', vobWand: null, vobBoden: 0.5, din: '18365' },
+]
+
+// Schnellpositionen per Gewerk (for TradeRaumCard)
+const TRADE_SCHNELLPOS = {
+  maler: [
+    { label: 'Wände', desc: 'Wandfläche', unit: 'Wand', calc: 'wall', icon: '🖌️' },
+    { label: 'Decke', desc: 'Deckenfläche', unit: 'm²', calc: 'floor', icon: '🖌️' },
+    { label: 'Sockelleiste', desc: 'Sockelleiste', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+    { label: 'Tür', desc: 'Tür lackieren', unit: 'Stk', calc: 'stk', icon: '🚪' },
+    { label: 'Fenster', desc: 'Fenster lackieren', unit: 'Stk', calc: 'stk', icon: '🪟' },
+  ],
+  fliesen: [
+    { label: 'Bodenfliesen', desc: 'Bodenfliesen', unit: 'm²', calc: 'floor', icon: '🔲' },
+    { label: 'Wandfliesen', desc: 'Wandfliesen', unit: 'Wand', calc: 'wall', icon: '🔲' },
+    { label: 'Sockelfliesen', desc: 'Sockelfliesen', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+  ],
+  trockenbau: [
+    { label: 'Wandfläche', desc: 'Wandfläche', unit: 'Wand', calc: 'wall', icon: '🧱' },
+    { label: 'Decke', desc: 'Deckenfläche', unit: 'm²', calc: 'floor', icon: '🧱' },
+    { label: 'Ständerwerk', desc: 'Ständerwerk (UW/CW)', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+  ],
+  bodenbelag: [
+    { label: 'Bodenfläche', desc: 'Bodenfläche', unit: 'm²', calc: 'floor', icon: '🟫' },
+    { label: 'Sockelleiste', desc: 'Sockelleiste', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+  ],
+}
+
+// ─── Fensterbau ─────────────────────────────────────────
+const FENSTER_PRESETS = [
+  { id: '1-kd-l', label: '1-flg. DK', panels: [{ type: 'kipp-dreh', hinge: 'left' }] },
+  { id: '2-kd', label: '2-flg. DK', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }] },
+  { id: '1-fix', label: 'Fest', panels: [{ type: 'fix' }] },
+  { id: '1-kipp', label: 'Kipp', panels: [{ type: 'kipp' }] },
+  { id: 'kd-fix', label: 'DK + Fest', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }] },
+  { id: '3-kd', label: '3-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }, { type: 'kipp-dreh', hinge: 'right' }] },
+  { id: '1-kd-ob', label: 'DK + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }], oberlicht: true },
+  { id: '2-kd-ob', label: '2-flg. + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }], oberlicht: true },
+  { id: 'mehrteilig', label: 'Mehrteilig', panels: [], segments: true },
+]
+const FENSTER_MATERIALS = ['Kunststoff', 'Kunststoff-Alu', 'Holz', 'Holz-Alu', 'Aluminium', 'Stahl']
+const FENSTER_GLAZING = ['2-fach Verglasung', '3-fach Verglasung']
+
+// DIN window symbol lines for a single panel
+function panelSymbolLines(x, y, w, h, type, hinge) {
+  const cx = x + w / 2, cy = y + h / 2
+  const lines = []
+  if (type === 'fix') {
+    lines.push({ x1: x, y1: y, x2: x + w, y2: y + h, dash: true })
+    lines.push({ x1: x + w, y1: y, x2: x, y2: y + h, dash: true })
+  }
+  if (type === 'kipp' || type === 'kipp-dreh') {
+    lines.push({ x1: x, y1: y + h, x2: cx, y2: y, dash: true })
+    lines.push({ x1: x + w, y1: y + h, x2: cx, y2: y, dash: true })
+  }
+  if (type === 'klapp') {
+    lines.push({ x1: x, y1: y, x2: cx, y2: y + h, dash: true })
+    lines.push({ x1: x + w, y1: y, x2: cx, y2: y + h, dash: true })
+  }
+  if (type === 'dreh' || type === 'kipp-dreh') {
+    if (hinge === 'left' || !hinge) {
+      lines.push({ x1: x, y1: y, x2: x + w, y2: cy })
+      lines.push({ x1: x, y1: y + h, x2: x + w, y2: cy })
+    } else {
+      lines.push({ x1: x + w, y1: y, x2: x, y2: cy })
+      lines.push({ x1: x + w, y1: y + h, x2: x, y2: cy })
+    }
+  }
+  return lines
+}
+
+// SVG window sketch (used in type selector and position preview)
+function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight = 0, oberlichtHeight = 0, oberlichtType = 'fix', unterlicht = false, unterlichtHeight = 0, unterlichtType = 'fix' }) {
+  const isSm = size === 'sm'
+  const isXl = size === 'xl'
+  const dimSpace = isSm ? 0 : isXl ? 55 : 28 // extra space for dimension lines
+  const maxW = isSm ? 48 : isXl ? 360 : 140
+  const maxH = isSm ? 36 : isXl ? 240 : 100
+  const pad = isSm ? 3 : isXl ? 10 : 6
+  const availW = maxW - 2 * pad, availH = maxH - 2 * pad
+  // Proportional frame based on actual dimensions
+  const pw0 = parseFloat(posWidth) || 0, ph0 = parseFloat(posHeight) || 0
+  let frameW, frameH
+  if (pw0 > 0 && ph0 > 0) {
+    const scale = Math.min(availW / pw0, availH / ph0)
+    frameW = pw0 * scale; frameH = ph0 * scale
+  } else {
+    frameW = availW; frameH = availH
+  }
+  const vw = frameW + 2 * pad + (isSm ? 0 : dimSpace)
+  const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
+  const fX = pad, fY = pad // frame origin
+  const olHmm = parseFloat(oberlichtHeight) || 0
+  const olH = oberlicht ? (olHmm > 0 && ph0 > 0 ? frameH * olHmm / ph0 : frameH * 0.22) : 0
+  const ulHmm = parseFloat(unterlichtHeight) || 0
+  const ulH = unterlicht ? (ulHmm > 0 && ph0 > 0 ? frameH * ulHmm / ph0 : frameH * 0.22) : 0
+  const panelH = frameH - olH - ulH
+  const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
+
+  // Proportional panel widths — last panel = remainder of posWidth
+  const totalPosW = parseFloat(posWidth) || 0
+  const totalPosH = parseFloat(posHeight) || 0
+  const effWidths = panels.map((p, i) => {
+    if (i === panels.length - 1 && panels.length > 1 && totalPosW > 0) {
+      const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
+      return Math.max(1, totalPosW - others)
+    }
+    return parseFloat(p.width) || 0
+  })
+  const hasCustomWidths = effWidths.some(w => w > 0)
+  const totalW = hasCustomWidths ? effWidths.reduce((s, w) => s + (w || 1), 0) : panels.length
+  const panelWidths = effWidths.map(w => hasCustomWidths ? (w || 1) / totalW * frameW : frameW / panels.length)
+  let xOff = fX
+
+  // Dimension line helper
+  const dimTick = isSm ? 3 : isXl ? 5 : 3
+  const dimOff1 = isSm ? 6 : isXl ? 10 : 6
+  const dimOff2 = isSm ? 18 : isXl ? 28 : 18
+  const fontSize = isSm ? 7.5 : isXl ? 11 : 7.5
+
+  // Frame inset for inner panel frame
+  const inset = isSm ? 2 : isXl ? 10 : 5
+  // Handle dimensions
+  const handleW = isSm ? 1.2 : isXl ? 4 : 2.5
+  const handleH = isSm ? 4 : isXl ? 18 : 10
+
+  return (
+    <svg width={isXl ? '100%' : vw} height={isXl ? undefined : vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400" style={isXl ? { maxHeight: '60vh' } : undefined}>
+      {/* Outer frame (Blendrahmen) */}
+      <rect x={fX} y={fY} width={frameW} height={frameH} fill="none" stroke="currentColor" strokeWidth={sw * 2} />
+      {oberlicht && (() => {
+        const oix = fX + inset, oiy = fY + inset, oiw = frameW - 2 * inset, oih = olH - 2 * inset
+        const olType = oberlichtType || 'fix'
+        const olLines = panelSymbolLines(oix, oiy, oiw, oih, olType, 'left')
+        const olShowHandle = olType === 'kipp' || olType === 'klapp'
+        const olHx = oix + oiw / 2 - handleH / 2 // horizontal handle
+        const olHy = olType === 'klapp' ? (fY + olH + oiy + oih) / 2 - handleW / 2 : (fY + oiy) / 2 - handleW / 2
+        return (
+          <>
+            <line x1={fX} y1={fY + olH} x2={fX + frameW} y2={fY + olH} stroke="currentColor" strokeWidth={sw} />
+            <rect x={oix} y={oiy} width={oiw} height={oih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+            {olLines.map((l, j) => (
+              <line key={`ol${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                stroke="currentColor" strokeWidth={sw * 0.7}
+                strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+            ))}
+            {olShowHandle && (
+              <rect x={olHx} y={olHy} width={handleH} height={handleW} rx={isSm ? 0.3 : 0.8} fill="currentColor" />
+            )}
+          </>
+        )
+      })()}
+      {panels.map((p, i) => {
+        const px = xOff, py = fY + olH, pw = panelWidths[i]
+        xOff += pw
+        // Inner frame per panel (Flügelrahmen) — equal inset on all sides
+        const ix = px + inset, iy = py + inset, iw = pw - 2 * inset, ih = panelH - 2 * inset
+        const lines = panelSymbolLines(ix, iy, iw, ih, p.type, p.hinge)
+        // Handle position: centered in frame (between outer and inner rect), opposite side of hinge
+        const isLeft = p.hinge === 'left' || !p.hinge
+        const hx = isLeft ? (ix + iw + px + pw) / 2 - handleW / 2 : (px + ix) / 2 - handleW / 2
+        const hy = iy + ih / 2 - handleH / 2
+        const showHandle = p.type === 'dreh' || p.type === 'kipp-dreh' || p.type === 'kipp'
+        return (
+          <g key={i}>
+            {i > 0 && <line x1={px} y1={py} x2={px} y2={py + panelH} stroke="currentColor" strokeWidth={sw} />}
+            {/* Inner panel frame */}
+            <rect x={ix} y={iy} width={iw} height={ih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+            {/* DIN symbols */}
+            {lines.map((l, j) => (
+              <line key={j} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                stroke="currentColor" strokeWidth={sw * 0.7}
+                strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+            ))}
+            {/* Handle (Griff) */}
+            {showHandle && (
+              <rect x={hx} y={hy} width={handleW} height={handleH} rx={isSm ? 0.3 : 0.8} fill="currentColor" />
+            )}
+          </g>
+        )
+      })}
+
+      {/* Unterlicht */}
+      {unterlicht && (() => {
+        const ulY = fY + frameH - ulH
+        const uix = fX + inset, uiy = ulY + inset, uiw = frameW - 2 * inset, uih = ulH - 2 * inset
+        const ulType2 = unterlichtType || 'fix'
+        const ulLines = panelSymbolLines(uix, uiy, uiw, uih, ulType2, 'left')
+        const ulShowHandle = ulType2 === 'kipp' || ulType2 === 'klapp'
+        const ulHx = uix + uiw / 2 - handleH / 2
+        const ulHy = ulType2 === 'kipp' ? (ulY + uiy) / 2 - handleW / 2 : (uiy + uih + ulY + ulH) / 2 - handleW / 2
+        return (
+          <>
+            <line x1={fX} y1={ulY} x2={fX + frameW} y2={ulY} stroke="currentColor" strokeWidth={sw} />
+            <rect x={uix} y={uiy} width={uiw} height={uih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+            {ulLines.map((l, j) => (
+              <line key={`ul${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                stroke="currentColor" strokeWidth={sw * 0.7}
+                strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+            ))}
+            {ulShowHandle && (
+              <rect x={ulHx} y={ulHy} width={handleH} height={handleW} rx={isSm ? 0.3 : 0.8} fill="currentColor" />
+            )}
+          </>
+        )
+      })()}
+
+      {/* Dimension lines — only for lg size */}
+      {!isSm && totalPosW > 0 && (
+        <g className="text-slate-500" fill="currentColor" stroke="currentColor" strokeWidth={0.5}>
+          {/* Bottom: total width */}
+          <line x1={fX} y1={fY + frameH + dimOff1} x2={fX} y2={fY + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
+          <line x1={fX + frameW} y1={fY + frameH + dimOff1} x2={fX + frameW} y2={fY + frameH + dimOff2 + dimTick} strokeWidth={0.4} />
+          <line x1={fX} y1={fY + frameH + dimOff2} x2={fX + frameW} y2={fY + frameH + dimOff2} />
+          <text x={fX + frameW / 2} y={fY + frameH + dimOff2 + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalPosW}</text>
+
+          {/* Bottom: individual panel widths (if different) */}
+          {hasCustomWidths && panels.length > 1 && (() => {
+            let cx = fX
+            return panels.map((_, i) => {
+              const pw = panelWidths[i]
+              const ew = effWidths[i]
+              const x1 = cx, x2 = cx + pw
+              cx += pw
+              return (
+                <g key={`pw${i}`}>
+                  <line x1={x1} y1={fY + frameH + 2} x2={x1} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
+                  <line x1={x2} y1={fY + frameH + 2} x2={x2} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
+                  <line x1={x1} y1={fY + frameH + dimOff1} x2={x2} y2={fY + frameH + dimOff1} />
+                  <text x={x1 + pw / 2} y={fY + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{ew > 0 ? Math.round(ew) : ''}</text>
+                </g>
+              )
+            })
+          })()}
+
+          {/* Right: height dimensions */}
+          {totalPosH > 0 && (() => {
+            const hasOlDim = oberlicht && olHmm > 0
+            const hasUlDim = unterlicht && ulHmm > 0
+            const hasSections = hasOlDim || hasUlDim
+            const fluegelHmm = totalPosH - (hasOlDim ? olHmm : 0) - (hasUlDim ? ulHmm : 0)
+            // Build sections: [{y1, y2, label}]
+            const sections = []
+            if (hasOlDim) sections.push({ y1: fY, y2: fY + olH, label: olHmm })
+            sections.push({ y1: fY + olH, y2: fY + olH + panelH, label: hasSections ? fluegelHmm : null })
+            if (hasUlDim) sections.push({ y1: fY + frameH - ulH, y2: fY + frameH, label: ulHmm })
+
+            const dimLine = (x, y1, y2, label, fs, textOff = 6) => {
+              const mid = y1 + (y2 - y1) / 2
+              const tx = x + textOff
+              return (
+                <>
+                  <line x1={fX + frameW + 2} y1={y1} x2={x + dimTick} y2={y1} strokeWidth={0.4} />
+                  <line x1={fX + frameW + 2} y1={y2} x2={x + dimTick} y2={y2} strokeWidth={0.4} />
+                  <line x1={x} y1={y1} x2={x} y2={y2} />
+                  <text x={tx} y={mid} fontSize={fs} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{label}</text>
+                </>
+              )
+            }
+
+            return (
+              <>
+                {hasSections && sections.filter(s => s.label !== null).map((s, i) => (
+                  <g key={`sec${i}`}>{dimLine(fX + frameW + dimOff1, s.y1, s.y2, s.label, fontSize - 1)}</g>
+                ))}
+                {/* Total height — outer line */}
+                {dimLine(fX + frameW + (hasSections ? dimOff2 : dimOff2), fY, fY + frameH, totalPosH, fontSize)}
+              </>
+            )
+          })()}
+        </g>
+      )}
+    </svg>
+  )
+}
+
+// SVG sketch for Mehrteilig (multi-segment) windows
+function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
+  if (!segments || segments.length === 0) return null
+  const isSm = size === 'sm'
+  const isXl = size === 'xl'
+  // Count how many right-side dim columns we need
+  // Each segment gets its own total-height column + optional breakdown column (if OL/UL)
+  // Layout right to left: Seg0 total | Seg0 breakdown? | Seg1 total | Seg1 breakdown? | ...
+  const segsWithBreakdown = segments.filter(s =>
+    (s.oberlicht && parseFloat(s.oberlichtHeight) > 0) || (s.unterlicht && parseFloat(s.unterlichtHeight) > 0)
+  )
+  const dimCols = segments.length + segsWithBreakdown.length
+  const maxW = isSm ? 48 : isXl ? 320 : 160
+  const maxH = isSm ? 36 : isXl ? 220 : 110
+  const pad = isSm ? 3 : isXl ? 12 : 6
+  const colSpacing = isXl ? 22 : 14
+  const dimSpaceRight = isSm ? 0 : dimCols * colSpacing + 8
+  const hasPanelWidthsEarly = segments.some(seg => {
+    const panels = seg.panels || []
+    return panels.length > 1 && panels.some(p => parseFloat(p.width) > 0)
+  })
+  const bottomRows = 1 + (segments.length > 1 ? 1 : 0) + (hasPanelWidthsEarly ? 1 : 0)
+  const dimSpaceBottom = isSm ? 0 : bottomRows * (isXl ? 18 : 12) + 8
+  const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
+  const inset = isSm ? 1.5 : isXl ? 8 : 4
+  const handleW = isSm ? 1 : isXl ? 3.5 : 2
+  const handleH = isSm ? 3.5 : isXl ? 16 : 8
+  const fontSize = isSm ? 6 : isXl ? 10 : 7
+
+  // Compute real dimensions
+  const segWidths = segments.map(s => parseFloat(s.width) || 100)
+  const segHeights = segments.map(s => parseFloat(s.height) || 100)
+  const totalRealW = segWidths.reduce((a, b) => a + b, 0)
+  const maxRealH = Math.max(...segHeights)
+
+  const availW = maxW - 2 * pad
+  const availH = maxH - 2 * pad
+  const scale = Math.min(availW / totalRealW, availH / maxRealH)
+  const frameW = totalRealW * scale
+  const frameH = maxRealH * scale
+
+  const vw = frameW + 2 * pad + (isSm ? 0 : dimSpaceRight)
+  const vh = frameH + 2 * pad + (isSm ? 0 : dimSpaceBottom)
+
+  let xOff = pad
+
+  return (
+    <svg width={isXl ? '100%' : vw} height={isXl ? undefined : vh} viewBox={`0 0 ${vw} ${vh}`} className="text-slate-400" style={isXl ? { maxHeight: '60vh' } : undefined}>
+      {segments.map((seg, si) => {
+        const segW = segWidths[si] * scale
+        const segH = segHeights[si] * scale
+        const segX = xOff
+        xOff += segW
+
+        // Alignment Y
+        let segY = pad
+        if (alignment === 'bottom') segY = pad + frameH - segH
+        else if (alignment === 'center') segY = pad + (frameH - segH) / 2
+
+        // OL/UL proportional heights
+        const segRealH = segHeights[si]
+        const olHmm = parseFloat(seg.oberlichtHeight) || 0
+        const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+        const ulHmm = parseFloat(seg.unterlichtHeight) || 0
+        const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+        const panelH = segH - olH - ulH
+        const panelY = segY + olH
+
+        // Panel widths within segment — proportional if custom widths set
+        const panels = seg.panels || [{ type: 'fix' }]
+        const segRealW = parseFloat(seg.width) || 0
+        const panelEffWidths = panels.map((p, i) => {
+          if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
+            const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
+            return Math.max(1, segRealW - others)
+          }
+          return parseFloat(p.width) || 0
+        })
+        const hasSegCustomW = panelEffWidths.some(w => w > 0)
+        const totalSegPW = hasSegCustomW ? panelEffWidths.reduce((s, w) => s + (w || 1), 0) : panels.length
+        const panelWs = panelEffWidths.map(w => hasSegCustomW ? (w || 1) / totalSegPW * segW : segW / panels.length)
+        let pxOff2 = segX
+
+        return (
+          <g key={seg.id || si}>
+            {/* Segment outer frame */}
+            <rect x={segX} y={segY} width={segW} height={segH} fill="none" stroke="currentColor" strokeWidth={sw * 2} />
+
+            {/* Oberlicht */}
+            {seg.oberlicht && (() => {
+              const oix = segX + inset, oiy = segY + inset, oiw = segW - 2 * inset, oih = olH - 2 * inset
+              if (oiw <= 0 || oih <= 0) return null
+              const olType = seg.oberlichtType || 'fix'
+              const olLines = panelSymbolLines(oix, oiy, oiw, oih, olType, 'left')
+              const olShowHandle = olType === 'kipp' || olType === 'klapp'
+              const olHx = oix + oiw / 2 - handleH / 2
+              const olHy = olType === 'klapp' ? (segY + olH + oiy + oih) / 2 - handleW / 2 : (segY + oiy) / 2 - handleW / 2
+              return (
+                <>
+                  <line x1={segX} y1={segY + olH} x2={segX + segW} y2={segY + olH} stroke="currentColor" strokeWidth={sw} />
+                  <rect x={oix} y={oiy} width={oiw} height={oih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+                  {olLines.map((l, j) => (
+                    <line key={`ol${si}-${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="currentColor" strokeWidth={sw * 0.7}
+                      strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+                  ))}
+                  {olShowHandle && <rect x={olHx} y={olHy} width={handleH} height={handleW} rx={0.5} fill="currentColor" />}
+                </>
+              )
+            })()}
+
+            {/* Panels */}
+            {panels.map((p, pi) => {
+              const pw = panelWs[pi]
+              const px = pxOff2
+              pxOff2 += pw
+              const ix = px + inset, iy = panelY + inset, iw = pw - 2 * inset, ih = panelH - 2 * inset
+              if (iw <= 0 || ih <= 0) return null
+              const lines = panelSymbolLines(ix, iy, iw, ih, p.type, p.hinge)
+              const isLeft = p.hinge === 'left' || !p.hinge
+              const hx = isLeft ? (ix + iw + px + pw) / 2 - handleW / 2 : (px + ix) / 2 - handleW / 2
+              const hy = iy + ih / 2 - handleH / 2
+              const showHandle = p.type === 'dreh' || p.type === 'kipp-dreh' || p.type === 'kipp'
+              return (
+                <g key={`p${si}-${pi}`}>
+                  {pi > 0 && <line x1={px} y1={panelY} x2={px} y2={panelY + panelH} stroke="currentColor" strokeWidth={sw} />}
+                  <rect x={ix} y={iy} width={iw} height={ih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+                  {lines.map((l, j) => (
+                    <line key={j} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="currentColor" strokeWidth={sw * 0.7}
+                      strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+                  ))}
+                  {showHandle && <rect x={hx} y={hy} width={handleW} height={handleH} rx={isSm ? 0.3 : 0.8} fill="currentColor" />}
+                </g>
+              )
+            })}
+
+            {/* Unterlicht */}
+            {seg.unterlicht && (() => {
+              const ulY = segY + segH - ulH
+              const uix = segX + inset, uiy = ulY + inset, uiw = segW - 2 * inset, uih = ulH - 2 * inset
+              if (uiw <= 0 || uih <= 0) return null
+              const ulType = seg.unterlichtType || 'fix'
+              const ulLines = panelSymbolLines(uix, uiy, uiw, uih, ulType, 'left')
+              const ulShowHandle = ulType === 'kipp' || ulType === 'klapp'
+              const ulHx = uix + uiw / 2 - handleH / 2
+              const ulHy = ulType === 'kipp' ? (ulY + uiy) / 2 - handleW / 2 : (uiy + uih + ulY + ulH) / 2 - handleW / 2
+              return (
+                <>
+                  <line x1={segX} y1={ulY} x2={segX + segW} y2={ulY} stroke="currentColor" strokeWidth={sw} />
+                  <rect x={uix} y={uiy} width={uiw} height={uih} fill="none" stroke="currentColor" strokeWidth={sw * 0.6} />
+                  {ulLines.map((l, j) => (
+                    <line key={`ul${si}-${j}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                      stroke="currentColor" strokeWidth={sw * 0.7}
+                      strokeDasharray={l.dash ? (isSm ? '1.5 1.5' : '4 3') : 'none'} />
+                  ))}
+                  {ulShowHandle && <rect x={ulHx} y={ulHy} width={handleH} height={handleW} rx={0.5} fill="currentColor" />}
+                </>
+              )
+            })()}
+          </g>
+        )
+      })}
+
+      {/* Dimension lines */}
+      {!isSm && (() => {
+        const dimOff1 = isXl ? 10 : 6
+        const dimOff2 = isXl ? 28 : 18
+        const dimOff3 = isXl ? 46 : 30
+        const dimTick = isXl ? 5 : 3
+
+        // Check if any segment has multiple panels with custom widths → need panel-width row
+        const hasPanelWidths = segments.some(seg => {
+          const panels = seg.panels || []
+          return panels.length > 1 && panels.some(p => parseFloat(p.width) > 0)
+        })
+
+        // Row offsets: if panel widths exist, they go closest (row 1), segment widths row 2, total row 3
+        // If no panel widths: segment widths row 1, total row 2
+        const panelRowY = pad + frameH + dimOff1
+        const segRowY = hasPanelWidths ? pad + frameH + dimOff2 : pad + frameH + dimOff1
+        const totalRowY = hasPanelWidths ? pad + frameH + dimOff3 : pad + frameH + dimOff2
+
+        let cx = pad
+        return (
+          <g className="text-slate-500" fill="currentColor" stroke="currentColor" strokeWidth={0.5}>
+            {/* Bottom row 1 (if applicable): per-panel widths within segments */}
+            {hasPanelWidths && (() => {
+              let px = pad
+              return segments.map((seg, si) => {
+                const segPx = px
+                const sw2 = segWidths[si] * scale
+                const panels = seg.panels || [{ type: 'fix' }]
+                const segRealW = parseFloat(seg.width) || 0
+                const panelEffWidths = panels.map((p, i) => {
+                  if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
+                    const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
+                    return Math.max(1, segRealW - others)
+                  }
+                  return parseFloat(p.width) || 0
+                })
+                const hasCustomW = panelEffWidths.some(w => w > 0)
+                const totalPW = hasCustomW ? panelEffWidths.reduce((s, w) => s + (w || 1), 0) : panels.length
+                const panelWs = panelEffWidths.map(w => hasCustomW ? (w || 1) / totalPW * sw2 : sw2 / panels.length)
+                px += sw2
+
+                // Only show panel kote if this segment has >1 panel with custom widths
+                if (panels.length <= 1 || !hasCustomW) return null
+                let ppx = segPx
+                return (
+                  <g key={`pw${si}`}>
+                    {panels.map((p, pi) => {
+                      const pw = panelWs[pi]
+                      const x1 = ppx, x2 = ppx + pw
+                      ppx += pw
+                      const wLabel = Math.round(panelEffWidths[pi])
+                      if (!wLabel) return null
+                      return (
+                        <g key={`pw${si}-${pi}`}>
+                          <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={panelRowY + dimTick} strokeWidth={0.4} />
+                          <line x1={x2} y1={pad + frameH + 2} x2={x2} y2={panelRowY + dimTick} strokeWidth={0.4} />
+                          <line x1={x1} y1={panelRowY} x2={x2} y2={panelRowY} />
+                          <text x={x1 + pw / 2} y={panelRowY + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{wLabel}</text>
+                        </g>
+                      )
+                    })}
+                  </g>
+                )
+              })
+            })()}
+            {/* Bottom: individual segment widths */}
+            {segments.map((seg, si) => {
+              const sw2 = segWidths[si] * scale
+              const x1 = cx, x2 = cx + sw2
+              cx += sw2
+              return (
+                <g key={`sw${si}`}>
+                  <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={segRowY + dimTick} strokeWidth={0.4} />
+                  <line x1={x2} y1={pad + frameH + 2} x2={x2} y2={segRowY + dimTick} strokeWidth={0.4} />
+                  <line x1={x1} y1={segRowY} x2={x2} y2={segRowY} />
+                  <text x={x1 + sw2 / 2} y={segRowY + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{segWidths[si]}</text>
+                </g>
+              )
+            })}
+            {/* Bottom: total width */}
+            {segments.length > 1 && (
+              <>
+                <line x1={pad} y1={segRowY + dimTick + 2} x2={pad} y2={totalRowY + dimTick} strokeWidth={0.4} />
+                <line x1={pad + frameW} y1={segRowY + dimTick + 2} x2={pad + frameW} y2={totalRowY + dimTick} strokeWidth={0.4} />
+                <line x1={pad} y1={totalRowY} x2={pad + frameW} y2={totalRowY} />
+                <text x={pad + frameW / 2} y={totalRowY + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalRealW}</text>
+              </>
+            )}
+            {/* Right: per-segment heights + OL/UL sub-kote */}
+            {/* Sorted by height desc — tallest segment rightmost, breakdown left of it */}
+            {(() => {
+              // Full dim line with horizontal extensions to frame
+              const dimLine = (x, y1, y2, label, fs, textOff = 6) => {
+                if (y2 - y1 < 3) return null
+                const mid = y1 + (y2 - y1) / 2
+                const tx = x + textOff
+                return (
+                  <>
+                    <line x1={pad + frameW + 2} y1={y1} x2={x + dimTick} y2={y1} strokeWidth={0.4} />
+                    <line x1={pad + frameW + 2} y1={y2} x2={x + dimTick} y2={y2} strokeWidth={0.4} />
+                    <line x1={x} y1={y1} x2={x} y2={y2} />
+                    <text x={tx} y={mid} fontSize={fs} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{label}</text>
+                  </>
+                )
+              }
+              // Sub dim line — short ticks only, no extension to frame
+              const dimLineSub = (x, y1, y2, label, fs, textOff = 6) => {
+                if (y2 - y1 < 3) return null
+                const mid = y1 + (y2 - y1) / 2
+                const tx = x + textOff
+                return (
+                  <>
+                    <line x1={x - dimTick} y1={y1} x2={x + dimTick} y2={y1} strokeWidth={0.4} />
+                    <line x1={x - dimTick} y1={y2} x2={x + dimTick} y2={y2} strokeWidth={0.4} />
+                    <line x1={x} y1={y1} x2={x} y2={y2} />
+                    <text x={tx} y={mid} fontSize={fs} stroke="none" textAnchor="middle" dominantBaseline="central" transform={`rotate(90, ${tx}, ${mid})`}>{label}</text>
+                  </>
+                )
+              }
+
+              // Sort segments by height descending — tallest gets rightmost column
+              const sortedIdxs = segments.map((_, i) => i).sort((a, b) => segHeights[b] - segHeights[a])
+              let colIdx = dimCols - 1
+
+              return sortedIdxs.map(si => {
+                const seg = segments[si]
+                const segH = segHeights[si] * scale
+                const segRealH = segHeights[si]
+                let segY = pad
+                if (alignment === 'bottom') segY = pad + frameH - segH
+                else if (alignment === 'center') segY = pad + (frameH - segH) / 2
+
+                const hasOlUl = seg.oberlicht || seg.unterlicht
+
+                // OL/UL proportional heights
+                const olHmm = parseFloat(seg.oberlichtHeight) || 0
+                const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+                const ulHmm = parseFloat(seg.unterlichtHeight) || 0
+                const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+                // Only show breakdown kote when actual heights are entered
+                const olDispMm = seg.oberlicht && olHmm > 0 ? olHmm : 0
+                const ulDispMm = seg.unterlicht && ulHmm > 0 ? ulHmm : 0
+                const hasBreakdown = olDispMm > 0 || ulDispMm > 0
+                const fluegelHmm = hasBreakdown ? segRealH - olDispMm - ulDispMm : 0
+
+                // Total height column (rightmost of this segment's pair)
+                const totalX = pad + frameW + dimOff1 + colIdx * colSpacing
+                colIdx--
+                // Breakdown column (left of total, only if actual heights entered)
+                const breakdownX = hasBreakdown ? pad + frameW + dimOff1 + colIdx * colSpacing : 0
+                if (hasBreakdown) colIdx--
+
+                return (
+                  <g key={`sh${si}`}>
+                    {/* Total height — full extension lines to frame */}
+                    <g>{dimLine(totalX, segY, segY + segH, segRealH, fontSize)}</g>
+                    {/* Breakdown: short ticks only, only when heights are entered */}
+                    {hasBreakdown && (
+                      <>
+                        {olDispMm > 0 && (
+                          <g>{dimLineSub(breakdownX, segY, segY + olH, olDispMm, fontSize - 1)}</g>
+                        )}
+                        <g>{dimLineSub(breakdownX, segY + olH, segY + segH - ulH, fluegelHmm, fontSize - 1)}</g>
+                        {ulDispMm > 0 && (
+                          <g>{dimLineSub(breakdownX, segY + segH - ulH, segY + segH, ulDispMm, fontSize - 1)}</g>
+                        )}
+                      </>
+                    )}
+                  </g>
+                )
+              })
+            })()}
+          </g>
+        )
+      })()}
+
+    </svg>
+  )
+}
+
+function newSegment() {
+  return {
+    id: newId(),
+    width: '',
+    height: '',
+    panels: [{ type: 'kipp-dreh', hinge: 'left' }],
+    oberlicht: false,
+    oberlichtHeight: '',
+    oberlichtType: 'fix',
+    unterlicht: false,
+    unterlichtHeight: '',
+    unterlichtType: 'fix',
+  }
+}
+
+function newFensterPosition() {
+  return {
+    id: newId(),
+    name: '',
+    preset: '1-kd-l',
+    panels: [{ type: 'kipp-dreh', hinge: 'left' }],
+    oberlicht: false,
+    oberlichtHeight: '',
+    oberlichtType: 'fix',
+    unterlicht: false,
+    unterlichtHeight: '',
+    unterlichtType: 'fix',
+    width: '',
+    height: '',
+    count: '1',
+    material: 'Kunststoff',
+    glazing: '2-fach Verglasung',
+    color: '',
+    notes: '',
+    // Mehrteilig fields (only used when preset === 'mehrteilig')
+    segments: [],
+    alignment: 'top',
+  }
+}
+
+const PANEL_TYPES = [
+  { id: 'kipp-dreh', label: 'Dreh-Kipp' },
+  { id: 'dreh', label: 'Dreh' },
+  { id: 'kipp', label: 'Kipp' },
+  { id: 'fix', label: 'Fest' },
+]
+
+function FensterPositionCard({ pos, index, onChange, onRemove }) {
+  const update = (key, val) => onChange({ ...pos, [key]: val })
+  const [showCustom, setShowCustom] = useState(false)
+  const [zoomSketch, setZoomSketch] = useState(false)
+
+  const selectPreset = (preset) => {
+    if (preset.id === 'mehrteilig') {
+      onChange({
+        ...pos,
+        preset: 'mehrteilig',
+        segments: pos.segments && pos.segments.length > 0 ? pos.segments : [newSegment(), newSegment()],
+      })
+      setShowCustom(true)
+      return
+    }
+    onChange({
+      ...pos,
+      preset: preset.id,
+      panels: JSON.parse(JSON.stringify(preset.panels)),
+      oberlicht: !!preset.oberlicht,
+      segments: [],
+    })
+    setShowCustom(false)
+  }
+
+  const updatePanel = (idx, field, val) => {
+    const panels = JSON.parse(JSON.stringify(pos.panels))
+    panels[idx][field] = val
+    onChange({ ...pos, panels, preset: 'custom' })
+  }
+
+  const addPanel = () => {
+    const panels = [...pos.panels, { type: 'fix', hinge: 'left' }]
+    onChange({ ...pos, panels, preset: 'custom' })
+  }
+
+  const removePanel = (idx) => {
+    if (pos.panels.length <= 1) return
+    const panels = pos.panels.filter((_, i) => i !== idx)
+    onChange({ ...pos, panels, preset: 'custom' })
+  }
+
+  const toggleOberlicht = () => {
+    onChange({ ...pos, oberlicht: !pos.oberlicht, preset: 'custom' })
+  }
+  const toggleUnterlicht = () => {
+    onChange({ ...pos, unterlicht: !pos.unterlicht, preset: 'custom' })
+  }
+
+  return (
+    <div className="border border-slate-600 rounded-xl p-3 space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500 font-mono">Pos. {index + 1}</span>
+        <input
+          type="text"
+          value={pos.name}
+          onChange={e => update('name', e.target.value)}
+          placeholder="z.B. Küchenfenster, Haustür..."
+          className="flex-1 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <button onClick={onRemove} className="text-red-400 hover:text-red-300 text-sm px-1">✕</button>
+      </div>
+
+      {/* Typ-Auswahl */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <label className="text-xs text-slate-500">Fenstertyp</label>
+          <button
+            type="button"
+            onClick={() => setShowCustom(o => !o)}
+            className="text-[10px] text-blue-400 hover:text-blue-300"
+          >
+            {showCustom ? '← Vorlagen' : 'Anpassen ⚙'}
+          </button>
+        </div>
+
+        {!showCustom ? (
+          <div className="flex flex-wrap gap-1.5">
+            {FENSTER_PRESETS.map(fp => (
+              <button
+                key={fp.id}
+                type="button"
+                onClick={() => selectPreset(fp)}
+                className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all ${
+                  pos.preset === fp.id
+                    ? 'border-blue-500 bg-blue-500/20'
+                    : 'border-slate-600 bg-slate-800 hover:border-slate-500'
+                }`}
+              >
+                {fp.id === 'mehrteilig' ? (
+                  <svg width="48" height="36" viewBox="0 0 48 36" className="text-slate-400">
+                    {/* Segment A: tall, DK left */}
+                    <rect x="3" y="3" width="16" height="30" fill="none" stroke="currentColor" strokeWidth={1.6} />
+                    <rect x="4.5" y="4.5" width="13" height="27" fill="none" stroke="currentColor" strokeWidth={0.5} />
+                    <line x1="4.5" y1="4.5" x2="11" y2="18" stroke="currentColor" strokeWidth={0.6} />
+                    <line x1="4.5" y1="31.5" x2="11" y2="18" stroke="currentColor" strokeWidth={0.6} />
+                    <line x1="4.5" y1="4.5" x2="17.5" y2="18" stroke="currentColor" strokeWidth={0.6} strokeDasharray="1.5 1.5" />
+                    <line x1="4.5" y1="31.5" x2="17.5" y2="18" stroke="currentColor" strokeWidth={0.6} strokeDasharray="1.5 1.5" />
+                    {/* Segment B: shorter, Fix */}
+                    <rect x="19" y="8" width="12" height="25" fill="none" stroke="currentColor" strokeWidth={1.6} />
+                    <rect x="20.5" y="9.5" width="9" height="22" fill="none" stroke="currentColor" strokeWidth={0.5} />
+                    <line x1="20.5" y1="9.5" x2="29.5" y2="31.5" stroke="currentColor" strokeWidth={0.6} strokeDasharray="1.5 1.5" />
+                    <line x1="29.5" y1="9.5" x2="20.5" y2="31.5" stroke="currentColor" strokeWidth={0.6} strokeDasharray="1.5 1.5" />
+                    {/* Segment C: tall, Dreh right */}
+                    <rect x="31" y="3" width="14" height="30" fill="none" stroke="currentColor" strokeWidth={1.6} />
+                    <rect x="32.5" y="4.5" width="11" height="27" fill="none" stroke="currentColor" strokeWidth={0.5} />
+                    <line x1="43.5" y1="4.5" x2="38" y2="18" stroke="currentColor" strokeWidth={0.6} />
+                    <line x1="43.5" y1="31.5" x2="38" y2="18" stroke="currentColor" strokeWidth={0.6} />
+                  </svg>
+                ) : (
+                  <FensterSketch panels={fp.panels} oberlicht={fp.oberlicht} size="sm" />
+                )}
+                <span className="text-[10px] text-slate-400">{fp.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : pos.preset === 'mehrteilig' ? (
+          /* ── Mehrteilig: Segment editor ── */
+          <div className="space-y-2">
+            {/* Alignment selector */}
+            <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-600 rounded-lg px-2 py-1.5">
+              <span className="text-[11px] text-slate-500">Ausrichtung:</span>
+              {['top', 'bottom', 'center'].map(a => (
+                <button key={a} type="button"
+                  onClick={() => update('alignment', a)}
+                  className={`text-[10px] px-2 py-0.5 rounded ${pos.alignment === a ? 'bg-blue-500/30 text-blue-400 border border-blue-500' : 'text-slate-400 border border-slate-600 hover:border-slate-500'}`}
+                >{a === 'top' ? 'Oben' : a === 'bottom' ? 'Unten' : 'Mitte'}</button>
+              ))}
+            </div>
+
+            {/* Segment cards */}
+            {(pos.segments || []).map((seg, si) => {
+              const updateSeg = (field, val) => {
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si][field] = val
+                onChange({ ...pos, segments: segs })
+              }
+              const updateSegPanel = (pi, field, val) => {
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels[pi][field] = val
+                onChange({ ...pos, segments: segs })
+              }
+              const addSegPanel = () => {
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels.push({ type: 'fix', hinge: 'left' })
+                onChange({ ...pos, segments: segs })
+              }
+              const removeSegPanel = (pi) => {
+                if (seg.panels.length <= 1) return
+                const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels = segs[si].panels.filter((_, j) => j !== pi)
+                onChange({ ...pos, segments: segs })
+              }
+              const removeSeg = () => {
+                if ((pos.segments || []).length <= 1) return
+                onChange({ ...pos, segments: pos.segments.filter((_, j) => j !== si) })
+              }
+              const letter = String.fromCharCode(65 + si)
+              return (
+                <div key={seg.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-white font-semibold">Segment {letter}</span>
+                    {seg.width && seg.height && <span className="text-[10px] text-slate-500">({seg.width}×{seg.height})</span>}
+                    <div className="flex-1" />
+                    {(pos.segments || []).length > 1 && (
+                      <button onClick={removeSeg} className="text-red-400 hover:text-red-300 text-sm px-1">✕</button>
+                    )}
+                  </div>
+                  {/* Segment dimensions */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-slate-500 w-[20px] shrink-0">B:</span>
+                      <input type="number" value={seg.width || ''} onChange={e => updateSeg('width', e.target.value)}
+                        placeholder="600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-slate-500 w-[20px] shrink-0">H:</span>
+                      <input type="number" value={seg.height || ''} onChange={e => updateSeg('height', e.target.value)}
+                        placeholder="1400" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                    </div>
+                  </div>
+                  {/* Segment Flügel */}
+                  {seg.panels.map((panel, pi) => {
+                    const segTotalW = parseFloat(seg.width) || 0
+                    const showWidths = seg.panels.length > 1 && segTotalW > 0
+                    const otherVal = seg.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
+                    const autoVal = segTotalW - otherVal
+                    const isAuto = showWidths && !parseFloat(panel.width) && otherVal > 0
+                    return (
+                    <div key={pi} className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
+                        <select value={panel.type} onChange={e => updateSegPanel(pi, 'type', e.target.value)}
+                          className="flex-1 min-h-[32px] px-1.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                          {PANEL_TYPES.map(pt => <option key={pt.id} value={pt.id}>{pt.label}</option>)}
+                        </select>
+                        {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
+                          <select value={panel.hinge || 'left'} onChange={e => updateSegPanel(pi, 'hinge', e.target.value)}
+                            className="min-h-[32px] px-1.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                            <option value="left">Band L</option>
+                            <option value="right">Band R</option>
+                          </select>
+                        )}
+                        {showWidths && (
+                          <input type="number"
+                            value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                            onChange={e => {
+                              const val = e.target.value
+                              const rest = segTotalW - (parseFloat(val) || 0)
+                              const segs = JSON.parse(JSON.stringify(pos.segments))
+                              segs[si].panels.forEach((p, j) => {
+                                p.width = j === pi ? val : (rest > 0 ? String(rest) : '')
+                              })
+                              onChange({ ...pos, segments: segs })
+                            }}
+                            placeholder="B"
+                            className={`w-12 min-h-[32px] px-0.5 py-1 border border-slate-600 rounded text-[10px] text-center shrink-0 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`} />
+                        )}
+                        {seg.panels.length > 1 && (
+                          <button onClick={() => removeSegPanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
+                        )}
+                    </div>
+                    )
+                  })}
+                  {/* Segment OL/UL */}
+                  {seg.oberlicht && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] text-slate-500 min-w-[44px]">OL</span>
+                      <select value={seg.oberlichtType || 'fix'} onChange={e => updateSeg('oberlichtType', e.target.value)}
+                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                        <option value="fix">Fest</option>
+                        <option value="kipp">Kipp</option>
+                        <option value="klapp">Klapp</option>
+                      </select>
+                      <input type="number" value={seg.oberlichtHeight || ''} onChange={e => updateSeg('oberlichtHeight', e.target.value)}
+                        placeholder="400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                      <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
+                    </div>
+                  )}
+                  {seg.unterlicht && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] text-slate-500 min-w-[44px]">UL</span>
+                      <select value={seg.unterlichtType || 'fix'} onChange={e => updateSeg('unterlichtType', e.target.value)}
+                        className="flex-1 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs">
+                        <option value="fix">Fest</option>
+                        <option value="kipp">Kipp</option>
+                        <option value="klapp">Klapp</option>
+                      </select>
+                      <input type="number" value={seg.unterlichtHeight || ''} onChange={e => updateSeg('unterlichtHeight', e.target.value)}
+                        placeholder="300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                      <span className="text-[10px] text-slate-500">mm</span>
+                      <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={addSegPanel} className="text-[10px] text-blue-400 hover:text-blue-300">+ Flügel</button>
+                    {!seg.oberlicht && (
+                      <button onClick={() => updateSeg('oberlicht', true)} className="text-[10px] text-slate-500 hover:text-slate-400">+ Oberlicht</button>
+                    )}
+                    {!seg.unterlicht && (
+                      <button onClick={() => updateSeg('unterlicht', true)} className="text-[10px] text-slate-500 hover:text-slate-400">+ Unterlicht</button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            <button
+              onClick={() => onChange({ ...pos, segments: [...(pos.segments || []), newSegment()] })}
+              className="w-full py-2 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-lg text-xs font-medium transition-colors"
+            >+ Segment</button>
+          </div>
+        ) : (
+          /* ── Standard: Flügel/OL/UL editor ── */
+          <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2 space-y-2">
+            {pos.panels.map((panel, pi) => (
+              <div key={pi} className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
+                <select
+                  value={panel.type}
+                  onChange={e => updatePanel(pi, 'type', e.target.value)}
+                  className="flex-1 min-h-[36px] px-1.5 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                >
+                  {PANEL_TYPES.map(pt => (
+                    <option key={pt.id} value={pt.id}>{pt.label}</option>
+                  ))}
+                </select>
+                {(panel.type === 'dreh' || panel.type === 'kipp-dreh') && (
+                  <select
+                    value={panel.hinge || 'left'}
+                    onChange={e => updatePanel(pi, 'hinge', e.target.value)}
+                    className="min-h-[36px] px-1.5 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                  >
+                    <option value="left">Band L</option>
+                    <option value="right">Band R</option>
+                  </select>
+                )}
+                {pos.panels.length > 1 && (
+                  <button onClick={() => removePanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
+                )}
+              </div>
+            ))}
+            {pos.oberlicht && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-slate-500 min-w-[52px]">Oberlicht</span>
+                <select
+                  value={pos.oberlichtType || 'fix'}
+                  onChange={e => update('oberlichtType', e.target.value)}
+                  className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                >
+                  <option value="fix">Fest</option>
+                  <option value="kipp">Kipp</option>
+                  <option value="klapp">Klapp</option>
+                </select>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500">Höhe:</span>
+                  <input type="number" value={pos.oberlichtHeight || ''} onChange={e => update('oberlichtHeight', e.target.value)}
+                    placeholder="400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                  <span className="text-[10px] text-slate-500">mm</span>
+                </div>
+                <button onClick={toggleOberlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
+              </div>
+            )}
+            {pos.unterlicht && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-slate-500 min-w-[52px]">Unterlicht</span>
+                <select
+                  value={pos.unterlichtType || 'fix'}
+                  onChange={e => update('unterlichtType', e.target.value)}
+                  className="flex-1 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs"
+                >
+                  <option value="fix">Fest</option>
+                  <option value="kipp">Kipp</option>
+                  <option value="klapp">Klapp</option>
+                </select>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500">Höhe:</span>
+                  <input type="number" value={pos.unterlichtHeight || ''} onChange={e => update('unterlichtHeight', e.target.value)}
+                    placeholder="300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                  <span className="text-[10px] text-slate-500">mm</span>
+                </div>
+                <button onClick={toggleUnterlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={addPanel} className="text-[10px] text-blue-400 hover:text-blue-300">+ Flügel</button>
+              {!pos.oberlicht && (
+                <button onClick={toggleOberlicht} className="text-[10px] text-slate-500 hover:text-slate-400">+ Oberlicht</button>
+              )}
+              {!pos.unterlicht && (
+                <button onClick={toggleUnterlicht} className="text-[10px] text-slate-500 hover:text-slate-400">+ Unterlicht</button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Individuelle Flügelbreiten — nur bei Standard-Typ mit 2+ Flügeln */}
+      {pos.preset !== 'mehrteilig' && pos.panels.length > 1 && parseFloat(pos.width) > 0 && (() => {
+        const totalW = parseFloat(pos.width)
+        return (
+          <div className="bg-slate-800/50 border border-slate-600 rounded-lg p-2">
+            <p className="text-[10px] text-slate-500 mb-1.5">Flügelbreiten (optional — leer = gleich breit)</p>
+            <div className="space-y-1.5">
+              {pos.panels.map((panel, pi) => {
+                const otherVal = pos.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
+                const autoVal = totalW - otherVal
+                const isAuto = !parseFloat(panel.width) && otherVal > 0
+                return (
+                  <div key={pi} className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-500 w-14">Flügel {pi + 1}:</span>
+                    <input
+                      type="number"
+                      value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                      onChange={e => {
+                        const val = e.target.value
+                        const rest = totalW - (parseFloat(val) || 0)
+                        const panels = pos.panels.map((p, j) => j === pi
+                          ? { ...p, width: val }
+                          : { ...p, width: rest > 0 ? String(rest) : '' })
+                        onChange({ ...pos, panels })
+                      }}
+                      placeholder=""
+                      className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
+                    />
+                    <span className="text-[10px] text-slate-500">mm</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Vorschau + Maße */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start">
+        <div className="bg-slate-800 rounded-lg p-2 border border-slate-700 cursor-pointer hover:border-blue-500 transition-colors self-center sm:self-start" onClick={() => setZoomSketch(true)}>
+          {pos.preset === 'mehrteilig' ? (
+            <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="lg" />
+          ) : (
+            <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="lg" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
+          )}
+        </div>
+        {zoomSketch && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setZoomSketch(false)}>
+            <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-600 max-w-lg w-full overflow-x-auto" onClick={e => e.stopPropagation()}>
+              {pos.preset === 'mehrteilig' ? (
+                <MehrteiligSketch segments={pos.segments || []} alignment={pos.alignment || 'top'} size="xl" />
+              ) : (
+                <FensterSketch panels={pos.panels} oberlicht={pos.oberlicht} size="xl" posWidth={pos.width} posHeight={pos.height} oberlichtHeight={pos.oberlichtHeight} oberlichtType={pos.oberlichtType} unterlicht={pos.unterlicht} unterlichtHeight={pos.unterlichtHeight} unterlichtType={pos.unterlichtType} />
+              )}
+              <button onClick={() => setZoomSketch(false)} className="mt-4 w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm">Schließen</button>
+            </div>
+          </div>
+        )}
+        <div className="flex-1 space-y-2">
+          {pos.preset === 'mehrteilig' ? (
+            /* Mehrteilig: auto-computed dimensions summary */
+            <div className="bg-slate-800/50 border border-slate-600 rounded-lg px-2 py-1.5">
+              <p className="text-[10px] text-slate-500">
+                Gesamt: {(pos.segments || []).reduce((s, seg) => s + (parseFloat(seg.width) || 0), 0)} × {Math.max(...(pos.segments || []).map(seg => parseFloat(seg.height) || 0), 0)} mm
+                <span className="ml-2">({(pos.segments || []).length} Segmente)</span>
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
+                <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
+                  placeholder="1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-0.5">Höhe gesamt (mm)</label>
+                <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
+                  placeholder="1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                {pos.height && (pos.oberlichtHeight || pos.unterlichtHeight) && (
+                  <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - (parseFloat(pos.oberlichtHeight) || 0) - (parseFloat(pos.unterlichtHeight) || 0)} mm</p>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Anzahl</label>
+              <input type="number" value={pos.count} onChange={e => update('count', e.target.value)}
+                min="1" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Material</label>
+              <input type="text" list="fenster-materials" value={pos.material} onChange={e => update('material', e.target.value)}
+                placeholder="Kunststoff"
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <datalist id="fenster-materials">
+                {FENSTER_MATERIALS.map(m => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Profil</label>
+              <input type="text" value={pos.profil || ''} onChange={e => update('profil', e.target.value)}
+                placeholder="z.B. Iglo 5 Classic..."
+                className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-500 mb-0.5">Verglasung</label>
+              <input type="text" list="fenster-glazing" value={pos.glazing} onChange={e => update('glazing', e.target.value)}
+                placeholder="2-fach Verglasung"
+                className="w-full px-1 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <datalist id="fenster-glazing">
+                {FENSTER_GLAZING.map(g => <option key={g} value={g} />)}
+              </datalist>
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-0.5">Farbe / Dekor</label>
+            <input type="text" value={pos.color} onChange={e => update('color', e.target.value)}
+              placeholder="z.B. Weiß, Anthrazit DB 703..."
+              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-0.5">Bemerkungen</label>
+            <textarea value={pos.notes} onChange={e => update('notes', e.target.value)}
+              placeholder="Optional... (max. 80 Zeichen)"
+              maxLength={80}
+              rows={2}
+              className={`w-full px-2 py-1 bg-slate-800 border rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y ${(pos.notes?.length || 0) >= 70 ? 'border-amber-500' : 'border-slate-600'}`} />
+            {(pos.notes?.length || 0) >= 60 && (
+              <span className={`text-[10px] ${(pos.notes?.length || 0) >= 70 ? 'text-amber-400' : 'text-slate-500'}`}>
+                {pos.notes.length}/80
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const SK = '#94a3b8'
 const SF = '#1e293b'
 
@@ -173,14 +1345,34 @@ function calcItem(item) {
   return { ...item, result: Math.round(result * 100) / 100, calculation }
 }
 
-function computeTotals(rooms) {
-  const t = { 'm²': 0, 'lfm': 0, 'm³': 0, 'Stk': 0 }
+function computeTotals(rooms, gewerk) {
+  const t = {}
+  const gw = GEWERKE.find(g => g.id === gewerk) || {}
+  const vobWand = gw.vobWand || 0
+  const vobBoden = gw.vobBoden || 0
+  // Trades with Wand positions: openings subtract from Wand → use vobWand threshold
+  // Floor-only trades (Bodenbelag): openings subtract from floor → use vobBoden threshold
+  const hasWallPos = ['maler', 'fliesen', 'trockenbau'].includes(gewerk)
+  const vobThr = hasWallPos ? vobWand : vobBoden
   for (const r of rooms) {
     for (const i of r.items || []) {
       if (i.result == null) continue
-      const unit = (i.unit === 'Wand' || i.unit === 'Bogen' || i.unit === 'Trap') ? 'm²' : i.unit
-      const sign = i.subtract ? -1 : 1
-      if (unit) t[unit] = (t[unit] || 0) + i.result * sign
+      const rawU = i.unit || ''
+      // Trades with Wand: keep Wand separate from m² (Decke/Boden) so Abzug only applies to Wand
+      const unit = hasWallPos
+        ? (['Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU)
+        : (['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU)
+      let sign = i.subtract ? -1 : 1
+      if (i.subtract && vobThr > 0) {
+        const cnt = parseFloat(i.count) || 1
+        const singleArea = cnt > 0 ? i.result / cnt : i.result
+        if (singleArea < vobThr) sign = 0
+      }
+      if (hasWallPos && i.subtract) {
+        t['Wand'] = (t['Wand'] || 0) + i.result * sign
+      } else if (unit) {
+        t[unit] = (t[unit] || 0) + i.result * sign
+      }
     }
   }
   return t
@@ -659,6 +1851,265 @@ function MaterialienSection({ materials, onChange }) {
   )
 }
 
+// ─── Trade room card (Maler, Fliesen, Trockenbau, Bodenbelag) ────────────────
+function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
+  const [open, setOpen] = useState(true)
+  const [openingsOpen, setOpeningsOpen] = useState(false)
+
+  const gw = GEWERKE.find(g => g.id === gewerk) || {}
+  const schnellpos = TRADE_SCHNELLPOS[gewerk] || []
+  const vobWand = gw.vobWand || 0
+  const vobBoden = gw.vobBoden || 0
+  const vobMax = Math.max(vobWand, vobBoden)
+  const hasWall = schnellpos.some(s => s.calc === 'wall')
+  const hasFloor = schnellpos.some(s => s.calc === 'floor')
+
+  const rL = parseFloat(room.length) || 0
+  const rB = parseFloat(room.width) || 0
+  const rH = parseFloat(room.height) || 0
+  const hasDims = hasWall ? (rL > 0 && rB > 0 && rH > 0) : (rL > 0 && rB > 0)
+
+  // Computed values from room dimensions
+  const wandflaeche = rL > 0 && rB > 0 && rH > 0 ? Math.round(2 * (rL + rB) * rH * 100) / 100 : 0
+  const deckenflaeche = rL > 0 && rB > 0 ? Math.round(rL * rB * 100) / 100 : 0
+  const umfang = rL > 0 && rB > 0 ? Math.round(2 * (rL + rB) * 100) / 100 : 0
+
+  // Items management
+  const positions = (room.items || []).filter(i => !i.subtract)
+  const openings = (room.items || []).filter(i => i.subtract)
+
+  const setItems = (newPositions, newOpenings) => {
+    onChange({ ...room, items: [...(newPositions || positions), ...(newOpenings || openings)] })
+  }
+
+  const addPosition = (desc, unit, length, width, height, count) => {
+    const item = calcItem({
+      id: newId(), description: desc, unit, dim_unit: 'm',
+      length: String(length), width: String(width), height: String(height),
+      count: count > 1 ? String(count) : '', result: 0, calculation: '', subtract: false
+    })
+    setItems([...positions, item], undefined)
+  }
+
+  const removePosition = (idx) => setItems(positions.filter((_, i) => i !== idx), undefined)
+
+  const addOpening = () => {
+    const item = calcItem({
+      id: newId(), description: '', unit: 'm²', dim_unit: 'm',
+      length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: true
+    })
+    setItems(undefined, [...openings, item])
+  }
+
+  const updateOpening = (idx, field, val) => {
+    const updated = [...openings]
+    updated[idx] = calcItem({ ...updated[idx], [field]: val })
+    setItems(undefined, updated)
+  }
+
+  const removeOpening = (idx) => setItems(undefined, openings.filter((_, i) => i !== idx))
+
+  // Totals
+  const bruttoM2 = positions.reduce((s, i) => {
+    const u = ['Wand', 'Bogen', 'Trap'].includes(i.unit) ? 'm²' : i.unit
+    return u === 'm²' ? s + (i.result || 0) : s
+  }, 0)
+  const totalAbzug = openings.reduce((s, i) => {
+    const total = i.result || 0
+    const cnt = parseFloat(i.count) || 1
+    const singleArea = cnt > 0 ? total / cnt : total
+    return singleArea >= (vobMax || 0) ? s + total : s
+  }, 0)
+  const nettoM2 = Math.round((bruttoM2 - totalAbzug) * 100) / 100
+
+  // Check which quick-positions are already added
+  const isAdded = (sp) => {
+    if (sp.unit === 'Wand') return positions.some(i => i.unit === 'Wand')
+    if (sp.unit === 'lfm') return positions.some(i => i.unit === 'lfm' && i.description?.includes(sp.desc.split(' ')[0]))
+    if (sp.calc === 'floor') return positions.some(i => i.description?.includes(sp.desc.split(' ')[0]))
+    return false
+  }
+
+  // Schnellposition values
+  const spValues = (sp) => {
+    if (sp.calc === 'wall') return [rL, rB, rH, 1]
+    if (sp.calc === 'floor') return [rL, rB, '', 1]
+    if (sp.calc === 'perimeter') return [umfang, '', '', 1]
+    return ['', '', '', 1]
+  }
+
+  // Show height input only if wall positions exist
+  const needsHeight = hasWall
+
+  return (
+    <div className="rounded-xl border border-slate-600 overflow-hidden">
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 px-3 py-2.5 bg-slate-700/60 cursor-pointer"
+        onClick={() => setOpen(o => !o)}
+      >
+        {open ? (
+          <input
+            type="text"
+            value={room.name}
+            onChange={e => { e.stopPropagation(); onChange({ ...room, name: e.target.value }) }}
+            onClick={e => e.stopPropagation()}
+            placeholder="Raumname (z.B. Wohnzimmer)"
+            className="flex-1 bg-transparent text-white text-sm font-medium focus:outline-none placeholder-slate-500 min-w-0"
+          />
+        ) : (
+          <span className="flex-1 text-white text-sm font-medium truncate">
+            {room.name || <span className="text-slate-500">Raumname</span>}
+            {nettoM2 > 0 && <span className="text-slate-400 text-xs font-mono ml-2">{formatNum(nettoM2)} m²</span>}
+          </span>
+        )}
+        <button onClick={e => { e.stopPropagation(); onRemove() }} className="text-red-400/60 hover:text-red-400 text-lg px-1">✕</button>
+        <span className="text-slate-400 text-xs">{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div className="p-3 space-y-3">
+          {/* Room dimensions L / B / H */}
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">L (m)</label>
+              <input type="number" step="0.01" value={room.length || ''} onChange={e => onChange({ ...room, length: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+            </div>
+            <span className="text-slate-500 pb-2">×</span>
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">B (m)</label>
+              <input type="number" step="0.01" value={room.width || ''} onChange={e => onChange({ ...room, width: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+            </div>
+            {needsHeight && <>
+              <span className="text-slate-500 pb-2">×</span>
+              <div className="flex-1">
+                <label className="text-xs text-slate-400">H (m)</label>
+                <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+              </div>
+            </>}
+          </div>
+
+          {/* Auto-computed hints */}
+          {hasDims && (
+            <div className="flex flex-wrap gap-3 text-xs text-slate-400 bg-slate-800/50 rounded px-2 py-1.5">
+              {hasWall && wandflaeche > 0 && <span>Wände: <span className="text-white font-mono">{formatNum(wandflaeche)} m²</span></span>}
+              {hasFloor && deckenflaeche > 0 && <span>{gewerk === 'maler' || gewerk === 'trockenbau' ? 'Decke' : 'Boden'}: <span className="text-white font-mono">{formatNum(deckenflaeche)} m²</span></span>}
+              <span>Umfang: <span className="text-white font-mono">{formatNum(umfang)} m</span></span>
+            </div>
+          )}
+
+          {/* Schnellpositionen */}
+          {hasDims && (
+            <div className="flex flex-wrap gap-1.5">
+              {schnellpos.map(sp => {
+                const [l, w, h, c] = spValues(sp)
+                const isStkButton = sp.calc === 'stk'
+                return (
+                  <button key={sp.label}
+                    onClick={() => addPosition(sp.desc, sp.unit, l, w, h, c)}
+                    disabled={!isStkButton && isAdded(sp)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 ${
+                      isStkButton
+                        ? 'bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 border border-slate-600/30'
+                        : 'bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30'
+                    }`}>
+                    + {sp.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Positions list */}
+          {positions.length > 0 && (
+            <div className="space-y-1">
+              {positions.map((item, idx) => (
+                <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 bg-slate-800/60 rounded text-sm">
+                  <span className="flex-1 text-white truncate">{item.description || '—'}</span>
+                  <span className="text-slate-400 text-xs font-mono">{item.calculation}</span>
+                  <span className="text-white font-mono text-xs font-semibold min-w-[60px] text-right">
+                    {formatNum(item.result)} {['Wand', 'Bogen', 'Trap'].includes(item.unit) ? 'm²' : item.unit}
+                  </span>
+                  <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Öffnungen */}
+          <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer"
+              onClick={() => setOpeningsOpen(o => !o)}
+            >
+              <span className="text-xs font-medium text-red-300/80 flex-1">
+                🔲 Öffnungen {openings.length > 0 && `(${openings.length})`}
+              </span>
+              {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
+              <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
+            </div>
+            {openingsOpen && (
+              <div className="p-2 space-y-1.5">
+                {openings.map((op, idx) => {
+                  const totalArea = op.result || 0
+                  const cnt = parseFloat(op.count) || 1
+                  const singleArea = cnt > 0 ? totalArea / cnt : totalArea
+                  const isUebermessen = vobMax > 0 && singleArea > 0 && singleArea < vobMax
+                  return (
+                    <div key={op.id} className="flex items-center gap-1.5 text-xs">
+                      <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                        placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0" />
+                      <span className="text-slate-400">B</span>
+                      <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                      <span className="text-slate-400">×H</span>
+                      <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                      <span className="text-slate-400">×</span>
+                      <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
+                        className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                      <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
+                      {isUebermessen ? (
+                        <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobMax} m² — übermessen`}>✓</span>
+                      ) : totalArea > 0 ? (
+                        <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobMax} m² — abgezogen`}>−</span>
+                      ) : <span className="min-w-[24px]" />}
+                      <button onClick={() => removeOpening(idx)} className="text-red-400/40 hover:text-red-400">✕</button>
+                    </div>
+                  )
+                })}
+                <button onClick={addOpening}
+                  className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
+                  + Öffnung
+                </button>
+                {vobMax > 0 && gw.din && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    VOB/C DIN {gw.din}: Öffnungen {vobWand && vobBoden && vobWand !== vobBoden
+                      ? `Wand < ${vobWand} m², Boden < ${vobBoden} m²`
+                      : `< ${vobMax} m²`
+                    } übermessen (✓ = kein Abzug)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Netto summary */}
+          {bruttoM2 > 0 && (
+            <div className="flex justify-between items-center px-2 py-1.5 bg-slate-800/40 rounded text-xs">
+              <span className="text-slate-400">Netto:</span>
+              <span className="text-white font-mono font-semibold">{formatNum(nettoM2)} m²</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Room section ─────────────────────────────────────────────────────────────
 function RoomSection({ room, onChange, onRemove }) {
   const [open, setOpen] = useState(true)
@@ -905,19 +2356,13 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     rooms: aufmass?.rooms || [],
     notes: aufmass?.notes || '',
     materials: aufmass?.materials || [],
+    gewerk: aufmass?.gewerk || 'fensterbau',
   })
-  const [signature, setSignature] = useState(null)
-  const [signatureRaw, setSignatureRaw] = useState(null)
-  const [showSig, setShowSig] = useState(false)
+  const [signature, setSignature] = useState(aufmass?.signature || null)
   const [bereicheOpen, setBereicheOpen] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // Transfer modal
-  const [transferModal, setTransferModal] = useState(null) // 'quote' | 'invoice' | null
-  const [existingDocs, setExistingDocs] = useState([])
-  const [existingLoading, setExistingLoading] = useState(false)
-  const [appendingTo, setAppendingTo] = useState(null) // invoice id being appended to
 
   const addRoom = () => setForm(f => ({
     ...f,
@@ -930,7 +2375,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
 
   const removeRoom = (idx) => setForm(f => ({ ...f, rooms: f.rooms.filter((_, i) => i !== idx) }))
 
-  const totals = computeTotals(form.rooms)
+  const totals = computeTotals(form.rooms, form.gewerk)
   const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
 
   const save = async () => {
@@ -960,36 +2405,105 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   }
 
   const transferTo = async (docType) => {
-    if (isNew && form.title.trim()) await save()
+    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    await save()
     const flatItems = []
-    for (const room of form.rooms) {
-      // Compute netto per unit: regular + forms - subtracts
-      const nettoByUnit = {}
-      for (const item of room.items) {
-        if (!item.result) continue
-        const rawU = item.unit || ''
-        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
-        const sign = item.subtract ? -1 : 1
-        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
+
+    if (form.gewerk === 'fensterbau') {
+      // Fensterbau: each position = one invoice item
+      for (const pos of form.rooms) {
+        if (pos.preset === 'mehrteilig' && pos.segments?.length > 0) {
+          // Mehrteilig: describe all segments
+          const segDescs = pos.segments.map((seg, i) => {
+            const letter = String.fromCharCode(65 + i)
+            const typLabels = (seg.panels || []).map(p =>
+              p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+            )
+            let typStr = typLabels.join('+')
+            if (seg.oberlicht) typStr += '+OL'
+            if (seg.unterlicht) typStr += '+UL'
+            return `${letter}: ${seg.width || '?'}×${seg.height || '?'} (${typStr})`
+          })
+          const totalW = pos.segments.reduce((s, seg) => s + (parseFloat(seg.width) || 0), 0)
+          const maxH = Math.max(...pos.segments.map(seg => parseFloat(seg.height) || 0))
+          const parts = [
+            pos.material,
+            `Mehrteilig ${totalW}×${maxH} mm`,
+            segDescs.join(', '),
+            pos.glazing,
+            pos.color,
+          ].filter(Boolean)
+          flatItems.push({
+            description: parts.join(', '),
+            quantity: parseInt(pos.count) || 1,
+            unit: 'Stk',
+            unit_price: 0,
+            total_price: 0,
+          })
+        } else {
+          const panels = pos.panels || []
+          const typLabels = panels.map(p =>
+            p.type === 'kipp-dreh' ? 'Dreh-Kipp' : p.type === 'dreh' ? 'Dreh' : p.type === 'kipp' ? 'Kipp' : 'Fest'
+          )
+          const typStr = typLabels.join(' + ') + (pos.oberlicht ? ' + Oberlicht' : '')
+          const parts = [
+            pos.material,
+            typStr,
+            pos.width && pos.height ? `${pos.width} × ${pos.height} mm` : null,
+            pos.glazing,
+            pos.color,
+          ].filter(Boolean)
+          flatItems.push({
+            description: parts.join(', '),
+            quantity: parseInt(pos.count) || 1,
+            unit: 'Stk',
+            unit_price: 0,
+            total_price: 0,
+          })
+        }
       }
-      for (const [unit, netto] of Object.entries(nettoByUnit)) {
-        if (netto <= 0) continue
-        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
-        const matchUnits = unit === 'm²' ? m2Units : [unit]
-        const descs = room.items
-          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
-          .map(i => i.description)
-          .filter(Boolean)
-          .join(', ')
-        flatItems.push({
-          description: [room.name, descs].filter(Boolean).join(': '),
-          quantity: Math.round(netto * 100) / 100,
-          unit,
-          unit_price: 0,
-          total_price: 0,
-        })
+    } else {
+      // Room-based: each position = separate invoice item
+      const gwData = GEWERKE.find(g => g.id === form.gewerk) || {}
+      const hasWallPos = ['maler', 'fliesen', 'trockenbau'].includes(form.gewerk)
+      const vobThr = hasWallPos ? (gwData.vobWand || 0) : (gwData.vobBoden || 0)
+      for (const room of form.rooms) {
+        // Compute total deduction for m² (respecting Übermessung)
+        const openings = (room.items || []).filter(i => i.subtract)
+        let totalAbzugM2 = 0
+        for (const op of openings) {
+          const total = op.result || 0
+          const cnt = parseFloat(op.count) || 1
+          const singleArea = cnt > 0 ? total / cnt : total
+          if (vobThr > 0 && singleArea < vobThr) continue // übermessen
+          totalAbzugM2 += total
+        }
+
+        // Each non-subtract position → separate invoice item
+        const positions = (room.items || []).filter(i => !i.subtract && !i.isForm)
+        for (const item of positions) {
+          if (!item.result || item.result <= 0) continue
+          const rawU = item.unit || ''
+          const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
+          let qty = item.result
+          // For Wand (wall area): subtract openings proportionally
+          if (rawU === 'Wand' && totalAbzugM2 > 0) {
+            qty = Math.max(0, qty - totalAbzugM2)
+            totalAbzugM2 = 0 // only subtract from first m² position (Wand)
+          }
+          if (qty <= 0) continue
+          flatItems.push({
+            description: [room.name, item.description].filter(Boolean).join(': '),
+            quantity: Math.round(qty * 100) / 100,
+            unit: u,
+            unit_price: 0,
+            total_price: 0,
+          })
+        }
       }
     }
+
+    // Materials (shared for all gewerke)
     for (const mat of (form.materials || [])) {
       if (!mat.description) continue
       flatItems.push({
@@ -1000,144 +2514,20 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         total_price: 0,
       })
     }
+    // For non-Fensterbau: ask if user wants to attach Aufmaß PDF
+    const attachPdf = form.gewerk !== 'fensterbau' && window.confirm('Aufmaß als Anlage anhängen?')
     sessionStorage.setItem('prm_aufmass_import', JSON.stringify({
       title: form.title,
       items: flatItems,
       aufmass_id: aufmass?.id || null,
+      gewerk: form.gewerk,
       docType,
+      attachAufmass: attachPdf,
     }))
     router.push('/dashboard/invoices?from=aufmass')
   }
 
-  const buildFlatItems = () => {
-    const flatItems = []
-    for (const room of form.rooms) {
-      const nettoByUnit = {}
-      for (const item of room.items) {
-        if (!item.result) continue
-        const rawU = item.unit || ''
-        const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
-        const sign = item.subtract ? -1 : 1
-        nettoByUnit[u] = (nettoByUnit[u] || 0) + sign * item.result
-      }
-      for (const [unit, netto] of Object.entries(nettoByUnit)) {
-        if (netto <= 0) continue
-        const m2Units = ['m²', 'Wand', 'Bogen', 'Trap']
-        const matchUnits = unit === 'm²' ? m2Units : [unit]
-        const descs = room.items
-          .filter(i => !i.subtract && !i.isForm && matchUnits.includes(i.unit || '') && i.description)
-          .map(i => i.description)
-          .filter(Boolean)
-          .join(', ')
-        flatItems.push({
-          description: [room.name, descs].filter(Boolean).join(': '),
-          quantity: Math.round(netto * 100) / 100,
-          unit,
-          unit_price: 0,
-          total_price: 0,
-        })
-      }
-    }
-    for (const mat of (form.materials || [])) {
-      if (!mat.description) continue
-      flatItems.push({
-        description: mat.description,
-        quantity: parseFloat(mat.quantity) || 1,
-        unit: mat.unit || 'Stk',
-        unit_price: 0,
-        total_price: 0,
-      })
-    }
-    return flatItems
-  }
 
-  const openTransferModal = async (docType) => {
-    setTransferModal(docType)
-    setExistingLoading(true)
-    try {
-      const type = docType === 'quote' ? 'quote' : 'invoice'
-      const { data } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, customer_name, created_at, items, type, aufmass_id')
-        .eq('majstor_id', majstor.id)
-        .eq('type', type)
-        .neq('status', 'dummy')
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false })
-        .limit(20)
-      setExistingDocs(data || [])
-    } catch (e) {
-      console.error('Error loading docs:', e)
-    } finally {
-      setExistingLoading(false)
-    }
-  }
-
-  const appendToExisting = async (doc) => {
-    // Guard: check if this Aufmaß is already linked to this document
-    if (aufmass?.id && doc.aufmass_id === aufmass.id) {
-      if (!confirm('Dieses Aufmaß wurde bereits zu diesem Dokument hinzugefügt. Trotzdem erneut hinzufügen?')) return
-    }
-    if (isNew && form.title.trim()) await save()
-    setAppendingTo(doc.id)
-    try {
-      const existingItems = doc.items ? JSON.parse(doc.items) : []
-      const newItems = buildFlatItems().map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        price: 0,
-        price_gross: 0,
-        total: 0,
-        price_source: 'netto',
-      }))
-      const mergedItems = [...existingItems, ...newItems]
-      const { error: updateErr } = await supabase
-        .from('invoices')
-        .update({
-          items: JSON.stringify(mergedItems),
-          aufmass_id: aufmass?.id || null,
-        })
-        .eq('id', doc.id)
-      if (updateErr) throw updateErr
-
-      // Auto-upload Aufmaß PDF as attachment
-      try {
-        const pdfBlob = await generateAufmassPDFBlob(form, majstor)
-        const safeName = (form.title || 'Aufmass').replace(/[^a-zA-Z0-9äöüÄÖÜß._-]/g, '_')
-        const fileName = `Aufmass_${safeName}.pdf`
-        const storagePath = `attachments/${majstor.id}/${doc.id}/${Date.now()}_${fileName}`
-
-        await supabase.storage
-          .from('invoice-pdfs')
-          .upload(storagePath, pdfBlob, { contentType: 'application/pdf' })
-
-        await supabase.from('invoice_attachments').insert({
-          invoice_id: doc.id,
-          majstor_id: majstor.id,
-          storage_path: storagePath,
-          filename: fileName,
-          file_size: pdfBlob.size,
-          mime_type: 'application/pdf',
-        })
-      } catch (attErr) {
-        console.error('Aufmaß PDF attachment failed (non-critical):', attErr)
-      }
-
-      setTransferModal(null)
-      // Redirect to invoices page and auto-open this document in editor
-      sessionStorage.setItem('prm_edit_after_append', JSON.stringify({
-        id: doc.id,
-        type: doc.type,
-      }))
-      router.push('/dashboard/invoices?from=aufmass_append')
-    } catch (e) {
-      console.error('Append error:', e)
-      alert('❌ Fehler: ' + (e.message || 'Unbekannter Fehler'))
-    } finally {
-      setAppendingTo(null)
-    }
-  }
 
   return (
     <>
@@ -1186,40 +2576,125 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               />
             </div>
 
-            {/* Sobe */}
-            <div className="border border-slate-600 rounded-xl overflow-hidden">
-              <div
-                className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
-                onClick={() => setBereicheOpen(o => !o)}
-              >
-                <span className="text-white text-sm font-semibold flex-1">📐 Bereiche <span className="text-slate-400 font-normal text-xs">({form.rooms.length})</span></span>
-                {totalEntries.length > 0 && (
-                  <span className="text-slate-400 text-xs font-mono mr-2">
-                    {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit}`).join(' · ')}
-                  </span>
-                )}
-                <span className="text-slate-400 text-xs">{bereicheOpen ? '▲' : '▼'}</span>
+            {/* Gewerk */}
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Gewerk</label>
+              <div className="flex flex-wrap gap-1.5">
+                {GEWERKE.map(g => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, gewerk: g.id }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      form.gewerk === g.id
+                        ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    {g.icon} {g.label}
+                  </button>
+                ))}
               </div>
-              {bereicheOpen && <div className="p-3 space-y-0">
-              {form.rooms.map((room, idx) => (
-                <div key={room.id}>
-                  {idx > 0 && <div className="border-t border-slate-600/50 my-3" />}
-                  <RoomSection
+              {(() => {
+                const g = GEWERKE.find(x => x.id === form.gewerk)
+                if (!g?.din) return null
+                const parts = []
+                if (g.vobWand) parts.push(`Wand ≤ ${g.vobWand} m²`)
+                if (g.vobBoden) parts.push(`Boden ≤ ${g.vobBoden} m²`)
+                return parts.length > 0 ? (
+                  <p className="text-xs text-slate-500 mt-1">
+                    VOB/C DIN {g.din}: Öffnungen übermessen — {parts.join(', ')}
+                  </p>
+                ) : null
+              })()}
+            </div>
+
+            {/* Trade-specific editors */}
+            {form.gewerk === 'fensterbau' ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm font-semibold">🪟 Positionen</span>
+                  <span className="text-slate-400 text-xs">({form.rooms.length})</span>
+                </div>
+                {form.rooms.map((pos, idx) => (
+                  <FensterPositionCard
+                    key={pos.id}
+                    pos={pos}
+                    index={idx}
+                    onChange={p => updateRoom(idx, p)}
+                    onRemove={() => removeRoom(idx)}
+                  />
+                ))}
+                <button
+                  onClick={() => setForm(f => ({ ...f, rooms: [...f.rooms, newFensterPosition()] }))}
+                  className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors"
+                >
+                  + Position hinzufügen
+                </button>
+              </div>
+            ) : TRADE_SCHNELLPOS[form.gewerk] ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm font-semibold">{GEWERKE.find(g => g.id === form.gewerk)?.icon} Räume</span>
+                  <span className="text-slate-400 text-xs">({form.rooms.length})</span>
+                  {totalEntries.length > 0 && (
+                    <span className="text-slate-400 text-xs font-mono ml-auto">
+                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit === 'Wand' ? 'm²' : unit}`).join(' · ')}
+                    </span>
+                  )}
+                </div>
+                {form.rooms.map((room, idx) => (
+                  <TradeRaumCard
+                    key={room.id}
                     room={room}
                     onChange={r => updateRoom(idx, r)}
                     onRemove={() => removeRoom(idx)}
+                    gewerk={form.gewerk}
                   />
+                ))}
+                <button
+                  onClick={addRoom}
+                  className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors"
+                >
+                  + Raum hinzufügen
+                </button>
+              </div>
+            ) : (
+              /* Fallback: generic Bereiche */
+              <div className="border border-slate-600 rounded-xl overflow-hidden">
+                <div
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
+                  onClick={() => setBereicheOpen(o => !o)}
+                >
+                  <span className="text-white text-sm font-semibold flex-1">📐 Bereiche <span className="text-slate-400 font-normal text-xs">({form.rooms.length})</span></span>
+                  {totalEntries.length > 0 && (
+                    <span className="text-slate-400 text-xs font-mono mr-2">
+                      {totalEntries.map(([unit, val]) => `${formatNum(val)} ${unit === 'Wand' ? 'm²' : unit}`).join(' · ')}
+                    </span>
+                  )}
+                  <span className="text-slate-400 text-xs">{bereicheOpen ? '▲' : '▼'}</span>
                 </div>
-              ))}
-              {form.rooms.length > 0 && <div className="border-t border-slate-600/50 mt-3 mb-1" />}
-              <button
-                onClick={addRoom}
-                className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors mt-2"
-              >
-                + Bereich hinzufügen
-              </button>
-              </div>}
-            </div>
+                {bereicheOpen && <div className="p-3 space-y-0">
+                {form.rooms.map((room, idx) => (
+                  <div key={room.id}>
+                    {idx > 0 && <div className="border-t border-slate-600/50 my-3" />}
+                    <RoomSection
+                      room={room}
+                      onChange={r => updateRoom(idx, r)}
+                      onRemove={() => removeRoom(idx)}
+                    />
+                  </div>
+                ))}
+                {form.rooms.length > 0 && <div className="border-t border-slate-600/50 mt-3 mb-1" />}
+                <button
+                  onClick={addRoom}
+                  className="w-full py-3 border-2 border-dashed border-slate-600 hover:border-blue-500 text-slate-400 hover:text-blue-400 rounded-xl text-sm font-medium transition-colors mt-2"
+                >
+                  + Bereich hinzufügen
+                </button>
+                </div>}
+              </div>
+            )}
 
 
             {/* Materialien */}
@@ -1240,41 +2715,18 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               />
             </div>
 
-            {/* Potpis */}
-            <div>
-              <label className="block text-xs text-slate-400 mb-2">Unterschrift (optional)</label>
-              {signature ? (
-                <div className="relative group">
-                  <img
-                    src={signature}
-                    alt="Unterschrift"
-                    className="w-full h-20 object-contain rounded-lg border border-slate-400"
-                    style={{ backgroundColor: '#ffffff' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSig(true)}
-                    className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 hover:bg-black/10 active:bg-black/20 transition-colors"
-                  >
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-slate-700 text-xs px-2 py-1 rounded shadow">
-                      ✏️ Ändern
-                    </span>
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowSig(true)}
-                  className="w-full h-20 rounded-lg border-2 border-dashed border-slate-400 hover:border-blue-400 active:border-blue-500 flex items-center justify-center transition-colors"
+            {/* Unterschrift — nur Anzeige wenn vorhanden (signiert wird aus der Liste) */}
+            {signature && (
+              <div>
+                <label className="block text-xs text-slate-400 mb-2">Unterschrift</label>
+                <img
+                  src={signature}
+                  alt="Unterschrift"
+                  className="w-full h-20 object-contain rounded-lg border border-slate-400"
                   style={{ backgroundColor: '#ffffff' }}
-                >
-                  <div className="text-center pointer-events-none">
-                    <div className="text-2xl mb-0.5">✍️</div>
-                    <div className="text-slate-500 text-xs">Tippen zum Unterschreiben</div>
-                  </div>
-                </button>
-              )}
-            </div>
+                />
+              </div>
+            )}
 
             {error && (
               <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>
@@ -1282,35 +2734,55 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           </div>
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-2 px-5 py-4 pb-20 border-t border-slate-700">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 px-5 py-4 pb-20 border-t border-slate-700">
             <button
               onClick={save}
               disabled={saving}
-              className="flex-1 py-2.5 disabled:opacity-50 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 disabled:opacity-50 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
             >
-              {saving ? 'Speichern...' : <><span>💾</span><span>Speichern</span></>}
+              {saving ? '...' : <><span>💾</span><span>Speichern</span></>}
+            </button>
+            <button
+              onClick={() => transferTo('quote')}
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#15803d', color: '#ffffff' }}
+            >
+              <span>📋</span><span className="leading-tight text-center">In<br className="sm:hidden" /> Angebot</span>
+            </button>
+            <button
+              onClick={() => transferTo('invoice')}
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#c2410c', color: '#ffffff' }}
+            >
+              <span>🧾</span><span className="leading-tight text-center">In<br className="sm:hidden" /> Rechnung</span>
             </button>
             <button
               onClick={downloadPDF}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
               style={{ backgroundColor: '#475569', color: '#ffffff' }}
             >
               <span>📄</span><span>PDF</span>
             </button>
             <button
-              onClick={() => openTransferModal('quote')}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
-              style={{ backgroundColor: '#15803d', color: '#ffffff' }}
+              onClick={async () => {
+                if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+                const blob = await generateAufmassPDFBlob(form, majstor, signature)
+                const fileName = `Aufmass_${form.title.replace(/[^a-zA-Z0-9äöüÄÖÜß._-]/g, '_')}.pdf`
+                const file = new File([blob], fileName, { type: 'application/pdf' })
+                if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                  await navigator.share({ title: `Aufmaß: ${form.title}`, files: [file] })
+                } else {
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = fileName; a.click()
+                  URL.revokeObjectURL(url)
+                }
+              }}
+              className="py-2.5 font-semibold rounded-lg text-xs sm:text-sm transition-colors flex flex-col items-center"
+              style={{ backgroundColor: '#7c3aed', color: '#ffffff' }}
             >
-              <span>📋</span><span>Angebot</span>
-            </button>
-            <button
-              onClick={() => openTransferModal('invoice')}
-              className="flex-1 py-2.5 font-semibold rounded-lg text-sm transition-colors flex flex-col items-center"
-              style={{ backgroundColor: '#c2410c', color: '#ffffff' }}
-            >
-              <span>🧾</span><span>Rechnung</span>
+              <span>📤</span><span>Teilen</span>
             </button>
             <button
               onClick={onClose}
@@ -1322,82 +2794,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         </div>
       </div>
 
-      {/* Transfer Modal: Neu erstellen / Zu bestehendem hinzufügen */}
-      {transferModal && (
-        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={() => !appendingTo && setTransferModal(null)}>
-          <div className="bg-slate-800 rounded-xl w-full max-w-sm border border-slate-700 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 border-b border-slate-700">
-              <h3 className="text-white font-semibold">
-                {transferModal === 'quote' ? '📋 Angebot' : '🧾 Rechnung'}
-              </h3>
-              <button onClick={() => setTransferModal(null)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
-            </div>
 
-            <div className="p-4 space-y-3">
-              {/* Neues erstellen */}
-              <button
-                onClick={() => { setTransferModal(null); transferTo(transferModal) }}
-                className="w-full py-3 rounded-lg text-sm font-semibold transition-colors"
-                style={{ backgroundColor: transferModal === 'quote' ? '#15803d' : '#c2410c', color: '#ffffff' }}
-              >
-                + {transferModal === 'quote' ? 'Neues Angebot erstellen' : 'Neue Rechnung erstellen'}
-              </button>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <hr className="flex-1 border-slate-700" />
-                <span className="text-slate-500 text-xs">oder</span>
-                <hr className="flex-1 border-slate-700" />
-              </div>
-
-              {/* Zu bestehendem hinzufügen */}
-              <p className="text-slate-400 text-xs">Zu bestehendem hinzufügen:</p>
-              {existingLoading ? (
-                <p className="text-slate-500 text-sm text-center py-4">Laden...</p>
-              ) : existingDocs.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-4">
-                  {transferModal === 'quote' ? 'Keine Angebote vorhanden' : 'Keine Rechnungen vorhanden'}
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {existingDocs.map(doc => (
-                    <button
-                      key={doc.id}
-                      onClick={() => appendToExisting(doc)}
-                      disabled={!!appendingTo}
-                      className="w-full text-left px-3 py-2.5 rounded-lg transition-colors disabled:opacity-50"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="text-white text-sm font-medium">{doc.invoice_number}</span>
-                          {doc.customer_name && (
-                            <span className="text-slate-400 text-xs ml-2">{doc.customer_name}</span>
-                          )}
-                        </div>
-                        {appendingTo === doc.id && (
-                          <span className="text-blue-400 text-xs animate-pulse">⏳</span>
-                        )}
-                      </div>
-                      <p className="text-slate-500 text-xs mt-0.5">
-                        {new Date(doc.created_at).toLocaleDateString('de-DE')} · {doc.items ? JSON.parse(doc.items).length : 0} Positionen
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showSig && (
-        <SignatureModal
-          existingDataUrl={signatureRaw}
-          onConfirm={(rotated, raw) => { setSignature(rotated); setSignatureRaw(raw) }}
-          onClose={() => setShowSig(false)}
-        />
-      )}
     </>
   )
 }
@@ -1411,6 +2808,7 @@ export default function AufmassPage() {
   const [loading, setLoading] = useState(true)
   const [editor, setEditor] = useState(null) // null | 'new' | aufmass object
   const [deleting, setDeleting] = useState(null)
+  const [sigTarget, setSigTarget] = useState(null) // aufmass object to sign
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1443,6 +2841,7 @@ export default function AufmassPage() {
   }
 
   const handleDelete = async (id) => {
+    if (!window.confirm('Aufmaß wirklich löschen?')) return
     setDeleting(id)
     await fetch('/api/aufmasse', {
       method: 'DELETE',
@@ -1451,6 +2850,18 @@ export default function AufmassPage() {
     })
     setAufmasse(prev => prev.filter(a => a.id !== id))
     setDeleting(null)
+  }
+
+  const handleSign = async (rotated, raw) => {
+    if (!sigTarget) return
+    // Save both: rotated (for PDF) + raw (for re-editing without double-rotation)
+    await fetch('/api/aufmasse', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: sigTarget.id, signature: rotated, signature_raw: raw }),
+    })
+    setAufmasse(prev => prev.map(a => a.id === sigTarget.id ? { ...a, signature: rotated, signature_raw: raw } : a))
+    setSigTarget(null)
   }
 
   return (
@@ -1492,7 +2903,7 @@ export default function AufmassPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {aufmasse.map(a => {
-            const totals = computeTotals(a.rooms || [])
+            const totals = computeTotals(a.rooms || [], a.gewerk)
             const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
             return (
               <div key={a.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 hover:border-slate-600 transition-colors">
@@ -1510,7 +2921,7 @@ export default function AufmassPage() {
                   <div className="flex flex-wrap gap-2 mb-3">
                     {totalEntries.map(([unit, val]) => (
                       <span key={unit} className="text-xs px-2 py-0.5 bg-slate-700 text-slate-300 rounded-full">
-                        {formatNum(val)} {unit}
+                        {formatNum(val)} {unit === 'Wand' ? 'm²' : unit}
                       </span>
                     ))}
                   </div>
@@ -1524,11 +2935,22 @@ export default function AufmassPage() {
                     ✏️ Öffnen
                   </button>
                   <button
-                    onClick={() => generateAufmassPDF(a, majstor)}
+                    onClick={() => generateAufmassPDF(a, majstor, a.signature || null)}
                     className="flex-1 py-2 text-sm rounded-lg transition-colors"
                     style={{ backgroundColor: '#475569', color: '#ffffff' }}
                   >
                     📄 PDF
+                  </button>
+                  <button
+                    onClick={() => setSigTarget(a)}
+                    className={`py-2 px-3 text-sm rounded-lg transition-colors ${
+                      a.signature
+                        ? 'bg-green-600/10 hover:bg-green-600/20 text-green-400'
+                        : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                    }`}
+                    title={a.signature ? 'Unterschrift ändern' : 'Unterschreiben'}
+                  >
+                    ✍️
                   </button>
                   <button
                     onClick={() => handleDelete(a.id)}
@@ -1552,6 +2974,15 @@ export default function AufmassPage() {
           token={token}
           onSave={handleSave}
           onClose={() => setEditor(null)}
+        />
+      )}
+
+      {/* Signature modal (from list) */}
+      {sigTarget && (
+        <SignatureModal
+          existingDataUrl={sigTarget.signature_raw || null}
+          onConfirm={(rotated, raw) => handleSign(rotated, raw)}
+          onClose={() => setSigTarget(null)}
         />
       )}
     </div>
