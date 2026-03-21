@@ -45,8 +45,8 @@ const TRADE_SCHNELLPOS = {
 
 // ─── Fensterbau ─────────────────────────────────────────
 const FENSTER_PRESETS = [
-  { id: '1-kd-l', label: '1-flg. DK', panels: [{ type: 'kipp-dreh', hinge: 'left' }] },
-  { id: '2-kd', label: '2-flg. DK', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }] },
+  { id: '1-kd-l', label: '1-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }] },
+  { id: '2-kd', label: '2-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }] },
   { id: '1-fix', label: 'Fest', panels: [{ type: 'fix' }] },
   { id: '1-kipp', label: 'Kipp', panels: [{ type: 'kipp' }] },
   { id: 'kd-fix', label: 'DK + Fest', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }] },
