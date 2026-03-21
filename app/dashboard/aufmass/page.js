@@ -2513,12 +2513,15 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         total_price: 0,
       })
     }
+    // For non-Fensterbau: ask if user wants to attach Aufmaß PDF
+    const attachPdf = form.gewerk !== 'fensterbau' && window.confirm('Aufmaß als Anlage anhängen?')
     sessionStorage.setItem('prm_aufmass_import', JSON.stringify({
       title: form.title,
       items: flatItems,
       aufmass_id: aufmass?.id || null,
       gewerk: form.gewerk,
       docType,
+      attachAufmass: attachPdf,
     }))
     router.push('/dashboard/invoices?from=aufmass')
   }

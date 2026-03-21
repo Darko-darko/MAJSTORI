@@ -37,6 +37,7 @@ function DashboardPageContent() {
   const [pendingInvoiceType, setPendingInvoiceType] = useState('quote')
   const [aufmassImportItems, setAufmassImportItems] = useState(null)
   const [aufmassImportId, setAufmassImportId] = useState(null)
+  const [aufmassAttachPdf, setAufmassAttachPdf] = useState(false)
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
@@ -129,10 +130,11 @@ function DashboardPageContent() {
     if (fromInvoice === 'aufmass') {
       const raw = sessionStorage.getItem('prm_aufmass_import')
       if (raw) {
-        const { items, aufmass_id, docType } = JSON.parse(raw)
+        const { items, aufmass_id, docType, attachAufmass } = JSON.parse(raw)
         sessionStorage.removeItem('prm_aufmass_import')
         setAufmassImportItems(items || [])
         setAufmassImportId(aufmass_id || null)
+        setAufmassAttachPdf(!!attachAufmass)
         setCreateType(docType === 'invoice' ? 'invoice' : 'quote')
         setIsEditMode(false)
         setEditingItem(null)
@@ -2818,6 +2820,7 @@ const HardResetModal = () => {
           isEditMode={isEditMode}
           prefilledItems={aufmassImportItems}
           aufmassId={aufmassImportId}
+          aufmassAttachPdf={aufmassAttachPdf}
         />
       )}
 

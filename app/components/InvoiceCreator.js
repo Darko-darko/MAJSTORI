@@ -39,7 +39,8 @@ export default function InvoiceCreator({
   isEditMode = false,
   prefilledCustomer = null,
   prefilledItems = null,
-  aufmassId = null
+  aufmassId = null,
+  aufmassAttachPdf = false
 }) {
   // Business data completion check
   const [businessDataComplete, setBusinessDataComplete] = useState(false)
@@ -1405,6 +1406,25 @@ if (searchError) {
       setPendingAttachments([])
     }
   }, [isEditMode, editData?.id])
+
+  // Auto-attach Aufmaß PDF when coming from "In Rechnung/Angebot" with attachAufmass flag
+  useEffect(() => {
+    if (!aufmassAttachPdf || !aufmassId || !majstor) return
+    const attach = async () => {
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token
+        const res = await fetch(`/api/aufmasse?id=${aufmassId}`, { headers: { Authorization: `Bearer ${token}` } })
+        const data = await res.json()
+        const aufmass = data.aufmass || data
+        if (!aufmass || aufmass.gewerk === 'fensterbau') return
+        const blob = await generateAufmassPDFBlob(aufmass, majstor)
+        const fileName = `Aufmass_${(aufmass.title || 'Raum').replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_')}.pdf`
+        const file = new File([blob], fileName, { type: 'application/pdf' })
+        setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aufmassId}` }])
+      } catch (e) { console.error('Auto-attach Aufmaß failed:', e) }
+    }
+    attach()
+  }, [aufmassAttachPdf, aufmassId, majstor])
 
   // Attachment helpers
   const formatFileSize = (bytes) => {
