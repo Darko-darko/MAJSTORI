@@ -1065,7 +1065,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                           : { ...p, width: each > 0 ? String(each) : '' })
                         onChange({ ...pos, panels })
                       }}
-                      placeholder="z.B. 600"
+                      placeholder={`z.B. ${totalW > 0 ? Math.round(totalW / pos.panels.length) : 600}`}
                       className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center placeholder:text-slate-500 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
                     />
                     <span className="text-[10px] text-slate-500">mm</span>
