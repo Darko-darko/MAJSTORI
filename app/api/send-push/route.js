@@ -6,11 +6,14 @@ import { createClient } from '@supabase/supabase-js'
 
 const INTERNAL_SECRET = process.env.INTERNAL_FUNCTION_SECRET
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-)
+function getWebPush() {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  )
+  return webpush
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -25,6 +28,7 @@ export async function POST(request) {
   }
 
   try {
+    const wp = getWebPush()
     const body = await request.json()
     const { majstorId, title, message, url } = body
 
@@ -59,7 +63,7 @@ export async function POST(request) {
       }
 
       try {
-        await webpush.sendNotification(pushSubscription, payload)
+        await wp.sendNotification(pushSubscription, payload)
         sent++
       } catch (err) {
         if (err.statusCode === 410 || err.statusCode === 404) {

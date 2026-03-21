@@ -5,11 +5,14 @@
 import webpush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-)
+function getWebPush() {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  )
+  return webpush
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -24,6 +27,7 @@ export async function GET(request) {
   }
 
   try {
+    const wp = getWebPush()
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayStr = yesterday.toISOString().split('T')[0]
@@ -79,7 +83,7 @@ export async function GET(request) {
 
       for (const sub of subscriptions) {
         try {
-          await webpush.sendNotification(
+          await wp.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             payload
           )
