@@ -752,18 +752,27 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
 
       {/* Typ-Auswahl */}
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <label className="text-xs text-slate-500">Fenstertyp</label>
+        {!showCustom && (
           <button
             type="button"
-            onClick={() => setShowCustom(o => !o)}
-            className="text-[10px] text-blue-400 hover:text-blue-300"
-          >
-            {showCustom ? '← Vorlagen' : 'Anpassen ⚙'}
-          </button>
+            onClick={() => setShowCustom(true)}
+            className="w-full min-h-[44px] px-3 py-2 mb-3 rounded-lg text-sm font-medium transition-colors"
+            style={{ border: '2px dashed rgba(59,130,246,0.6)', color: 'rgba(59,130,246,0.8)' }}
+          >⚙ Anpassen</button>
+        )}
+        <div className="flex items-center gap-2 mb-1">
+          <label className="text-xs text-slate-500">Fenstertyp</label>
+          {showCustom && (
+            <button
+              type="button"
+              onClick={() => setShowCustom(false)}
+              className="text-[10px] text-blue-400 hover:text-blue-300"
+            >← Vorlagen</button>
+          )}
         </div>
 
         {!showCustom ? (
+          <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">
             {FENSTER_PRESETS.map(fp => (
               <button
@@ -802,6 +811,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                 <span className="text-[10px] text-slate-400">{fp.label}</span>
               </button>
             ))}
+          </div>
           </div>
         ) : pos.preset === 'mehrteilig' ? (
           /* ── Mehrteilig: Segment editor ── */
