@@ -2405,7 +2405,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   }
 
   const transferTo = async (docType) => {
-    if (isNew && form.title.trim()) await save()
+    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    await save()
     const flatItems = []
 
     if (form.gewerk === 'fensterbau') {
