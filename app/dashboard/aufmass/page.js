@@ -11,12 +11,37 @@ const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
 
 const GEWERKE = [
-  { id: 'maler', label: 'Maler', icon: '🖌️', vobThreshold: 2.5, din: '18363' },
-  { id: 'fensterbau', label: 'Fensterbau', icon: '🏠', vobThreshold: null, din: null },
-  { id: 'fliesen', label: 'Fliesen', icon: '🔲', vobThreshold: 0.1, din: '18352' },
-  { id: 'trockenbau', label: 'Trockenbau', icon: '🧱', vobThreshold: 2.5, din: '18340' },
-  { id: 'bodenbelag', label: 'Bodenbelag', icon: '🟫', vobThreshold: 0.5, din: '18365' },
+  { id: 'maler', label: 'Maler', icon: '🖌️', vobWand: 2.5, vobBoden: 2.5, din: '18363' },
+  { id: 'fensterbau', label: 'Fensterbau', icon: '🏠', vobWand: null, vobBoden: null, din: null },
+  { id: 'fliesen', label: 'Fliesen', icon: '🔲', vobWand: 2.5, vobBoden: 0.5, din: '18352' },
+  { id: 'trockenbau', label: 'Trockenbau', icon: '🧱', vobWand: 2.5, vobBoden: 0.5, din: '18340' },
+  { id: 'bodenbelag', label: 'Bodenbelag', icon: '🟫', vobWand: null, vobBoden: 0.5, din: '18365' },
 ]
+
+// Schnellpositionen per Gewerk (for TradeRaumCard)
+const TRADE_SCHNELLPOS = {
+  maler: [
+    { label: 'Wände', desc: 'Wandfläche', unit: 'Wand', calc: 'wall', icon: '🖌️' },
+    { label: 'Decke', desc: 'Deckenfläche', unit: 'm²', calc: 'floor', icon: '🖌️' },
+    { label: 'Sockelleiste', desc: 'Sockelleiste', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+    { label: 'Tür', desc: 'Tür lackieren', unit: 'Stk', calc: 'stk', icon: '🚪' },
+    { label: 'Fenster', desc: 'Fenster lackieren', unit: 'Stk', calc: 'stk', icon: '🪟' },
+  ],
+  fliesen: [
+    { label: 'Bodenfliesen', desc: 'Bodenfliesen', unit: 'm²', calc: 'floor', icon: '🔲' },
+    { label: 'Wandfliesen', desc: 'Wandfliesen', unit: 'Wand', calc: 'wall', icon: '🔲' },
+    { label: 'Sockelfliesen', desc: 'Sockelfliesen', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+  ],
+  trockenbau: [
+    { label: 'Wandfläche', desc: 'Wandfläche', unit: 'Wand', calc: 'wall', icon: '🧱' },
+    { label: 'Decke', desc: 'Deckenfläche', unit: 'm²', calc: 'floor', icon: '🧱' },
+    { label: 'Ständerwerk', desc: 'Ständerwerk (UW/CW)', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+  ],
+  bodenbelag: [
+    { label: 'Bodenfläche', desc: 'Bodenfläche', unit: 'm²', calc: 'floor', icon: '🟫' },
+    { label: 'Sockelleiste', desc: 'Sockelleiste', unit: 'lfm', calc: 'perimeter', icon: '📏' },
+  ],
+}
 
 // ─── Fensterbau ─────────────────────────────────────────
 const FENSTER_PRESETS = [
@@ -1322,14 +1347,19 @@ function calcItem(item) {
 
 function computeTotals(rooms, gewerk) {
   const t = {}
-  const vobThr = gewerk === 'maler' ? 2.5 : 0
-  const isMaler = gewerk === 'maler'
+  const gw = GEWERKE.find(g => g.id === gewerk) || {}
+  const vobWand = gw.vobWand || 0
+  const vobBoden = gw.vobBoden || 0
+  // Trades with Wand positions: openings subtract from Wand → use vobWand threshold
+  // Floor-only trades (Bodenbelag): openings subtract from floor → use vobBoden threshold
+  const hasWallPos = ['maler', 'fliesen', 'trockenbau'].includes(gewerk)
+  const vobThr = hasWallPos ? vobWand : vobBoden
   for (const r of rooms) {
     for (const i of r.items || []) {
       if (i.result == null) continue
       const rawU = i.unit || ''
-      // Maler: keep Wand separate from m² (Decke) so Abzug only applies to Wand
-      const unit = isMaler
+      // Trades with Wand: keep Wand separate from m² (Decke/Boden) so Abzug only applies to Wand
+      const unit = hasWallPos
         ? (['Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU)
         : (['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU)
       let sign = i.subtract ? -1 : 1
@@ -1338,7 +1368,7 @@ function computeTotals(rooms, gewerk) {
         const singleArea = cnt > 0 ? i.result / cnt : i.result
         if (singleArea < vobThr) sign = 0
       }
-      if (isMaler && i.subtract) {
+      if (hasWallPos && i.subtract) {
         t['Wand'] = (t['Wand'] || 0) + i.result * sign
       } else if (unit) {
         t[unit] = (t[unit] || 0) + i.result * sign
@@ -1821,18 +1851,26 @@ function MaterialienSection({ materials, onChange }) {
   )
 }
 
-// ─── Maler room card ──────────────────────────────────────────────────────────
-function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
+// ─── Trade room card (Maler, Fliesen, Trockenbau, Bodenbelag) ────────────────
+function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
   const [open, setOpen] = useState(true)
   const [openingsOpen, setOpeningsOpen] = useState(false)
+
+  const gw = GEWERKE.find(g => g.id === gewerk) || {}
+  const schnellpos = TRADE_SCHNELLPOS[gewerk] || []
+  const vobWand = gw.vobWand || 0
+  const vobBoden = gw.vobBoden || 0
+  const vobMax = Math.max(vobWand, vobBoden)
+  const hasWall = schnellpos.some(s => s.calc === 'wall')
+  const hasFloor = schnellpos.some(s => s.calc === 'floor')
 
   const rL = parseFloat(room.length) || 0
   const rB = parseFloat(room.width) || 0
   const rH = parseFloat(room.height) || 0
-  const hasDims = rL > 0 && rB > 0 && rH > 0
+  const hasDims = hasWall ? (rL > 0 && rB > 0 && rH > 0) : (rL > 0 && rB > 0)
 
   // Computed values from room dimensions
-  const wandflaeche = hasDims ? Math.round(2 * (rL + rB) * rH * 100) / 100 : 0
+  const wandflaeche = rL > 0 && rB > 0 && rH > 0 ? Math.round(2 * (rL + rB) * rH * 100) / 100 : 0
   const deckenflaeche = rL > 0 && rB > 0 ? Math.round(rL * rB * 100) / 100 : 0
   const umfang = rL > 0 && rB > 0 ? Math.round(2 * (rL + rB) * 100) / 100 : 0
 
@@ -1877,18 +1915,31 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
     return u === 'm²' ? s + (i.result || 0) : s
   }, 0)
   const totalAbzug = openings.reduce((s, i) => {
-    // VOB: Übermessung based on single opening area (B×H), not total (B×H×count)
     const total = i.result || 0
     const cnt = parseFloat(i.count) || 1
     const singleArea = cnt > 0 ? total / cnt : total
-    return singleArea >= (vobThreshold || 0) ? s + total : s
+    return singleArea >= (vobMax || 0) ? s + total : s
   }, 0)
   const nettoM2 = Math.round((bruttoM2 - totalAbzug) * 100) / 100
 
   // Check which quick-positions are already added
-  const hasWaende = positions.some(i => i.unit === 'Wand')
-  const hasDecke = positions.some(i => i.description?.includes('Decke'))
-  const hasSockel = positions.some(i => i.unit === 'lfm' && i.description?.includes('Sockel'))
+  const isAdded = (sp) => {
+    if (sp.unit === 'Wand') return positions.some(i => i.unit === 'Wand')
+    if (sp.unit === 'lfm') return positions.some(i => i.unit === 'lfm' && i.description?.includes(sp.desc.split(' ')[0]))
+    if (sp.calc === 'floor') return positions.some(i => i.description?.includes(sp.desc.split(' ')[0]))
+    return false
+  }
+
+  // Schnellposition values
+  const spValues = (sp) => {
+    if (sp.calc === 'wall') return [rL, rB, rH, 1]
+    if (sp.calc === 'floor') return [rL, rB, '', 1]
+    if (sp.calc === 'perimeter') return [umfang, '', '', 1]
+    return ['', '', '', 1]
+  }
+
+  // Show height input only if wall positions exist
+  const needsHeight = hasWall
 
   return (
     <div className="rounded-xl border border-slate-600 overflow-hidden">
@@ -1931,19 +1982,21 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
               <input type="number" step="0.01" value={room.width || ''} onChange={e => onChange({ ...room, width: e.target.value })}
                 className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
             </div>
-            <span className="text-slate-500 pb-2">×</span>
-            <div className="flex-1">
-              <label className="text-xs text-slate-400">H (m)</label>
-              <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
-            </div>
+            {needsHeight && <>
+              <span className="text-slate-500 pb-2">×</span>
+              <div className="flex-1">
+                <label className="text-xs text-slate-400">H (m)</label>
+                <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+              </div>
+            </>}
           </div>
 
           {/* Auto-computed hints */}
           {hasDims && (
-            <div className="flex gap-3 text-xs text-slate-400 bg-slate-800/50 rounded px-2 py-1.5">
-              <span>Wände: <span className="text-white font-mono">{formatNum(wandflaeche)} m²</span></span>
-              <span>Decke: <span className="text-white font-mono">{formatNum(deckenflaeche)} m²</span></span>
+            <div className="flex flex-wrap gap-3 text-xs text-slate-400 bg-slate-800/50 rounded px-2 py-1.5">
+              {hasWall && wandflaeche > 0 && <span>Wände: <span className="text-white font-mono">{formatNum(wandflaeche)} m²</span></span>}
+              {hasFloor && deckenflaeche > 0 && <span>{gewerk === 'maler' || gewerk === 'trockenbau' ? 'Decke' : 'Boden'}: <span className="text-white font-mono">{formatNum(deckenflaeche)} m²</span></span>}
               <span>Umfang: <span className="text-white font-mono">{formatNum(umfang)} m</span></span>
             </div>
           )}
@@ -1951,26 +2004,22 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
           {/* Schnellpositionen */}
           {hasDims && (
             <div className="flex flex-wrap gap-1.5">
-              <button onClick={() => addPosition('Wandfläche', 'Wand', rL, rB, rH, 1)} disabled={hasWaende}
-                className="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30">
-                + Wände
-              </button>
-              <button onClick={() => addPosition('Deckenfläche', 'm²', rL, rB, '', 1)} disabled={hasDecke}
-                className="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30">
-                + Decke
-              </button>
-              <button onClick={() => addPosition('Sockelleiste', 'lfm', umfang, '', '', 1)} disabled={hasSockel}
-                className="px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30">
-                + Sockelleiste
-              </button>
-              <button onClick={() => addPosition('Tür lackieren', 'Stk', '', '', '', 1)}
-                className="px-2.5 py-1 rounded text-xs font-medium transition-colors bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 border border-slate-600/30">
-                + Tür
-              </button>
-              <button onClick={() => addPosition('Fenster lackieren', 'Stk', '', '', '', 1)}
-                className="px-2.5 py-1 rounded text-xs font-medium transition-colors bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 border border-slate-600/30">
-                + Fenster
-              </button>
+              {schnellpos.map(sp => {
+                const [l, w, h, c] = spValues(sp)
+                const isStkButton = sp.calc === 'stk'
+                return (
+                  <button key={sp.label}
+                    onClick={() => addPosition(sp.desc, sp.unit, l, w, h, c)}
+                    disabled={!isStkButton && isAdded(sp)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors disabled:opacity-30 ${
+                      isStkButton
+                        ? 'bg-slate-700/60 text-slate-300 hover:bg-slate-600/60 border border-slate-600/30'
+                        : 'bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30'
+                    }`}>
+                    + {sp.label}
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -2008,7 +2057,7 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
                   const totalArea = op.result || 0
                   const cnt = parseFloat(op.count) || 1
                   const singleArea = cnt > 0 ? totalArea / cnt : totalArea
-                  const isUebermessen = vobThreshold && singleArea > 0 && singleArea < vobThreshold
+                  const isUebermessen = vobMax > 0 && singleArea > 0 && singleArea < vobMax
                   return (
                     <div key={op.id} className="flex items-center gap-1.5 text-xs">
                       <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
@@ -2024,9 +2073,9 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
                         className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
                       <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
                       {isUebermessen ? (
-                        <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobThreshold} m² — übermessen`}>✓</span>
+                        <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobMax} m² — übermessen`}>✓</span>
                       ) : totalArea > 0 ? (
-                        <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobThreshold} m² — abgezogen`}>−</span>
+                        <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobMax} m² — abgezogen`}>−</span>
                       ) : <span className="min-w-[24px]" />}
                       <button onClick={() => removeOpening(idx)} className="text-red-400/40 hover:text-red-400">✕</button>
                     </div>
@@ -2036,8 +2085,13 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
                   className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
                   + Öffnung
                 </button>
-                {vobThreshold && (
-                  <p className="text-[10px] text-slate-500 mt-1">VOB/C: Öffnungen &lt; {vobThreshold} m² werden übermessen (✓ = kein Abzug)</p>
+                {vobMax > 0 && gw.din && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    VOB/C DIN {gw.din}: Öffnungen {vobWand && vobBoden && vobWand !== vobBoden
+                      ? `Wand < ${vobWand} m², Boden < ${vobBoden} m²`
+                      : `< ${vobMax} m²`
+                    } übermessen (✓ = kein Abzug)
+                  </p>
                 )}
               </div>
             )}
@@ -2046,7 +2100,7 @@ function MalerRaumCard({ room, onChange, onRemove, vobThreshold }) {
           {/* Netto summary */}
           {bruttoM2 > 0 && (
             <div className="flex justify-between items-center px-2 py-1.5 bg-slate-800/40 rounded text-xs">
-              <span className="text-slate-400">Netto Wandfläche:</span>
+              <span className="text-slate-400">Netto:</span>
               <span className="text-white font-mono font-semibold">{formatNum(nettoM2)} m²</span>
             </div>
           )}
@@ -2411,7 +2465,9 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       }
     } else {
       // Room-based: each position = separate invoice item
-      const vobThr = GEWERKE.find(g => g.id === form.gewerk)?.vobThreshold || 0
+      const gwData = GEWERKE.find(g => g.id === form.gewerk) || {}
+      const hasWallPos = ['maler', 'fliesen', 'trockenbau'].includes(form.gewerk)
+      const vobThr = hasWallPos ? (gwData.vobWand || 0) : (gwData.vobBoden || 0)
       for (const room of form.rooms) {
         // Compute total deduction for m² (respecting Übermessung)
         const openings = (room.items || []).filter(i => i.subtract)
@@ -2539,9 +2595,13 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
               </div>
               {(() => {
                 const g = GEWERKE.find(x => x.id === form.gewerk)
-                return g?.vobThreshold != null ? (
+                if (!g?.din) return null
+                const parts = []
+                if (g.vobWand) parts.push(`Wand ≤ ${g.vobWand} m²`)
+                if (g.vobBoden) parts.push(`Boden ≤ ${g.vobBoden} m²`)
+                return parts.length > 0 ? (
                   <p className="text-xs text-slate-500 mt-1">
-                    VOB/C DIN {g.din}: Öffnungen ≤ {g.vobThreshold} m² werden übermessen
+                    VOB/C DIN {g.din}: Öffnungen übermessen — {parts.join(', ')}
                   </p>
                 ) : null
               })()}
@@ -2570,10 +2630,10 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   + Position hinzufügen
                 </button>
               </div>
-            ) : form.gewerk === 'maler' ? (
+            ) : TRADE_SCHNELLPOS[form.gewerk] ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-sm font-semibold">🖌️ Räume</span>
+                  <span className="text-white text-sm font-semibold">{GEWERKE.find(g => g.id === form.gewerk)?.icon} Räume</span>
                   <span className="text-slate-400 text-xs">({form.rooms.length})</span>
                   {totalEntries.length > 0 && (
                     <span className="text-slate-400 text-xs font-mono ml-auto">
@@ -2582,12 +2642,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   )}
                 </div>
                 {form.rooms.map((room, idx) => (
-                  <MalerRaumCard
+                  <TradeRaumCard
                     key={room.id}
                     room={room}
                     onChange={r => updateRoom(idx, r)}
                     onRemove={() => removeRoom(idx)}
-                    vobThreshold={GEWERKE.find(g => g.id === 'maler')?.vobThreshold}
+                    gewerk={form.gewerk}
                   />
                 ))}
                 <button
@@ -2598,7 +2658,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                 </button>
               </div>
             ) : (
-              /* Bereiche (Fliesen, Trockenbau, Bodenbelag, etc.) */
+              /* Fallback: generic Bereiche */
               <div className="border border-slate-600 rounded-xl overflow-hidden">
                 <div
                   className="flex items-center gap-2 px-3 py-2 bg-slate-700/60 cursor-pointer"
