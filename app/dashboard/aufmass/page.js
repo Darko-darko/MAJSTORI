@@ -718,13 +718,13 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
   }
 
   const addPanel = () => {
-    const panels = [...pos.panels, { type: 'fix', hinge: 'left' }]
+    const panels = [...pos.panels.map(p => ({ ...p, width: '', manual: false })), { type: 'fix', hinge: 'left' }]
     onChange({ ...pos, panels, preset: 'custom' })
   }
 
   const removePanel = (idx) => {
     if (pos.panels.length <= 1) return
-    const panels = pos.panels.filter((_, i) => i !== idx)
+    const panels = pos.panels.filter((_, i) => i !== idx).map(p => ({ ...p, width: '', manual: false }))
     onChange({ ...pos, panels, preset: 'custom' })
   }
 
@@ -831,13 +831,14 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
               }
               const addSegPanel = () => {
                 const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels = segs[si].panels.map(p => ({ ...p, width: '', manual: false }))
                 segs[si].panels.push({ type: 'fix', hinge: 'left' })
                 onChange({ ...pos, segments: segs })
               }
               const removeSegPanel = (pi) => {
                 if (seg.panels.length <= 1) return
                 const segs = JSON.parse(JSON.stringify(pos.segments))
-                segs[si].panels = segs[si].panels.filter((_, j) => j !== pi)
+                segs[si].panels = segs[si].panels.filter((_, j) => j !== pi).map(p => ({ ...p, width: '', manual: false }))
                 onChange({ ...pos, segments: segs })
               }
               const removeSeg = () => {
@@ -860,13 +861,15 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-slate-500 w-[20px] shrink-0">B:</span>
                       <input type="number" value={seg.width || ''} onChange={e => updateSeg('width', e.target.value)}
-                        placeholder="z.B. 600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
+                        placeholder="z.B. 600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-slate-500 w-[20px] shrink-0">H:</span>
                       <input type="number" value={seg.height || ''} onChange={e => updateSeg('height', e.target.value)}
-                        placeholder={`z.B. ${[1400, 1200, 1000, 800][si] || 1200}`} className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
+                        placeholder={`z.B. ${[1400, 1200, 1000, 800][si] || 1200}`} className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.height) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                   </div>
@@ -874,9 +877,6 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                   {seg.panels.map((panel, pi) => {
                     const segTotalW = parseFloat(seg.width) || 0
                     const showWidths = seg.panels.length > 1 && segTotalW > 0
-                    const otherVal = seg.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
-                    const autoVal = segTotalW - otherVal
-                    const isAuto = showWidths && !parseFloat(panel.width) && otherVal > 0
                     return (
                     <div key={pi} className="flex items-center gap-1.5">
                         <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
@@ -893,18 +893,31 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                         )}
                         {showWidths && (
                           <input type="number"
-                            value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                            value={panel.width || ''}
                             onChange={e => {
                               const val = e.target.value
-                              const rest = segTotalW - (parseFloat(val) || 0)
+                              const newVal = parseFloat(val) || 0
                               const segs = JSON.parse(JSON.stringify(pos.segments))
-                              segs[si].panels.forEach((p, j) => {
-                                p.width = j === pi ? val : (rest > 0 ? String(rest) : '')
-                              })
+                              segs[si].panels[pi] = { ...segs[si].panels[pi], width: val, manual: val !== '' }
+                              if (segTotalW > 0) {
+                                const autoIdxs = []
+                                let manualSum = 0
+                                segs[si].panels.forEach((p, j) => {
+                                  if (j === pi) return
+                                  if (p.manual) manualSum += parseFloat(p.width) || 0
+                                  else autoIdxs.push(j)
+                                })
+                                const remainder = segTotalW - newVal - manualSum
+                                if (autoIdxs.length > 0) {
+                                  const each = remainder > 0 ? Math.round(remainder / autoIdxs.length) : 0
+                                  autoIdxs.forEach(j => { segs[si].panels[j] = { ...segs[si].panels[j], width: each > 0 ? String(each) : '' } })
+                                }
+                              }
                               onChange({ ...pos, segments: segs })
                             }}
-                            placeholder="B"
-                            className={`w-12 min-h-[32px] px-0.5 py-1 border border-slate-600 rounded text-[10px] text-center shrink-0 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`} />
+                            placeholder={`z.B. ${segTotalW > 0 ? Math.round(segTotalW / seg.panels.length) : 600}`}
+                            className="w-14 min-h-[32px] px-0.5 py-1 border border-slate-600 rounded text-[10px] text-center placeholder:text-slate-500 shrink-0 bg-slate-700 text-white"
+                            style={validated && !parseFloat(panel.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                         )}
                         {seg.panels.length > 1 && (
                           <button onClick={() => removeSegPanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
@@ -923,7 +936,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                         <option value="klapp">Klapp</option>
                       </select>
                       <input type="number" value={seg.oberlichtHeight || ''} onChange={e => updateSeg('oberlichtHeight', e.target.value)}
-                        placeholder="z.B. 400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
+                        placeholder="z.B. 400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.oberlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                       <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
@@ -938,7 +952,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
                         <option value="klapp">Klapp</option>
                       </select>
                       <input type="number" value={seg.unterlichtHeight || ''} onChange={e => updateSeg('unterlichtHeight', e.target.value)}
-                        placeholder="z.B. 300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
+                        placeholder="z.B. 300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.unterlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                       <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
@@ -2409,7 +2424,24 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       for (let i = 0; i < form.rooms.length; i++) {
         const pos = form.rooms[i]
         const posLabel = `Pos. ${i + 1}`
-        if (pos.preset === 'mehrteilig') continue
+        if (pos.preset === 'mehrteilig') {
+          for (let si = 0; si < (pos.segments || []).length; si++) {
+            const seg = pos.segments[si]
+            const segLabel = `${posLabel} Segment ${String.fromCharCode(65 + si)}`
+            if (!parseFloat(seg.width)) { setError(`${segLabel}: Bitte Breite eingeben`); return false }
+            if (!parseFloat(seg.height)) { setError(`${segLabel}: Bitte Höhe eingeben`); return false }
+            if (seg.panels.length > 1 && seg.panels.some(p => !parseFloat(p.width))) {
+              setError(`${segLabel}: Bitte alle Flügelbreiten eingeben`); return false
+            }
+            if (seg.oberlicht && !parseFloat(seg.oberlichtHeight)) {
+              setError(`${segLabel}: Bitte Oberlicht-Höhe eingeben`); return false
+            }
+            if (seg.unterlicht && !parseFloat(seg.unterlichtHeight)) {
+              setError(`${segLabel}: Bitte Unterlicht-Höhe eingeben`); return false
+            }
+          }
+          continue
+        }
         if (pos.panels.length > 1 && pos.panels.some(p => !parseFloat(p.width))) {
           setError(`${posLabel}: Bitte alle Flügelbreiten eingeben`); return false
         }
