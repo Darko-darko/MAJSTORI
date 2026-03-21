@@ -920,7 +920,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                         <option value="klapp">Klapp</option>
                       </select>
                       <input type="number" value={seg.oberlichtHeight || ''} onChange={e => updateSeg('oberlichtHeight', e.target.value)}
-                        placeholder="400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="z.B. 400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
                       <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
@@ -935,7 +935,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                         <option value="klapp">Klapp</option>
                       </select>
                       <input type="number" value={seg.unterlichtHeight || ''} onChange={e => updateSeg('unterlichtHeight', e.target.value)}
-                        placeholder="300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="z.B. 300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
                       <span className="text-[10px] text-slate-500">mm</span>
                       <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
@@ -1002,7 +1002,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
                   <input type="number" value={pos.oberlichtHeight || ''} onChange={e => update('oberlichtHeight', e.target.value)}
-                    placeholder="400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                    placeholder="z.B. 400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
                 <button onClick={toggleOberlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
@@ -1023,7 +1023,7 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
                   <input type="number" value={pos.unterlichtHeight || ''} onChange={e => update('unterlichtHeight', e.target.value)}
-                    placeholder="300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                    placeholder="z.B. 300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs" />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
                 <button onClick={toggleUnterlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
@@ -1069,8 +1069,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                           : { ...p, width: each > 0 ? String(each) : '' })
                         onChange({ ...pos, panels })
                       }}
-                      placeholder=""
-                      className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
+                      placeholder="z.B. 600"
+                      className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center placeholder:text-slate-500 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
                     />
                     <span className="text-[10px] text-slate-500">mm</span>
                   </div>
@@ -2380,8 +2380,29 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const totals = computeTotals(form.rooms, form.gewerk)
   const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
 
+  const validateForm = () => {
+    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return false }
+    if (form.gewerk === 'fensterbau') {
+      for (let i = 0; i < form.rooms.length; i++) {
+        const pos = form.rooms[i]
+        const posLabel = `Pos. ${i + 1}`
+        if (pos.preset === 'mehrteilig') continue
+        if (pos.panels.length > 1 && pos.panels.every(p => !parseFloat(p.width))) {
+          setError(`${posLabel}: Bitte Flügelbreiten eingeben`); return false
+        }
+        if (pos.oberlicht && !parseFloat(pos.oberlichtHeight)) {
+          setError(`${posLabel}: Bitte Oberlicht-Höhe eingeben`); return false
+        }
+        if (pos.unterlicht && !parseFloat(pos.unterlichtHeight)) {
+          setError(`${posLabel}: Bitte Unterlicht-Höhe eingeben`); return false
+        }
+      }
+    }
+    return true
+  }
+
   const save = async () => {
-    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    if (!validateForm()) return
     setSaving(true); setError('')
     try {
       const method = isNew ? 'POST' : 'PATCH'
@@ -2402,12 +2423,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   }
 
   const downloadPDF = async () => {
-    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    if (!validateForm()) return
     await generateAufmassPDF(form, majstor, signature)
   }
 
   const transferTo = async (docType) => {
-    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    if (!validateForm()) return
     await save()
     const flatItems = []
 
