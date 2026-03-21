@@ -235,7 +235,7 @@ useEffect(() => {
 
     try {
       const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
-      const yearStart = `${new Date().getFullYear()}-01-01`
+
 
       const [inquiriesResult, overdueResult] = await Promise.all([
         supabase
@@ -250,8 +250,7 @@ useEffect(() => {
           .eq('majstor_id', majstor.id)
           .eq('type', 'invoice')
           .in('status', ['sent', 'draft'])
-          .lt('due_date', today)
-          .gte('due_date', yearStart),
+          .lt('due_date', today),
       ])
 
       setBadges({
