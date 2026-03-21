@@ -2398,8 +2398,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         const pos = form.rooms[i]
         const posLabel = `Pos. ${i + 1}`
         if (pos.preset === 'mehrteilig') continue
-        if (pos.panels.length > 1 && pos.panels.every(p => !parseFloat(p.width))) {
-          setError(`${posLabel}: Bitte Flügelbreiten eingeben`); return false
+        if (pos.panels.length > 1 && pos.panels.some(p => !parseFloat(p.width))) {
+          setError(`${posLabel}: Bitte alle Flügelbreiten eingeben`); return false
         }
         if (pos.oberlicht && !parseFloat(pos.oberlichtHeight)) {
           setError(`${posLabel}: Bitte Oberlicht-Höhe eingeben`); return false
