@@ -1162,12 +1162,14 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
               <div>
                 <label className="block text-[10px] text-slate-500 mb-0.5">Breite (mm)</label>
                 <input type="number" value={pos.width} onChange={e => update('width', e.target.value)}
-                  placeholder="z.B. 1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  placeholder="z.B. 1200" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  style={validated && !parseFloat(pos.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
               </div>
               <div>
                 <label className="block text-[10px] text-slate-500 mb-0.5">Höhe gesamt (mm)</label>
                 <input type="number" value={pos.height} onChange={e => update('height', e.target.value)}
-                  placeholder="z.B. 1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  placeholder="z.B. 1400" className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  style={validated && !parseFloat(pos.height) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                 {pos.height && (pos.oberlichtHeight || pos.unterlichtHeight) && (
                   <p className="text-[10px] text-slate-500 mt-0.5">Flügel: {parseFloat(pos.height) - (parseFloat(pos.oberlichtHeight) || 0) - (parseFloat(pos.unterlichtHeight) || 0)} mm</p>
                 )}
@@ -2462,6 +2464,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           }
           continue
         }
+        if (!parseFloat(pos.width)) { setError(`${posLabel}: Bitte Breite eingeben`); return false }
+        if (!parseFloat(pos.height)) { setError(`${posLabel}: Bitte Höhe eingeben`); return false }
         if (pos.panels.length > 1 && pos.panels.some(p => !parseFloat(p.width))) {
           setError(`${posLabel}: Bitte alle Flügelbreiten eingeben`); return false
         }
