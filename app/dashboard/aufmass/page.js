@@ -864,25 +864,19 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                           </select>
                         )}
                         {showWidths && (
-                          isAuto ? (
-                            <span className="w-12 min-h-[32px] px-0.5 py-1 bg-slate-600/50 border border-slate-600 rounded text-[10px] text-center flex items-center justify-center shrink-0 text-slate-300 cursor-pointer"
-                              onClick={() => {
-                                const segs = JSON.parse(JSON.stringify(pos.segments))
-                                segs[si].panels.forEach((p, j) => { if (j !== pi) p.width = '' })
-                                segs[si].panels[pi] = { ...segs[si].panels[pi], width: String(autoVal > 0 ? autoVal : '') }
-                                onChange({ ...pos, segments: segs })
-                              }}>
-                              {autoVal > 0 ? autoVal : ''}
-                            </span>
-                          ) : (
-                            <input type="number" value={panel.width || ''} onChange={e => {
+                          <input type="number"
+                            value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                            onChange={e => {
+                              const val = e.target.value
+                              const rest = segTotalW - (parseFloat(val) || 0)
                               const segs = JSON.parse(JSON.stringify(pos.segments))
-                              segs[si].panels.forEach((p, j) => { if (j !== pi) p.width = '' })
-                              segs[si].panels[pi] = { ...segs[si].panels[pi], width: e.target.value }
+                              segs[si].panels.forEach((p, j) => {
+                                p.width = j === pi ? val : (rest > 0 ? String(rest) : '')
+                              })
                               onChange({ ...pos, segments: segs })
                             }}
-                              placeholder="B" className="w-12 min-h-[32px] px-0.5 py-1 bg-slate-700 border border-slate-600 rounded text-white text-[10px] text-center shrink-0" />
-                          )
+                            placeholder="B"
+                            className={`w-12 min-h-[32px] px-0.5 py-1 border border-slate-600 rounded text-[10px] text-center shrink-0 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`} />
                         )}
                         {seg.panels.length > 1 && (
                           <button onClick={() => removeSegPanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
@@ -1037,33 +1031,21 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 return (
                   <div key={pi} className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-500 w-14">Flügel {pi + 1}:</span>
-                    {isAuto ? (
-                      <>
-                        <span className="w-20 min-h-[32px] px-2 py-1 bg-slate-600/50 border border-slate-600 rounded text-xs text-center flex items-center justify-center text-slate-300 cursor-pointer"
-                          onClick={() => {
-                            const panels = pos.panels.map((p, j) => j === pi ? { ...p, width: String(autoVal > 0 ? autoVal : '') } : { ...p, width: '' })
-                            onChange({ ...pos, panels })
-                          }}>
-                          {autoVal > 0 ? autoVal : ''}
-                        </span>
-                        <span className="text-[10px] text-slate-500">mm</span>
-                        <span className="text-[9px] text-slate-500 italic">auto</span>
-                      </>
-                    ) : (
-                      <>
-                        <input
-                          type="number"
-                          value={panel.width || ''}
-                          onChange={e => {
-                            const panels = pos.panels.map((p, j) => j === pi ? { ...p, width: e.target.value } : { ...p, width: '' })
-                            onChange({ ...pos, panels })
-                          }}
-                          placeholder=""
-                          className="w-20 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-center"
-                        />
-                        <span className="text-[10px] text-slate-500">mm</span>
-                      </>
-                    )}
+                    <input
+                      type="number"
+                      value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                      onChange={e => {
+                        const val = e.target.value
+                        const rest = totalW - (parseFloat(val) || 0)
+                        const panels = pos.panels.map((p, j) => j === pi
+                          ? { ...p, width: val }
+                          : { ...p, width: rest > 0 ? String(rest) : '' })
+                        onChange({ ...pos, panels })
+                      }}
+                      placeholder=""
+                      className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
+                    />
+                    <span className="text-[10px] text-slate-500">mm</span>
                   </div>
                 )
               })}
