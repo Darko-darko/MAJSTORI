@@ -95,22 +95,17 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const maxH = isSm ? 36 : isXl ? 240 : 100
   const pad = isSm ? 3 : isXl ? 10 : 6
   const availW = maxW - 2 * pad, availH = maxH - 2 * pad
-  // Proportional frame based on actual dimensions
-  const pw0 = parseFloat(posWidth) || 0, ph0 = parseFloat(posHeight) || 0
-  let frameW, frameH
-  if (pw0 > 0 && ph0 > 0) {
-    const scale = Math.min(availW / pw0, availH / ph0)
-    frameW = pw0 * scale; frameH = ph0 * scale
-  } else {
-    frameW = availW; frameH = availH
-  }
+  // Proportional frame — fallback to placeholder hints when no real values
+  const pw0 = parseFloat(posWidth) || 1200, ph0 = parseFloat(posHeight) || 1400
+  const scale = Math.min(availW / pw0, availH / ph0)
+  const frameW = pw0 * scale, frameH = ph0 * scale
   const vw = frameW + 2 * pad + (isSm ? 0 : dimSpace)
   const vh = frameH + 2 * pad + (isSm ? 0 : dimSpace)
   const fX = pad, fY = pad // frame origin
   const olHmm = parseFloat(oberlichtHeight) || 0
-  const olH = oberlicht ? (olHmm > 0 && ph0 > 0 ? frameH * olHmm / ph0 : frameH * 0.22) : 0
+  const olH = oberlicht ? frameH * (olHmm > 0 ? olHmm : 300) / ph0 : 0
   const ulHmm = parseFloat(unterlichtHeight) || 0
-  const ulH = unterlicht ? (ulHmm > 0 && ph0 > 0 ? frameH * ulHmm / ph0 : frameH * 0.22) : 0
+  const ulH = unterlicht ? frameH * (ulHmm > 0 ? ulHmm : 300) / ph0 : 0
   const panelH = frameH - olH - ulH
   const sw = isSm ? 0.8 : isXl ? 1.8 : 1.2
 
@@ -120,7 +115,7 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
   const effWidths = panels.map((p, i) => {
     if (i === panels.length - 1 && panels.length > 1 && totalPosW > 0) {
       const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
-      return Math.max(1, totalPosW - others)
+      if (others > 0) return Math.max(1, totalPosW - others)
     }
     return parseFloat(p.width) || 0
   })
@@ -231,12 +226,13 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
           <line x1={fX} y1={fY + frameH + dimOff2} x2={fX + frameW} y2={fY + frameH + dimOff2} />
           <text x={fX + frameW / 2} y={fY + frameH + dimOff2 + fontSize + 2} textAnchor="middle" fontSize={fontSize} stroke="none">{totalPosW}</text>
 
-          {/* Bottom: individual panel widths (if different) */}
+          {/* Bottom: individual panel widths (only when real values entered) */}
           {hasCustomWidths && panels.length > 1 && (() => {
             let cx = fX
             return panels.map((_, i) => {
               const pw = panelWidths[i]
               const ew = effWidths[i]
+              const label = ew > 0 ? Math.round(ew) : ''
               const x1 = cx, x2 = cx + pw
               cx += pw
               return (
@@ -244,7 +240,7 @@ function FensterSketch({ panels, oberlicht, size = 'sm', posWidth = 0, posHeight
                   <line x1={x1} y1={fY + frameH + 2} x2={x1} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
                   <line x1={x2} y1={fY + frameH + 2} x2={x2} y2={fY + frameH + dimOff1 + dimTick} strokeWidth={0.4} />
                   <line x1={x1} y1={fY + frameH + dimOff1} x2={x2} y2={fY + frameH + dimOff1} />
-                  <text x={x1 + pw / 2} y={fY + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{ew > 0 ? Math.round(ew) : ''}</text>
+                  <text x={x1 + pw / 2} y={fY + frameH + dimOff1 + fontSize} textAnchor="middle" fontSize={fontSize - 1} stroke="none">{label}</text>
                 </g>
               )
             })
@@ -321,8 +317,13 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
   const fontSize = isSm ? 6 : isXl ? 10 : 7
 
   // Compute real dimensions
-  const segWidths = segments.map(s => parseFloat(s.width) || 100)
-  const segHeights = segments.map(s => parseFloat(s.height) || 100)
+  // Fallback to placeholder values when no real dimensions entered
+  const defaultH = [1400, 1200, 1000, 800]
+  const segWidths = segments.map(s => parseFloat(s.width) || 600)
+  const segHeights = segments.map((s, i) => parseFloat(s.height) || (defaultH[i] || 1200))
+  const segHasRealW = segments.map(s => parseFloat(s.width) > 0)
+  const segHasRealH = segments.map(s => parseFloat(s.height) > 0)
+  const anyRealDims = segHasRealW.some(Boolean) || segHasRealH.some(Boolean)
   const totalRealW = segWidths.reduce((a, b) => a + b, 0)
   const maxRealH = Math.max(...segHeights)
 
@@ -353,9 +354,9 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         // OL/UL proportional heights
         const segRealH = segHeights[si]
         const olHmm = parseFloat(seg.oberlichtHeight) || 0
-        const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+        const olH = seg.oberlicht ? segH * (olHmm > 0 ? olHmm : 300) / segRealH : 0
         const ulHmm = parseFloat(seg.unterlichtHeight) || 0
-        const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+        const ulH = seg.unterlicht ? segH * (ulHmm > 0 ? ulHmm : 300) / segRealH : 0
         const panelH = segH - olH - ulH
         const panelY = segY + olH
 
@@ -365,7 +366,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         const panelEffWidths = panels.map((p, i) => {
           if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
             const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
-            return Math.max(1, segRealW - others)
+            if (others > 0) return Math.max(1, segRealW - others)
           }
           return parseFloat(p.width) || 0
         })
@@ -455,8 +456,8 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
         )
       })}
 
-      {/* Dimension lines */}
-      {!isSm && (() => {
+      {/* Dimension lines — only when real values entered */}
+      {!isSm && anyRealDims && (() => {
         const dimOff1 = isXl ? 10 : 6
         const dimOff2 = isXl ? 28 : 18
         const dimOff3 = isXl ? 46 : 30
@@ -488,7 +489,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
                 const panelEffWidths = panels.map((p, i) => {
                   if (i === panels.length - 1 && panels.length > 1 && segRealW > 0) {
                     const others = panels.reduce((s, pp, j) => j !== i ? s + (parseFloat(pp.width) || 0) : s, 0)
-                    return Math.max(1, segRealW - others)
+                    if (others > 0) return Math.max(1, segRealW - others)
                   }
                   return parseFloat(p.width) || 0
                 })
@@ -526,6 +527,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
               const sw2 = segWidths[si] * scale
               const x1 = cx, x2 = cx + sw2
               cx += sw2
+              if (!segHasRealW[si]) return null
               return (
                 <g key={`sw${si}`}>
                   <line x1={x1} y1={pad + frameH + 2} x2={x1} y2={segRowY + dimTick} strokeWidth={0.4} />
@@ -536,7 +538,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
               )
             })}
             {/* Bottom: total width */}
-            {segments.length > 1 && (
+            {segments.length > 1 && segHasRealW.every(Boolean) && (
               <>
                 <line x1={pad} y1={segRowY + dimTick + 2} x2={pad} y2={totalRowY + dimTick} strokeWidth={0.4} />
                 <line x1={pad + frameW} y1={segRowY + dimTick + 2} x2={pad + frameW} y2={totalRowY + dimTick} strokeWidth={0.4} />
@@ -592,9 +594,9 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
 
                 // OL/UL proportional heights
                 const olHmm = parseFloat(seg.oberlichtHeight) || 0
-                const olH = seg.oberlicht ? (olHmm > 0 ? segH * olHmm / segRealH : segH * 0.22) : 0
+                const olH = seg.oberlicht ? segH * (olHmm > 0 ? olHmm : 300) / segRealH : 0
                 const ulHmm = parseFloat(seg.unterlichtHeight) || 0
-                const ulH = seg.unterlicht ? (ulHmm > 0 ? segH * ulHmm / segRealH : segH * 0.22) : 0
+                const ulH = seg.unterlicht ? segH * (ulHmm > 0 ? ulHmm : 300) / segRealH : 0
                 // Only show breakdown kote when actual heights are entered
                 const olDispMm = seg.oberlicht && olHmm > 0 ? olHmm : 0
                 const ulDispMm = seg.unterlicht && ulHmm > 0 ? ulHmm : 0
@@ -608,6 +610,7 @@ function MehrteiligSketch({ segments, alignment = 'top', size = 'sm' }) {
                 const breakdownX = hasBreakdown ? pad + frameW + dimOff1 + colIdx * colSpacing : 0
                 if (hasBreakdown) colIdx--
 
+                if (!segHasRealH[si]) return null
                 return (
                   <g key={`sh${si}`}>
                     {/* Total height — full extension lines to frame */}
@@ -672,7 +675,7 @@ function newFensterPosition() {
     notes: '',
     // Mehrteilig fields (only used when preset === 'mehrteilig')
     segments: [],
-    alignment: 'top',
+    alignment: 'bottom',
   }
 }
 
@@ -683,7 +686,7 @@ const PANEL_TYPES = [
   { id: 'fix', label: 'Fest' },
 ]
 
-function FensterPositionCard({ pos, index, onChange, onRemove }) {
+function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
   const update = (key, val) => onChange({ ...pos, [key]: val })
   const [showCustom, setShowCustom] = useState(false)
   const [zoomSketch, setZoomSketch] = useState(false)
@@ -715,13 +718,13 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
   }
 
   const addPanel = () => {
-    const panels = [...pos.panels, { type: 'fix', hinge: 'left' }]
+    const panels = [...pos.panels.map(p => ({ ...p, width: '', manual: false })), { type: 'fix', hinge: 'left' }]
     onChange({ ...pos, panels, preset: 'custom' })
   }
 
   const removePanel = (idx) => {
     if (pos.panels.length <= 1) return
-    const panels = pos.panels.filter((_, i) => i !== idx)
+    const panels = pos.panels.filter((_, i) => i !== idx).map(p => ({ ...p, width: '', manual: false }))
     onChange({ ...pos, panels, preset: 'custom' })
   }
 
@@ -828,13 +831,14 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
               }
               const addSegPanel = () => {
                 const segs = JSON.parse(JSON.stringify(pos.segments))
+                segs[si].panels = segs[si].panels.map(p => ({ ...p, width: '', manual: false }))
                 segs[si].panels.push({ type: 'fix', hinge: 'left' })
                 onChange({ ...pos, segments: segs })
               }
               const removeSegPanel = (pi) => {
                 if (seg.panels.length <= 1) return
                 const segs = JSON.parse(JSON.stringify(pos.segments))
-                segs[si].panels = segs[si].panels.filter((_, j) => j !== pi)
+                segs[si].panels = segs[si].panels.filter((_, j) => j !== pi).map(p => ({ ...p, width: '', manual: false }))
                 onChange({ ...pos, segments: segs })
               }
               const removeSeg = () => {
@@ -857,13 +861,15 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-slate-500 w-[20px] shrink-0">B:</span>
                       <input type="number" value={seg.width || ''} onChange={e => updateSeg('width', e.target.value)}
-                        placeholder="600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="z.B. 600" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-slate-500 w-[20px] shrink-0">H:</span>
                       <input type="number" value={seg.height || ''} onChange={e => updateSeg('height', e.target.value)}
-                        placeholder="1400" className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder={`z.B. ${[1400, 1200, 1000, 800][si] || 1200}`} className="flex-1 min-w-0 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.height) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                     </div>
                   </div>
@@ -871,9 +877,6 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                   {seg.panels.map((panel, pi) => {
                     const segTotalW = parseFloat(seg.width) || 0
                     const showWidths = seg.panels.length > 1 && segTotalW > 0
-                    const otherVal = seg.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
-                    const autoVal = segTotalW - otherVal
-                    const isAuto = showWidths && !parseFloat(panel.width) && otherVal > 0
                     return (
                     <div key={pi} className="flex items-center gap-1.5">
                         <span className="text-[10px] text-slate-500 w-[40px] shrink-0">Flügel {pi + 1}</span>
@@ -890,18 +893,31 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                         )}
                         {showWidths && (
                           <input type="number"
-                            value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                            value={panel.width || ''}
                             onChange={e => {
                               const val = e.target.value
-                              const rest = segTotalW - (parseFloat(val) || 0)
+                              const newVal = parseFloat(val) || 0
                               const segs = JSON.parse(JSON.stringify(pos.segments))
-                              segs[si].panels.forEach((p, j) => {
-                                p.width = j === pi ? val : (rest > 0 ? String(rest) : '')
-                              })
+                              segs[si].panels[pi] = { ...segs[si].panels[pi], width: val, manual: val !== '' }
+                              if (segTotalW > 0) {
+                                const autoIdxs = []
+                                let manualSum = 0
+                                segs[si].panels.forEach((p, j) => {
+                                  if (j === pi) return
+                                  if (p.manual) manualSum += parseFloat(p.width) || 0
+                                  else autoIdxs.push(j)
+                                })
+                                const remainder = segTotalW - newVal - manualSum
+                                if (autoIdxs.length > 0) {
+                                  const each = remainder > 0 ? Math.round(remainder / autoIdxs.length) : 0
+                                  autoIdxs.forEach(j => { segs[si].panels[j] = { ...segs[si].panels[j], width: each > 0 ? String(each) : '' } })
+                                }
+                              }
                               onChange({ ...pos, segments: segs })
                             }}
-                            placeholder="B"
-                            className={`w-12 min-h-[32px] px-0.5 py-1 border border-slate-600 rounded text-[10px] text-center shrink-0 ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`} />
+                            placeholder={`z.B. ${segTotalW > 0 ? Math.round(segTotalW / seg.panels.length) : 600}`}
+                            className="w-14 min-h-[32px] px-0.5 py-1 border border-slate-600 rounded text-[10px] text-center placeholder:text-slate-500 shrink-0 bg-slate-700 text-white"
+                            style={validated && !parseFloat(panel.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                         )}
                         {seg.panels.length > 1 && (
                           <button onClick={() => removeSegPanel(pi)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
@@ -920,7 +936,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                         <option value="klapp">Klapp</option>
                       </select>
                       <input type="number" value={seg.oberlichtHeight || ''} onChange={e => updateSeg('oberlichtHeight', e.target.value)}
-                        placeholder="400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="z.B. 400" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.oberlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                       <button onClick={() => updateSeg('oberlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
@@ -935,7 +952,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                         <option value="klapp">Klapp</option>
                       </select>
                       <input type="number" value={seg.unterlichtHeight || ''} onChange={e => updateSeg('unterlichtHeight', e.target.value)}
-                        placeholder="300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                        placeholder="z.B. 300" className="w-14 min-h-[32px] px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                        style={validated && !parseFloat(seg.unterlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                       <span className="text-[10px] text-slate-500">mm</span>
                       <button onClick={() => updateSeg('unterlicht', false)} className="text-red-400/70 text-xs px-0.5 shrink-0">✕</button>
                     </div>
@@ -1002,7 +1020,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
                   <input type="number" value={pos.oberlichtHeight || ''} onChange={e => update('oberlichtHeight', e.target.value)}
-                    placeholder="400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                    placeholder="z.B. 400" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                    style={validated && !parseFloat(pos.oberlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
                 <button onClick={toggleOberlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
@@ -1023,7 +1042,8 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">Höhe:</span>
                   <input type="number" value={pos.unterlichtHeight || ''} onChange={e => update('unterlichtHeight', e.target.value)}
-                    placeholder="300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-xs" />
+                    placeholder="z.B. 300" className="w-16 min-h-[36px] px-2 py-1.5 bg-slate-700 border border-slate-600 rounded text-white placeholder:text-slate-500 text-xs"
+                    style={validated && !parseFloat(pos.unterlichtHeight) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                   <span className="text-[10px] text-slate-500">mm</span>
                 </div>
                 <button onClick={toggleUnterlicht} className="text-red-400/70 text-xs px-0.5 shrink-0 min-h-[36px]">✕</button>
@@ -1050,33 +1070,49 @@ function FensterPositionCard({ pos, index, onChange, onRemove }) {
             <p className="text-[10px] text-slate-500 mb-1.5">Flügelbreiten (optional — leer = gleich breit)</p>
             <div className="space-y-1.5">
               {pos.panels.map((panel, pi) => {
-                const otherVal = pos.panels.reduce((s, p, j) => j !== pi ? s + (parseFloat(p.width) || 0) : s, 0)
-                const autoVal = totalW - otherVal
-                const isAuto = !parseFloat(panel.width) && otherVal > 0
                 return (
                   <div key={pi} className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-500 w-14">Flügel {pi + 1}:</span>
                     <input
                       type="number"
-                      value={isAuto && autoVal > 0 ? autoVal : (panel.width || '')}
+                      value={panel.width || ''}
                       onChange={e => {
                         const val = e.target.value
-                        const rest = totalW - (parseFloat(val) || 0)
-                        const othersCount = pos.panels.length - 1
-                        const each = othersCount > 0 ? Math.round(rest / othersCount) : 0
-                        const panels = pos.panels.map((p, j) => j === pi
-                          ? { ...p, width: val }
-                          : { ...p, width: each > 0 ? String(each) : '' })
-                        onChange({ ...pos, panels })
+                        const newVal = parseFloat(val) || 0
+                        const newPanels = pos.panels.map((p, j) => j === pi
+                          ? { ...p, width: val, manual: val !== '' }
+                          : { ...p })
+                        if (totalW > 0) {
+                          const autoIdxs = []
+                          let manualSum = 0
+                          newPanels.forEach((p, j) => {
+                            if (j === pi) return
+                            if (p.manual) manualSum += parseFloat(p.width) || 0
+                            else autoIdxs.push(j)
+                          })
+                          const remainder = totalW - newVal - manualSum
+                          if (autoIdxs.length > 0) {
+                            const each = remainder > 0 ? Math.round(remainder / autoIdxs.length) : 0
+                            autoIdxs.forEach(j => { newPanels[j] = { ...newPanels[j], width: each > 0 ? String(each) : '' } })
+                          }
+                        }
+                        onChange({ ...pos, panels: newPanels })
                       }}
-                      placeholder=""
-                      className={`w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center ${isAuto ? 'bg-slate-600/50 text-slate-300' : 'bg-slate-700 text-white'}`}
+                      placeholder={`z.B. ${totalW > 0 ? Math.round(totalW / pos.panels.length) : 600}`}
+                      className="w-20 min-h-[32px] px-2 py-1 border border-slate-600 rounded text-xs text-center placeholder:text-slate-500 bg-slate-700 text-white"
+                      style={validated && !parseFloat(panel.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                     />
                     <span className="text-[10px] text-slate-500">mm</span>
                   </div>
                 )
               })}
             </div>
+            {(() => {
+              const sum = pos.panels.reduce((s, p) => s + (p.manual ? (parseFloat(p.width) || 0) : 0), 0)
+              return sum > totalW ? (
+                <p className="text-[10px] text-red-400 mt-1">⚠ Summe ({sum}) überschreitet Breite ({totalW})</p>
+              ) : null
+            })()}
           </div>
         )
       })()}
@@ -2364,6 +2400,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const [bereicheOpen, setBereicheOpen] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [validated, setValidated] = useState(false)
 
 
   const addRoom = () => setForm(f => ({
@@ -2380,8 +2417,47 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const totals = computeTotals(form.rooms, form.gewerk)
   const totalEntries = Object.entries(totals).filter(([, v]) => v > 0)
 
+  const validateForm = () => {
+    setValidated(true)
+    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return false }
+    if (form.gewerk === 'fensterbau') {
+      for (let i = 0; i < form.rooms.length; i++) {
+        const pos = form.rooms[i]
+        const posLabel = `Pos. ${i + 1}`
+        if (pos.preset === 'mehrteilig') {
+          for (let si = 0; si < (pos.segments || []).length; si++) {
+            const seg = pos.segments[si]
+            const segLabel = `${posLabel} Segment ${String.fromCharCode(65 + si)}`
+            if (!parseFloat(seg.width)) { setError(`${segLabel}: Bitte Breite eingeben`); return false }
+            if (!parseFloat(seg.height)) { setError(`${segLabel}: Bitte Höhe eingeben`); return false }
+            if (seg.panels.length > 1 && seg.panels.some(p => !parseFloat(p.width))) {
+              setError(`${segLabel}: Bitte alle Flügelbreiten eingeben`); return false
+            }
+            if (seg.oberlicht && !parseFloat(seg.oberlichtHeight)) {
+              setError(`${segLabel}: Bitte Oberlicht-Höhe eingeben`); return false
+            }
+            if (seg.unterlicht && !parseFloat(seg.unterlichtHeight)) {
+              setError(`${segLabel}: Bitte Unterlicht-Höhe eingeben`); return false
+            }
+          }
+          continue
+        }
+        if (pos.panels.length > 1 && pos.panels.some(p => !parseFloat(p.width))) {
+          setError(`${posLabel}: Bitte alle Flügelbreiten eingeben`); return false
+        }
+        if (pos.oberlicht && !parseFloat(pos.oberlichtHeight)) {
+          setError(`${posLabel}: Bitte Oberlicht-Höhe eingeben`); return false
+        }
+        if (pos.unterlicht && !parseFloat(pos.unterlichtHeight)) {
+          setError(`${posLabel}: Bitte Unterlicht-Höhe eingeben`); return false
+        }
+      }
+    }
+    return true
+  }
+
   const save = async () => {
-    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    if (!validateForm()) return
     setSaving(true); setError('')
     try {
       const method = isNew ? 'POST' : 'PATCH'
@@ -2402,12 +2478,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   }
 
   const downloadPDF = async () => {
-    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    if (!validateForm()) return
     await generateAufmassPDF(form, majstor, signature)
   }
 
   const transferTo = async (docType) => {
-    if (!form.title.trim()) { setError('Bitte Titel eingeben'); return }
+    if (!validateForm()) return
     await save()
     const flatItems = []
 
@@ -2555,6 +2631,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="z.B. Renovierung Musterstr. 5"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={validated && !form.title.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                 />
               </div>
               <div>
@@ -2625,6 +2702,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                     index={idx}
                     onChange={p => updateRoom(idx, p)}
                     onRemove={() => removeRoom(idx)}
+                    validated={validated}
                   />
                 ))}
                 <button
