@@ -11,8 +11,8 @@ const UNITS = ['m²', 'Wand', 'Bogen', 'Trap', 'lfm', 'm³', 'Stk']
 const MATERIAL_UNITS = ['Stk', 'L', 'kg', 'm', 'm²', 'Karton', 'Sack']
 
 const GEWERKE = [
-  { id: 'maler', label: 'Maler', icon: '🖌️', vobWand: 2.5, vobBoden: 2.5, din: '18363' },
   { id: 'fensterbau', label: 'Fensterbau', icon: '🏠', vobWand: null, vobBoden: null, din: null },
+  { id: 'maler', label: 'Maler', icon: '🖌️', vobWand: 2.5, vobBoden: 2.5, din: '18363' },
   { id: 'fliesen', label: 'Fliesen', icon: '🔲', vobWand: 2.5, vobBoden: 0.5, din: '18352' },
   { id: 'trockenbau', label: 'Trockenbau', icon: '🧱', vobWand: 2.5, vobBoden: 0.5, din: '18340' },
   { id: 'bodenbelag', label: 'Bodenbelag', icon: '🟫', vobWand: null, vobBoden: 0.5, din: '18365' },
@@ -2356,7 +2356,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
     rooms: aufmass?.rooms || [],
     notes: aufmass?.notes || '',
     materials: aufmass?.materials || [],
-    gewerk: aufmass?.gewerk || 'maler',
+    gewerk: aufmass?.gewerk || 'fensterbau',
   })
   const [signature, setSignature] = useState(aufmass?.signature || null)
   const [bereicheOpen, setBereicheOpen] = useState(true)

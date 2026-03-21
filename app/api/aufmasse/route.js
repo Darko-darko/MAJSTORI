@@ -69,7 +69,7 @@ export async function POST(request) {
       rooms: rooms || [],
       notes: notes || null,
       materials: materials || [],
-      gewerk: gewerk || 'allgemein',
+      gewerk: gewerk || 'fensterbau',
     })
     .select()
     .single()
