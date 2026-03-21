@@ -46,13 +46,13 @@ const TRADE_SCHNELLPOS = {
 // ─── Fensterbau ─────────────────────────────────────────
 const FENSTER_PRESETS = [
   { id: '1-kd-l', label: '1-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }] },
-  { id: '2-kd', label: '2-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }] },
   { id: '1-fix', label: 'Fest', panels: [{ type: 'fix' }] },
   { id: '1-kipp', label: 'Kipp', panels: [{ type: 'kipp' }] },
-  { id: 'kd-fix', label: 'DK + Fest', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }] },
-  { id: '3-kd', label: '3-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }, { type: 'kipp-dreh', hinge: 'right' }] },
   { id: '1-kd-ob', label: 'DK + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }], oberlicht: true },
+  { id: '2-kd', label: '2-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }] },
+  { id: 'kd-fix', label: 'DK + Fest', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }] },
   { id: '2-kd-ob', label: '2-flg. + OL', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'kipp-dreh', hinge: 'right' }], oberlicht: true },
+  { id: '3-kd', label: '3-flg.', panels: [{ type: 'kipp-dreh', hinge: 'left' }, { type: 'fix' }, { type: 'kipp-dreh', hinge: 'right' }] },
   { id: 'mehrteilig', label: 'Mehrteilig', panels: [], segments: true },
 ]
 const FENSTER_MATERIALS = ['Kunststoff', 'Kunststoff-Alu', 'Holz', 'Holz-Alu', 'Aluminium', 'Stahl']
