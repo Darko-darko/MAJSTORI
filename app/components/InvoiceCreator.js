@@ -120,6 +120,7 @@ export default function InvoiceCreator({
   // Attachments
   const [pendingAttachments, setPendingAttachments] = useState([]) // {file, localId}
   const [savedAttachments, setSavedAttachments] = useState([])     // from DB
+  const [anlagenOpen, setAnlagenOpen] = useState(false)
   const [showAufmassPicker, setShowAufmassPicker] = useState(false)
   const [aufmassPickerList, setAufmassPickerList] = useState([])
   const [aufmassPickerLoading, setAufmassPickerLoading] = useState(false)
@@ -2141,46 +2142,72 @@ if (searchError) {
                   <span className="text-white font-semibold text-lg">{formatCurrency(formData.total_amount)}</span>
                 </div>
 
-                {/* Anhänge */}
-                <div className="pt-3 border-t border-slate-700/50 mt-2">
-                  {savedAttachments.map(att => (
-                    <div key={att.id} className="flex items-center justify-between py-1.5 px-2 bg-slate-800 rounded mb-1">
-                      <button type="button" onClick={() => handlePreviewSavedAttachment(att)} className="text-slate-300 hover:text-slate-100 text-sm truncate text-left hover:underline">
-                        {att.filename.startsWith('Regiebericht_') ? '📋' : '📎'} {att.filename} <span className="text-slate-500">({formatFileSize(att.file_size)})</span>
-                      </button>
-                      <button type="button" onClick={() => handleDeleteSavedAttachment(att)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
-                    </div>
-                  ))}
-                  {pendingAttachments.map(att => {
-                    const isRegie = att.file.name.startsWith('Regiebericht_')
-                    return (
-                      <div key={att.localId} className={`flex items-center justify-between py-1.5 px-2 rounded mb-1 ${isRegie ? 'bg-blue-900/30 border border-dashed border-blue-600/50' : 'bg-slate-800/60 border border-dashed border-slate-600'}`}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const url = URL.createObjectURL(att.file)
-                            const a = document.createElement('a')
-                            a.href = url
-                            a.target = '_blank'
-                            document.body.appendChild(a)
-                            a.click()
-                            document.body.removeChild(a)
-                          }}
-                          className={`text-sm truncate text-left hover:underline ${isRegie ? 'text-blue-400 hover:text-blue-300' : 'text-slate-400 hover:text-slate-200'}`}
-                        >
-                          {isRegie ? '📋' : '📎'} {att.file.name} <span className="text-slate-500">({formatFileSize(att.file.size)})</span>
+                {/* Anhänge — Liste */}
+                {(savedAttachments.length > 0 || pendingAttachments.length > 0) && (
+                  <div className="pt-2 border-t border-slate-700/50 mt-2 space-y-1">
+                    {savedAttachments.map(att => (
+                      <div key={att.id} className="flex items-center justify-between py-1.5 px-2 bg-slate-800 rounded">
+                        <button type="button" onClick={() => handlePreviewSavedAttachment(att)} className="text-slate-300 hover:text-slate-100 text-sm truncate text-left hover:underline">
+                          {att.filename.startsWith('Regiebericht_') ? '📋' : att.filename.startsWith('Aufmass_') ? '📐' : '📎'} {att.filename} <span className="text-slate-500">({formatFileSize(att.file_size)})</span>
                         </button>
-                        <button type="button" onClick={() => removePendingAttachment(att.localId)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
+                        <button type="button" onClick={() => handleDeleteSavedAttachment(att)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
                       </div>
-                    )
-                  })}
+                    ))}
+                    {pendingAttachments.map(att => {
+                      const isRegie = att.file.name.startsWith('Regiebericht_')
+                      const isAufmass = att.file.name.startsWith('Aufmass_')
+                      return (
+                        <div key={att.localId} className={`flex items-center justify-between py-1.5 px-2 rounded ${isRegie ? 'bg-blue-900/30 border border-dashed border-blue-600/50' : isAufmass ? 'bg-amber-900/20 border border-dashed border-amber-600/40' : 'bg-slate-800/60 border border-dashed border-slate-600'}`}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = URL.createObjectURL(att.file)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.target = '_blank'
+                              document.body.appendChild(a)
+                              a.click()
+                              document.body.removeChild(a)
+                            }}
+                            className={`text-sm truncate text-left hover:underline ${isRegie ? 'text-blue-400 hover:text-blue-300' : isAufmass ? 'text-amber-400 hover:text-amber-300' : 'text-slate-400 hover:text-slate-200'}`}
+                          >
+                            {isRegie ? '📋' : isAufmass ? '📐' : '📎'} {att.file.name} <span className="text-slate-500">({formatFileSize(att.file.size)})</span>
+                          </button>
+                          <button type="button" onClick={() => removePendingAttachment(att.localId)} className="text-slate-500 hover:text-red-400 text-lg leading-none ml-2">×</button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Anlagen — collapsible panel */}
+            <div className="border border-blue-600/40 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAnlagenOpen(o => !o)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                <span className="font-medium">
+                  + Anlage hinzufügen
+                  {(savedAttachments.length + pendingAttachments.length) > 0 && (
+                    <span className="text-slate-500 font-normal ml-1">({savedAttachments.length + pendingAttachments.length})</span>
+                  )}
+                </span>
+                <span className="text-slate-500 text-xs">{anlagenOpen ? '▲' : '▼'}</span>
+              </button>
+              {anlagenOpen && (
+                <div className="px-3 pb-3 space-y-2">
+                  {/* Datei hochladen */}
                   {(savedAttachments.length + pendingAttachments.length) < 20 && (
-                    <label className="flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-slate-200 cursor-pointer mt-1 py-2 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors">
+                    <label className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 cursor-pointer py-2 px-3 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors">
                       <input type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
-                      📎 Anhang hinzufügen
+                      📎 Datei hochladen
                     </label>
                   )}
-                  {selectedAufmassIds.length > 0 && !pendingAttachments.some(a => a.localId?.startsWith('aufmass_')) && !savedAttachments.some(a => a.file_name?.startsWith('Aufmass_')) && (
+                  {/* Aufmaß als Anlage */}
+                  {selectedAufmassIds.length > 0 && !pendingAttachments.some(a => a.localId?.startsWith('aufmass_')) && !savedAttachments.some(a => a.filename?.startsWith('Aufmass_')) && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -2196,30 +2223,27 @@ if (searchError) {
                             const file = new File([blob], fileName, { type: 'application/pdf' })
                             setPendingAttachments(prev => [...prev, { file, localId: `aufmass_${aId}` }])
                           }
+                          setAnlagenOpen(false)
                         } catch (e) { console.error('Aufmaß attach failed:', e) }
                       }}
-                      className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 mt-1 py-2 border border-dashed border-blue-600/40 hover:border-blue-500 rounded-lg transition-colors w-full"
+                      className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 py-2 px-3 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors w-full"
                     >
-                      📐 Aufmaß als Anlage hinzufügen
+                      📐 Aufmaß als Anlage
                     </button>
                   )}
                 </div>
-              </div>
+              )}
             </div>
 
-            <hr className="border-slate-700 my-2" />
-
-            {/* Aufmaß */}
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={openAufmassPicker}
-                className="w-full py-2.5 border border-dashed rounded-lg text-sm text-white transition-colors text-center"
-                style={{ borderColor: '#2563eb' }}
-              >
-                📐 Aufmaß importieren
-              </button>
-            </div>
+            {/* Aufmaß importieren — odvojeno */}
+            <button
+              type="button"
+              onClick={openAufmassPicker}
+              className="w-full py-2.5 border border-dashed rounded-lg text-sm text-white transition-colors text-center"
+              style={{ borderColor: '#2563eb' }}
+            >
+              📐 Aufmaß importieren
+            </button>
 
             {/* Additional Information */}
             <div>
@@ -2368,6 +2392,7 @@ if (searchError) {
           </div>
         </div>
       )}
+
     </>
   )
 }
