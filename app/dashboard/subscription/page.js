@@ -219,7 +219,7 @@ export default function SubscriptionPage() {
     try {
       console.log('💳 Fetching authenticated account URL for customer:', customerId)
 
-      const response = await fetch('/.netlify/functions/fastspring-get-account-url', {
+      const response = await fetch('/api/fastspring-account-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId }),
@@ -261,7 +261,7 @@ export default function SubscriptionPage() {
       console.log('🚫 Starting cancellation process...')
       
       // 🔥 FASTSPRING: Koristi fastspring-cancel-subscription funkciju
-      const response = await fetch('/.netlify/functions/fastspring-cancel-subscription', {
+      const response = await fetch('/api/fastspring-cancel', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -357,7 +357,7 @@ export default function SubscriptionPage() {
       console.log('▶️ Starting reactivation process...')
 
       // 🔥 FASTSPRING: Koristi fastspring-reactivate-subscription funkciju
-      const response = await fetch('/.netlify/functions/fastspring-reactivate-subscription', {
+      const response = await fetch('/api/fastspring-reactivate', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
