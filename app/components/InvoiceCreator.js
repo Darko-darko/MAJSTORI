@@ -90,7 +90,14 @@ export default function InvoiceCreator({
     payment_terms_days: 14,
     valid_until: '',
     issue_date: new Date().toISOString().split('T')[0],
-    is_kleinunternehmer: false
+    is_kleinunternehmer: false,
+    // Rabatt, Skonto, Sicherheitseinbehalt
+    rabatt_percent: 0,
+    rabatt_reason: '',
+    skonto_percent: 0,
+    skonto_days: 10,
+    sicherheitseinbehalt_percent: 0,
+    sicherheitseinbehalt_years: 2,
   })
   
   const [loading, setLoading] = useState(false)
@@ -871,51 +878,60 @@ export default function InvoiceCreator({
     }
   }
 
-  // Calculate totals
+  // Recalculate when rabatt/einbehalt changes
+  useEffect(() => {
+    if (formData.items?.length) calculateTotals(formData.items)
+  }, [formData.rabatt_percent, formData.sicherheitseinbehalt_percent])
+
+  // Calculate totals — uses functional setFormData to read latest rabatt/einbehalt
   const calculateTotals = (items) => {
-    if (formData.is_kleinunternehmer) {
-      const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.total || 0), 0).toFixed(2))
-      setFormData(prev => ({ ...prev, subtotal, tax_amount: 0, total_amount: subtotal }))
-      return
-    }
-
-    const taxRate = parseFloat(formData.tax_rate) || 0
-
-    // Per-item calculation, then sum
-    let totalNetto = 0
-    let totalTax = 0
-    let totalBrutto = 0
-    for (const item of items) {
-      const qty = parseFloat(item.quantity) || 0
-      if (item.price_source === 'brutto') {
-        // Brutto entered: brutto is exact, MwSt = brutto × rate / (100 + rate)
-        const gross = parseFloat(item.price_gross) || 0
-        const itemBrutto = parseFloat((qty * gross).toFixed(2))
-        const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
-        const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
-        totalBrutto += itemBrutto
-        totalTax += itemTax
-        totalNetto += itemNetto
-      } else {
-        // Netto entered: netto is exact, MwSt = netto × rate / 100
-        const itemNetto = parseFloat((item.total || 0).toFixed(2))
-        const itemTax = parseFloat((itemNetto * taxRate / 100).toFixed(2))
-        const itemBrutto = parseFloat((itemNetto + itemTax).toFixed(2))
-        totalNetto += itemNetto
-        totalTax += itemTax
-        totalBrutto += itemBrutto
+    setFormData(prev => {
+      if (prev.is_kleinunternehmer) {
+        const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.total || 0), 0).toFixed(2))
+        const rabattPct = parseFloat(prev.rabatt_percent) || 0
+        const rabattAmount = parseFloat((subtotal * rabattPct / 100).toFixed(2))
+        const afterRabatt = parseFloat((subtotal - rabattAmount).toFixed(2))
+        const einbehaltPct = parseFloat(prev.sicherheitseinbehalt_percent) || 0
+        const einbehaltAmount = parseFloat((afterRabatt * einbehaltPct / 100).toFixed(2))
+        return { ...prev, items, subtotal, tax_amount: 0, total_amount: afterRabatt, rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: parseFloat((afterRabatt - einbehaltAmount).toFixed(2)) }
       }
-    }
-    totalNetto = parseFloat(totalNetto.toFixed(2))
-    totalTax = parseFloat(totalTax.toFixed(2))
-    totalBrutto = parseFloat(totalBrutto.toFixed(2))
 
-    setFormData(prev => ({
-      ...prev,
-      subtotal: totalNetto,
-      tax_amount: totalTax,
-      total_amount: totalBrutto
-    }))
+      const taxRate = parseFloat(prev.tax_rate) || 0
+      let totalNetto = 0, totalTax = 0, totalBrutto = 0
+      for (const item of items) {
+        const qty = parseFloat(item.quantity) || 0
+        if (item.price_source === 'brutto') {
+          const gross = parseFloat(item.price_gross) || 0
+          const itemBrutto = parseFloat((qty * gross).toFixed(2))
+          const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
+          const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
+          totalBrutto += itemBrutto; totalTax += itemTax; totalNetto += itemNetto
+        } else {
+          const itemNetto = parseFloat((item.total || 0).toFixed(2))
+          const itemTax = parseFloat((itemNetto * taxRate / 100).toFixed(2))
+          const itemBrutto = parseFloat((itemNetto + itemTax).toFixed(2))
+          totalNetto += itemNetto; totalTax += itemTax; totalBrutto += itemBrutto
+        }
+      }
+      totalNetto = parseFloat(totalNetto.toFixed(2))
+
+      const rabattPct = parseFloat(prev.rabatt_percent) || 0
+      const rabattAmount = parseFloat((totalNetto * rabattPct / 100).toFixed(2))
+      const nettoAfterRabatt = parseFloat((totalNetto - rabattAmount).toFixed(2))
+
+      totalTax = parseFloat((nettoAfterRabatt * taxRate / 100).toFixed(2))
+      totalBrutto = parseFloat((nettoAfterRabatt + totalTax).toFixed(2))
+
+      const einbehaltPct = parseFloat(prev.sicherheitseinbehalt_percent) || 0
+      const einbehaltAmount = parseFloat((totalBrutto * einbehaltPct / 100).toFixed(2))
+      const zahlbarSofort = parseFloat((totalBrutto - einbehaltAmount).toFixed(2))
+
+      return {
+        ...prev, items,
+        subtotal: totalNetto, tax_amount: totalTax, total_amount: totalBrutto,
+        rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: zahlbarSofort,
+      }
+    })
   }
 
   // Voice recording functions
@@ -1309,6 +1325,16 @@ if (searchError) {
         payment_terms_days: formData.payment_terms_days,
         valid_until: type === 'quote' ? formData.valid_until : null,
         is_kleinunternehmer: formData.is_kleinunternehmer,
+        // Rabatt, Skonto, Sicherheitseinbehalt
+        rabatt_percent: parseFloat(formData.rabatt_percent) || 0,
+        rabatt_reason: formData.rabatt_reason || null,
+        rabatt_amount: parseFloat(formData.rabatt_amount) || 0,
+        skonto_percent: parseFloat(formData.skonto_percent) || 0,
+        skonto_days: parseInt(formData.skonto_days) || 0,
+        sicherheitseinbehalt_percent: parseFloat(formData.sicherheitseinbehalt_percent) || 0,
+        sicherheitseinbehalt_years: parseInt(formData.sicherheitseinbehalt_years) || 0,
+        einbehalt_amount: parseFloat(formData.einbehalt_amount) || 0,
+        zahlbar_sofort: parseFloat(formData.zahlbar_sofort) || 0,
         converted_from_quote_id: editData?.converted_from_quote_id || null,
         aufmass_id: selectedAufmassIds[0] || aufmassId || editData?.aufmass_id || null,
         aufmass_ids: selectedAufmassIds.length > 0 ? selectedAufmassIds : (editData?.aufmass_ids || null)
@@ -2139,28 +2165,159 @@ if (searchError) {
               </div>
             </div>
 
+            {/* Rabatt / Skonto / Sicherheitseinbehalt */}
+            <div className="bg-slate-900/50 rounded-lg p-4">
+              <h4 className="text-white font-semibold mb-4">Rabatt & Konditionen</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Rabatt */}
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Rabatt (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={formData.rabatt_percent || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, rabatt_percent: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                  />
+                  {parseFloat(formData.rabatt_percent) > 0 && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-400 mb-1">Grund</label>
+                      <select
+                        value={formData.rabatt_reason}
+                        onChange={e => setFormData(prev => ({ ...prev, rabatt_reason: e.target.value }))}
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                      >
+                        <option value="">Bitte wählen...</option>
+                        <option value="Treuerabatt">Treuerabatt</option>
+                        <option value="Mengenrabatt">Mengenrabatt</option>
+                        <option value="Saisonrabatt">Saisonrabatt</option>
+                        <option value="Barzahlung">Barzahlung</option>
+                        <option value="Gesamtauftrag">Gesamtauftrag</option>
+                        <option value="Nachlass">Nachlass</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Skonto */}
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Skonto (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={formData.skonto_percent || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, skonto_percent: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                  />
+                  {parseFloat(formData.skonto_percent) > 0 && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-400 mb-1">Zahlungsfrist (Tage)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={formData.skonto_days || 10}
+                        onChange={e => setFormData(prev => ({ ...prev, skonto_days: parseInt(e.target.value) || 10 }))}
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Sicherheitseinbehalt */}
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Sicherheitseinbehalt (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    step="0.5"
+                    value={formData.sicherheitseinbehalt_percent || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_percent: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                  />
+                  {parseFloat(formData.sicherheitseinbehalt_percent) > 0 && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-400 mb-1">Gewährleistung (Jahre)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.sicherheitseinbehalt_years || 2}
+                        onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_years: parseInt(e.target.value) || 2 }))}
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Totals Section */}
             <div className="bg-slate-900/50 rounded-lg p-4">
               <h4 className="text-white font-semibold mb-4">Berechnung</h4>
               <div className="space-y-2 max-w-md ml-auto">
                 <div className="flex justify-between">
                   <span className="text-slate-400">
-                    {formData.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Nettobetrag:'}
+                    {formData.is_kleinunternehmer ? 'Zwischensumme:' : 'Nettobetrag:'}
                   </span>
                   <span className="text-white">{formatCurrency(formData.subtotal)}</span>
                 </div>
-                
+
+                {/* Rabatt */}
+                {parseFloat(formData.rabatt_percent) > 0 && (
+                  <>
+                    <div className="flex justify-between text-red-400">
+                      <span>Rabatt ({formData.rabatt_percent}%){formData.rabatt_reason ? ` — ${formData.rabatt_reason}` : ''}:</span>
+                      <span>-{formatCurrency(formData.rabatt_amount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Nettobetrag nach Rabatt:</span>
+                      <span className="text-white">{formatCurrency((formData.subtotal || 0) - (formData.rabatt_amount || 0))}</span>
+                    </div>
+                  </>
+                )}
+
                 {!formData.is_kleinunternehmer && (
                   <div className="flex justify-between">
                     <span className="text-slate-400">zzgl. MwSt. ({formData.tax_rate}%):</span>
                     <span className="text-white">{formatCurrency(formData.tax_amount)}</span>
                   </div>
                 )}
-                
+
                 <div className="flex justify-between pt-2 border-t border-slate-700">
                   <span className="text-white font-semibold">Gesamtbetrag:</span>
                   <span className="text-white font-semibold text-lg">{formatCurrency(formData.total_amount)}</span>
                 </div>
+
+                {/* Sicherheitseinbehalt */}
+                {parseFloat(formData.sicherheitseinbehalt_percent) > 0 && (
+                  <>
+                    <div className="flex justify-between text-amber-400">
+                      <span>Sicherheitseinbehalt ({formData.sicherheitseinbehalt_percent}%):</span>
+                      <span>-{formatCurrency(formData.einbehalt_amount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-700">
+                      <span className="text-teal-400 font-semibold">Zahlbar sofort:</span>
+                      <span className="text-teal-400 font-semibold text-lg">{formatCurrency(formData.zahlbar_sofort || 0)}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* Skonto info */}
+                {parseFloat(formData.skonto_percent) > 0 && (
+                  <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-300">
+                    {formData.skonto_percent}% Skonto bei Zahlung innerhalb {formData.skonto_days} Tagen
+                    ({formatCurrency(((formData.zahlbar_sofort || formData.total_amount) * formData.skonto_percent / 100))})
+                  </div>
+                )}
 
                 {/* Anhänge — Liste */}
                 {(savedAttachments.length > 0 || pendingAttachments.length > 0) && (
