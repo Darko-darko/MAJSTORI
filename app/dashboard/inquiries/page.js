@@ -605,7 +605,7 @@ const stats = {
           <div className="divide-y divide-slate-700">
 
 {filteredInquiries.map((inquiry) => (
-  <div 
+  <div
     key={inquiry.id}
     className="p-4 sm:p-6 hover:bg-slate-700/30 transition-colors cursor-pointer"
     onClick={() => openInquiryModal(inquiry)}
@@ -651,6 +651,11 @@ const stats = {
         <div className="text-xs text-slate-500 break-all">{inquiry.customer_email}</div>
       </div>
       
+      {/* Anfrage öffnen hint */}
+      <div className="mb-3 text-center">
+        <span className="text-blue-400 text-sm font-medium">Anfrage öffnen →</span>
+      </div>
+
       {/* KONTEJNER 5: DROPDOWN-OVI - Potpuno izolovani */}
       <div className="grid grid-cols-2 gap-3">
         <select
