@@ -2125,6 +2125,12 @@ const HardResetModal = () => {
       return
     }
 
+    if (!localSettings.postal_code?.trim()) {
+      setSettingsError('Postleitzahl ist ein Pflichtfeld (erforderlich für ZUGFeRD-konforme Rechnungen).')
+      setSettingsLoading(false)
+      return
+    }
+
     const updateData = {
       is_kleinunternehmer: localSettings.is_kleinunternehmer,
       tax_number: localSettings.tax_number || null,
@@ -2311,7 +2317,7 @@ const HardResetModal = () => {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Postleitzahl
+                  Postleitzahl <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -2319,6 +2325,7 @@ const HardResetModal = () => {
                   value={localSettings.postal_code || ''}
                   onChange={handleLocalChange}
                   placeholder="10115"
+                  required
                   className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
                 />
               </div>
