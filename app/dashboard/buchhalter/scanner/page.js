@@ -7,9 +7,6 @@ import { pdfToImages } from '@/lib/pdfToImages'
 const SCAN_CATEGORIES = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
 const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
-const SCANNER_TESTERS = ['2f9f6665-3524-44a6-9a74-215571ad5690', 'd9a02afc-1508-4e36-8a26-e53aa9bf7dc8']
-
-
 export default function BuchhalterScanner() {
   const router = useRouter()
   const fileInputRef = useRef(null)
@@ -60,7 +57,6 @@ export default function BuchhalterScanner() {
   const initAuth = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) { router.push('/login'); return }
-    if (!SCANNER_TESTERS.includes(u.id)) { router.push('/dashboard/buchhalter'); return }
     const { data: { session } } = await supabase.auth.getSession()
     setUser(u)
     setToken(session?.access_token)
