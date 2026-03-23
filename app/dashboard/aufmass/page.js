@@ -752,14 +752,6 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
 
       {/* Typ-Auswahl */}
       <div>
-        {!showCustom && (
-          <button
-            type="button"
-            onClick={() => setShowCustom(true)}
-            className="w-full min-h-[44px] px-3 py-2 mb-3 rounded-lg text-sm font-medium transition-colors"
-            style={{ border: '2px dashed rgba(59,130,246,0.6)', color: 'rgba(59,130,246,0.8)' }}
-          >⚙ Anpassen</button>
-        )}
         <div className="flex items-center gap-2 mb-1">
           <label className="text-xs text-slate-500">Fenstertyp</label>
           {showCustom && (
@@ -1126,6 +1118,15 @@ function FensterPositionCard({ pos, index, onChange, onRemove, validated }) {
           </div>
         )
       })()}
+
+      {/* Anpassen button */}
+      {!showCustom && (
+        <button
+          type="button"
+          onClick={() => setShowCustom(true)}
+          className="min-h-[44px] px-2 py-1.5 text-xs font-medium transition-colors text-blue-400 hover:text-blue-300 underline decoration-blue-400"
+        >⚙ Anpassen</button>
+      )}
 
       {/* Vorschau + Maße */}
       <div className="flex flex-col sm:flex-row gap-3 items-start">
