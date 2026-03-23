@@ -11,6 +11,7 @@ export default function BuchhalterDashboard() {
   const [pendingInvites, setPendingInvites] = useState([]) // pending acceptance
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const [scanCount, setScanCount] = useState(0)
   const [confirmRevoke, setConfirmRevoke] = useState(null)
   const [revoking, setRevoking] = useState(false)
   const [accepting, setAccepting] = useState(null) // access_id being accepted
@@ -28,7 +29,7 @@ export default function BuchhalterDashboard() {
 
       // Profile + accesses in parallel
       const [profileResult, accessesResult] = await Promise.all([
-        supabase.from('majstors').select('role').eq('id', currentUser.id).single(),
+        supabase.from('majstors').select('role, scan_count').eq('id', currentUser.id).single(),
         supabase.from('buchhalter_access').select('id, majstor_id, accepted_at').eq('status', 'active').or(`buchhalter_id.eq.${currentUser.id},buchhalter_email.eq.${currentUser.email.toLowerCase()}`),
       ])
 
@@ -37,6 +38,7 @@ export default function BuchhalterDashboard() {
         router.push('/dashboard')
         return
       }
+      setScanCount(profile.scan_count || 0)
 
       const accesses = accessesResult.data
 
@@ -144,32 +146,82 @@ export default function BuchhalterDashboard() {
     )
   }
 
+  const isTester = user && SCANNER_TESTERS.includes(user.id)
+
   return (
-    <div className="space-y-6 pb-20">
+    <div className="pb-20">
       <FirstVisitHint pageKey="buchhalter" />
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">📒 Meine Auftraggeber</h1>
-          <p className="text-slate-400 text-sm mt-1">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {user && SCANNER_TESTERS.includes(user.id) && (
+
+      <div className="flex gap-6">
+        {/* Sidebar — desktop only */}
+        <div className="hidden md:flex md:flex-col w-56 shrink-0 gap-3">
+          {isTester && (
             <a
               href="/dashboard/buchhalter/scanner"
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
+              className="flex items-center gap-3 px-4 py-3.5 bg-slate-800/50 border border-slate-700 hover:border-teal-600 rounded-xl transition-colors group"
             >
-              <img src="/robot.png" alt="KI" className="w-5 h-5" /> Belege scannen
+              <img src="/robot.png" alt="KI" className="w-7 h-7" />
+              <div>
+                <div className="text-white text-sm font-semibold group-hover:text-teal-300 transition-colors">Belege scannen</div>
+                <div className="text-slate-500 text-[10px]">KI-Belegerfassung</div>
+              </div>
             </a>
           )}
           <a
-            href="/zugferd-validator"
-            target="_blank"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
+            href="/dashboard/buchhalter/zugferd"
+            className="flex items-center gap-3 px-4 py-3.5 bg-slate-800/50 border border-slate-700 hover:border-teal-600 rounded-xl transition-colors group"
           >
-            ZUGFeRD prüfen
+            <span className="w-7 h-7 bg-teal-600/20 rounded-lg flex items-center justify-center text-teal-400 text-sm font-bold shrink-0">✓</span>
+            <div>
+              <div className="text-white text-sm font-semibold group-hover:text-teal-300 transition-colors">ZUGFeRD prüfen</div>
+              <div className="text-slate-500 text-[10px]">PDF/XML validieren</div>
+            </div>
           </a>
+
+          {/* Scan Plan Status */}
+          {isTester && (() => {
+            const scanLimit = 200
+            const pct = Math.min(100, Math.round((scanCount / scanLimit) * 100))
+            const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-teal-500'
+            return (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-teal-400 text-xs font-semibold">Free-Plan</span>
+                  <span className="text-slate-400 text-xs">{scanCount}/{scanLimit}</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
+                  <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-slate-500 text-[10px]">{scanLimit - scanCount} Scans übrig</p>
+              </div>
+            )
+          })()}
         </div>
-      </div>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Mobile nav buttons */}
+          <div className="flex md:hidden items-center gap-2 mb-4">
+            {isTester && (
+              <a
+                href="/dashboard/buchhalter/scanner"
+                className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <img src="/robot.png" alt="KI" className="w-5 h-5" /> Belege scannen
+              </a>
+            )}
+            <a
+              href="/dashboard/buchhalter/zugferd"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              ✓ ZUGFeRD prüfen
+            </a>
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-bold text-white">Meine Auftraggeber</h1>
+            <p className="text-slate-400 text-sm mt-1">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
+          </div>
 
       {/* Pending Invites */}
       {pendingInvites.length > 0 && (
@@ -257,6 +309,9 @@ export default function BuchhalterDashboard() {
           ))}
         </div>
       )}
+
+        </div>{/* end Main Content */}
+      </div>{/* end flex wrapper */}
 
       {/* Confirm Revoke Dialog */}
       {confirmRevoke && (
