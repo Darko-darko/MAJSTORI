@@ -2425,6 +2425,38 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
   const [error, setError] = useState('')
   const [validated, setValidated] = useState(false)
 
+  // Customer autocomplete
+  const [customerId, setCustomerId] = useState(aufmass?.customer_id || null)
+  const [customerSuggestions, setCustomerSuggestions] = useState([])
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const customerTimeout = useRef(null)
+
+
+  const searchCustomers = async (term) => {
+    if (!term || term.length < 2 || !majstor?.id) { setCustomerSuggestions([]); return }
+    const { data } = await supabase
+      .from('customers')
+      .select('id, name, email, street, postal_code, city')
+      .eq('majstor_id', majstor.id)
+      .ilike('name', `%${term}%`)
+      .limit(5)
+    setCustomerSuggestions(data || [])
+    setShowCustomerDropdown((data || []).length > 0)
+  }
+
+  const handleCustomerNameChange = (val) => {
+    setForm(f => ({ ...f, customer_name: val }))
+    setCustomerId(null) // Reset selection on manual typing
+    clearTimeout(customerTimeout.current)
+    customerTimeout.current = setTimeout(() => searchCustomers(val), 300)
+  }
+
+  const selectCustomer = (c) => {
+    setForm(f => ({ ...f, customer_name: c.name }))
+    setCustomerId(c.id)
+    setShowCustomerDropdown(false)
+    setCustomerSuggestions([])
+  }
 
   const addRoom = () => setForm(f => ({
     ...f,
@@ -2629,6 +2661,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       gewerk: form.gewerk,
       docType,
       attachAufmass: attachPdf,
+      customer_name: form.customer_name || null,
+      customer_id: customerId || null,
     }))
     router.push('/dashboard/invoices?from=aufmass')
   }
@@ -2672,15 +2706,32 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                 />
               </div>
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs text-slate-400 mb-1">Kundenname</label>
               <input
                 type="text"
                 value={form.customer_name}
-                onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))}
+                onChange={e => handleCustomerNameChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                onFocus={() => { if (customerSuggestions.length > 0) setShowCustomerDropdown(true) }}
                 placeholder="Optional..."
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              {showCustomerDropdown && customerSuggestions.length > 0 && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg overflow-hidden shadow-xl">
+                  {customerSuggestions.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => selectCustomer(c)}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-700 transition-colors"
+                    >
+                      <p className="text-white text-sm">{c.name}</p>
+                      {c.city && <p className="text-slate-400 text-xs">{c.street ? `${c.street}, ` : ''}{c.city}</p>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Gewerk */}
