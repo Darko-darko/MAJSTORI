@@ -38,6 +38,7 @@ function DashboardPageContent() {
   const [aufmassImportItems, setAufmassImportItems] = useState(null)
   const [aufmassImportId, setAufmassImportId] = useState(null)
   const [aufmassAttachPdf, setAufmassAttachPdf] = useState(false)
+  const [aufmassCustomer, setAufmassCustomer] = useState(null)
 
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailItem, setEmailItem] = useState(null)
@@ -130,11 +131,22 @@ function DashboardPageContent() {
     if (fromInvoice === 'aufmass') {
       const raw = sessionStorage.getItem('prm_aufmass_import')
       if (raw) {
-        const { items, aufmass_id, docType, attachAufmass } = JSON.parse(raw)
+        const { items, aufmass_id, docType, attachAufmass, customer_name, customer_id } = JSON.parse(raw)
         sessionStorage.removeItem('prm_aufmass_import')
         setAufmassImportItems(items || [])
         setAufmassImportId(aufmass_id || null)
         setAufmassAttachPdf(!!attachAufmass)
+        if (customer_id) {
+          // Fetch full customer data for autofill
+          supabase
+            .from('customers')
+            .select('id, name, email, phone, street, postal_code, city, country, tax_number, weg_street, weg_postal_code, weg_city, weg_country, last_service_location')
+            .eq('id', customer_id)
+            .single()
+            .then(({ data: cust }) => { if (cust) setAufmassCustomer(cust) })
+        } else if (customer_name) {
+          setAufmassCustomer({ name: customer_name })
+        }
         setCreateType(docType === 'invoice' ? 'invoice' : 'quote')
         setIsEditMode(false)
         setEditingItem(null)
@@ -2828,6 +2840,7 @@ const HardResetModal = () => {
           prefilledItems={aufmassImportItems}
           aufmassId={aufmassImportId}
           aufmassAttachPdf={aufmassAttachPdf}
+          prefilledCustomer={aufmassCustomer}
         />
       )}
 
