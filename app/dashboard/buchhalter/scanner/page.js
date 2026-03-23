@@ -34,6 +34,8 @@ export default function BuchhalterScanner() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
   // Scan
+  const [scanCount, setScanCount] = useState(0)
+  const SCAN_LIMIT = 10
   const [scanningId, setScanningId] = useState(null)
   const [bulkScanning, setBulkScanning] = useState(false)
   const [bulkScanProgress, setBulkScanProgress] = useState({ done: 0, total: 0 })
@@ -76,6 +78,7 @@ export default function BuchhalterScanner() {
       })
       const data = await res.json()
       if (data.folders) setFolders(data.folders)
+      if (data.scan_count !== undefined) setScanCount(data.scan_count)
     } catch (e) {
       console.error(e)
     } finally {
@@ -226,6 +229,7 @@ export default function BuchhalterScanner() {
   }
 
   const scanBeleg = async (beleg) => {
+    if (scanCount >= SCAN_LIMIT) { alert(`Scan-Limit erreicht (${SCAN_LIMIT} Scans). Belege werden automatisch über Ihre Mandanten gescannt.`); return }
     setScanningId(beleg.id)
     try {
       const imageUrl = await getImageUrl(beleg.storage_path)
@@ -250,6 +254,7 @@ export default function BuchhalterScanner() {
       const data = await res.json()
       if (data.success) {
         setBelege(prev => prev.map(b => b.id === beleg.id ? { ...b, ...data.data, scanned_at: new Date().toISOString() } : b))
+        setScanCount(prev => prev + 1)
         setScanEditItem({ ...beleg, ...data.data, scanned_at: new Date().toISOString() })
         setScanResult(data.data)
       } else {
@@ -262,12 +267,15 @@ export default function BuchhalterScanner() {
   const bulkScanAll = async () => {
     const unscanned = belege.filter(b => !b.scanned_at)
     if (!unscanned.length) return
+    if (scanCount >= SCAN_LIMIT) { alert(`Scan-Limit erreicht (${SCAN_LIMIT} Scans). Belege werden automatisch über Ihre Mandanten gescannt.`); return }
 
     setBulkScanning(true)
-    setBulkScanProgress({ done: 0, total: unscanned.length })
+    const remaining = SCAN_LIMIT - scanCount
+    const toScan = unscanned.slice(0, remaining)
+    setBulkScanProgress({ done: 0, total: toScan.length })
 
-    for (let i = 0; i < unscanned.length; i++) {
-      const b = unscanned[i]
+    for (let i = 0; i < toScan.length; i++) {
+      const b = toScan[i]
       try {
         const imageUrl = await getImageUrl(b.storage_path)
         if (!imageUrl) continue
@@ -293,9 +301,10 @@ export default function BuchhalterScanner() {
         const data = await res.json()
         if (data.success) {
           setBelege(prev => prev.map(x => x.id === b.id ? { ...x, ...data.data, scanned_at: new Date().toISOString() } : x))
+          setScanCount(prev => prev + 1)
         }
       } catch (e) { console.error(e) }
-      setBulkScanProgress({ done: i + 1, total: unscanned.length })
+      setBulkScanProgress({ done: i + 1, total: toScan.length })
     }
     setBulkScanning(false)
   }
