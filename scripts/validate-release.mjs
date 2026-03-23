@@ -188,6 +188,60 @@ async function main() {
   const tmpPDF = join(ROOT, 'scripts', '_test_invoice.pdf')
   writeFileSync(tmpPDF, pdfBuffer)
 
+  // ── 1b. Verify factur-x.xml is embedded in final PDF ──────────────────────
+  section('1b. Verify factur-x.xml embedded in PDF')
+
+  try {
+    const { PDFDocument: PDFLib, PDFName, PDFArray, PDFDict } = await import('pdf-lib')
+    const pdfDoc = await PDFLib.load(pdfBuffer, { ignoreEncryption: true })
+    const catalog = pdfDoc.catalog
+
+    const namesDict = catalog.lookup(PDFName.of('Names'))
+    const efDict = namesDict instanceof PDFDict ? namesDict.lookup(PDFName.of('EmbeddedFiles')) : null
+    const nameArr = efDict instanceof PDFDict ? efDict.lookup(PDFName.of('Names')) : null
+
+    let xmlFound = false
+    if (nameArr instanceof PDFArray) {
+      for (let i = 0; i + 1 < nameArr.size(); i += 2) {
+        const n = nameArr.lookup(i)
+        const name = n?.decodeText?.() ?? n?.asString?.() ?? ''
+        if (name === 'factur-x.xml') { xmlFound = true; break }
+      }
+    }
+
+    if (xmlFound) {
+      ok('factur-x.xml found in EmbeddedFiles')
+    } else {
+      fail('factur-x.xml NOT found in PDF — ZUGFeRD XML not embedded!')
+    }
+
+    // Check AF array
+    const af = catalog.lookup(PDFName.of('AF'))
+    if (af) {
+      ok('Catalog.AF array present')
+    } else {
+      fail('Catalog.AF array missing — PDF/A-3 non-compliant')
+    }
+
+    // Check XMP metadata
+    const metadata = catalog.lookup(PDFName.of('Metadata'))
+    if (metadata) {
+      ok('XMP Metadata stream present')
+    } else {
+      fail('XMP Metadata stream missing')
+    }
+
+    // Check OutputIntents
+    const oi = catalog.lookup(PDFName.of('OutputIntents'))
+    if (oi) {
+      ok('OutputIntents present (ICC profile)')
+    } else {
+      fail('OutputIntents missing — PDF/A-3b non-compliant')
+    }
+  } catch (embedErr) {
+    fail(`Embedded XML check failed: ${embedErr.message}`)
+  }
+
   // ── 2. Generate XML directly (pdfkit compresses embedded files — can't extract from binary) ──
   section('2. Generate + parse ZUGFeRD XML')
 
