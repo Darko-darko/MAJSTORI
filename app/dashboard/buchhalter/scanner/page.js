@@ -7,17 +7,6 @@ import { pdfToImages } from '@/lib/pdfToImages'
 const SCAN_CATEGORIES = ['Material', 'Werkzeug', 'Fahrzeug', 'Büro', 'Versicherung', 'Telefon/Internet', 'Miete', 'Reise', 'Bewirtung', 'Sonstiges']
 const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
-const SCANNER_TESTERS = ['2f9f6665-3524-44a6-9a74-215571ad5690', 'd9a02afc-1508-4e36-8a26-e53aa9bf7dc8']
-
-const PRICING_PLANS = [
-  { name: 'Mikro', scans: 250, price: '7,90', color: 'slate' },
-  { name: 'Mini', scans: 500, price: '12,90', color: 'zinc' },
-  { name: 'Pro', scans: 1000, price: '19,90', color: 'teal', popular: true },
-  { name: 'Pro+', scans: 3000, price: '34,90', color: 'violet' },
-  { name: 'Max', scans: 5000, price: '54,90', color: 'amber' },
-  { name: 'Ultra', scans: 10000, price: '89,90', color: 'rose' },
-]
-
 export default function BuchhalterScanner() {
   const router = useRouter()
   const fileInputRef = useRef(null)
@@ -46,7 +35,7 @@ export default function BuchhalterScanner() {
 
   // Scan
   const [scanCount, setScanCount] = useState(0)
-  const [scanLimit, setScanLimit] = useState(200)
+  const SCAN_LIMIT = 10
   const [scanningId, setScanningId] = useState(null)
   const [bulkScanning, setBulkScanning] = useState(false)
   const [bulkScanProgress, setBulkScanProgress] = useState({ done: 0, total: 0 })
@@ -60,7 +49,6 @@ export default function BuchhalterScanner() {
   const [selectedIds, setSelectedIds] = useState(new Set())
 
   // Modals
-  const [showPricing, setShowPricing] = useState(false)
   const [previewImage, setPreviewImage] = useState(null)
 
   // Init
@@ -71,7 +59,6 @@ export default function BuchhalterScanner() {
   const initAuth = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) { router.push('/login'); return }
-    if (!SCANNER_TESTERS.includes(u.id)) { router.push('/dashboard/buchhalter'); return }
     const { data: { session } } = await supabase.auth.getSession()
     setUser(u)
     setToken(session?.access_token)
@@ -92,7 +79,6 @@ export default function BuchhalterScanner() {
       const data = await res.json()
       if (data.folders) setFolders(data.folders)
       if (data.scan_count !== undefined) setScanCount(data.scan_count)
-      if (data.scan_limit) setScanLimit(data.scan_limit)
     } catch (e) {
       console.error(e)
     } finally {
@@ -163,7 +149,6 @@ export default function BuchhalterScanner() {
       })
       const data = await res.json()
       if (data.belege) setBelege(data.belege)
-      if (data.scan_count !== undefined) setScanCount(data.scan_count)
     } catch (e) { console.error(e) }
     finally { setLoadingBelege(false) }
   }
@@ -244,7 +229,7 @@ export default function BuchhalterScanner() {
   }
 
   const scanBeleg = async (beleg) => {
-    if (scanCount >= scanLimit) { setShowPricing(true); return }
+    if (scanCount >= SCAN_LIMIT) { alert(`Scan-Limit erreicht (${SCAN_LIMIT} Scans). Belege werden automatisch über Ihre Mandanten gescannt.`); return }
     setScanningId(beleg.id)
     try {
       const imageUrl = await getImageUrl(beleg.storage_path)
@@ -267,10 +252,9 @@ export default function BuchhalterScanner() {
         body: JSON.stringify(scanBody)
       })
       const data = await res.json()
-      if (data.limit_reached) { setShowPricing(true); return }
       if (data.success) {
         setBelege(prev => prev.map(b => b.id === beleg.id ? { ...b, ...data.data, scanned_at: new Date().toISOString() } : b))
-        setScanCount(data.scan_count)
+        setScanCount(prev => prev + 1)
         setScanEditItem({ ...beleg, ...data.data, scanned_at: new Date().toISOString() })
         setScanResult(data.data)
       } else {
@@ -283,14 +267,15 @@ export default function BuchhalterScanner() {
   const bulkScanAll = async () => {
     const unscanned = belege.filter(b => !b.scanned_at)
     if (!unscanned.length) return
-    if (scanCount >= scanLimit) { setShowPricing(true); return }
+    if (scanCount >= SCAN_LIMIT) { alert(`Scan-Limit erreicht (${SCAN_LIMIT} Scans). Belege werden automatisch über Ihre Mandanten gescannt.`); return }
 
     setBulkScanning(true)
-    setBulkScanProgress({ done: 0, total: unscanned.length })
+    const remaining = SCAN_LIMIT - scanCount
+    const toScan = unscanned.slice(0, remaining)
+    setBulkScanProgress({ done: 0, total: toScan.length })
 
-    for (let i = 0; i < unscanned.length; i++) {
-      if (scanCount + i >= scanLimit) { setShowPricing(true); break }
-      const b = unscanned[i]
+    for (let i = 0; i < toScan.length; i++) {
+      const b = toScan[i]
       try {
         const imageUrl = await getImageUrl(b.storage_path)
         if (!imageUrl) continue
@@ -314,13 +299,12 @@ export default function BuchhalterScanner() {
           body: JSON.stringify(scanBody)
         })
         const data = await res.json()
-        if (data.limit_reached) { setShowPricing(true); break }
         if (data.success) {
           setBelege(prev => prev.map(x => x.id === b.id ? { ...x, ...data.data, scanned_at: new Date().toISOString() } : x))
-          setScanCount(data.scan_count)
+          setScanCount(prev => prev + 1)
         }
       } catch (e) { console.error(e) }
-      setBulkScanProgress({ done: i + 1, total: unscanned.length })
+      setBulkScanProgress({ done: i + 1, total: toScan.length })
     }
     setBulkScanning(false)
   }
@@ -434,7 +418,6 @@ export default function BuchhalterScanner() {
     return <div className="flex items-center justify-center h-64"><div className="h-10 w-10 border-[3px] border-slate-600 border-t-teal-500 rounded-full animate-spin" /></div>
   }
 
-  const isLimitReached = scanCount >= scanLimit
   const unscannedCount = belege.filter(b => !b.scanned_at).length
   const scannedCount = belege.filter(b => b.scanned_at).length
 
@@ -453,64 +436,11 @@ export default function BuchhalterScanner() {
           </div>
           <p className="text-slate-400 text-sm mt-1 ml-8">Belege hochladen, scannen und exportieren</p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Scan counter — always clickable */}
-          <div
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
-              isLimitReached ? 'bg-red-500/20 border border-red-500/40 text-red-400'
-              : scanCount >= scanLimit * 0.8 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
-              : 'bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-500'
-            }`}
-            onClick={() => setShowPricing(true)}
-          >
-            {isLimitReached ? '🔒 ' : scanCount >= scanLimit * 0.8 ? '⚠️ ' : ''}
-            {scanCount} / {scanLimit} Scans
-          </div>
-        </div>
       </div>
 
       <div className="flex gap-6 min-h-[60vh]">
         {/* Sidebar — Folders */}
         <div className="w-64 shrink-0 space-y-3">
-          {/* Subscribe CTA — always on top */}
-          <div
-            className={`border rounded-xl p-3 space-y-2.5 cursor-pointer transition-colors ${
-              isLimitReached ? 'border-red-500/40 bg-red-500/10'
-              : scanCount >= scanLimit * 0.8 ? 'border-amber-500/30 bg-amber-500/10'
-              : 'border-teal-500/30 bg-teal-500/5 hover:bg-teal-500/10'
-            }`}
-            onClick={() => setShowPricing(true)}
-          >
-            <div className="flex items-center justify-between">
-              <span className={`text-sm font-semibold ${
-                isLimitReached ? 'text-red-400' : scanCount >= scanLimit * 0.8 ? 'text-amber-400' : 'text-teal-400'
-              }`}>
-                {isLimitReached ? '🔒 Limit erreicht' : scanCount >= scanLimit * 0.8 ? '⚠️ Scans knapp' : '✨ Free-Plan'}
-              </span>
-              <span className="text-xs text-slate-400">{scanCount}/{scanLimit}</span>
-            </div>
-            <div className="w-full bg-slate-700 rounded-full h-1.5">
-              <div
-                className={`h-1.5 rounded-full transition-all ${
-                  isLimitReached ? 'bg-red-500' : scanCount >= scanLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'
-                }`}
-                style={{ width: `${Math.min((scanCount / scanLimit) * 100, 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-slate-400">
-              {isLimitReached
-                ? 'Upgraden für weitere Scans'
-                : `${scanLimit - scanCount} kostenlose Scans übrig`}
-            </p>
-            <button className={`w-full py-2 rounded-lg text-sm font-bold transition-colors ${
-              isLimitReached
-                ? 'bg-red-600 hover:bg-red-500'
-                : 'bg-teal-600 hover:bg-teal-500'
-            }`} style={{ color: '#fff' }}>
-              {isLimitReached ? 'Jetzt upgraden' : 'Jetzt abonnieren'}
-            </button>
-          </div>
-
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
             <h3 className="text-white font-semibold text-sm">Firmen / Mandanten</h3>
 
@@ -611,7 +541,7 @@ export default function BuchhalterScanner() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Bulk scan */}
-                  {unscannedCount > 0 && !isLimitReached && (
+                  {unscannedCount > 0 && (
                     <button
                       onClick={bulkScanAll}
                       disabled={bulkScanning || !!scanningId}
@@ -622,11 +552,6 @@ export default function BuchhalterScanner() {
                       ) : (
                         <><img src="/robot.png" alt="KI" className="w-4 h-4" /> Alle scannen</>
                       )}
-                    </button>
-                  )}
-                  {unscannedCount > 0 && isLimitReached && (
-                    <button onClick={() => setShowPricing(true)} className="bg-red-500/20 border border-red-500/40 text-red-400 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5">
-                      🔒 Scan-Limit erreicht
                     </button>
                   )}
                   {/* Exports */}
@@ -722,7 +647,6 @@ export default function BuchhalterScanner() {
                         beleg={b}
                         selected={selectedIds.has(b.id)}
                         scanning={scanningId === b.id}
-                        isLimitReached={isLimitReached}
                         onToggleSelect={() => setSelectedIds(prev => {
                           const next = new Set(prev)
                           next.has(b.id) ? next.delete(b.id) : next.add(b.id)
@@ -734,7 +658,6 @@ export default function BuchhalterScanner() {
                           if (url) setPreviewImage({ url, filename: b.filename })
                         }}
                         onEdit={() => { setScanEditItem(b); setScanResult(b) }}
-                        onShowPricing={() => setShowPricing(true)}
                       />
                     ))}
                   </div>
@@ -787,94 +710,12 @@ export default function BuchhalterScanner() {
       )}
 
       {/* Pricing Modal */}
-      {showPricing && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowPricing(false)}>
-          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl p-6 space-y-5" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-bold text-xl">
-                {isLimitReached ? '🔒 Scan-Limit erreicht' : '📊 Ihre Scan-Nutzung'}
-              </h3>
-              <button onClick={() => setShowPricing(false)} className="text-slate-400 hover:text-white text-xl">×</button>
-            </div>
-
-            {/* Usage bar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-300">{scanCount} von {scanLimit} Scans verbraucht</span>
-                <span className={`font-medium ${isLimitReached ? 'text-red-400' : scanCount >= scanLimit * 0.8 ? 'text-amber-400' : 'text-teal-400'}`}>
-                  {scanLimit - scanCount > 0 ? `${scanLimit - scanCount} übrig` : 'Limit erreicht'}
-                </span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-2.5">
-                <div
-                  className={`h-2.5 rounded-full transition-all duration-500 ${
-                    isLimitReached ? 'bg-red-500' : scanCount >= scanLimit * 0.8 ? 'bg-amber-500' : 'bg-teal-500'
-                  }`}
-                  style={{ width: `${Math.min((scanCount / scanLimit) * 100, 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <p className="text-slate-300 text-sm">
-              {isLimitReached
-                ? 'Upgraden Sie jetzt, um weiter zu scannen:'
-                : 'Mehr Scans benötigt? Wählen Sie ein Paket:'}
-            </p>
-
-            {/* Plans grid */}
-            <div className="grid grid-cols-3 gap-3">
-              {PRICING_PLANS.map(plan => {
-                const colorMap = {
-                  slate: { border: 'border-slate-400', bg: 'bg-slate-400/5', ring: 'ring-slate-400/20', btn: 'bg-slate-500 hover:bg-slate-400', badge: 'bg-slate-500', text: 'text-slate-400' },
-                  zinc: { border: 'border-zinc-500', bg: 'bg-zinc-500/15', ring: 'ring-zinc-500/20', btn: 'bg-zinc-600 hover:bg-zinc-500', badge: 'bg-zinc-500', text: 'text-zinc-400' },
-                  blue: { border: 'border-blue-500', bg: 'bg-blue-500/10', ring: 'ring-blue-500/20', btn: 'bg-blue-600 hover:bg-blue-500', badge: 'bg-blue-500', text: 'text-blue-400' },
-                  teal: { border: 'border-teal-500', bg: 'bg-teal-500/10', ring: 'ring-teal-500/20', btn: 'bg-teal-600 hover:bg-teal-500', badge: 'bg-teal-500', text: 'text-teal-400' },
-                  violet: { border: 'border-violet-500', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20', btn: 'bg-violet-600 hover:bg-violet-500', badge: 'bg-violet-500', text: 'text-violet-400' },
-                  amber: { border: 'border-amber-500', bg: 'bg-amber-500/10', ring: 'ring-amber-500/20', btn: 'bg-amber-600 hover:bg-amber-500', badge: 'bg-amber-500', text: 'text-amber-400' },
-                  rose: { border: 'border-rose-500', bg: 'bg-rose-500/10', ring: 'ring-rose-500/20', btn: 'bg-rose-600 hover:bg-rose-500', badge: 'bg-rose-500', text: 'text-rose-400' },
-                }
-                const c = colorMap[plan.color] || colorMap.slate
-                return (
-                <div
-                  key={plan.name}
-                  className={`relative border rounded-xl p-4 space-y-2 transition-all hover:scale-[1.02] ${c.border} ${c.bg} ${plan.popular ? `ring-1 ${c.ring}` : ''}`}
-                >
-                  {plan.popular && (
-                    <div className={`absolute -top-2.5 left-1/2 -translate-x-1/2 ${c.badge} text-white text-xs font-bold px-2 py-0.5 rounded-full`}>
-                      Beliebt
-                    </div>
-                  )}
-                  <h4 className="text-white font-bold text-lg">{plan.name}</h4>
-                  <p className={`text-xs ${c.text}`}>{plan.scans.toLocaleString('de-DE')}<br/>Scans/Monat</p>
-                  <p className="text-white text-xl font-bold">{plan.price}€<span className="text-xs text-slate-400 font-normal">/Mo.</span></p>
-                  <button
-                    onClick={() => {
-                      // TODO: FastSpring checkout integration
-                      alert(`${plan.name}-Paket wird bald verfügbar sein. Kontaktieren Sie uns: info@pro-meister.de`)
-                    }}
-                    className={`w-full mt-2 py-2 rounded-lg text-sm font-medium transition-colors ${c.btn}`}
-                    style={{ color: '#fff' }}
-                  >
-                    Jetzt upgraden
-                  </button>
-                </div>
-                )
-              })}
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <p>Alle Preise zzgl. 19% MwSt. Jederzeit kündbar.</p>
-              <p>Fragen? <a href="mailto:info@pro-meister.de" className="text-teal-400 hover:underline">info@pro-meister.de</a></p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
 // ---- Beleg Card Component ----
-function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, onScan, onView, onEdit, onShowPricing }) {
+function BelegCard({ beleg, selected, scanning, onToggleSelect, onScan, onView, onEdit }) {
   const isPdf = beleg.file_type?.includes('pdf')
   const isScanned = !!beleg.scanned_at
 
@@ -912,16 +753,12 @@ function BelegCard({ beleg, selected, scanning, isLimitReached, onToggleSelect, 
           </div>
         ) : (
           <button
-            onClick={isLimitReached ? onShowPricing : onScan}
+            onClick={onScan}
             disabled={scanning}
-            className={`w-full py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
-              isLimitReached ? 'bg-red-500/20 text-red-400' : 'bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50'
-            }`}
+            className="w-full py-1 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"
           >
             {scanning ? (
               <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : isLimitReached ? (
-              <>🔒 Gesperrt</>
             ) : (
               <><img src="/robot.png" alt="KI" className="w-3.5 h-3.5" /> Scannen</>
             )}

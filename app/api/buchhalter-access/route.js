@@ -86,7 +86,6 @@ export async function POST(request) {
 
   let result
   if (existing) {
-    // Update: reaktiviraj revoked ILI ažuriraj invited_at za erneut senden
     const { data, error } = await supabase
       .from('buchhalter_access')
       .update(accessData)
