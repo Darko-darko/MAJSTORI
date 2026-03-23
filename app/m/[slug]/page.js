@@ -375,17 +375,27 @@ export default function PublicBusinessCardPage({ params }) {
       console.log('📤 Submitting inquiry for majstor:', majstor.id)
 
       // 🛡️ TURNSTILE: Execute invisible widget if no token yet
-      if (!turnstileToken && turnstileRef.current) {
+      let token = turnstileToken
+      if (!token && turnstileRef.current) {
         console.log('🛡️ Executing invisible Turnstile...')
+        turnstileRef.current.reset()
         turnstileRef.current.execute()
-        
-        // Wait for token generation (max 2 seconds)
-        await new Promise(resolve => setTimeout(resolve, 2000))
+
+        // Wait for token generation (max 5 seconds, check every 500ms)
+        for (let i = 0; i < 10; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          // Check if token was set by onSuccess callback
+          const el = document.querySelector('[name="cf-turnstile-response"]')
+          token = el?.value || ''
+          if (token) { setTurnstileToken(token); break }
+        }
       }
 
       // 🛡️ TURNSTILE: Validate token is present
-      if (!turnstileToken) {
-        throw new Error('Bitte warten Sie einen Moment und versuchen Sie es erneut')
+      if (!token) {
+        // One more reset attempt
+        if (turnstileRef.current) turnstileRef.current.reset()
+        throw new Error('Sicherheitsprüfung fehlgeschlagen - bitte versuchen Sie es erneut')
       }
 
       if (!inquiryData.customer_name.trim()) {
@@ -417,7 +427,7 @@ export default function PublicBusinessCardPage({ params }) {
         message: inquiryData.description.trim() || '-',
         images: uploadedImages.map(img => img.url),
         photo_urls: uploadedImages.map(img => img.url),
-        turnstileToken: turnstileToken
+        turnstileToken: token
       }
 
       console.log('📋 Submitting with payload:', {
@@ -425,7 +435,7 @@ export default function PublicBusinessCardPage({ params }) {
         service: inquiryPayload.service_type,
         urgency: inquiryPayload.urgency,
         images: inquiryPayload.images.length,
-        hasTurnstileToken: !!turnstileToken
+        hasTurnstileToken: !!token
       })
 
       const response = await fetch('/api/inquiries', {
