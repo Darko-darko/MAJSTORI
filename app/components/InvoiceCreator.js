@@ -2205,19 +2205,47 @@ if (searchError) {
                   {parseFloat(formData.rabatt_percent) > 0 && (
                     <div className="mt-2">
                       <label className="block text-xs text-slate-400 mb-1">Grund</label>
-                      <select
-                        value={formData.rabatt_reason}
-                        onChange={e => setFormData(prev => ({ ...prev, rabatt_reason: e.target.value }))}
-                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                      >
-                        <option value="">Bitte wählen...</option>
-                        <option value="Treuerabatt">Treuerabatt</option>
-                        <option value="Mengenrabatt">Mengenrabatt</option>
-                        <option value="Saisonrabatt">Saisonrabatt</option>
-                        <option value="Barzahlung">Barzahlung</option>
-                        <option value="Gesamtauftrag">Gesamtauftrag</option>
-                        <option value="Nachlass">Nachlass</option>
-                      </select>
+                      {formData._showCustomRabatt ? (
+                        <div className="flex gap-1">
+                          <input
+                            type="text"
+                            value={formData.rabatt_reason}
+                            onChange={e => setFormData(prev => ({ ...prev, rabatt_reason: e.target.value.slice(0, 15) }))}
+                            maxLength={15}
+                            placeholder="Grund eingeben..."
+                            autoFocus
+                            className="flex-1 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, _showCustomRabatt: false, rabatt_reason: '' }))}
+                            className="px-2 text-slate-400 hover:text-white text-sm"
+                          >×</button>
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.rabatt_reason || ''}
+                          onChange={e => {
+                            if (e.target.value === '_custom') {
+                              setFormData(prev => ({ ...prev, _showCustomRabatt: true, rabatt_reason: '' }))
+                            } else {
+                              setFormData(prev => ({ ...prev, rabatt_reason: e.target.value }))
+                            }
+                          }}
+                          className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                        >
+                          <option value="">Bitte wählen...</option>
+                          <option value="Treuerabatt">Treuerabatt</option>
+                          <option value="Mengenrabatt">Mengenrabatt</option>
+                          <option value="Saisonrabatt">Saisonrabatt</option>
+                          <option value="Barzahlung">Barzahlung</option>
+                          <option value="Gesamtauftrag">Gesamtauftrag</option>
+                          <option value="Nachlass">Nachlass</option>
+                          <option value="Kulanz">Kulanz</option>
+                          <option value="Stammkunde">Stammkunde</option>
+                          <option value="_custom">Sonstiges...</option>
+                        </select>
+                      )}
                     </div>
                   )}
                 </div>
