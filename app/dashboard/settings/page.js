@@ -319,7 +319,7 @@ export default function SettingsPage() {
                     <h4 className="text-white font-medium">Rechnungseinstellungen</h4>
                     <p className="text-slate-400 text-xs">Steuer, Bank, Logo, Zahlungsbedingungen</p>
                   </div>
-                  <span className="text-xs text-white px-2 py-1 rounded-full" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
+                  <span className="text-xs text-white px-2 py-1 rounded-lg whitespace-nowrap" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
                 </div>
               </div>
             ) : (
@@ -342,7 +342,7 @@ export default function SettingsPage() {
                     <h4 className="text-white font-medium">Meine Services</h4>
                     <p className="text-slate-400 text-xs">Dienstleistungen verwalten</p>
                   </div>
-                  <span className="text-xs text-white px-2 py-1 rounded-full" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
+                  <span className="text-xs text-white px-2 py-1 rounded-lg whitespace-nowrap" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
                 </div>
               </div>
             ) : (
@@ -365,7 +365,7 @@ export default function SettingsPage() {
                     <h4 className="text-white font-medium">Meine Kunden</h4>
                     <p className="text-slate-400 text-xs">Kundendatenbank verwalten</p>
                   </div>
-                  <span className="text-xs text-white px-2 py-1 rounded-full" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
+                  <span className="text-xs text-white px-2 py-1 rounded-lg whitespace-nowrap" style={{ backgroundColor: '#2563eb' }}>🔒 Pro</span>
                 </div>
               </div>
             ) : (
