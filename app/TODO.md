@@ -136,7 +136,7 @@
 - resend alert ✅
 - dugme za reklamaciju na vizit karti
 - sistem da stavlja svoje poslovne račune troškova, materijal, horivo i sl. ✅
-- promoteri komercijalsta
+- promoteri komercijalsta ✅
 - download qr referal koda nije donar, a tebalo bi da ih ima dva! ✅
 - short kode za linkove bulk maila ✅
 
@@ -146,5 +146,16 @@
 - swipe side bar (i za iphone)
 - Aufmaß
 - pdf za Wand ✅
-- proveriti ako se cancel, ko se ponovo subcribe
-- provera zugfreda detaljna 
+- proveriti ako se cancel, ko se ponovo subcribe ✅
+- provera zugfreda detaljna ✅
+
+- scan plan kolona i menjanje planov u buchhalter
+- parnerske knjigovođe (brojač)
+- zugfred validator u konzlu google
+- landing page za knjigovođe
+- fastspring za knjigovođe
+- Yamm
+- sepa qr kod ne radi!!
+
+
+
