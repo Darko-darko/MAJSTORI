@@ -634,10 +634,13 @@ pdfTab.document.close()
 
   const handleCreateSuccess = (newData) => {
     console.log('Operation successful:', newData)
-    
+
     setEditingItem(null)
     setIsEditMode(false)
-    
+    setAufmassImportItems(null)
+    setAufmassImportId(null)
+    setAufmassCustomer(null)
+
     if (majstor?.id) {
       loadInvoicesData(majstor.id)
     }
@@ -649,6 +652,7 @@ pdfTab.document.close()
     setIsEditMode(false)
     setAufmassImportItems(null)
     setAufmassImportId(null)
+    setAufmassCustomer(null)
   }
 
   const handleEmailClick = (item) => {
