@@ -288,12 +288,21 @@ export default function SettingsPage() {
             <p className="text-blue-300 text-sm">
               💡 Geschäftsdaten können in den Rechnungseinstellungen bearbeitet werden
             </p>
-            <a
-              href="/dashboard/invoices?tab=settings"
-              className="self-start px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              Zu den Einstellungen →
-            </a>
+            {isLocked ? (
+              <a
+                href="/dashboard/subscription"
+                className="self-start px-3 py-1.5 bg-slate-600 hover:bg-slate-500 text-white light-invert-text text-sm font-medium rounded-lg transition-colors"
+              >
+                🔒 PRO freischalten →
+              </a>
+            ) : (
+              <a
+                href="/dashboard/invoices?tab=settings"
+                className="self-start px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Zu den Einstellungen →
+              </a>
+            )}
           </div>
         </div>
 
