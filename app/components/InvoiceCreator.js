@@ -476,7 +476,17 @@ export default function InvoiceCreator({
         payment_terms_days: editData.payment_terms_days || defaultSettings.payment_terms_days,
         valid_until: editData.valid_until || '',
         issue_date: editData.issue_date || new Date().toISOString().split('T')[0],
-        is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer
+        is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer,
+        rabatt_percent: editData.rabatt_percent || 0,
+        rabatt_reason: editData.rabatt_reason || '',
+        rabatt_amount: editData.rabatt_amount || 0,
+        skonto_percent: editData.skonto_percent || 0,
+        skonto_days: editData.skonto_days || 10,
+        sicherheitseinbehalt_percent: editData.sicherheitseinbehalt_percent || 0,
+        sicherheitseinbehalt_years: editData.sicherheitseinbehalt_years || 2,
+        einbehalt_amount: editData.einbehalt_amount || 0,
+        zahlbar_sofort: editData.zahlbar_sofort || 0,
+        _showRabatt: !!(editData.rabatt_percent || editData.skonto_percent || editData.sicherheitseinbehalt_percent),
       })
       
       setCustomerSearchTerm(editData.customer_name || '')
@@ -893,7 +903,7 @@ export default function InvoiceCreator({
         const afterRabatt = parseFloat((subtotal - rabattAmount).toFixed(2))
         const einbehaltPct = parseFloat(prev.sicherheitseinbehalt_percent) || 0
         const einbehaltAmount = parseFloat((afterRabatt * einbehaltPct / 100).toFixed(2))
-        return { ...prev, items, subtotal, tax_amount: 0, total_amount: afterRabatt, rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: parseFloat((afterRabatt - einbehaltAmount).toFixed(2)) }
+        return { ...prev, subtotal, tax_amount: 0, total_amount: afterRabatt, rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: parseFloat((afterRabatt - einbehaltAmount).toFixed(2)) }
       }
 
       const taxRate = parseFloat(prev.tax_rate) || 0
@@ -927,7 +937,7 @@ export default function InvoiceCreator({
       const zahlbarSofort = parseFloat((totalBrutto - einbehaltAmount).toFixed(2))
 
       return {
-        ...prev, items,
+        ...prev,
         subtotal: totalNetto, tax_amount: totalTax, total_amount: totalBrutto,
         rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: zahlbarSofort,
       }
@@ -2165,10 +2175,25 @@ if (searchError) {
               </div>
             </div>
 
-            {/* Rabatt / Skonto / Sicherheitseinbehalt */}
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <h4 className="text-white font-semibold mb-4">Rabatt & Konditionen</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Rabatt / Skonto / Sicherheitseinbehalt — collapsible */}
+            <div className="bg-slate-900/50 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, _showRabatt: !prev._showRabatt }))}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/50 transition-colors"
+              >
+                <h4 className="text-white font-semibold text-sm">Rabatt & Konditionen</h4>
+                <div className="flex items-center gap-2">
+                  {(parseFloat(formData.rabatt_percent) > 0 || parseFloat(formData.skonto_percent) > 0 || parseFloat(formData.sicherheitseinbehalt_percent) > 0) && (
+                    <span className="text-teal-400 text-xs">Aktiv</span>
+                  )}
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${formData._showRabatt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+              {formData._showRabatt && (
+              <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Rabatt */}
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Rabatt (%)</label>
@@ -2258,6 +2283,7 @@ if (searchError) {
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Totals Section */}
