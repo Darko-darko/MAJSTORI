@@ -89,11 +89,13 @@ export default function BuchhalterZugferdPage() {
         ← Zurück zu Auftraggeber
       </button>
 
-      <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold text-white mb-1">ZUGFeRD / Factur-X prüfen</h1>
-        <p className="text-slate-400 text-sm mb-8">
-          Prüfen Sie PDF-Rechnungen auf ZUGFeRD 2.x / EN16931 Konformität.
-        </p>
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-white mb-2">ZUGFeRD / Factur-X prüfen</h1>
+          <p className="text-slate-400">
+            Prüfen Sie PDF-Rechnungen auf ZUGFeRD 2.x / EN16931 Konformität.
+          </p>
+        </div>
 
         {/* Upload Area */}
         {!result && !loading && (
@@ -102,7 +104,7 @@ export default function BuchhalterZugferdPage() {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             onClick={() => inputRef.current?.click()}
-            className={`relative cursor-pointer border-2 border-dashed rounded-xl p-10 sm:p-14 text-center transition-all ${
+            className={`relative cursor-pointer border-2 border-dashed rounded-xl p-12 sm:p-20 text-center transition-all ${
               dragging
                 ? 'border-teal-500 bg-teal-500/10'
                 : 'border-slate-600 bg-slate-800/30 hover:border-teal-600 hover:bg-slate-800/50'
@@ -115,11 +117,11 @@ export default function BuchhalterZugferdPage() {
               className="hidden"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
-            <div className="text-4xl mb-3">📄</div>
-            <p className="text-white text-lg font-medium mb-1">
+            <div className="text-6xl mb-4">📄</div>
+            <p className="text-white text-xl font-medium mb-2">
               PDF-Rechnung hier ablegen
             </p>
-            <p className="text-slate-400 text-sm">
+            <p className="text-slate-400">
               oder klicken zum Auswählen — max. 10 MB
             </p>
           </div>
@@ -127,21 +129,21 @@ export default function BuchhalterZugferdPage() {
 
         {/* Info cards — visible when no result */}
         {!result && !loading && (
-          <div className="grid grid-cols-3 gap-3 mt-6">
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-center">
-              <div className="text-xl mb-1.5">🔒</div>
-              <p className="text-white text-xs font-medium mb-1">Datenschutz</p>
-              <p className="text-slate-500 text-[10px]">Dateien werden nicht gespeichert.</p>
+          <div className="grid grid-cols-3 gap-4 mt-8">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center">
+              <div className="text-2xl mb-2">🔒</div>
+              <p className="text-white text-sm font-medium mb-1">Datenschutz</p>
+              <p className="text-slate-500 text-xs">Dateien werden nicht gespeichert.</p>
             </div>
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-center">
-              <div className="text-xl mb-1.5">⚡</div>
-              <p className="text-white text-xs font-medium mb-1">Sofort-Ergebnis</p>
-              <p className="text-slate-500 text-[10px]">EN16931, Pflichtfelder, Beträge.</p>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center">
+              <div className="text-2xl mb-2">⚡</div>
+              <p className="text-white text-sm font-medium mb-1">Sofort-Ergebnis</p>
+              <p className="text-slate-500 text-xs">EN16931, Pflichtfelder, Beträge.</p>
             </div>
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-center">
-              <div className="text-xl mb-1.5">📋</div>
-              <p className="text-white text-xs font-medium mb-1">ZUGFeRD 2.x</p>
-              <p className="text-slate-500 text-[10px]">ZUGFeRD, Factur-X, XRechnung.</p>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center">
+              <div className="text-2xl mb-2">📋</div>
+              <p className="text-white text-sm font-medium mb-1">ZUGFeRD 2.x</p>
+              <p className="text-slate-500 text-xs">ZUGFeRD, Factur-X, XRechnung.</p>
             </div>
           </div>
         )}

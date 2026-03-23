@@ -152,9 +152,9 @@ export default function BuchhalterDashboard() {
     <div className="pb-20">
       <FirstVisitHint pageKey="buchhalter" />
 
-      <div className="flex gap-6">
+      <div className="flex gap-8 max-w-6xl mx-auto">
         {/* Sidebar — desktop only */}
-        <div className="hidden md:flex md:flex-col w-56 shrink-0 gap-3">
+        <div className="hidden md:flex md:flex-col w-60 shrink-0 gap-3">
           {isTester && (
             <a
               href="/dashboard/buchhalter/scanner"
@@ -220,7 +220,7 @@ export default function BuchhalterDashboard() {
 
           <div>
             <h1 className="text-2xl font-bold text-white">Meine Auftraggeber</h1>
-            <p className="text-slate-400 text-sm mt-1">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
+            <p className="text-slate-400 text-sm mt-1.5">Mandanten, die Ihnen Buchhalter-Zugang erteilt haben</p>
           </div>
 
       {/* Pending Invites */}
@@ -281,7 +281,7 @@ export default function BuchhalterDashboard() {
 
         </div>
       ) : majstors.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4">
           {majstors.map(m => (
             <div key={m.id} className="bg-slate-800/50 border border-slate-700 hover:border-teal-700 rounded-xl p-5 transition-colors">
               <button
