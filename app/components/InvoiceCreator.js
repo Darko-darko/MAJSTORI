@@ -1687,7 +1687,7 @@ if (searchError) {
 
             {/* ✅ CUSTOMER INFORMATION - IMPROVED */}
 <div>
-  <h4 className="text-white font-semibold mb-4">📋 Kundeninformationen</h4>
+  <h4 className="text-blue-400 font-semibold mb-4">📋 Kundeninformationen</h4>
   
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     {/* Customer Name - Autocomplete */}
@@ -1783,7 +1783,7 @@ if (searchError) {
 
   {/* ✅ BILLING ADDRESS - STRUCTURED FIELDS */}
   <div className="mt-4">
-    <h5 className="text-white font-medium mb-3">Rechnungsadresse</h5>
+    <h5 className="text-blue-400 font-medium mb-3">Rechnungsadresse</h5>
     
     <div className="grid grid-cols-1 gap-3">
       {/* Street */}
@@ -1858,15 +1858,17 @@ if (searchError) {
     <button
       type="button"
       onClick={() => setFormData(prev => ({ ...prev, show_weg: true }))}
-      className="w-full p-3 flex items-center gap-3 text-blue-400 hover:text-blue-300 transition-colors text-sm bg-transparent"
+      className="w-full flex items-center justify-between px-4 py-2.5 border border-slate-600 rounded-lg hover:bg-slate-800/30 transition-colors"
     >
-      <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-      <span>+ Objektadresse hinzufügen (falls abweichend)</span>
+      <span className="text-blue-400 text-sm font-medium">+ Objektadresse (falls abweichend)</span>
+      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
     </button>
   ) : (
-    <div className="p-4 bg-slate-900/30 rounded-lg border-l-4 border-green-500">
-      <div className="flex justify-between items-center mb-3">
-        <h5 className="text-green-300 font-medium">Objektadresse</h5>
+    <div className="border border-slate-600 rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="text-blue-400 text-sm font-medium">Objektadresse</span>
         <button
           type="button"
           onClick={() => setFormData(prev => ({ 
@@ -1884,9 +1886,9 @@ if (searchError) {
           ×
         </button>
       </div>
-      
-      <div className="grid grid-cols-1 gap-3">
-        {/* 🔥 NOVO POLJE - DODAJ OVDE */}
+
+      <div className="px-4 pb-4 pt-2 border-t border-slate-700 grid grid-cols-1 gap-3">
+        <p className="text-xs text-slate-500 text-center">💡 WEG-Gebäude, Baustelle, oder Arbeitsort falls abweichend</p>
         <div>
           <label className="block text-sm text-slate-400 mb-1">Objektname</label>
           <input
@@ -1958,9 +1960,6 @@ if (searchError) {
         </div>
       </div>
       
-      <p className="text-xs text-slate-500 mt-3">
-        💡 Z.B. WEG-Gebäude, Baustelle, oder Arbeitsort falls abweichend von Rechnungsadresse
-      </p>
     </div>
   )}
 </div>
@@ -1970,26 +1969,27 @@ if (searchError) {
     <button
       type="button"
       onClick={() => setFormData(prev => ({ ...prev, place_of_service: ' ' }))}
-      className="w-full p-3 flex items-center gap-3 text-blue-400 hover:text-blue-300 transition-colors text-sm bg-transparent mt-2"
+      className="w-full flex items-center justify-between px-4 py-2.5 border border-slate-600 rounded-lg hover:bg-slate-800/30 transition-colors mt-2"
     >
-      <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-      <span>+ Ort der Leistung hinzufügen (optional)</span>
+      <span className="text-blue-400 text-sm font-medium">+ Ort der Leistung (optional)</span>
+      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
     </button>
   ) : (
-    <div className="mt-4 p-4 bg-slate-900/30 rounded-lg border-l-4 border-amber-500">
-      <div className="flex justify-between items-center mb-3">
-        <label className="text-amber-300 font-medium text-sm">
-          📍 Ort der Leistung
-        </label>
+    <div className="mt-2 border border-slate-600 rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="text-blue-400 text-sm font-medium">Ort der Leistung</span>
         <button
           type="button"
           onClick={() => setFormData(prev => ({ ...prev, place_of_service: '' }))}
-          className="text-slate-400 hover:text-white text-xl"
+          className="text-slate-400 hover:text-white text-xl leading-none"
           title="Ort der Leistung entfernen"
         >
           ×
         </button>
       </div>
+      <div className="px-4 pb-4 pt-2 border-t border-slate-700">
       <div className="flex gap-2 mb-2">
         <button
           type="button"
@@ -2017,9 +2017,7 @@ if (searchError) {
         placeholder="z.B. Berlin, 10115 Berlin, Treppenhaus 2.OG"
         autoFocus
       />
-      <p className="text-xs text-slate-500 mt-1">
-        💡 Wichtig für steuerliche Zwecke und ZUGFeRD-Compliance
-      </p>
+      </div>
     </div>
   )}
 </div>
@@ -2027,7 +2025,7 @@ if (searchError) {
             {/* Items Section */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-white font-semibold">Positionen</h4>
+                <h4 className="text-blue-400 font-semibold">Positionen</h4>
                 <button
                   type="button"
                   onClick={addItem}
@@ -2285,7 +2283,7 @@ if (searchError) {
 
             {/* Totals Section */}
             <div className="bg-slate-900/50 rounded-lg p-4">
-              <h4 className="text-white font-semibold mb-4">Berechnung</h4>
+              <h4 className="text-blue-400 font-semibold mb-4">Berechnung</h4>
               <div className="space-y-2 max-w-md ml-auto">
                 <div className="flex justify-between">
                   <span className="text-slate-400">
@@ -2447,7 +2445,7 @@ if (searchError) {
 
             {/* Additional Information */}
             <div>
-              <h4 className="text-white font-semibold mb-4">Zusätzliche Informationen</h4>
+              <h4 className="text-blue-400 font-semibold mb-4">Zusätzliche Informationen</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
