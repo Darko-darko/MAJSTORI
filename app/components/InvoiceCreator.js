@@ -1782,20 +1782,20 @@ if (searchError) {
   </div>
 
   {/* ✅ BILLING ADDRESS - STRUCTURED FIELDS */}
-  <div className="mt-4 p-4 bg-slate-900/30 rounded-lg border-l-4 border-blue-500">
+  <div className="mt-4">
     <h5 className="text-white font-medium mb-3">Rechnungsadresse</h5>
     
     <div className="grid grid-cols-1 gap-3">
       {/* Street */}
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Straße und Hausnummer *</label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Straße und Hausnummer *</label>
         <input
           type="text"
           name="customer_street"
           value={formData.customer_street}
           onChange={handleInputChange}
           required
-          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
           placeholder="z.B. Musterstraße 123"
         />
       </div>
@@ -1803,26 +1803,26 @@ if (searchError) {
       {/* PLZ + City */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm text-slate-400 mb-1">PLZ *</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">PLZ *</label>
           <input
             type="text"
             name="customer_postal_code"
             value={formData.customer_postal_code}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="12345"
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-400 mb-1">Stadt *</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Stadt *</label>
           <input
             type="text"
             name="customer_city"
             value={formData.customer_city}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="z.B. Berlin"
           />
         </div>
@@ -1830,12 +1830,12 @@ if (searchError) {
       
     {/* ✅ Country - UVEK VIDLJIVO */}
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Land (optional)</label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Land (optional)</label>
         <select
           name="customer_country"
           value={formData.customer_country}
           onChange={handleInputChange}
-          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         >
           <option value="">-- Nicht angegeben --</option>
           <option value="Deutschland">🇩🇪 Deutschland</option>
@@ -2176,24 +2176,21 @@ if (searchError) {
             </div>
 
             {/* Rabatt / Skonto / Sicherheitseinbehalt — collapsible */}
-            <div className="bg-slate-900/50 rounded-lg overflow-hidden">
+            <div className="border border-slate-600 rounded-lg overflow-hidden">
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, _showRabatt: !prev._showRabatt }))}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/50 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors"
               >
-                <h4 className="text-white font-semibold text-sm">Rabatt & Konditionen</h4>
-                <div className="flex items-center gap-2">
-                  {(parseFloat(formData.rabatt_percent) > 0 || parseFloat(formData.skonto_percent) > 0 || parseFloat(formData.sicherheitseinbehalt_percent) > 0) && (
-                    <span className="text-teal-400 text-xs">Aktiv</span>
-                  )}
-                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${formData._showRabatt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+                <span className="text-blue-400 text-sm font-medium">
+                  {formData._showRabatt ? 'Rabatt & Konditionen' : '+ Rabatt & Konditionen'}
+                </span>
+                <svg className={`w-4 h-4 text-slate-400 transition-transform ${formData._showRabatt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
               {formData._showRabatt && (
-              <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="px-4 pb-4 pt-2 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-700">
                 {/* Rabatt */}
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Rabatt (%)</label>
