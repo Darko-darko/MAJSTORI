@@ -252,6 +252,13 @@ export default function SettingsPage() {
             </div>
             
             <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Postleitzahl</label>
+              <div className="px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white">
+                {majstor?.postal_code || 'Nicht angegeben'}
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Stadt</label>
               <div className="px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white">
                 {majstor?.city || 'Nicht angegeben'}
