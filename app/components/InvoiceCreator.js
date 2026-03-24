@@ -656,6 +656,7 @@ export default function InvoiceCreator({
 
   // ✅ Handle customer name change with search
   const handleCustomerNameChange = (e) => {
+    if (error) setError('')
     const value = e.target.value
     setCustomerSearchTerm(value)
     // Ako je ime promijenjeno nakon što je klijent odabran iz liste — resetuj customer_id
@@ -695,6 +696,7 @@ export default function InvoiceCreator({
 
   // Handle input change
   const handleInputChange = (e) => {
+    if (error) setError('')
     const { name, value, type, checked } = e.target
     
     if (type === 'checkbox') {
@@ -706,6 +708,7 @@ export default function InvoiceCreator({
 
   // Handle item changes with proper service filtering
   const handleItemChange = (index, field, value) => {
+    if (error) setError('')
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
     const taxRate = parseFloat(formData.tax_rate) || 0
