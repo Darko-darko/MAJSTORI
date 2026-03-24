@@ -1715,7 +1715,6 @@ if (searchError) {
         type="text"
         value={customerSearchTerm}
         onChange={handleCustomerNameChange}
-        required
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         placeholder="z.B. Max Mustermann"
         style={reqStyle(formData.customer_name)}
@@ -1763,7 +1762,6 @@ if (searchError) {
         name="customer_email"
         value={formData.customer_email}
         onChange={handleInputChange}
-        required
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         placeholder="max@example.com"
         style={reqStyle(formData.customer_email)}
@@ -1812,7 +1810,6 @@ if (searchError) {
           name="customer_street"
           value={formData.customer_street}
           onChange={handleInputChange}
-          required
           className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
           placeholder="z.B. Musterstraße 123"
           style={reqStyle(formData.customer_street)}
@@ -1828,7 +1825,6 @@ if (searchError) {
             name="customer_postal_code"
             value={formData.customer_postal_code}
             onChange={handleInputChange}
-            required
             className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="12345"
             style={reqStyle(formData.customer_postal_code)}
@@ -1841,7 +1837,6 @@ if (searchError) {
             name="customer_city"
             value={formData.customer_city}
             onChange={handleInputChange}
-            required
             className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="z.B. Berlin"
             style={reqStyle(formData.customer_city)}
@@ -2583,8 +2578,9 @@ if (searchError) {
                 Abbrechen
               </button>
               <button
-                type="submit"
-                disabled={loading || formData.total_amount <= 0 || !businessDataComplete || !numbersInitialized}
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex-1"
               >
                 {loading 
