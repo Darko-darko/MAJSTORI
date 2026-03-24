@@ -1643,50 +1643,55 @@ function ShapeRow({ item, onChange, onRemove }) {
   const sign    = isSubtract ? '−' : '+'
   const signCls = isSubtract ? 'text-red-400' : 'text-teal-400'
   return (
-    <div className={`flex flex-wrap gap-1.5 items-center py-1.5 px-2 rounded-lg border text-sm ${wrapCls}`}>
-      {/* Shape selector */}
-      <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
-        {SHAPES.map(sh => (
-          <button key={sh.id} onClick={() => update('shape', sh.id)} title={sh.title}
-            className={`px-2 py-0.5 text-xs font-medium transition-colors ${shape === sh.id ? accentBtn : 'bg-slate-700 text-slate-400'}`}
-          >{sh.label}</button>
-        ))}
+    <div className={`py-1.5 px-2 rounded-lg border text-sm ${wrapCls}`}>
+      {/* Row 1: description */}
+      <div className="flex gap-1.5 items-center mb-1.5">
+        <input type="text" value={item.description} onChange={e => update('description', e.target.value)}
+          placeholder={isSubtract ? 'Fenster / Tür...' : 'Beschreibung...'}
+          className="flex-1 min-w-0 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs shape-row-input" />
+        <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
+          {SHAPES.map(sh => (
+            <button key={sh.id} onClick={() => update('shape', sh.id)} title={sh.title}
+              className={`px-2 py-0.5 text-xs font-medium transition-colors ${shape === sh.id ? accentBtn : 'bg-slate-700 text-slate-400'}`}
+            >{sh.label}</button>
+          ))}
+        </div>
+        <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
+          {['m', 'cm'].map(du => (
+            <button key={du} onClick={() => update('dim_unit', du)}
+              className={`px-2 py-0.5 text-xs font-medium transition-colors ${(item.dim_unit || 'm') === du ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+            >{du}</button>
+          ))}
+        </div>
       </div>
-      <input type="text" value={item.description} onChange={e => update('description', e.target.value)}
-        placeholder={isSubtract ? 'Fenster / Tür...' : 'Beschreibung...'}
-        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs shape-row-input" />
-      <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
-        {['m', 'cm'].map(du => (
-          <button key={du} onClick={() => update('dim_unit', du)}
-            className={`px-2 py-0.5 text-xs font-medium transition-colors ${(item.dim_unit || 'm') === du ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
-          >{du}</button>
-        ))}
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-slate-500 text-xs">B</span>
-        <input type="number" value={item.length || ''} onChange={e => update('length', e.target.value)}
-          placeholder="0.00" step="0.01" inputMode="decimal"
-          className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
-      </div>
-      <span className="text-slate-500 text-xs">×</span>
-      <div className="flex items-center gap-1">
-        <span className="text-slate-500 text-xs">H</span>
-        <input type="number" value={item.width || ''} onChange={e => update('width', e.target.value)}
-          placeholder="0.00" step="0.01" inputMode="decimal"
-          className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
-      </div>
-      <div className="flex items-center gap-1">
+      {/* Row 2: dimensions */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <div className="flex items-center gap-1">
+          <span className="text-slate-500 text-xs">B</span>
+          <input type="number" value={item.length || ''} onChange={e => update('length', e.target.value)}
+            placeholder="0.00" step="0.01" inputMode="decimal"
+            className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        </div>
         <span className="text-slate-500 text-xs">×</span>
-        <input type="number" value={item.count || ''} onChange={e => update('count', e.target.value)}
-          placeholder="1" step="1" min="1" inputMode="numeric"
-          className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        <div className="flex items-center gap-1">
+          <span className="text-slate-500 text-xs">H</span>
+          <input type="number" value={item.width || ''} onChange={e => update('width', e.target.value)}
+            placeholder="0.00" step="0.01" inputMode="decimal"
+            className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-slate-500 text-xs">×</span>
+          <input type="number" value={item.count || ''} onChange={e => update('count', e.target.value)}
+            placeholder="1" step="1" min="1" inputMode="numeric"
+            className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        </div>
+        <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border light-invert-text ${resCls}`}>
+          <span className={`text-xs font-bold light-invert-text ${signCls}`}>{sign}</span>
+          <span className="font-semibold text-xs">{formatNum(item.result || 0)}</span>
+          <span className="text-xs">m²</span>
+        </div>
+        <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
       </div>
-      <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border light-invert-text ${resCls}`}>
-        <span className={`text-xs font-bold light-invert-text ${signCls}`}>{sign}</span>
-        <span className="font-semibold text-xs">{formatNum(item.result || 0)}</span>
-        <span className="text-xs">m²</span>
-      </div>
-      <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
     </div>
   )
 }
@@ -1913,9 +1918,17 @@ function MaterialienSection({ materials, onChange }) {
 }
 
 // ─── Trade room card (Maler, Fliesen, Trockenbau, Bodenbelag) ────────────────
-function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
+function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
   const [open, setOpen] = useState(true)
   const [openingsOpen, setOpeningsOpen] = useState(false)
+
+  // Auto-open Öffnungen panel if validated and has errors
+  useEffect(() => {
+    if (!validated) return
+    const openings = (room.items || []).filter(i => i.subtract)
+    const hasError = openings.some(op => !op.description?.trim() || !parseFloat(op.length) || !parseFloat(op.width))
+    if (hasError) setOpeningsOpen(true)
+  }, [validated])
 
   const gw = GEWERKE.find(g => g.id === gewerk) || {}
   const schnellpos = TRADE_SCHNELLPOS[gewerk] || []
@@ -2016,7 +2029,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
             onChange={e => { e.stopPropagation(); onChange({ ...room, name: e.target.value }) }}
             onClick={e => e.stopPropagation()}
             placeholder="Raumname (z.B. Wohnzimmer)"
-            className="flex-1 bg-transparent text-white text-sm font-medium focus:outline-none placeholder-slate-500 min-w-0"
+            className="flex-1 bg-slate-800/50 border border-slate-600 rounded px-2 py-1 text-white text-sm font-medium focus:outline-none focus:border-blue-500 placeholder-slate-500 min-w-0"
+            style={validated && !room.name?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
           />
         ) : (
           <span className="flex-1 text-white text-sm font-medium truncate">
@@ -2035,22 +2049,20 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
             <div className="flex-1">
               <label className="text-xs text-slate-400">L (m)</label>
               <input type="number" step="0.01" value={room.length || ''} onChange={e => onChange({ ...room, length: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
             </div>
             <span className="text-slate-500 pb-2">×</span>
             <div className="flex-1">
               <label className="text-xs text-slate-400">B (m)</label>
               <input type="number" step="0.01" value={room.width || ''} onChange={e => onChange({ ...room, width: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
             </div>
-            {needsHeight && <>
-              <span className="text-slate-500 pb-2">×</span>
-              <div className="flex-1">
-                <label className="text-xs text-slate-400">H (m)</label>
-                <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
-              </div>
-            </>}
+            <span className="text-slate-500 pb-2">×</span>
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">H (m)</label>
+              <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.height) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
+            </div>
           </div>
 
           {/* Auto-computed hints */}
@@ -2120,25 +2132,39 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
                   const singleArea = cnt > 0 ? totalArea / cnt : totalArea
                   const isUebermessen = vobMax > 0 && singleArea > 0 && singleArea < vobMax
                   return (
-                    <div key={op.id} className="flex items-center gap-1.5 text-xs">
-                      <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
-                        placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0" />
-                      <span className="text-slate-400">B</span>
-                      <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
-                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
-                      <span className="text-slate-400">×H</span>
-                      <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
-                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
-                      <span className="text-slate-400">×</span>
-                      <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
-                        className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
-                      <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
+                    <div key={op.id} className="text-xs space-y-1">
+                      <div className="flex items-center gap-1">
+                        <input list="opening-types" type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                          placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
+                          style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                        <datalist id="opening-types">
+                          <option value="Fenster" />
+                          <option value="Tür" />
+                          <option value="Balkontür" />
+                          <option value="Dachfenster" />
+                          <option value="Sonstiges" />
+                        </datalist>
+                        <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400">B</span>
+                        <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                        <span className="text-slate-400">×H</span>
+                        <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                          style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                        <span className="text-slate-400">×</span>
+                        <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
+                          className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                        <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
                       {isUebermessen ? (
                         <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobMax} m² — übermessen`}>✓</span>
                       ) : totalArea > 0 ? (
                         <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobMax} m² — abgezogen`}>−</span>
                       ) : <span className="min-w-[24px]" />}
-                      <button onClick={() => removeOpening(idx)} className="text-red-400/40 hover:text-red-400">✕</button>
+                      </div>
                     </div>
                   )
                 })}
@@ -2509,6 +2535,27 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           setError(`${posLabel}: Bitte Unterlicht-Höhe eingeben`); return false
         }
       }
+    } else {
+      // Non-Fensterbau: validate rooms have dimensions and at least one position
+      for (let i = 0; i < form.rooms.length; i++) {
+        const room = form.rooms[i]
+        const roomLabel = room.name || `Raum ${i + 1}`
+        if (!room.name?.trim()) { setError(`${roomLabel}: Bitte Raumname eingeben`); return false }
+        if (!parseFloat(room.length)) { setError(`${roomLabel}: Bitte Länge (L) eingeben`); return false }
+        if (!parseFloat(room.width)) { setError(`${roomLabel}: Bitte Breite (B) eingeben`); return false }
+        if (!parseFloat(room.height)) { setError(`${roomLabel}: Bitte Höhe (H) eingeben`); return false }
+        const positions = (room.items || []).filter(item => !item.subtract)
+        if (positions.length === 0) { setError(`${roomLabel}: Bitte mindestens eine Position hinzufügen (Wände, Decke, Sockelleiste...)`); return false }
+        // Validate Öffnungen dimensions
+        const openings = (room.items || []).filter(item => item.subtract)
+        for (let j = 0; j < openings.length; j++) {
+          const op = openings[j]
+          const opLabel = op.description || `Öffnung ${j + 1}`
+          if (!op.description?.trim()) { setError(`${roomLabel} → ${opLabel}: Bitte Bezeichnung eingeben`); return false }
+          if (!parseFloat(op.length)) { setError(`${roomLabel} → ${opLabel}: Bitte Breite (B) eingeben`); return false }
+          if (!parseFloat(op.width)) { setError(`${roomLabel} → ${opLabel}: Bitte Höhe (H) eingeben`); return false }
+        }
+      }
     }
     return true
   }
@@ -2742,7 +2789,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   <button
                     key={g.id}
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, gewerk: g.id }))}
+                    onClick={() => {
+                      if (g.id === form.gewerk) return
+                      const hasWork = form.rooms?.some(r => r.name || parseFloat(r.length) || parseFloat(r.width) || parseFloat(r.height) || r.items?.length > 0)
+                      if (hasWork && !confirm('Gewerk ändern? Alle bisherigen Eingaben werden gelöscht.')) return
+                      setForm(f => ({ ...f, gewerk: g.id, rooms: [] }))
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       form.gewerk === g.id
                         ? 'bg-blue-600 text-white ring-2 ring-blue-400'
@@ -2809,6 +2861,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                     onChange={r => updateRoom(idx, r)}
                     onRemove={() => removeRoom(idx)}
                     gewerk={form.gewerk}
+                    validated={validated}
                   />
                 ))}
                 <button
