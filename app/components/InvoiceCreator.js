@@ -2275,8 +2275,8 @@ if (searchError) {
                         type="number"
                         min="1"
                         max="90"
-                        value={formData.skonto_days || 10}
-                        onChange={e => setFormData(prev => ({ ...prev, skonto_days: parseInt(e.target.value) || 10 }))}
+                        value={formData.skonto_days ?? ''}
+                        onChange={e => setFormData(prev => ({ ...prev, skonto_days: e.target.value === '' ? '' : parseInt(e.target.value) || 0 }))}
                         className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                       />
                     </div>
@@ -2303,8 +2303,8 @@ if (searchError) {
                         type="number"
                         min="1"
                         max="10"
-                        value={formData.sicherheitseinbehalt_years || 2}
-                        onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_years: parseInt(e.target.value) || 2 }))}
+                        value={formData.sicherheitseinbehalt_years ?? ''}
+                        onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_years: e.target.value === '' ? '' : parseInt(e.target.value) || 0 }))}
                         className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                       />
                     </div>
