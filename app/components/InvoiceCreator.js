@@ -2062,7 +2062,7 @@ if (searchError) {
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                         placeholder="z.B. Beratung (min. 2 Zeichen)"
-                        required
+                        style={reqStyle(item.description)}
                       />
                       
                       {/* Services Dropdown */}
@@ -2130,6 +2130,7 @@ if (searchError) {
                         onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                         placeholder="100.00"
+                        style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                       />
                       {!formData.is_kleinunternehmer && (
                         <>
@@ -2142,6 +2143,7 @@ if (searchError) {
                             onChange={(e) => handleItemChange(index, 'price_gross', e.target.value)}
                             className="w-full px-3 py-2 bg-slate-800 border border-blue-500/50 rounded text-white text-sm"
                             placeholder="119.00"
+                            style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                           />
                         </>
                       )}
