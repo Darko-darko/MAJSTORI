@@ -2774,7 +2774,12 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                   <button
                     key={g.id}
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, gewerk: g.id }))}
+                    onClick={() => {
+                      if (g.id === form.gewerk) return
+                      const hasWork = form.rooms?.some(r => r.name || parseFloat(r.length) || parseFloat(r.width) || parseFloat(r.height) || r.items?.length > 0)
+                      if (hasWork && !confirm('Gewerk ändern? Alle bisherigen Eingaben werden gelöscht.')) return
+                      setForm(f => ({ ...f, gewerk: g.id, rooms: [] }))
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       form.gewerk === g.id
                         ? 'bg-blue-600 text-white ring-2 ring-blue-400'
