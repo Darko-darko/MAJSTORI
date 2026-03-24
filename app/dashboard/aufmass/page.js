@@ -2021,7 +2021,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
             onChange={e => { e.stopPropagation(); onChange({ ...room, name: e.target.value }) }}
             onClick={e => e.stopPropagation()}
             placeholder="Raumname (z.B. Wohnzimmer)"
-            className="flex-1 bg-transparent text-white text-sm font-medium focus:outline-none placeholder-slate-500 min-w-0"
+            className="flex-1 bg-slate-800/50 border border-slate-600 rounded px-2 py-1 text-white text-sm font-medium focus:outline-none focus:border-blue-500 placeholder-slate-500 min-w-0"
+            style={validated && !room.name?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
           />
         ) : (
           <span className="flex-1 text-white text-sm font-medium truncate">
@@ -2124,15 +2125,21 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                   const isUebermessen = vobMax > 0 && singleArea > 0 && singleArea < vobMax
                   return (
                     <div key={op.id} className="text-xs space-y-1">
-                      <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
-                        placeholder="Fenster, Tür..." className="w-full bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white" />
+                      <div className="flex items-center gap-1">
+                        <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                          placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
+                          style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                        <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
+                      </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400">B</span>
                         <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
-                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                         <span className="text-slate-400">×H</span>
                         <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
-                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                          style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                         <span className="text-slate-400">×</span>
                         <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
                           className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
@@ -2142,7 +2149,6 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       ) : totalArea > 0 ? (
                         <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobMax} m² — abgezogen`}>−</span>
                       ) : <span className="min-w-[24px]" />}
-                      <button onClick={() => removeOpening(idx)} className="text-red-400/40 hover:text-red-400">✕</button>
                       </div>
                     </div>
                   )
@@ -2519,11 +2525,21 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
       for (let i = 0; i < form.rooms.length; i++) {
         const room = form.rooms[i]
         const roomLabel = room.name || `Raum ${i + 1}`
+        if (!room.name?.trim()) { setError(`${roomLabel}: Bitte Raumname eingeben`); return false }
         if (!parseFloat(room.length)) { setError(`${roomLabel}: Bitte Länge (L) eingeben`); return false }
         if (!parseFloat(room.width)) { setError(`${roomLabel}: Bitte Breite (B) eingeben`); return false }
         if (!parseFloat(room.height)) { setError(`${roomLabel}: Bitte Höhe (H) eingeben`); return false }
         const positions = (room.items || []).filter(item => !item.subtract)
         if (positions.length === 0) { setError(`${roomLabel}: Bitte mindestens eine Position hinzufügen (Wände, Decke, Sockelleiste...)`); return false }
+        // Validate Öffnungen dimensions
+        const openings = (room.items || []).filter(item => item.subtract)
+        for (let j = 0; j < openings.length; j++) {
+          const op = openings[j]
+          const opLabel = op.description || `Öffnung ${j + 1}`
+          if (!op.description?.trim()) { setError(`${roomLabel} → ${opLabel}: Bitte Bezeichnung eingeben`); return false }
+          if (!parseFloat(op.length)) { setError(`${roomLabel} → ${opLabel}: Bitte Breite (B) eingeben`); return false }
+          if (!parseFloat(op.width)) { setError(`${roomLabel} → ${opLabel}: Bitte Höhe (H) eingeben`); return false }
+        }
       }
     }
     return true
