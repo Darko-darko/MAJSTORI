@@ -1913,7 +1913,7 @@ function MaterialienSection({ materials, onChange }) {
 }
 
 // ─── Trade room card (Maler, Fliesen, Trockenbau, Bodenbelag) ────────────────
-function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
+function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
   const [open, setOpen] = useState(true)
   const [openingsOpen, setOpeningsOpen] = useState(false)
 
@@ -2035,22 +2035,20 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk }) {
             <div className="flex-1">
               <label className="text-xs text-slate-400">L (m)</label>
               <input type="number" step="0.01" value={room.length || ''} onChange={e => onChange({ ...room, length: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
             </div>
             <span className="text-slate-500 pb-2">×</span>
             <div className="flex-1">
               <label className="text-xs text-slate-400">B (m)</label>
               <input type="number" step="0.01" value={room.width || ''} onChange={e => onChange({ ...room, width: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
             </div>
-            {needsHeight && <>
-              <span className="text-slate-500 pb-2">×</span>
-              <div className="flex-1">
-                <label className="text-xs text-slate-400">H (m)</label>
-                <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" placeholder="0.00" />
-              </div>
-            </>}
+            <span className="text-slate-500 pb-2">×</span>
+            <div className="flex-1">
+              <label className="text-xs text-slate-400">H (m)</label>
+              <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.height) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
+            </div>
           </div>
 
           {/* Auto-computed hints */}
@@ -2509,6 +2507,17 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           setError(`${posLabel}: Bitte Unterlicht-Höhe eingeben`); return false
         }
       }
+    } else {
+      // Non-Fensterbau: validate rooms have dimensions and at least one position
+      for (let i = 0; i < form.rooms.length; i++) {
+        const room = form.rooms[i]
+        const roomLabel = room.name || `Raum ${i + 1}`
+        if (!parseFloat(room.length)) { setError(`${roomLabel}: Bitte Länge (L) eingeben`); return false }
+        if (!parseFloat(room.width)) { setError(`${roomLabel}: Bitte Breite (B) eingeben`); return false }
+        if (!parseFloat(room.height)) { setError(`${roomLabel}: Bitte Höhe (H) eingeben`); return false }
+        const positions = (room.items || []).filter(item => !item.subtract)
+        if (positions.length === 0) { setError(`${roomLabel}: Bitte mindestens eine Position hinzufügen (Wände, Decke, Sockelleiste...)`); return false }
+      }
     }
     return true
   }
@@ -2809,6 +2818,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
                     onChange={r => updateRoom(idx, r)}
                     onRemove={() => removeRoom(idx)}
                     gewerk={form.gewerk}
+                    validated={validated}
                   />
                 ))}
                 <button
