@@ -203,15 +203,15 @@ export default function EmailInvoiceModal({
               CC (Kopie an Sie)
             </label>
             <input
-              type="email"
+              type="text"
               name="ccEmail"
               value={formData.ccEmail}
               onChange={handleInputChange}
               className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
-              placeholder="ihre@email.com"
+              placeholder="ihre@email.com, weitere@email.com"
             />
             <p className="text-xs text-slate-500 mt-1">
-              Optional: Erhalten Sie eine Kopie der E-Mail
+              Optional: Mehrere Adressen mit Komma trennen
             </p>
           </div>
 
