@@ -2134,9 +2134,16 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                   return (
                     <div key={op.id} className="text-xs space-y-1">
                       <div className="flex items-center gap-1">
-                        <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                        <input list="opening-types" type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
                           placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
                           style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                        <datalist id="opening-types">
+                          <option value="Fenster" />
+                          <option value="Tür" />
+                          <option value="Balkontür" />
+                          <option value="Dachfenster" />
+                          <option value="Sonstiges" />
+                        </datalist>
                         <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
                       </div>
                       <div className="flex items-center gap-1.5">
