@@ -103,6 +103,9 @@ export default function InvoiceCreator({
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  useEffect(() => { if (!isOpen) setSubmitAttempted(false) }, [isOpen])
+  const reqStyle = (val) => submitAttempted && !val?.toString().trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined
   
   // Customer autocomplete states
   const [customerSearchTerm, setCustomerSearchTerm] = useState('')
@@ -1171,6 +1174,7 @@ export default function InvoiceCreator({
     }
 
     setError('')
+    setSubmitAttempted(true)
     setLoading(true)
 
     try {
@@ -1714,6 +1718,7 @@ if (searchError) {
         required
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         placeholder="z.B. Max Mustermann"
+        style={reqStyle(formData.customer_name)}
       />
       
       {/* Customer Suggestions Dropdown */}
@@ -1761,6 +1766,7 @@ if (searchError) {
         required
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         placeholder="max@example.com"
+        style={reqStyle(formData.customer_email)}
       />
     </div>
     
@@ -1809,6 +1815,7 @@ if (searchError) {
           required
           className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
           placeholder="z.B. Musterstraße 123"
+          style={reqStyle(formData.customer_street)}
         />
       </div>
       
@@ -1824,6 +1831,7 @@ if (searchError) {
             required
             className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="12345"
+            style={reqStyle(formData.customer_postal_code)}
           />
         </div>
         <div>
@@ -1836,6 +1844,7 @@ if (searchError) {
             required
             className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="z.B. Berlin"
+            style={reqStyle(formData.customer_city)}
           />
         </div>
       </div>
