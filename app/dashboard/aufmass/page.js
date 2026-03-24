@@ -1922,6 +1922,14 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
   const [open, setOpen] = useState(true)
   const [openingsOpen, setOpeningsOpen] = useState(false)
 
+  // Auto-open Öffnungen panel if validated and has errors
+  useEffect(() => {
+    if (!validated) return
+    const openings = (room.items || []).filter(i => i.subtract)
+    const hasError = openings.some(op => !op.description?.trim() || !parseFloat(op.length) || !parseFloat(op.width))
+    if (hasError) setOpeningsOpen(true)
+  }, [validated])
+
   const gw = GEWERKE.find(g => g.id === gewerk) || {}
   const schnellpos = TRADE_SCHNELLPOS[gewerk] || []
   const vobWand = gw.vobWand || 0
