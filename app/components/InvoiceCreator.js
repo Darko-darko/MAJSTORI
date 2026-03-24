@@ -2158,6 +2158,9 @@ if (searchError) {
                     </div>
                     
                     <div className="md:col-span-2">
+                      <p className={`text-xs mb-1 ${submitAttempted && item.price <= 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                        {formData.is_kleinunternehmer ? 'Preis eingeben' : 'Netto- oder Bruttopreis eingeben'}
+                      </p>
                       <label className="block text-sm text-slate-400 mb-1">
                         Einzelpreis ({formData.is_kleinunternehmer ? 'inkl.' : 'netto'})
                       </label>
