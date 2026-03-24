@@ -1643,50 +1643,55 @@ function ShapeRow({ item, onChange, onRemove }) {
   const sign    = isSubtract ? '−' : '+'
   const signCls = isSubtract ? 'text-red-400' : 'text-teal-400'
   return (
-    <div className={`flex flex-wrap gap-1.5 items-center py-1.5 px-2 rounded-lg border text-sm ${wrapCls}`}>
-      {/* Shape selector */}
-      <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
-        {SHAPES.map(sh => (
-          <button key={sh.id} onClick={() => update('shape', sh.id)} title={sh.title}
-            className={`px-2 py-0.5 text-xs font-medium transition-colors ${shape === sh.id ? accentBtn : 'bg-slate-700 text-slate-400'}`}
-          >{sh.label}</button>
-        ))}
+    <div className={`py-1.5 px-2 rounded-lg border text-sm ${wrapCls}`}>
+      {/* Row 1: description */}
+      <div className="flex gap-1.5 items-center mb-1.5">
+        <input type="text" value={item.description} onChange={e => update('description', e.target.value)}
+          placeholder={isSubtract ? 'Fenster / Tür...' : 'Beschreibung...'}
+          className="flex-1 min-w-0 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs shape-row-input" />
+        <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
+          {SHAPES.map(sh => (
+            <button key={sh.id} onClick={() => update('shape', sh.id)} title={sh.title}
+              className={`px-2 py-0.5 text-xs font-medium transition-colors ${shape === sh.id ? accentBtn : 'bg-slate-700 text-slate-400'}`}
+            >{sh.label}</button>
+          ))}
+        </div>
+        <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
+          {['m', 'cm'].map(du => (
+            <button key={du} onClick={() => update('dim_unit', du)}
+              className={`px-2 py-0.5 text-xs font-medium transition-colors ${(item.dim_unit || 'm') === du ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+            >{du}</button>
+          ))}
+        </div>
       </div>
-      <input type="text" value={item.description} onChange={e => update('description', e.target.value)}
-        placeholder={isSubtract ? 'Fenster / Tür...' : 'Beschreibung...'}
-        className="w-28 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-white placeholder-slate-500 text-xs shape-row-input" />
-      <div className="flex rounded overflow-hidden border border-slate-600 shrink-0">
-        {['m', 'cm'].map(du => (
-          <button key={du} onClick={() => update('dim_unit', du)}
-            className={`px-2 py-0.5 text-xs font-medium transition-colors ${(item.dim_unit || 'm') === du ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
-          >{du}</button>
-        ))}
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-slate-500 text-xs">B</span>
-        <input type="number" value={item.length || ''} onChange={e => update('length', e.target.value)}
-          placeholder="0.00" step="0.01" inputMode="decimal"
-          className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
-      </div>
-      <span className="text-slate-500 text-xs">×</span>
-      <div className="flex items-center gap-1">
-        <span className="text-slate-500 text-xs">H</span>
-        <input type="number" value={item.width || ''} onChange={e => update('width', e.target.value)}
-          placeholder="0.00" step="0.01" inputMode="decimal"
-          className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
-      </div>
-      <div className="flex items-center gap-1">
+      {/* Row 2: dimensions */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <div className="flex items-center gap-1">
+          <span className="text-slate-500 text-xs">B</span>
+          <input type="number" value={item.length || ''} onChange={e => update('length', e.target.value)}
+            placeholder="0.00" step="0.01" inputMode="decimal"
+            className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        </div>
         <span className="text-slate-500 text-xs">×</span>
-        <input type="number" value={item.count || ''} onChange={e => update('count', e.target.value)}
-          placeholder="1" step="1" min="1" inputMode="numeric"
-          className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        <div className="flex items-center gap-1">
+          <span className="text-slate-500 text-xs">H</span>
+          <input type="number" value={item.width || ''} onChange={e => update('width', e.target.value)}
+            placeholder="0.00" step="0.01" inputMode="decimal"
+            className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-slate-500 text-xs">×</span>
+          <input type="number" value={item.count || ''} onChange={e => update('count', e.target.value)}
+            placeholder="1" step="1" min="1" inputMode="numeric"
+            className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-xs text-right shape-row-input" />
+        </div>
+        <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border light-invert-text ${resCls}`}>
+          <span className={`text-xs font-bold light-invert-text ${signCls}`}>{sign}</span>
+          <span className="font-semibold text-xs">{formatNum(item.result || 0)}</span>
+          <span className="text-xs">m²</span>
+        </div>
+        <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
       </div>
-      <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded border light-invert-text ${resCls}`}>
-        <span className={`text-xs font-bold light-invert-text ${signCls}`}>{sign}</span>
-        <span className="font-semibold text-xs">{formatNum(item.result || 0)}</span>
-        <span className="text-xs">m²</span>
-      </div>
-      <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs rounded shrink-0">✕</button>
     </div>
   )
 }
@@ -2118,25 +2123,27 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                   const singleArea = cnt > 0 ? totalArea / cnt : totalArea
                   const isUebermessen = vobMax > 0 && singleArea > 0 && singleArea < vobMax
                   return (
-                    <div key={op.id} className="flex items-center gap-1.5 text-xs">
+                    <div key={op.id} className="text-xs space-y-1">
                       <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
-                        placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0" />
-                      <span className="text-slate-400">B</span>
-                      <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
-                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
-                      <span className="text-slate-400">×H</span>
-                      <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
-                        className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
-                      <span className="text-slate-400">×</span>
-                      <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
-                        className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
-                      <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
+                        placeholder="Fenster, Tür..." className="w-full bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white" />
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400">B</span>
+                        <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                        <span className="text-slate-400">×H</span>
+                        <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0" />
+                        <span className="text-slate-400">×</span>
+                        <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
+                          className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                        <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
                       {isUebermessen ? (
                         <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobMax} m² — übermessen`}>✓</span>
                       ) : totalArea > 0 ? (
                         <span className="text-red-400 text-[10px] min-w-[24px]" title={`≥ ${vobMax} m² — abgezogen`}>−</span>
                       ) : <span className="min-w-[24px]" />}
                       <button onClick={() => removeOpening(idx)} className="text-red-400/40 hover:text-red-400">✕</button>
+                      </div>
                     </div>
                   )
                 })}
