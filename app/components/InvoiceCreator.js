@@ -1,5 +1,6 @@
 // app/components/InvoiceCreator.js - WEG ADDRESS SYSTEM IMPLEMENTATION
 'use client'
+import { round2 } from '@/lib/round2'
 
 // Client-side image compression before upload (same pattern as ausgaben page)
 function compressImage(file, maxWidth = 1920) {
@@ -90,7 +91,14 @@ export default function InvoiceCreator({
     payment_terms_days: 14,
     valid_until: '',
     issue_date: new Date().toISOString().split('T')[0],
-    is_kleinunternehmer: false
+    is_kleinunternehmer: false,
+    // Rabatt, Skonto, Sicherheitseinbehalt
+    rabatt_percent: 0,
+    rabatt_reason: '',
+    skonto_percent: 0,
+    skonto_days: 10,
+    sicherheitseinbehalt_percent: 0,
+    sicherheitseinbehalt_years: 2,
   })
   
   const [loading, setLoading] = useState(false)
@@ -469,7 +477,17 @@ export default function InvoiceCreator({
         payment_terms_days: editData.payment_terms_days || defaultSettings.payment_terms_days,
         valid_until: editData.valid_until || '',
         issue_date: editData.issue_date || new Date().toISOString().split('T')[0],
-        is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer
+        is_kleinunternehmer: editData.is_kleinunternehmer !== undefined ? editData.is_kleinunternehmer : defaultSettings.is_kleinunternehmer,
+        rabatt_percent: editData.rabatt_percent || 0,
+        rabatt_reason: editData.rabatt_reason || '',
+        rabatt_amount: editData.rabatt_amount || 0,
+        skonto_percent: editData.skonto_percent || 0,
+        skonto_days: editData.skonto_days || 10,
+        sicherheitseinbehalt_percent: editData.sicherheitseinbehalt_percent || 0,
+        sicherheitseinbehalt_years: editData.sicherheitseinbehalt_years || 2,
+        einbehalt_amount: editData.einbehalt_amount || 0,
+        zahlbar_sofort: editData.zahlbar_sofort || 0,
+        _showRabatt: !!(editData.rabatt_percent || editData.skonto_percent || editData.sicherheitseinbehalt_percent),
       })
       
       setCustomerSearchTerm(editData.customer_name || '')
@@ -694,12 +712,12 @@ export default function InvoiceCreator({
       const quantity = parseFloat(value) || 0
       if (newItems[index].price_source === 'brutto') {
         const gross = parseFloat(newItems[index].price_gross) || 0
-        const itemBrutto = parseFloat((quantity * gross).toFixed(2))
-        const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
-        newItems[index].total = parseFloat((itemBrutto - itemTax).toFixed(2))
+        const itemBrutto = round2(quantity * gross)
+        const itemNetto = taxRate > 0 ? round2(itemBrutto / taxMultiplier) : itemBrutto
+        newItems[index].total = itemNetto
       } else {
         const price = parseFloat(newItems[index].price) || 0
-        newItems[index].total = parseFloat((quantity * price).toFixed(2))
+        newItems[index].total = round2(quantity * price)
       }
     }
 
@@ -707,19 +725,19 @@ export default function InvoiceCreator({
       const quantity = parseFloat(newItems[index].quantity) || 0
       const price = parseFloat(value) || 0
       newItems[index].price_source = 'netto'
-      newItems[index].total = parseFloat((quantity * price).toFixed(2))
-      newItems[index].price_gross = parseFloat((price * taxMultiplier).toFixed(2))
+      newItems[index].total = round2(quantity * price)
+      newItems[index].price_gross = round2(price * taxMultiplier)
     }
 
     if (field === 'price_gross') {
       const gross = parseFloat(value) || 0
-      const net = parseFloat((gross / taxMultiplier).toFixed(2))
+      const net = round2(gross / taxMultiplier)
       const quantity = parseFloat(newItems[index].quantity) || 0
-      const itemBrutto = parseFloat((quantity * gross).toFixed(2))
-      const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
+      const itemBrutto = round2(quantity * gross)
+      const itemNetto = taxRate > 0 ? round2(itemBrutto / taxMultiplier) : itemBrutto
       newItems[index].price_source = 'brutto'
       newItems[index].price = net
-      newItems[index].total = parseFloat((itemBrutto - itemTax).toFixed(2))
+      newItems[index].total = itemNetto
     }
 
     setFormData(prev => ({ ...prev, items: newItems }))
@@ -871,51 +889,62 @@ export default function InvoiceCreator({
     }
   }
 
-  // Calculate totals
+  // Recalculate when rabatt/einbehalt changes
+  useEffect(() => {
+    if (formData.items?.length) calculateTotals(formData.items)
+  }, [formData.rabatt_percent, formData.sicherheitseinbehalt_percent])
+
+  // Calculate totals — single source of truth, total-based model
+  // Order: Netto → Rabatt → Netto nach Rabatt → MwSt → Brutto → Einbehalt
   const calculateTotals = (items) => {
-    if (formData.is_kleinunternehmer) {
-      const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.total || 0), 0).toFixed(2))
-      setFormData(prev => ({ ...prev, subtotal, tax_amount: 0, total_amount: subtotal }))
-      return
-    }
+    setFormData(prev => {
+      const taxRate = prev.is_kleinunternehmer ? 0 : (parseFloat(prev.tax_rate) || 0)
 
-    const taxRate = parseFloat(formData.tax_rate) || 0
-
-    // Per-item calculation, then sum
-    let totalNetto = 0
-    let totalTax = 0
-    let totalBrutto = 0
-    for (const item of items) {
-      const qty = parseFloat(item.quantity) || 0
-      if (item.price_source === 'brutto') {
-        // Brutto entered: brutto is exact, MwSt = brutto × rate / (100 + rate)
-        const gross = parseFloat(item.price_gross) || 0
-        const itemBrutto = parseFloat((qty * gross).toFixed(2))
-        const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
-        const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
-        totalBrutto += itemBrutto
-        totalTax += itemTax
-        totalNetto += itemNetto
-      } else {
-        // Netto entered: netto is exact, MwSt = netto × rate / 100
-        const itemNetto = parseFloat((item.total || 0).toFixed(2))
-        const itemTax = parseFloat((itemNetto * taxRate / 100).toFixed(2))
-        const itemBrutto = parseFloat((itemNetto + itemTax).toFixed(2))
-        totalNetto += itemNetto
-        totalTax += itemTax
-        totalBrutto += itemBrutto
+      // 1. Subtotal netto — sum of all item netto totals
+      let subtotalNetto = 0
+      for (const item of items) {
+        const qty = parseFloat(item.quantity) || 0
+        if (item.price_source === 'brutto') {
+          const itemBrutto = round2(qty * (parseFloat(item.price_gross) || 0))
+          const itemNetto = taxRate > 0 ? round2(itemBrutto / (1 + taxRate / 100)) : itemBrutto
+          subtotalNetto += itemNetto
+        } else {
+          subtotalNetto += round2(item.total || 0)
+        }
       }
-    }
-    totalNetto = parseFloat(totalNetto.toFixed(2))
-    totalTax = parseFloat(totalTax.toFixed(2))
-    totalBrutto = parseFloat(totalBrutto.toFixed(2))
+      subtotalNetto = round2(subtotalNetto)
 
-    setFormData(prev => ({
-      ...prev,
-      subtotal: totalNetto,
-      tax_amount: totalTax,
-      total_amount: totalBrutto
-    }))
+      // 2. Rabatt on netto
+      const rabattPct = parseFloat(prev.rabatt_percent) || 0
+      const rabattAmount = round2(subtotalNetto * rabattPct / 100)
+
+      // 3. Netto nach Rabatt
+      const nettoAfterDiscount = round2(subtotalNetto - rabattAmount)
+
+      // 4. MwSt on netto nach Rabatt
+      const taxAmount = round2(nettoAfterDiscount * taxRate / 100)
+
+      // 5. Brutto
+      const grossTotal = round2(nettoAfterDiscount + taxAmount)
+
+      // 6. Einbehalt on brutto
+      const einbehaltPct = parseFloat(prev.sicherheitseinbehalt_percent) || 0
+      const einbehaltAmount = round2(grossTotal * einbehaltPct / 100)
+
+      // 7. Amount due (zahlbar sofort)
+      const amountDue = round2(grossTotal - einbehaltAmount)
+
+      return {
+        ...prev,
+        subtotal: subtotalNetto,
+        rabatt_amount: rabattAmount,
+        netto_after_discount: nettoAfterDiscount,
+        tax_amount: taxAmount,
+        total_amount: grossTotal,
+        einbehalt_amount: einbehaltAmount,
+        zahlbar_sofort: amountDue,
+      }
+    })
   }
 
   // Voice recording functions
@@ -1309,6 +1338,18 @@ if (searchError) {
         payment_terms_days: formData.payment_terms_days,
         valid_until: type === 'quote' ? formData.valid_until : null,
         is_kleinunternehmer: formData.is_kleinunternehmer,
+        // Rabatt, Skonto, Sicherheitseinbehalt
+        rabatt_percent: parseFloat(formData.rabatt_percent) || 0,
+        rabatt_reason: formData.rabatt_reason || null,
+        rabatt_amount: parseFloat(formData.rabatt_amount) || 0,
+        skonto_percent: parseFloat(formData.skonto_percent) || 0,
+        skonto_days: parseInt(formData.skonto_days) || 0,
+        sicherheitseinbehalt_percent: parseFloat(formData.sicherheitseinbehalt_percent) || 0,
+        sicherheitseinbehalt_years: parseInt(formData.sicherheitseinbehalt_years) || 0,
+        einbehalt_amount: parseFloat(formData.einbehalt_amount) || 0,
+        zahlbar_sofort: parseFloat(formData.zahlbar_sofort) || 0,
+        netto_after_discount: parseFloat(formData.netto_after_discount) || 0,
+        amount_due: parseFloat(formData.zahlbar_sofort) || parseFloat(formData.total_amount) || 0,
         converted_from_quote_id: editData?.converted_from_quote_id || null,
         aufmass_id: selectedAufmassIds[0] || aufmassId || editData?.aufmass_id || null,
         aufmass_ids: selectedAufmassIds.length > 0 ? selectedAufmassIds : (editData?.aufmass_ids || null)
@@ -1651,7 +1692,7 @@ if (searchError) {
 
             {/* ✅ CUSTOMER INFORMATION - IMPROVED */}
 <div>
-  <h4 className="text-white font-semibold mb-4">📋 Kundeninformationen</h4>
+  <h4 className="text-blue-400 font-semibold mb-4">📋 Kundeninformationen</h4>
   
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     {/* Customer Name - Autocomplete */}
@@ -1746,20 +1787,20 @@ if (searchError) {
   </div>
 
   {/* ✅ BILLING ADDRESS - STRUCTURED FIELDS */}
-  <div className="mt-4 p-4 bg-slate-900/30 rounded-lg border-l-4 border-blue-500">
-    <h5 className="text-white font-medium mb-3">Rechnungsadresse</h5>
+  <div className="mt-4">
+    <h5 className="text-blue-400 font-medium mb-3">Rechnungsadresse</h5>
     
     <div className="grid grid-cols-1 gap-3">
       {/* Street */}
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Straße und Hausnummer *</label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Straße und Hausnummer *</label>
         <input
           type="text"
           name="customer_street"
           value={formData.customer_street}
           onChange={handleInputChange}
           required
-          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
           placeholder="z.B. Musterstraße 123"
         />
       </div>
@@ -1767,26 +1808,26 @@ if (searchError) {
       {/* PLZ + City */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm text-slate-400 mb-1">PLZ *</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">PLZ *</label>
           <input
             type="text"
             name="customer_postal_code"
             value={formData.customer_postal_code}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="12345"
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-400 mb-1">Stadt *</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Stadt *</label>
           <input
             type="text"
             name="customer_city"
             value={formData.customer_city}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="z.B. Berlin"
           />
         </div>
@@ -1794,12 +1835,12 @@ if (searchError) {
       
     {/* ✅ Country - UVEK VIDLJIVO */}
       <div>
-        <label className="block text-sm text-slate-400 mb-1">Land (optional)</label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Land (optional)</label>
         <select
           name="customer_country"
           value={formData.customer_country}
           onChange={handleInputChange}
-          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         >
           <option value="">-- Nicht angegeben --</option>
           <option value="Deutschland">🇩🇪 Deutschland</option>
@@ -1822,15 +1863,17 @@ if (searchError) {
     <button
       type="button"
       onClick={() => setFormData(prev => ({ ...prev, show_weg: true }))}
-      className="w-full p-3 flex items-center gap-3 text-blue-400 hover:text-blue-300 transition-colors text-sm bg-transparent"
+      className="w-full flex items-center justify-between px-4 py-2.5 border border-slate-600 rounded-lg hover:bg-slate-800/30 transition-colors"
     >
-      <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-      <span>+ Objektadresse hinzufügen (falls abweichend)</span>
+      <span className="text-blue-400 text-sm font-medium">+ Objektadresse (falls abweichend)</span>
+      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
     </button>
   ) : (
-    <div className="p-4 bg-slate-900/30 rounded-lg border-l-4 border-green-500">
-      <div className="flex justify-between items-center mb-3">
-        <h5 className="text-green-300 font-medium">Objektadresse</h5>
+    <div className="border border-slate-600 rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="text-blue-400 text-sm font-medium">Objektadresse</span>
         <button
           type="button"
           onClick={() => setFormData(prev => ({ 
@@ -1848,9 +1891,9 @@ if (searchError) {
           ×
         </button>
       </div>
-      
-      <div className="grid grid-cols-1 gap-3">
-        {/* 🔥 NOVO POLJE - DODAJ OVDE */}
+
+      <div className="px-4 pb-4 pt-2 border-t border-slate-700 grid grid-cols-1 gap-3">
+        <p className="text-xs text-slate-500 text-center">💡 WEG-Gebäude, Baustelle, oder Arbeitsort falls abweichend</p>
         <div>
           <label className="block text-sm text-slate-400 mb-1">Objektname</label>
           <input
@@ -1922,9 +1965,6 @@ if (searchError) {
         </div>
       </div>
       
-      <p className="text-xs text-slate-500 mt-3">
-        💡 Z.B. WEG-Gebäude, Baustelle, oder Arbeitsort falls abweichend von Rechnungsadresse
-      </p>
     </div>
   )}
 </div>
@@ -1934,26 +1974,27 @@ if (searchError) {
     <button
       type="button"
       onClick={() => setFormData(prev => ({ ...prev, place_of_service: ' ' }))}
-      className="w-full p-3 flex items-center gap-3 text-blue-400 hover:text-blue-300 transition-colors text-sm bg-transparent mt-2"
+      className="w-full flex items-center justify-between px-4 py-2.5 border border-slate-600 rounded-lg hover:bg-slate-800/30 transition-colors mt-2"
     >
-      <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-      <span>+ Ort der Leistung hinzufügen (optional)</span>
+      <span className="text-blue-400 text-sm font-medium">+ Ort der Leistung (optional)</span>
+      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
     </button>
   ) : (
-    <div className="mt-4 p-4 bg-slate-900/30 rounded-lg border-l-4 border-amber-500">
-      <div className="flex justify-between items-center mb-3">
-        <label className="text-amber-300 font-medium text-sm">
-          📍 Ort der Leistung
-        </label>
+    <div className="mt-2 border border-slate-600 rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="text-blue-400 text-sm font-medium">Ort der Leistung</span>
         <button
           type="button"
           onClick={() => setFormData(prev => ({ ...prev, place_of_service: '' }))}
-          className="text-slate-400 hover:text-white text-xl"
+          className="text-slate-400 hover:text-white text-xl leading-none"
           title="Ort der Leistung entfernen"
         >
           ×
         </button>
       </div>
+      <div className="px-4 pb-4 pt-2 border-t border-slate-700">
       <div className="flex gap-2 mb-2">
         <button
           type="button"
@@ -1981,9 +2022,7 @@ if (searchError) {
         placeholder="z.B. Berlin, 10115 Berlin, Treppenhaus 2.OG"
         autoFocus
       />
-      <p className="text-xs text-slate-500 mt-1">
-        💡 Wichtig für steuerliche Zwecke und ZUGFeRD-Compliance
-      </p>
+      </div>
     </div>
   )}
 </div>
@@ -1991,7 +2030,7 @@ if (searchError) {
             {/* Items Section */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-white font-semibold">Positionen</h4>
+                <h4 className="text-blue-400 font-semibold">Positionen</h4>
                 <button
                   type="button"
                   onClick={addItem}
@@ -2139,28 +2178,200 @@ if (searchError) {
               </div>
             </div>
 
+            {/* Rabatt / Skonto / Sicherheitseinbehalt — collapsible */}
+            <div className="border border-slate-600 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, _showRabatt: !prev._showRabatt }))}
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors"
+              >
+                <span className="text-blue-400 text-sm font-medium">
+                  {formData._showRabatt ? 'Rabatt & Konditionen' : '+ Rabatt & Konditionen'}
+                </span>
+                <svg className={`w-4 h-4 text-slate-400 transition-transform ${formData._showRabatt ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {formData._showRabatt && (
+              <div className="px-4 pb-4 pt-2 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-700">
+                {/* Rabatt */}
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Rabatt (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={formData.rabatt_percent || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, rabatt_percent: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                  />
+                  {parseFloat(formData.rabatt_percent) > 0 && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-400 mb-1">Grund</label>
+                      {formData._showCustomRabatt ? (
+                        <div className="flex gap-1">
+                          <input
+                            type="text"
+                            value={formData.rabatt_reason}
+                            onChange={e => setFormData(prev => ({ ...prev, rabatt_reason: e.target.value.slice(0, 15) }))}
+                            maxLength={15}
+                            placeholder="Grund eingeben..."
+                            autoFocus
+                            className="flex-1 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, _showCustomRabatt: false, rabatt_reason: '' }))}
+                            className="px-2 text-slate-400 hover:text-white text-sm"
+                          >×</button>
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.rabatt_reason || ''}
+                          onChange={e => {
+                            if (e.target.value === '_custom') {
+                              setFormData(prev => ({ ...prev, _showCustomRabatt: true, rabatt_reason: '' }))
+                            } else {
+                              setFormData(prev => ({ ...prev, rabatt_reason: e.target.value }))
+                            }
+                          }}
+                          className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                        >
+                          <option value="">Bitte wählen...</option>
+                          <option value="Treuerabatt">Treuerabatt</option>
+                          <option value="Mengenrabatt">Mengenrabatt</option>
+                          <option value="Saisonrabatt">Saisonrabatt</option>
+                          <option value="Barzahlung">Barzahlung</option>
+                          <option value="Gesamtauftrag">Gesamtauftrag</option>
+                          <option value="Nachlass">Nachlass</option>
+                          <option value="Kulanz">Kulanz</option>
+                          <option value="Stammkunde">Stammkunde</option>
+                          <option value="_custom">Sonstiges...</option>
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Skonto */}
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Skonto (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={formData.skonto_percent || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, skonto_percent: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                  />
+                  {parseFloat(formData.skonto_percent) > 0 && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-400 mb-1">Zahlungsfrist (Tage)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={formData.skonto_days || 10}
+                        onChange={e => setFormData(prev => ({ ...prev, skonto_days: parseInt(e.target.value) || 10 }))}
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Sicherheitseinbehalt */}
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">Sicherheitseinbehalt (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    step="0.5"
+                    value={formData.sicherheitseinbehalt_percent || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_percent: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                  />
+                  {parseFloat(formData.sicherheitseinbehalt_percent) > 0 && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-400 mb-1">Gewährleistung (Jahre)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.sicherheitseinbehalt_years || 2}
+                        onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_years: parseInt(e.target.value) || 2 }))}
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              )}
+            </div>
+
             {/* Totals Section */}
             <div className="bg-slate-900/50 rounded-lg p-4">
-              <h4 className="text-white font-semibold mb-4">Berechnung</h4>
+              <h4 className="text-blue-400 font-semibold mb-4">Berechnung</h4>
               <div className="space-y-2 max-w-md ml-auto">
                 <div className="flex justify-between">
                   <span className="text-slate-400">
-                    {formData.is_kleinunternehmer ? 'Gesamtbetrag:' : 'Nettobetrag:'}
+                    {formData.is_kleinunternehmer ? 'Zwischensumme:' : 'Nettobetrag:'}
                   </span>
                   <span className="text-white">{formatCurrency(formData.subtotal)}</span>
                 </div>
-                
+
+                {/* Rabatt */}
+                {parseFloat(formData.rabatt_percent) > 0 && (
+                  <>
+                    <div className="flex justify-between text-red-400">
+                      <span>Rabatt ({formData.rabatt_percent}%){formData.rabatt_reason ? ` — ${formData.rabatt_reason}` : ''}:</span>
+                      <span>-{formatCurrency(formData.rabatt_amount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Nettobetrag nach Rabatt:</span>
+                      <span className="text-white">{formatCurrency((formData.subtotal || 0) - (formData.rabatt_amount || 0))}</span>
+                    </div>
+                  </>
+                )}
+
                 {!formData.is_kleinunternehmer && (
                   <div className="flex justify-between">
                     <span className="text-slate-400">zzgl. MwSt. ({formData.tax_rate}%):</span>
                     <span className="text-white">{formatCurrency(formData.tax_amount)}</span>
                   </div>
                 )}
-                
+
                 <div className="flex justify-between pt-2 border-t border-slate-700">
                   <span className="text-white font-semibold">Gesamtbetrag:</span>
                   <span className="text-white font-semibold text-lg">{formatCurrency(formData.total_amount)}</span>
                 </div>
+
+                {/* Sicherheitseinbehalt */}
+                {parseFloat(formData.sicherheitseinbehalt_percent) > 0 && (
+                  <>
+                    <div className="flex justify-between text-amber-400">
+                      <span>Sicherheitseinbehalt ({formData.sicherheitseinbehalt_percent}%):</span>
+                      <span>-{formatCurrency(formData.einbehalt_amount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-700">
+                      <span className="text-teal-400 font-semibold">Zahlbar sofort:</span>
+                      <span className="text-teal-400 font-semibold text-lg">{formatCurrency(formData.zahlbar_sofort || 0)}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* Skonto info */}
+                {parseFloat(formData.skonto_percent) > 0 && (
+                  <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-300">
+                    {formData.skonto_percent}% Skonto bei Zahlung innerhalb {formData.skonto_days} Tagen
+                    ({formatCurrency(((formData.zahlbar_sofort || formData.total_amount) * formData.skonto_percent / 100))})
+                  </div>
+                )}
 
                 {/* Anhänge — Liste */}
                 {(savedAttachments.length > 0 || pendingAttachments.length > 0) && (
@@ -2267,7 +2478,7 @@ if (searchError) {
 
             {/* Additional Information */}
             <div>
-              <h4 className="text-white font-semibold mb-4">Zusätzliche Informationen</h4>
+              <h4 className="text-blue-400 font-semibold mb-4">Zusätzliche Informationen</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
