@@ -181,7 +181,7 @@ export async function POST(request, routeData) {
     }
 
     if (ccEmail && ccEmail.trim()) {
-      emailData.cc = [ccEmail.trim()]
+      emailData.cc = ccEmail.split(',').map(e => e.trim()).filter(e => e.includes('@'))
     }
 
     console.log('📤 Sending email via Resend...')
