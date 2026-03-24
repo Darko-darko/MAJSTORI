@@ -103,6 +103,9 @@ export default function InvoiceCreator({
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  useEffect(() => { if (!isOpen) setSubmitAttempted(false) }, [isOpen])
+  const reqStyle = (val) => submitAttempted && !val?.toString().trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined
   
   // Customer autocomplete states
   const [customerSearchTerm, setCustomerSearchTerm] = useState('')
@@ -653,6 +656,7 @@ export default function InvoiceCreator({
 
   // ✅ Handle customer name change with search
   const handleCustomerNameChange = (e) => {
+    if (error) setError('')
     const value = e.target.value
     setCustomerSearchTerm(value)
     // Ako je ime promijenjeno nakon što je klijent odabran iz liste — resetuj customer_id
@@ -692,6 +696,7 @@ export default function InvoiceCreator({
 
   // Handle input change
   const handleInputChange = (e) => {
+    if (error) setError('')
     const { name, value, type, checked } = e.target
     
     if (type === 'checkbox') {
@@ -703,6 +708,7 @@ export default function InvoiceCreator({
 
   // Handle item changes with proper service filtering
   const handleItemChange = (index, field, value) => {
+    if (error) setError('')
     const newItems = [...formData.items]
     newItems[index] = { ...newItems[index], [field]: value }
     const taxRate = parseFloat(formData.tax_rate) || 0
@@ -1171,7 +1177,42 @@ export default function InvoiceCreator({
     }
 
     setError('')
+    setSubmitAttempted(true)
     setLoading(true)
+
+    const scrollToError = () => {
+      setTimeout(() => {
+        const fields = [
+          { val: formData.customer_name, name: 'customer_name' },
+          { val: formData.customer_email, name: 'customer_email' },
+          { val: formData.customer_street, name: 'customer_street' },
+          { val: formData.customer_postal_code, name: 'customer_postal_code' },
+          { val: formData.customer_city, name: 'customer_city' },
+        ]
+        const empty = fields.find(f => !f.val?.toString().trim())
+        if (empty) {
+          const el = document.querySelector(`[name="${empty.name}"]`)
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); return }
+        }
+        // Check items
+        const badItem = formData.items.findIndex(i => !i.description || i.price <= 0)
+        if (badItem >= 0) {
+          const el = document.querySelectorAll('[placeholder*="Beratung"]')[badItem]
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); return }
+        }
+        // Check skonto days / einbehalt years — open Rabatt section first
+        const needsSkonto = parseFloat(formData.skonto_percent) > 0 && !formData.skonto_days
+        const needsEinbehalt = parseFloat(formData.sicherheitseinbehalt_percent) > 0 && !formData.sicherheitseinbehalt_years
+        if (needsSkonto || needsEinbehalt) {
+          setFormData(prev => ({ ...prev, _showRabatt: true }))
+          setTimeout(() => {
+            const name = needsSkonto ? 'skonto_days' : 'sicherheitseinbehalt_years'
+            const el = document.querySelector(`[name="${name}"]`)
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
+          }, 150)
+        }
+      }, 100)
+    }
 
     try {
       // ✅ Validation - structured billing address required
@@ -1419,6 +1460,7 @@ if (searchError) {
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
       setError(err.message)
+      scrollToError()
     } finally {
       setLoading(false)
     }
@@ -1709,11 +1751,12 @@ if (searchError) {
       </label>
       <input
         type="text"
+        name="customer_name"
         value={customerSearchTerm}
         onChange={handleCustomerNameChange}
-        required
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         placeholder="z.B. Max Mustermann"
+        style={reqStyle(formData.customer_name)}
       />
       
       {/* Customer Suggestions Dropdown */}
@@ -1758,9 +1801,9 @@ if (searchError) {
         name="customer_email"
         value={formData.customer_email}
         onChange={handleInputChange}
-        required
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
         placeholder="max@example.com"
+        style={reqStyle(formData.customer_email)}
       />
     </div>
     
@@ -1806,9 +1849,9 @@ if (searchError) {
           name="customer_street"
           value={formData.customer_street}
           onChange={handleInputChange}
-          required
           className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
           placeholder="z.B. Musterstraße 123"
+          style={reqStyle(formData.customer_street)}
         />
       </div>
       
@@ -1821,9 +1864,9 @@ if (searchError) {
             name="customer_postal_code"
             value={formData.customer_postal_code}
             onChange={handleInputChange}
-            required
             className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="12345"
+            style={reqStyle(formData.customer_postal_code)}
           />
         </div>
         <div>
@@ -1833,9 +1876,9 @@ if (searchError) {
             name="customer_city"
             value={formData.customer_city}
             onChange={handleInputChange}
-            required
             className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
             placeholder="z.B. Berlin"
+            style={reqStyle(formData.customer_city)}
           />
         </div>
       </div>
@@ -2058,7 +2101,7 @@ if (searchError) {
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                         placeholder="z.B. Beratung (min. 2 Zeichen)"
-                        required
+                        style={reqStyle(item.description)}
                       />
                       
                       {/* Services Dropdown */}
@@ -2126,6 +2169,7 @@ if (searchError) {
                         onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
                         placeholder="100.00"
+                        style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                       />
                       {!formData.is_kleinunternehmer && (
                         <>
@@ -2138,6 +2182,7 @@ if (searchError) {
                             onChange={(e) => handleItemChange(index, 'price_gross', e.target.value)}
                             className="w-full px-3 py-2 bg-slate-800 border border-blue-500/50 rounded text-white text-sm"
                             placeholder="119.00"
+                            style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                           />
                         </>
                       )}
@@ -2280,6 +2325,7 @@ if (searchError) {
                       <label className="block text-xs text-slate-400 mb-1">Zahlungsfrist (Tage)</label>
                       <input
                         type="number"
+                        name="skonto_days"
                         min="1"
                         max="90"
                         value={formData.skonto_days ?? ''}
@@ -2309,6 +2355,7 @@ if (searchError) {
                       <label className="block text-xs text-slate-400 mb-1">Gewährleistung (Jahre)</label>
                       <input
                         type="number"
+                        name="sicherheitseinbehalt_years"
                         min="1"
                         max="10"
                         value={formData.sicherheitseinbehalt_years ?? ''}
@@ -2574,8 +2621,9 @@ if (searchError) {
                 Abbrechen
               </button>
               <button
-                type="submit"
-                disabled={loading || formData.total_amount <= 0 || !businessDataComplete || !numbersInitialized}
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex-1"
               >
                 {loading 
