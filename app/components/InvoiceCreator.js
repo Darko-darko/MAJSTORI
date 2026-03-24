@@ -1692,7 +1692,7 @@ if (searchError) {
 
             {/* ✅ CUSTOMER INFORMATION - IMPROVED */}
 <div>
-  <h4 className="text-blue-400 font-semibold mb-4">📋 Kundeninformationen</h4>
+  <h4 className="text-emerald-600 font-semibold mb-4">📋 Kundeninformationen</h4>
   
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     {/* Customer Name - Autocomplete */}
@@ -1788,7 +1788,7 @@ if (searchError) {
 
   {/* ✅ BILLING ADDRESS - STRUCTURED FIELDS */}
   <div className="mt-4">
-    <h5 className="text-blue-400 font-medium mb-3">Rechnungsadresse</h5>
+    <h5 className="text-emerald-600 font-medium mb-3">📫 Rechnungsadresse</h5>
     
     <div className="grid grid-cols-1 gap-3">
       {/* Street */}
@@ -2030,7 +2030,7 @@ if (searchError) {
             {/* Items Section */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-blue-400 font-semibold">Positionen</h4>
+                <h4 className="text-emerald-600 font-semibold">🔧 Positionen</h4>
                 <button
                   type="button"
                   onClick={addItem}
@@ -2316,7 +2316,7 @@ if (searchError) {
 
             {/* Totals Section */}
             <div className="bg-slate-900/50 rounded-lg p-4">
-              <h4 className="text-blue-400 font-semibold mb-4">Berechnung</h4>
+              <h4 className="text-emerald-600 font-semibold mb-4">🏷️ Berechnung</h4>
               <div className="space-y-2 max-w-md ml-auto">
                 <div className="flex justify-between">
                   <span className="text-slate-400">
@@ -2359,8 +2359,8 @@ if (searchError) {
                       <span>-{formatCurrency(formData.einbehalt_amount || 0)}</span>
                     </div>
                     <div className="flex justify-between pt-2 border-t border-slate-700">
-                      <span className="text-teal-400 font-semibold">Zahlbar sofort:</span>
-                      <span className="text-teal-400 font-semibold text-lg">{formatCurrency(formData.zahlbar_sofort || 0)}</span>
+                      <span className="text-emerald-600 font-semibold">Zahlbar sofort:</span>
+                      <span className="text-emerald-600 font-semibold text-lg">{formatCurrency(formData.zahlbar_sofort || 0)}</span>
                     </div>
                   </>
                 )}
@@ -2478,7 +2478,7 @@ if (searchError) {
 
             {/* Additional Information */}
             <div>
-              <h4 className="text-blue-400 font-semibold mb-4">Zusätzliche Informationen</h4>
+              <h4 className="text-emerald-600 font-semibold mb-4">📝 Zusätzliche Informationen</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
