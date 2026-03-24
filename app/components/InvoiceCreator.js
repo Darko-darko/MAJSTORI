@@ -1,5 +1,6 @@
 // app/components/InvoiceCreator.js - WEG ADDRESS SYSTEM IMPLEMENTATION
 'use client'
+import { round2 } from '@/lib/round2'
 
 // Client-side image compression before upload (same pattern as ausgaben page)
 function compressImage(file, maxWidth = 1920) {
@@ -711,12 +712,12 @@ export default function InvoiceCreator({
       const quantity = parseFloat(value) || 0
       if (newItems[index].price_source === 'brutto') {
         const gross = parseFloat(newItems[index].price_gross) || 0
-        const itemBrutto = parseFloat((quantity * gross).toFixed(2))
-        const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
-        newItems[index].total = parseFloat((itemBrutto - itemTax).toFixed(2))
+        const itemBrutto = round2(quantity * gross)
+        const itemNetto = taxRate > 0 ? round2(itemBrutto / taxMultiplier) : itemBrutto
+        newItems[index].total = itemNetto
       } else {
         const price = parseFloat(newItems[index].price) || 0
-        newItems[index].total = parseFloat((quantity * price).toFixed(2))
+        newItems[index].total = round2(quantity * price)
       }
     }
 
@@ -724,19 +725,19 @@ export default function InvoiceCreator({
       const quantity = parseFloat(newItems[index].quantity) || 0
       const price = parseFloat(value) || 0
       newItems[index].price_source = 'netto'
-      newItems[index].total = parseFloat((quantity * price).toFixed(2))
-      newItems[index].price_gross = parseFloat((price * taxMultiplier).toFixed(2))
+      newItems[index].total = round2(quantity * price)
+      newItems[index].price_gross = round2(price * taxMultiplier)
     }
 
     if (field === 'price_gross') {
       const gross = parseFloat(value) || 0
-      const net = parseFloat((gross / taxMultiplier).toFixed(2))
+      const net = round2(gross / taxMultiplier)
       const quantity = parseFloat(newItems[index].quantity) || 0
-      const itemBrutto = parseFloat((quantity * gross).toFixed(2))
-      const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
+      const itemBrutto = round2(quantity * gross)
+      const itemNetto = taxRate > 0 ? round2(itemBrutto / taxMultiplier) : itemBrutto
       newItems[index].price_source = 'brutto'
       newItems[index].price = net
-      newItems[index].total = parseFloat((itemBrutto - itemTax).toFixed(2))
+      newItems[index].total = itemNetto
     }
 
     setFormData(prev => ({ ...prev, items: newItems }))
@@ -893,53 +894,55 @@ export default function InvoiceCreator({
     if (formData.items?.length) calculateTotals(formData.items)
   }, [formData.rabatt_percent, formData.sicherheitseinbehalt_percent])
 
-  // Calculate totals — uses functional setFormData to read latest rabatt/einbehalt
+  // Calculate totals — single source of truth, total-based model
+  // Order: Netto → Rabatt → Netto nach Rabatt → MwSt → Brutto → Einbehalt
   const calculateTotals = (items) => {
     setFormData(prev => {
-      if (prev.is_kleinunternehmer) {
-        const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.total || 0), 0).toFixed(2))
-        const rabattPct = parseFloat(prev.rabatt_percent) || 0
-        const rabattAmount = parseFloat((subtotal * rabattPct / 100).toFixed(2))
-        const afterRabatt = parseFloat((subtotal - rabattAmount).toFixed(2))
-        const einbehaltPct = parseFloat(prev.sicherheitseinbehalt_percent) || 0
-        const einbehaltAmount = parseFloat((afterRabatt * einbehaltPct / 100).toFixed(2))
-        return { ...prev, subtotal, tax_amount: 0, total_amount: afterRabatt, rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: parseFloat((afterRabatt - einbehaltAmount).toFixed(2)) }
-      }
+      const taxRate = prev.is_kleinunternehmer ? 0 : (parseFloat(prev.tax_rate) || 0)
 
-      const taxRate = parseFloat(prev.tax_rate) || 0
-      let totalNetto = 0, totalTax = 0, totalBrutto = 0
+      // 1. Subtotal netto — sum of all item netto totals
+      let subtotalNetto = 0
       for (const item of items) {
         const qty = parseFloat(item.quantity) || 0
         if (item.price_source === 'brutto') {
-          const gross = parseFloat(item.price_gross) || 0
-          const itemBrutto = parseFloat((qty * gross).toFixed(2))
-          const itemTax = parseFloat((itemBrutto * taxRate / (100 + taxRate)).toFixed(2))
-          const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
-          totalBrutto += itemBrutto; totalTax += itemTax; totalNetto += itemNetto
+          const itemBrutto = round2(qty * (parseFloat(item.price_gross) || 0))
+          const itemNetto = taxRate > 0 ? round2(itemBrutto / (1 + taxRate / 100)) : itemBrutto
+          subtotalNetto += itemNetto
         } else {
-          const itemNetto = parseFloat((item.total || 0).toFixed(2))
-          const itemTax = parseFloat((itemNetto * taxRate / 100).toFixed(2))
-          const itemBrutto = parseFloat((itemNetto + itemTax).toFixed(2))
-          totalNetto += itemNetto; totalTax += itemTax; totalBrutto += itemBrutto
+          subtotalNetto += round2(item.total || 0)
         }
       }
-      totalNetto = parseFloat(totalNetto.toFixed(2))
+      subtotalNetto = round2(subtotalNetto)
 
+      // 2. Rabatt on netto
       const rabattPct = parseFloat(prev.rabatt_percent) || 0
-      const rabattAmount = parseFloat((totalNetto * rabattPct / 100).toFixed(2))
-      const nettoAfterRabatt = parseFloat((totalNetto - rabattAmount).toFixed(2))
+      const rabattAmount = round2(subtotalNetto * rabattPct / 100)
 
-      totalTax = parseFloat((nettoAfterRabatt * taxRate / 100).toFixed(2))
-      totalBrutto = parseFloat((nettoAfterRabatt + totalTax).toFixed(2))
+      // 3. Netto nach Rabatt
+      const nettoAfterDiscount = round2(subtotalNetto - rabattAmount)
 
+      // 4. MwSt on netto nach Rabatt
+      const taxAmount = round2(nettoAfterDiscount * taxRate / 100)
+
+      // 5. Brutto
+      const grossTotal = round2(nettoAfterDiscount + taxAmount)
+
+      // 6. Einbehalt on brutto
       const einbehaltPct = parseFloat(prev.sicherheitseinbehalt_percent) || 0
-      const einbehaltAmount = parseFloat((totalBrutto * einbehaltPct / 100).toFixed(2))
-      const zahlbarSofort = parseFloat((totalBrutto - einbehaltAmount).toFixed(2))
+      const einbehaltAmount = round2(grossTotal * einbehaltPct / 100)
+
+      // 7. Amount due (zahlbar sofort)
+      const amountDue = round2(grossTotal - einbehaltAmount)
 
       return {
         ...prev,
-        subtotal: totalNetto, tax_amount: totalTax, total_amount: totalBrutto,
-        rabatt_amount: rabattAmount, einbehalt_amount: einbehaltAmount, zahlbar_sofort: zahlbarSofort,
+        subtotal: subtotalNetto,
+        rabatt_amount: rabattAmount,
+        netto_after_discount: nettoAfterDiscount,
+        tax_amount: taxAmount,
+        total_amount: grossTotal,
+        einbehalt_amount: einbehaltAmount,
+        zahlbar_sofort: amountDue,
       }
     })
   }
