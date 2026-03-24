@@ -1348,6 +1348,8 @@ if (searchError) {
         sicherheitseinbehalt_years: parseInt(formData.sicherheitseinbehalt_years) || 0,
         einbehalt_amount: parseFloat(formData.einbehalt_amount) || 0,
         zahlbar_sofort: parseFloat(formData.zahlbar_sofort) || 0,
+        netto_after_discount: parseFloat(formData.netto_after_discount) || 0,
+        amount_due: parseFloat(formData.zahlbar_sofort) || parseFloat(formData.total_amount) || 0,
         converted_from_quote_id: editData?.converted_from_quote_id || null,
         aufmass_id: selectedAufmassIds[0] || aufmassId || editData?.aufmass_id || null,
         aufmass_ids: selectedAufmassIds.length > 0 ? selectedAufmassIds : (editData?.aufmass_ids || null)

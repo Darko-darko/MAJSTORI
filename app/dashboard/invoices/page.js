@@ -145,6 +145,8 @@ function DashboardPageContent() {
             .single()
             .then(({ data: cust }) => { if (cust) setAufmassCustomer(cust) })
         } else if (customer_name) {
+
+
           setAufmassCustomer({ name: customer_name })
         }
         setCreateType(docType === 'invoice' ? 'invoice' : 'quote')
@@ -799,12 +801,7 @@ pdfTab.document.close()
       
       console.log('✅ Generated sequential invoice number:', finalInvoiceNumber)
 
-      const subtotal = parseFloat(quote.subtotal) || 0
-      const isKleinunternehmer = settingsData?.is_kleinunternehmer || false
-      const taxRate = isKleinunternehmer ? 0 : (parseFloat(settingsData?.default_tax_rate) || 19.0)
-      const taxAmount = isKleinunternehmer ? 0 : Math.round(subtotal * taxRate) / 100
-      const totalAmount = subtotal + taxAmount
-
+      // Freeze values from quote — do NOT recalculate
       const now = new Date()
       const issueDate = now.toISOString().split('T')[0]
       const dueDate = new Date(now)
@@ -819,18 +816,43 @@ pdfTab.document.close()
         customer_email: quote.customer_email,
         customer_phone: quote.customer_phone || null,
         customer_address: quote.customer_address || null,
-        customer_tax_number: quote.customer_tax_number || null, // ✅ FIX: Copy PIB from quote
+        customer_tax_number: quote.customer_tax_number || null,
+        // Structured address
+        customer_street: quote.customer_street || null,
+        customer_postal_code: quote.customer_postal_code || null,
+        customer_city: quote.customer_city || null,
+        customer_country: quote.customer_country || null,
+        // WEG address
+        weg_property_name: quote.weg_property_name || null,
+        weg_street: quote.weg_street || null,
+        weg_postal_code: quote.weg_postal_code || null,
+        weg_city: quote.weg_city || null,
+        weg_country: quote.weg_country || null,
+        place_of_service: quote.place_of_service || null,
         items: quote.items,
-        subtotal: subtotal,
-        tax_rate: taxRate,
-        tax_amount: taxAmount,
-        total_amount: totalAmount,
+        // Frozen financial values from quote — NOT recalculated
+        subtotal: parseFloat(quote.subtotal) || 0,
+        tax_rate: parseFloat(quote.tax_rate) || 0,
+        tax_amount: parseFloat(quote.tax_amount) || 0,
+        total_amount: parseFloat(quote.total_amount) || 0,
+        // Rabatt / Skonto / Einbehalt — frozen from quote
+        rabatt_percent: parseFloat(quote.rabatt_percent) || 0,
+        rabatt_reason: quote.rabatt_reason || null,
+        rabatt_amount: parseFloat(quote.rabatt_amount) || 0,
+        netto_after_discount: parseFloat(quote.netto_after_discount) || 0,
+        skonto_percent: parseFloat(quote.skonto_percent) || 0,
+        skonto_days: parseInt(quote.skonto_days) || 0,
+        sicherheitseinbehalt_percent: parseFloat(quote.sicherheitseinbehalt_percent) || 0,
+        sicherheitseinbehalt_years: parseInt(quote.sicherheitseinbehalt_years) || 0,
+        einbehalt_amount: parseFloat(quote.einbehalt_amount) || 0,
+        zahlbar_sofort: parseFloat(quote.zahlbar_sofort) || 0,
+        amount_due: parseFloat(quote.amount_due) || 0,
         status: 'draft',
         issue_date: issueDate,
         due_date: dueDateString,
         payment_terms_days: parseInt(settingsData?.payment_terms_days) || 14,
         notes: quote.notes || null,
-        is_kleinunternehmer: isKleinunternehmer,
+        is_kleinunternehmer: quote.is_kleinunternehmer || false,
         converted_from_quote_id: quote.id,
         aufmass_id: quote.aufmass_id || null,
         company_name: majstor?.business_name || majstor?.full_name || null,
