@@ -869,9 +869,9 @@ pdfTab.document.close()
       console.log('💾 Inserting invoice with data:', {
         invoice_number: finalInvoiceNumber,
         customer: invoiceData.customer_name,
-        total: totalAmount,
-        tax_rate: taxRate + '%',
-        kleinunternehmer: isKleinunternehmer,
+        total: invoiceData.total_amount,
+        tax_rate: invoiceData.tax_rate + '%',
+        rabatt: invoiceData.rabatt_percent ? invoiceData.rabatt_percent + '%' : 'none',
         sequence_number: nextNumber
       })
 
