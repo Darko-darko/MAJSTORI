@@ -1198,7 +1198,18 @@ export default function InvoiceCreator({
         const badItem = formData.items.findIndex(i => !i.description || i.price <= 0)
         if (badItem >= 0) {
           const el = document.querySelectorAll('[placeholder*="Beratung"]')[badItem]
-          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); return }
+        }
+        // Check skonto days / einbehalt years — open Rabatt section first
+        const needsSkonto = parseFloat(formData.skonto_percent) > 0 && !formData.skonto_days
+        const needsEinbehalt = parseFloat(formData.sicherheitseinbehalt_percent) > 0 && !formData.sicherheitseinbehalt_years
+        if (needsSkonto || needsEinbehalt) {
+          setFormData(prev => ({ ...prev, _showRabatt: true }))
+          setTimeout(() => {
+            const name = needsSkonto ? 'skonto_days' : 'sicherheitseinbehalt_years'
+            const el = document.querySelector(`[name="${name}"]`)
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
+          }, 150)
         }
       }, 100)
     }
@@ -2314,6 +2325,7 @@ if (searchError) {
                       <label className="block text-xs text-slate-400 mb-1">Zahlungsfrist (Tage)</label>
                       <input
                         type="number"
+                        name="skonto_days"
                         min="1"
                         max="90"
                         value={formData.skonto_days ?? ''}
@@ -2343,6 +2355,7 @@ if (searchError) {
                       <label className="block text-xs text-slate-400 mb-1">Gewährleistung (Jahre)</label>
                       <input
                         type="number"
+                        name="sicherheitseinbehalt_years"
                         min="1"
                         max="10"
                         value={formData.sicherheitseinbehalt_years ?? ''}
