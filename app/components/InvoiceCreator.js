@@ -1187,6 +1187,13 @@ export default function InvoiceCreator({
         throw new Error('Alle Positionen müssen eine Beschreibung und einen Preis haben')
       }
 
+      if (parseFloat(formData.skonto_percent) > 0 && !formData.skonto_days) {
+        throw new Error('Bitte Zahlungsfrist (Tage) für Skonto eingeben')
+      }
+      if (parseFloat(formData.sicherheitseinbehalt_percent) > 0 && !formData.sicherheitseinbehalt_years) {
+        throw new Error('Bitte Gewährleistungsdauer (Jahre) für Sicherheitseinbehalt eingeben')
+      }
+
       // Auto-save new services
       const serviceNames = formData.items
         .map(item => item.description?.trim())
@@ -2278,6 +2285,7 @@ if (searchError) {
                         value={formData.skonto_days ?? ''}
                         onChange={e => setFormData(prev => ({ ...prev, skonto_days: e.target.value === '' ? '' : parseInt(e.target.value) || 0 }))}
                         className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                        style={parseFloat(formData.skonto_percent) > 0 && !formData.skonto_days ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                       />
                     </div>
                   )}
@@ -2306,6 +2314,7 @@ if (searchError) {
                         value={formData.sicherheitseinbehalt_years ?? ''}
                         onChange={e => setFormData(prev => ({ ...prev, sicherheitseinbehalt_years: e.target.value === '' ? '' : parseInt(e.target.value) || 0 }))}
                         className="w-full px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                        style={parseFloat(formData.sicherheitseinbehalt_percent) > 0 && !formData.sicherheitseinbehalt_years ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                       />
                     </div>
                   )}
