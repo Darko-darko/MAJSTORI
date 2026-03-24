@@ -1180,6 +1180,29 @@ export default function InvoiceCreator({
     setSubmitAttempted(true)
     setLoading(true)
 
+    const scrollToError = () => {
+      setTimeout(() => {
+        const fields = [
+          { val: formData.customer_name, name: 'customer_name' },
+          { val: formData.customer_email, name: 'customer_email' },
+          { val: formData.customer_street, name: 'customer_street' },
+          { val: formData.customer_postal_code, name: 'customer_postal_code' },
+          { val: formData.customer_city, name: 'customer_city' },
+        ]
+        const empty = fields.find(f => !f.val?.toString().trim())
+        if (empty) {
+          const el = document.querySelector(`[name="${empty.name}"]`)
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); return }
+        }
+        // Check items
+        const badItem = formData.items.findIndex(i => !i.description || i.price <= 0)
+        if (badItem >= 0) {
+          const el = document.querySelectorAll('[placeholder*="Beratung"]')[badItem]
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus() }
+        }
+      }, 100)
+    }
+
     try {
       // ✅ Validation - structured billing address required
       if (!formData.customer_name || !formData.customer_email) {
@@ -1426,6 +1449,7 @@ if (searchError) {
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} ${type}:`, err)
       setError(err.message)
+      scrollToError()
     } finally {
       setLoading(false)
     }
@@ -1716,6 +1740,7 @@ if (searchError) {
       </label>
       <input
         type="text"
+        name="customer_name"
         value={customerSearchTerm}
         onChange={handleCustomerNameChange}
         className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white"
