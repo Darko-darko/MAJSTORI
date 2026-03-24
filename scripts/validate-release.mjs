@@ -128,6 +128,24 @@ const TEST_INVOICE = {
   ]),
 }
 
+const TEST_INVOICE_RABATT = {
+  ...TEST_INVOICE,
+  id:               'test-invoice-rabatt-id',
+  invoice_number:   'RE-2026-TEST-002',
+  subtotal:         1000.00,
+  tax_amount:       180.50,
+  total_amount:     1130.50,
+  rabatt_percent:   5,
+  rabatt_amount:    50,
+  rabatt_reason:    'Treuerabatt',
+  skonto_percent:   2,
+  skonto_days:      10,
+  sicherheitseinbehalt_percent: 10,
+  sicherheitseinbehalt_years:   2,
+  einbehalt_amount: 113.05,
+  zahlbar_sofort:   1017.45,
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 let passed = 0
@@ -495,7 +513,95 @@ async function main() {
     }
   }
 
+  // ── 12. Generate invoice with Rabatt ─────────────────────────────────────
+  section('12. Generate invoice with Rabatt (5% Treuerabatt)')
+
+  const normalizedRabatt = normalizeInvoice(TEST_INVOICE_RABATT, TEST_MAJSTOR)
+  const rabattXml = ZUGFeRDService.generateZUGFeRDXML(normalizedRabatt, TEST_MAJSTOR)
+
+  if (rabattXml.includes('SpecifiedTradeAllowanceCharge') && rabattXml.includes('50.00')) {
+    ok('AllowanceCharge present with amount 50.00')
+  } else {
+    fail('AllowanceCharge missing or wrong amount')
+  }
+
+  if (rabattXml.includes('AllowanceTotalAmount>50.00')) {
+    ok('AllowanceTotalAmount = 50.00')
+  } else {
+    fail('AllowanceTotalAmount missing or wrong')
+  }
+
+  if (rabattXml.includes('TaxBasisTotalAmount>950.00')) {
+    ok('TaxBasisTotalAmount = 950.00 (after rabatt)')
+  } else {
+    fail('TaxBasisTotalAmount wrong — should be 950.00')
+  }
+
+  if (rabattXml.includes('Treuerabatt')) {
+    ok('Rabatt reason "Treuerabatt" in XML')
+  } else {
+    fail('Rabatt reason missing')
+  }
+
+  // ── 13. PaymentTerms with Skonto + Einbehalt ─────────────────────────────
+  section('13. PaymentTerms with Skonto + Einbehalt')
+
+  if (rabattXml.includes('2% Skonto') && rabattXml.includes('10 Tagen')) {
+    ok('Skonto info in PaymentTerms')
+  } else {
+    fail('Skonto info missing from PaymentTerms')
+  }
+
+  if (rabattXml.includes('10% Sicherheitseinbehalt')) {
+    ok('Einbehalt info in PaymentTerms')
+  } else {
+    fail('Einbehalt info missing from PaymentTerms')
+  }
+
+  // ── 14. InvoiceValidator with Rabatt ──────────────────────────────────────
+  section('14. InvoiceValidator with Rabatt')
+
+  const rabattValidation = validateForZUGFeRD(normalizedRabatt, TEST_MAJSTOR)
+  if (rabattValidation.valid) {
+    ok('InvoiceValidator passes with Rabatt')
+  } else {
+    fail(`InvoiceValidator failed: ${rabattValidation.errors.join(', ')}`)
+  }
+
+  // ── 15. Mustang CLI — Rabatt invoice validation ───────────────────────────
+  section('15. Mustang CLI — Rabatt invoice ZUGFeRD validation')
+
+  let tmpRabattPDF = ''
+  try {
+    const pdfService3 = new InvoicePDFService()
+    const rabattPdfBuffer = await pdfService3.generateInvoice(TEST_INVOICE_RABATT, TEST_MAJSTOR)
+    tmpRabattPDF = join(__dirname, '__test_rabatt.pdf')
+    writeFileSync(tmpRabattPDF, rabattPdfBuffer)
+
+    const mustangJar3 = join(__dirname, 'mustang-cli.jar')
+    if (!existsSync(mustangJar3)) {
+      console.log('  ⏭  Skipping (Mustang not found).')
+    } else {
+      const extraJavaDirs3 = [
+        'C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.18.8-hotspot\\bin',
+        'C:\\Program Files\\Java\\jdk-17\\bin',
+      ]
+      const javaEnv3 = { ...process.env, PATH: `${extraJavaDirs3.join(';')};${process.env.PATH || ''}` }
+      const mustang3 = spawnSync('java', ['-jar', mustangJar3, '--action', 'validate', '--source', tmpRabattPDF], {
+        encoding: 'utf8', timeout: 30000, env: javaEnv3
+      })
+      if (mustang3.status === 0) {
+        ok('Rabatt invoice ZUGFeRD 2.4 / EN16931 validation passed')
+      } else {
+        fail(`Rabatt Mustang validation failed:\n${mustang3.stdout}\n${mustang3.stderr}`)
+      }
+    }
+  } catch (e) {
+    fail(`Rabatt PDF generation failed: ${e.message}`)
+  }
+
   // ── Cleanup ────────────────────────────────────────────────────────────────
+  try { unlinkSync(tmpRabattPDF) } catch { /* ignore */ }
   try { unlinkSync(tmpStornoPDF) } catch { /* ignore */ }
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
