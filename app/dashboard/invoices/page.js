@@ -668,7 +668,8 @@ pdfTab.document.close()
     setShowReminderModal(true)
   }
 
-  const isPro = majstor?.sub_status === 'active'
+  const isInGrace = majstor?.created_at && (Date.now() - new Date(majstor.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000
+  const isPro = majstor?.sub_status === 'active' || isInGrace
 
   const handleEmailSuccess = (result) => {
     console.log('Email sent successfully:', result)
