@@ -2745,10 +2745,10 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           const rawU = item.unit || ''
           const u = ['Wand', 'Bogen', 'Trap'].includes(rawU) ? 'm²' : rawU
           let qty = item.result
-          // For Wand (wall area): subtract openings proportionally
-          if (rawU === 'Wand' && totalAbzugM2 > 0) {
+          // Subtract openings from first m² position (Wand or Bodenfläche)
+          if ((rawU === 'Wand' || u === 'm²') && totalAbzugM2 > 0) {
             qty = Math.max(0, qty - totalAbzugM2)
-            totalAbzugM2 = 0 // only subtract from first m² position (Wand)
+            totalAbzugM2 = 0 // only subtract from first m² position
           }
           if (qty <= 0) continue
           flatItems.push({
