@@ -19,6 +19,7 @@ export default function ChoosePlanPage() {
   const [user, setUser] = useState(null)
   const [majstor, setMajstor] = useState(null)
   const [selectedProInterval, setSelectedProInterval] = useState('monthly')
+  const [selectedPlusInterval, setSelectedPlusInterval] = useState('monthly')
   const [fastspringReady, setFastspringReady] = useState(false)
   const router = useRouter()
 
@@ -40,12 +41,12 @@ export default function ChoosePlanPage() {
       borderColor: 'border-blue-500',
     },
     proPlus: {
-      price: 39.90,
-      name: 'PRO+',
+      monthly: { price: 29.90, period: 'Monat' },
+      yearly: { price: 299, period: 'Jahr', monthlyEquiv: 24.92, savings: 16 },
+      name: 'PRO+ Team',
       icon: '🚀',
       color: 'from-purple-600 to-pink-600',
       borderColor: 'border-purple-500',
-      comingSoon: true,
     }
   }
 
@@ -138,9 +139,10 @@ export default function ChoosePlanPage() {
     try {
       console.log(`🚀 Opening FastSpring Checkout: ${selectedProInterval}`)
 
-      const productId = selectedProInterval === 'yearly' 
-        ? FASTSPRING_CONFIG.productIds.yearly 
-        : FASTSPRING_CONFIG.productIds.monthly
+      const hadTrial = majstor?.had_trial === true
+      const productId = hadTrial
+        ? (selectedProInterval === 'yearly' ? FASTSPRING_CONFIG.productIds.yearlyNoTrial : FASTSPRING_CONFIG.productIds.monthlyNoTrial)
+        : (selectedProInterval === 'yearly' ? FASTSPRING_CONFIG.productIds.yearly : FASTSPRING_CONFIG.productIds.monthly)
 
       if (!productId) {
         throw new Error(`Product ID nicht gefunden für ${selectedProInterval}`)
@@ -185,6 +187,60 @@ export default function ChoosePlanPage() {
 
     } catch (err) {
       console.error('❌ Error opening FastSpring Checkout:', err)
+      setError('Fehler beim Öffnen des Checkouts: ' + err.message)
+      setLoading(false)
+    }
+  }
+
+  // 🚀 PRO+ Subscription Handler
+  const handleProPlusSelect = async () => {
+    if (!fastspringReady) {
+      setError('FastSpring wird noch geladen...')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      console.log(`🚀 Opening FastSpring Checkout: PRO+ ${selectedPlusInterval}`)
+
+      const hadTrial = majstor?.had_trial === true
+      const productId = hadTrial
+        ? (selectedPlusInterval === 'yearly' ? FASTSPRING_CONFIG.productIds.plusYearlyNoTrial : FASTSPRING_CONFIG.productIds.plusMonthlyNoTrial)
+        : (selectedPlusInterval === 'yearly' ? FASTSPRING_CONFIG.productIds.plusYearly : FASTSPRING_CONFIG.productIds.plusMonthly)
+
+      if (!productId) {
+        throw new Error(`Product ID nicht gefunden für PRO+ ${selectedPlusInterval}`)
+      }
+
+      openFastSpringCheckout({
+        priceId: productId,
+        email: user.email,
+        majstorId: user.id,
+        billingInterval: selectedPlusInterval,
+
+        onSuccess: async (checkoutData) => {
+          console.log('✅ FastSpring PRO+ Checkout successful!')
+          clearSubscriptionCache(user.id)
+          const timestamp = Date.now()
+          window.location.replace(`/dashboard?fastspring_success=true&plan=pro_plus_${selectedPlusInterval}&t=${timestamp}`)
+        },
+
+        onError: (error) => {
+          console.error('❌ FastSpring PRO+ Checkout error:', error)
+          setError('Checkout fehlgeschlagen. Bitte versuchen Sie es erneut.')
+          setLoading(false)
+        },
+
+        onClose: () => {
+          console.log('🚪 FastSpring popup closed by user')
+          setLoading(false)
+        }
+      })
+
+    } catch (err) {
+      console.error('❌ Error opening FastSpring PRO+ Checkout:', err)
       setError('Fehler beim Öffnen des Checkouts: ' + err.message)
       setLoading(false)
     }
@@ -254,6 +310,7 @@ export default function ChoosePlanPage() {
   }
 
   const currentProPricing = pricing.pro[selectedProInterval]
+  const currentPlusPricing = pricing.proPlus[selectedPlusInterval]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4">
@@ -289,7 +346,7 @@ export default function ChoosePlanPage() {
         )}
 
         {/* Main Plan Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-6 max-w-3xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 mb-6 max-w-5xl mx-auto">
 
                     {/* 💎 PRO - EMPFOHLEN */}
           <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500 rounded-2xl p-8 hover:border-blue-400 transition-all duration-300 relative scale-105 shadow-2xl">
@@ -381,6 +438,105 @@ export default function ChoosePlanPage() {
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 shadow-xl"
             >
               {loading ? 'Wird geladen...' : !fastspringReady ? 'Laden...' : '🚀 Jetzt PRO freischalten'}
+            </button>
+
+            <div className="text-xs text-slate-400 text-center mt-4 space-y-1">
+              <p>✓ Kreditkarte erforderlich</p>
+              <p>✓ Trial-Periode lt. FastSpring</p>
+              <p>✓ 30 Tage Kündigungsfrist</p>
+            </div>
+          </div>
+
+          {/* 🚀 PRO+ TEAM */}
+          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-purple-500 rounded-2xl p-8 hover:border-purple-400 transition-all duration-300 relative">
+
+            {/* Badge */}
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+                👥 FÜR TEAMS
+              </div>
+            </div>
+
+            <div className="text-center mb-6 pt-4">
+              <div className={`w-20 h-20 bg-gradient-to-br ${pricing.proPlus.color} rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg`}>
+                <span className="text-4xl">{pricing.proPlus.icon}</span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">{pricing.proPlus.name}</h3>
+              <p className="text-slate-300">Alles aus PRO + Teamfunktionen</p>
+            </div>
+
+            {/* Interval Toggle */}
+            <div className="bg-slate-900/50 rounded-xl p-3 mb-6">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedPlusInterval('monthly')}
+                  className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
+                    selectedPlusInterval === 'monthly'
+                      ? 'bg-purple-600 text-white shadow-lg'
+                      : 'bg-transparent text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Monatlich
+                </button>
+                <button
+                  onClick={() => setSelectedPlusInterval('yearly')}
+                  className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all relative ${
+                    selectedPlusInterval === 'yearly'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                      : 'bg-transparent text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Jährlich
+                  <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                    -{pricing.proPlus.yearly.savings}%
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-center mb-8">
+              <div className="text-5xl font-bold text-white mb-2">
+                {pricing.proPlus[selectedPlusInterval].price.toFixed(2)}€
+              </div>
+              <div className="text-slate-400 mb-1">
+                pro {pricing.proPlus[selectedPlusInterval].period} + MwSt.
+              </div>
+              {selectedPlusInterval === 'yearly' && (
+                <div className="text-green-400 font-semibold">
+                  ≈ {pricing.proPlus.yearly.monthlyEquiv}€/Monat
+                </div>
+              )}
+              <div className="mt-3 bg-purple-500/10 border border-purple-400/30 rounded-lg px-3 py-2">
+                <p className="text-purple-300 text-sm font-semibold">
+                  👥 2 Teammitglieder inklusive
+                </p>
+                <p className="text-slate-400 text-xs mt-1">
+                  +8€/Monat pro weiteres Mitglied
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 mb-8">
+              {[
+                { icon: '💎', text: 'Alles aus PRO enthalten' },
+                { icon: '💬', text: 'Team-Chat mit Fotos' },
+                { icon: '⏱️', text: 'Arbeitszeiterfassung' },
+                { icon: '👥', text: '2 Mitarbeiter inklusive' },
+                { icon: '📊', text: 'Team-Übersicht & Berichte' },
+              ].map(({ icon, text }) => (
+                <div key={text} className="flex items-center gap-3 text-sm text-slate-300">
+                  <span>{icon}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={handleProPlusSelect}
+              disabled={loading || !fastspringReady}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform disabled:opacity-50 shadow-xl"
+            >
+              {loading ? 'Wird geladen...' : !fastspringReady ? 'Laden...' : '🚀 Jetzt PRO+ freischalten'}
             </button>
 
             <div className="text-xs text-slate-400 text-center mt-4 space-y-1">
