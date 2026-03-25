@@ -2109,13 +2109,62 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
           {positions.length > 0 && (
             <div className="space-y-1">
               {positions.map((item, idx) => (
-                <div key={item.id} className="flex items-center gap-2 px-2 py-1.5 bg-slate-800/60 rounded text-sm">
-                  <span className="flex-1 text-white truncate">{item.description || '—'}</span>
-                  <span className="text-slate-400 text-xs font-mono">{item.calculation}</span>
-                  <span className="text-white font-mono text-xs font-semibold min-w-[60px] text-right">
-                    {formatNum(item.result)} {['Wand', 'Bogen', 'Trap'].includes(item.unit) ? 'm²' : item.unit}
-                  </span>
-                  <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
+                <div key={item.id}>
+                  <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-800/60 rounded text-sm">
+                    <span className="flex-1 text-white truncate">{item.description || '—'}</span>
+                    <span className="text-slate-400 text-xs font-mono">{item.calculation}</span>
+                    <span className="text-white font-mono text-xs font-semibold min-w-[60px] text-right">
+                      {formatNum(item.result)} {['Wand', 'Bogen', 'Trap'].includes(item.unit) ? 'm²' : item.unit}
+                    </span>
+                    <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
+                  </div>
+                  {/* Sockelleiste: Türbreite abziehen */}
+                  {item.unit === 'lfm' && gewerk === 'bodenbelag' && (
+                    <div className="ml-4 mt-1 mb-1 space-y-1">
+                      {(item.deductions || []).map((ded, di) => (
+                        <div key={di} className="flex items-center gap-1.5 text-xs">
+                          <span className="text-red-400">−</span>
+                          <span className="text-slate-400">Abzug</span>
+                          <input type="number" step="0.01" value={ded.width || ''} placeholder="Breite"
+                            onChange={e => {
+                              const deds = [...(item.deductions || [])]
+                              deds[di] = { ...deds[di], width: e.target.value }
+                              const totalDed = deds.reduce((s, d) => s + ((parseFloat(d.width) || 0) * (parseInt(d.count) || 1)), 0)
+                              const base = 2 * ((parseFloat(room.length) || 0) + (parseFloat(room.width) || 0))
+                              const updated = { ...item, deductions: deds, result: Math.round((base - totalDed) * 100) / 100 }
+                              const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
+                            }}
+                            className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-white text-center" />
+                          <span className="text-slate-400">m ×</span>
+                          <input type="number" step="1" min="1" value={ded.count || ''} placeholder="1"
+                            onChange={e => {
+                              const deds = [...(item.deductions || [])]
+                              deds[di] = { ...deds[di], count: e.target.value }
+                              const totalDed = deds.reduce((s, d) => s + ((parseFloat(d.width) || 0) * (parseInt(d.count) || 1)), 0)
+                              const base = 2 * ((parseFloat(room.length) || 0) + (parseFloat(room.width) || 0))
+                              const updated = { ...item, deductions: deds, result: Math.round((base - totalDed) * 100) / 100 }
+                              const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
+                            }}
+                            className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-white text-center" />
+                          <span className="text-slate-500 font-mono">{formatNum((parseFloat(ded.width) || 0) * (parseInt(ded.count) || 1))} m</span>
+                          <button onClick={() => {
+                            const deds = (item.deductions || []).filter((_, i) => i !== di)
+                            const totalDed = deds.reduce((s, d) => s + ((parseFloat(d.width) || 0) * (parseInt(d.count) || 1)), 0)
+                            const base = 2 * ((parseFloat(room.length) || 0) + (parseFloat(room.width) || 0))
+                            const updated = { ...item, deductions: deds, result: Math.round((base - totalDed) * 100) / 100 }
+                            const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
+                          }} className="text-red-400/40 hover:text-red-400">✕</button>
+                        </div>
+                      ))}
+                      <button onClick={() => {
+                        const deds = [...(item.deductions || []), { width: '', count: '1' }]
+                        const updated = { ...item, deductions: deds }
+                        const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
+                      }} className="text-xs text-red-300/60 hover:text-red-300 transition-colors">
+                        + Abzug (Tür, Schrank...)
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
