@@ -2228,7 +2228,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                               const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
                             }}
                             className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-white text-center"
-                            style={validated && !parseFloat(ded.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                            style={validated && !parseFloat(ded.width) && parseInt(ded.count) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                           <span className="text-slate-400">m ×</span>
                           <input type="number" step="1" min="1" value={ded.count || ''} placeholder="1"
                             onChange={e => {
@@ -2240,7 +2240,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                               const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
                             }}
                             className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-white text-center"
-                            style={validated && !parseInt(ded.count) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                            style={validated && !parseInt(ded.count) && parseFloat(ded.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                           <span className="text-slate-500 font-mono">{formatNum((parseFloat(ded.width) || 0) * (parseInt(ded.count) || 1))} m</span>
                           <button onClick={() => {
                             const deds = (item.deductions || []).filter((_, i) => i !== di)
@@ -2734,8 +2734,10 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         for (const pos of lfmPositions) {
           for (let di = 0; di < (pos.deductions || []).length; di++) {
             const ded = pos.deductions[di]
-            if (!parseFloat(ded.width)) { setError(`${roomLabel} → Abzug ${di + 1}: Bitte Breite eingeben`); return false }
-            if (!parseInt(ded.count)) { setError(`${roomLabel} → Abzug ${di + 1}: Bitte Anzahl eingeben`); return false }
+            const hasWidth = parseFloat(ded.width)
+            const hasCount = parseInt(ded.count)
+            if (hasCount && !hasWidth) { setError(`${roomLabel} → Abzug ${di + 1}: Bitte Breite eingeben`); return false }
+            if (hasWidth && !hasCount) { setError(`${roomLabel} → Abzug ${di + 1}: Bitte Anzahl eingeben`); return false }
           }
         }
       }
