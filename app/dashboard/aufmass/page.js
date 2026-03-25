@@ -1974,13 +1974,17 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
 
   const removePosition = (idx) => setItems(positions.filter((_, i) => i !== idx), undefined)
 
-  const addOpening = () => {
+  const addOpening = (target) => {
     const item = calcItem({
       id: newId(), description: '', unit: 'm²', dim_unit: 'm',
-      length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: true
+      length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: true,
+      opening_target: target || undefined
     })
     setItems(undefined, [...openings, item])
   }
+
+  const bodenOpenings = openings.filter(o => o.opening_target === 'boden')
+  const wandOpenings = openings.filter(o => o.opening_target === 'wand' || (!o.opening_target && gewerk !== 'fliesen'))
 
   const updateOpening = (idx, field, val) => {
     const updated = [...openings]
@@ -2118,21 +2122,22 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                     </span>
                     <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
                   </div>
-                  {/* Bodenfläche: Öffnungen inline for bodenbelag */}
-                  {item.unit === 'm²' && gewerk === 'bodenbelag' && (
+                  {/* Bodenfläche/Bodenfliesen: Aussparungen inline */}
+                  {item.unit === 'm²' && (gewerk === 'bodenbelag' || gewerk === 'fliesen') && (
                     <div className="ml-2 mt-1 mb-1">
                       <div className="border border-slate-600/50 rounded-lg overflow-hidden">
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer" onClick={() => {
                           setOpeningsOpen(o => !o)
-                          if (!openingsOpen && openings.length === 0) addOpening()
+                          if (!openingsOpen && bodenOpenings.length === 0) addOpening('boden')
                         }}>
-                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Aussparungen {openings.length > 0 && `(${openings.length})`}</span>
+                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Aussparungen {bodenOpenings.length > 0 && `(${bodenOpenings.length})`}</span>
                           {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
                           <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
                         </div>
                         {openingsOpen && (
                           <div className="p-2 space-y-1.5">
                             {openings.map((op, idx) => {
+                              if (gewerk === 'fliesen' && op.opening_target !== 'boden') return null
                               const totalArea = op.result || 0
                               const cnt2 = parseFloat(op.count) || 1
                               const singleArea2 = cnt2 > 0 ? totalArea / cnt2 : totalArea
@@ -2187,7 +2192,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                                 </div>
                               )
                             })}
-                            <button onClick={addOpening}
+                            <button onClick={() => addOpening('boden')}
                               className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
                               + Aussparung
                             </button>
@@ -2264,13 +2269,81 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       </div>
                     </div>
                   )}
+                  {/* Wandfliesen: Öffnungen inline */}
+                  {item.unit === 'Wand' && gewerk === 'fliesen' && (
+                    <div className="ml-2 mt-1 mb-1">
+                      <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer" onClick={() => {
+                          setOpeningsOpen(o => !o)
+                          if (!openingsOpen && wandOpenings.length === 0) addOpening('wand')
+                        }}>
+                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Öffnungen {wandOpenings.length > 0 && `(${wandOpenings.length})`}</span>
+                          {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
+                          <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
+                        </div>
+                        {openingsOpen && (
+                          <div className="p-2 space-y-1.5">
+                            {openings.map((op, idx) => {
+                              if (op.opening_target !== 'wand') return null
+                              const totalArea = op.result || 0
+                              const cnt2 = parseFloat(op.count) || 1
+                              const singleArea2 = cnt2 > 0 ? totalArea / cnt2 : totalArea
+                              const isUebermessen2 = vobMax > 0 && singleArea2 > 0 && singleArea2 < vobMax
+                              return (
+                                <div key={op.id} className="text-xs space-y-1">
+                                  <div className="flex items-center gap-1">
+                                    <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                                      placeholder="oder eingeben..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
+                                      style={validated && !op.description?.trim() && (parseFloat(op.length) || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                    <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
+                                  </div>
+                                  {!op.description && (
+                                    <div className="flex gap-1 flex-wrap">
+                                      {['Fenster', 'Tür', 'Balkontür', 'Dachfenster'].map(t => (
+                                        <button key={t} onClick={() => updateOpening(idx, 'description', t)}
+                                          className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs transition-colors">{t}</button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-slate-400">B</span>
+                                    <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                                      className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                                      style={validated && !parseFloat(op.length) && (op.description || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                    <span className="text-slate-400">×H</span>
+                                    <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                                      className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                                      style={validated && !parseFloat(op.width) && (op.description || parseFloat(op.length) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                    <span className="text-slate-400">×</span>
+                                    <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
+                                      className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1"
+                                      style={validated && !parseInt(op.count) && (parseFloat(op.length) || parseFloat(op.width) || op.description) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                    <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
+                                    {isUebermessen2 ? (
+                                      <span className="text-green-400 text-[10px] min-w-[24px]" title="übermessen">✓</span>
+                                    ) : totalArea > 0 ? (
+                                      <span className="text-red-400 text-[10px] min-w-[24px]" title="abgezogen">−</span>
+                                    ) : <span className="min-w-[24px]" />}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            <button onClick={() => addOpening('wand')}
+                              className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
+                              + Öffnung
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
           {/* Öffnungen — skip for bodenbelag (shown inline under Bodenfläche) */}
-          {gewerk !== 'bodenbelag' && <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+          {gewerk !== 'bodenbelag' && gewerk !== 'fliesen' && <div className="border border-slate-600/50 rounded-lg overflow-hidden">
             <div
               className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer"
               onClick={() => setOpeningsOpen(o => !o)}
