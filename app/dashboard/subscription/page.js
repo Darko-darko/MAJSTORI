@@ -476,7 +476,7 @@ export default function SubscriptionPage() {
             description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
             showUpgrade: false,
             showCancel: false,
-            showReactivate: false
+            showReactivate: true
           }
         }
       }
@@ -504,7 +504,7 @@ export default function SubscriptionPage() {
         description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
         showUpgrade: false,
         showCancel: false,
-        showReactivate: false
+        showReactivate: true
       }
     }
 
