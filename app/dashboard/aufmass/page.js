@@ -2012,8 +2012,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
     return ['', '', '', 1]
   }
 
-  // Show height input only if wall positions exist
-  const needsHeight = hasWall
+  // Bodenbelag never needs height
+  const needsHeight = gewerk !== 'bodenbelag'
 
   return (
     <div className="rounded-xl border border-slate-600 overflow-hidden">
@@ -2057,12 +2057,14 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
               <input type="number" step="0.01" value={room.width || ''} onChange={e => onChange({ ...room, width: e.target.value })}
                 className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
             </div>
+            {needsHeight && <>
             <span className="text-slate-500 pb-2">×</span>
             <div className="flex-1">
               <label className="text-xs text-slate-400">H (m)</label>
               <input type="number" step="0.01" value={room.height || ''} onChange={e => onChange({ ...room, height: e.target.value })}
                 className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white text-sm" style={validated && !parseFloat(room.height) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} placeholder="0.00" />
             </div>
+            </>}
           </div>
 
           {/* Auto-computed hints */}
@@ -2544,7 +2546,7 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         if (!room.name?.trim()) { setError(`${roomLabel}: Bitte Raumname eingeben`); return false }
         if (!parseFloat(room.length)) { setError(`${roomLabel}: Bitte Länge (L) eingeben`); return false }
         if (!parseFloat(room.width)) { setError(`${roomLabel}: Bitte Breite (B) eingeben`); return false }
-        if (!parseFloat(room.height)) { setError(`${roomLabel}: Bitte Höhe (H) eingeben`); return false }
+        if (form.gewerk !== 'bodenbelag' && !parseFloat(room.height)) { setError(`${roomLabel}: Bitte Höhe (H) eingeben`); return false }
         const positions = (room.items || []).filter(item => !item.subtract)
         if (positions.length === 0) { setError(`${roomLabel}: Bitte mindestens eine Position hinzufügen (Wände, Decke, Sockelleiste...)`); return false }
         // Validate Öffnungen dimensions
