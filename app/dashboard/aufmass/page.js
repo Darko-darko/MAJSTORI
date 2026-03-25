@@ -2142,7 +2142,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                                   <div className="flex items-center gap-1">
                                     <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
                                       placeholder="oder eingeben..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
-                                      style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                      style={validated && !op.description?.trim() && (parseFloat(op.length) || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                                     <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
                                   </div>
                                   {!op.description && (
@@ -2159,23 +2159,24 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                                         <span className="text-slate-400">⌀</span>
                                         <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
                                           className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                          style={validated && !parseFloat(op.length) && (op.description || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                                       </>
                                     ) : (
                                       <>
                                         <span className="text-slate-400">B</span>
                                         <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
                                           className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                          style={validated && !parseFloat(op.length) && (op.description || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                                         <span className="text-slate-400">×H</span>
                                         <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
                                           className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                                          style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                          style={validated && !parseFloat(op.width) && (op.description || parseFloat(op.length) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                                       </>
                                     )}
                                     <span className="text-slate-400">×</span>
                                     <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
-                                      className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                                      className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1"
+                                      style={validated && !parseInt(op.count) && (parseFloat(op.length) || parseFloat(op.width) || op.description) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                                     <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
                                     {isUebermessen2 ? (
                                       <span className="text-green-400 text-[10px] min-w-[24px]" title="übermessen">✓</span>
@@ -2292,7 +2293,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       <div className="flex items-center gap-1">
                         <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
                           placeholder="oder eingeben..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
-                          style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                          style={validated && !op.description?.trim() && (parseFloat(op.length) || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                         <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
                       </div>
                       {!op.description && (
@@ -2314,23 +2315,24 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                             <span className="text-slate-400">⌀</span>
                             <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
                               className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                              style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                              style={validated && !parseFloat(op.length) && (op.description || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                           </>
                         ) : (
                           <>
                             <span className="text-slate-400">B</span>
                             <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
                               className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                              style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                              style={validated && !parseFloat(op.length) && (op.description || parseFloat(op.width) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                             <span className="text-slate-400">×H</span>
                             <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
                               className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                              style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                              style={validated && !parseFloat(op.width) && (op.description || parseFloat(op.length) || parseInt(op.count)) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                           </>
                         )}
                         <span className="text-slate-400">×</span>
                         <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
-                          className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                          className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1"
+                          style={validated && !parseInt(op.count) && (parseFloat(op.length) || parseFloat(op.width) || op.description) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                         <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
                       {isUebermessen ? (
                         <span className="text-green-400 text-[10px] min-w-[24px]" title={`${formatNum(singleArea)} m² < ${vobMax} m² — übermessen`}>✓</span>
@@ -2723,6 +2725,8 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
         const openings = (room.items || []).filter(item => item.subtract)
         for (let j = 0; j < openings.length; j++) {
           const op = openings[j]
+          const hasAnyInput = op.description?.trim() || parseFloat(op.length) || parseFloat(op.width) || parseInt(op.count)
+          if (!hasAnyInput) continue // Skip completely empty openings
           const opLabel = op.description || `Öffnung ${j + 1}`
           if (!op.description?.trim()) { setError(`${roomLabel} → ${opLabel}: Bitte Bezeichnung eingeben`); return false }
           const isRound = op.description?.toLowerCase().includes('rund')
