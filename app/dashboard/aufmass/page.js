@@ -1371,8 +1371,15 @@ function calcItem(item) {
   let calculation = ''
   switch (item.unit) {
     case 'm²':
-      result = l * b * c
-      calculation = c > 1 ? `${item.length}${u} × ${item.width}${u} × ${c}` : `${item.length}${u} × ${item.width}${u}`
+      if (item.description?.toLowerCase().includes('rund')) {
+        // Kreis: π × (d/2)²
+        const r = l / 2
+        result = Math.PI * r * r * c
+        calculation = c > 1 ? `π×(${item.length}${u}/2)² × ${c}` : `π×(${item.length}${u}/2)²`
+      } else {
+        result = l * b * c
+        calculation = c > 1 ? `${item.length}${u} × ${item.width}${u} × ${c}` : `${item.length}${u} × ${item.width}${u}`
+      }
       break
     case 'Bogen':
       // Halbe Ellipse: π × (L/2) × H / 2 = π × L × H / 4
@@ -2143,21 +2150,35 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       </div>
                       {!op.description && (
                         <div className="flex gap-1 flex-wrap">
-                          {['Fenster', 'Tür', 'Balkontür', 'Dachfenster'].map(t => (
+                          {(gewerk === 'bodenbelag'
+                            ? ['Säule', 'Kamin', 'Rundpfeiler', 'Sonstiges']
+                            : ['Fenster', 'Tür', 'Balkontür', 'Dachfenster']
+                          ).map(t => (
                             <button key={t} onClick={() => updateOpening(idx, 'description', t)}
                               className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs transition-colors">{t}</button>
                           ))}
                         </div>
                       )}
                       <div className="flex items-center gap-1.5">
-                        <span className="text-slate-400">B</span>
-                        <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
-                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
-                        <span className="text-slate-400">×H</span>
-                        <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
-                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
-                          style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                        {op.description?.toLowerCase().includes('rund') ? (
+                          <>
+                            <span className="text-slate-400">⌀</span>
+                            <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                              className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                              style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-slate-400">B</span>
+                            <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                              className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                              style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                            <span className="text-slate-400">×H</span>
+                            <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                              className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                              style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                          </>
+                        )}
                         <span className="text-slate-400">×</span>
                         <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
                           className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
@@ -2555,8 +2576,9 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           const op = openings[j]
           const opLabel = op.description || `Öffnung ${j + 1}`
           if (!op.description?.trim()) { setError(`${roomLabel} → ${opLabel}: Bitte Bezeichnung eingeben`); return false }
-          if (!parseFloat(op.length)) { setError(`${roomLabel} → ${opLabel}: Bitte Breite (B) eingeben`); return false }
-          if (!parseFloat(op.width)) { setError(`${roomLabel} → ${opLabel}: Bitte Höhe (H) eingeben`); return false }
+          const isRound = op.description?.toLowerCase().includes('rund')
+          if (!parseFloat(op.length)) { setError(`${roomLabel} → ${opLabel}: Bitte ${isRound ? 'Durchmesser (⌀)' : 'Breite (B)'} eingeben`); return false }
+          if (!isRound && !parseFloat(op.width)) { setError(`${roomLabel} → ${opLabel}: Bitte Höhe (H) eingeben`); return false }
         }
       }
     }
