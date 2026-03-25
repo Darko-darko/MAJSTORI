@@ -2119,7 +2119,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                     <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
                   </div>
                   {/* Sockelleiste: Türbreite abziehen */}
-                  {item.unit === 'lfm' && gewerk === 'bodenbelag' && (
+                  {item.unit === 'lfm' && (gewerk === 'bodenbelag' || gewerk === 'fliesen') && (
                     <div className="ml-4 mt-1 mb-1 space-y-1">
                       {(item.deductions || []).map((ded, di) => (
                         <div key={di} className="flex items-center gap-1.5 text-xs">
@@ -2201,6 +2201,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                         <div className="flex gap-1 flex-wrap">
                           {(gewerk === 'bodenbelag'
                             ? ['Säule', 'Kamin', 'Rundpfeiler', 'Sonstiges']
+                            : gewerk === 'fliesen'
+                            ? ['Fenster', 'Tür', 'Säule', 'Kamin', 'Rundpfeiler']
                             : ['Fenster', 'Tür', 'Balkontür', 'Dachfenster']
                           ).map(t => (
                             <button key={t} onClick={() => updateOpening(idx, 'description', t)}
