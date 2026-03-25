@@ -1974,13 +1974,17 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
 
   const removePosition = (idx) => setItems(positions.filter((_, i) => i !== idx), undefined)
 
-  const addOpening = () => {
+  const addOpening = (target) => {
     const item = calcItem({
       id: newId(), description: '', unit: 'm²', dim_unit: 'm',
-      length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: true
+      length: '', width: '', height: '', count: '', result: 0, calculation: '', subtract: true,
+      opening_target: target || undefined
     })
     setItems(undefined, [...openings, item])
   }
+
+  const bodenOpenings = openings.filter(o => o.opening_target === 'boden')
+  const wandOpenings = openings.filter(o => o.opening_target === 'wand' || (!o.opening_target && gewerk !== 'fliesen'))
 
   const updateOpening = (idx, field, val) => {
     const updated = [...openings]
@@ -2124,15 +2128,16 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       <div className="border border-slate-600/50 rounded-lg overflow-hidden">
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer" onClick={() => {
                           setOpeningsOpen(o => !o)
-                          if (!openingsOpen && openings.length === 0) addOpening()
+                          if (!openingsOpen && bodenOpenings.length === 0) addOpening('boden')
                         }}>
-                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Aussparungen {openings.length > 0 && `(${openings.length})`}</span>
+                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Aussparungen {bodenOpenings.length > 0 && `(${bodenOpenings.length})`}</span>
                           {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
                           <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
                         </div>
                         {openingsOpen && (
                           <div className="p-2 space-y-1.5">
                             {openings.map((op, idx) => {
+                              if (gewerk === 'fliesen' && op.opening_target !== 'boden') return null
                               const totalArea = op.result || 0
                               const cnt2 = parseFloat(op.count) || 1
                               const singleArea2 = cnt2 > 0 ? totalArea / cnt2 : totalArea
@@ -2187,7 +2192,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                                 </div>
                               )
                             })}
-                            <button onClick={addOpening}
+                            <button onClick={() => addOpening('boden')}
                               className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
                               + Aussparung
                             </button>
@@ -2270,15 +2275,16 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       <div className="border border-slate-600/50 rounded-lg overflow-hidden">
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer" onClick={() => {
                           setOpeningsOpen(o => !o)
-                          if (!openingsOpen && openings.length === 0) addOpening()
+                          if (!openingsOpen && wandOpenings.length === 0) addOpening('wand')
                         }}>
-                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Öffnungen {openings.length > 0 && `(${openings.length})`}</span>
+                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Öffnungen {wandOpenings.length > 0 && `(${wandOpenings.length})`}</span>
                           {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
                           <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
                         </div>
                         {openingsOpen && (
                           <div className="p-2 space-y-1.5">
                             {openings.map((op, idx) => {
+                              if (op.opening_target !== 'wand') return null
                               const totalArea = op.result || 0
                               const cnt2 = parseFloat(op.count) || 1
                               const singleArea2 = cnt2 > 0 ? totalArea / cnt2 : totalArea
@@ -2322,7 +2328,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                                 </div>
                               )
                             })}
-                            <button onClick={addOpening}
+                            <button onClick={() => addOpening('wand')}
                               className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
                               + Öffnung
                             </button>
