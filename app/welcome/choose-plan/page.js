@@ -42,7 +42,7 @@ export default function ChoosePlanPage() {
     },
     proPlus: {
       monthly: { price: 29.90, period: 'Monat' },
-      yearly: { price: 299, period: 'Jahr', monthlyEquiv: 24.92, savings: 16 },
+      yearly: { price: 299.90, period: 'Jahr', monthlyEquiv: 24.99, savings: 16 },
       name: 'PRO+ Team',
       icon: '🚀',
       color: 'from-purple-600 to-pink-600',
@@ -346,10 +346,10 @@ export default function ChoosePlanPage() {
         )}
 
         {/* Main Plan Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-6 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-10 md:gap-6 mb-6 max-w-5xl mx-auto">
 
                     {/* 💎 PRO - EMPFOHLEN */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500 rounded-2xl p-8 hover:border-blue-400 transition-all duration-300 relative scale-105 shadow-2xl">
+          <div className="bg-slate-800/50 backdrop-blur-sm border-2 border-blue-500 rounded-2xl p-8 hover:border-blue-400 transition-all duration-300 relative shadow-2xl">
             
             {/* Badge */}
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
