@@ -2118,9 +2118,102 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                     </span>
                     <button onClick={() => removePosition(idx)} className="text-red-400/40 hover:text-red-400 text-xs">✕</button>
                   </div>
-                  {/* Sockelleiste: Türbreite abziehen */}
+                  {/* Bodenfläche: Öffnungen inline for bodenbelag */}
+                  {item.unit === 'm²' && gewerk === 'bodenbelag' && (
+                    <div className="ml-2 mt-1 mb-1">
+                      <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer" onClick={() => {
+                          setOpeningsOpen(o => !o)
+                          if (!openingsOpen && openings.length === 0) addOpening()
+                        }}>
+                          <span className="text-xs font-medium text-red-300/80 flex-1">🔲 Aussparungen {openings.length > 0 && `(${openings.length})`}</span>
+                          {totalAbzug > 0 && <span className="text-red-300/60 text-xs font-mono">− {formatNum(totalAbzug)} m²</span>}
+                          <span className="text-slate-500 text-xs">{openingsOpen ? '▲' : '▼'}</span>
+                        </div>
+                        {openingsOpen && (
+                          <div className="p-2 space-y-1.5">
+                            {openings.map((op, idx) => {
+                              const totalArea = op.result || 0
+                              const cnt2 = parseFloat(op.count) || 1
+                              const singleArea2 = cnt2 > 0 ? totalArea / cnt2 : totalArea
+                              const isUebermessen2 = vobMax > 0 && singleArea2 > 0 && singleArea2 < vobMax
+                              return (
+                                <div key={op.id} className="text-xs space-y-1">
+                                  <div className="flex items-center gap-1">
+                                    <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                                      placeholder="oder eingeben..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
+                                      style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                    <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
+                                  </div>
+                                  {!op.description && (
+                                    <div className="flex gap-1 flex-wrap">
+                                      {['Säule', 'Kamin', 'Rundpfeiler', 'Sonstiges'].map(t => (
+                                        <button key={t} onClick={() => updateOpening(idx, 'description', t)}
+                                          className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs transition-colors">{t}</button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    {op.description?.toLowerCase().includes('rund') ? (
+                                      <>
+                                        <span className="text-slate-400">⌀</span>
+                                        <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="text-slate-400">B</span>
+                                        <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
+                                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                                          style={validated && !parseFloat(op.length) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                        <span className="text-slate-400">×H</span>
+                                        <input type="number" step="0.01" value={op.width || ''} onChange={e => updateOpening(idx, 'width', e.target.value)}
+                                          className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white text-center" placeholder="0"
+                                          style={validated && !parseFloat(op.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
+                                      </>
+                                    )}
+                                    <span className="text-slate-400">×</span>
+                                    <input type="number" step="1" min="1" value={op.count || ''} onChange={e => updateOpening(idx, 'count', e.target.value)}
+                                      className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-1 text-white text-center" placeholder="1" />
+                                    <span className="font-mono text-white min-w-[50px] text-right">{formatNum(totalArea)} m²</span>
+                                    {isUebermessen2 ? (
+                                      <span className="text-green-400 text-[10px] min-w-[24px]" title="übermessen">✓</span>
+                                    ) : totalArea > 0 ? (
+                                      <span className="text-red-400 text-[10px] min-w-[24px]" title="abgezogen">−</span>
+                                    ) : <span className="min-w-[24px]" />}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            <button onClick={addOpening}
+                              className="w-full py-1.5 border border-dashed border-red-400/30 text-red-300/60 hover:text-red-300 rounded text-xs transition-colors">
+                              + Aussparung
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Sockelleiste: Abzug */}
                   {item.unit === 'lfm' && (gewerk === 'bodenbelag' || gewerk === 'fliesen') && (
-                    <div className="ml-4 mt-1 mb-1 space-y-1">
+                    <div className="ml-2 mt-1 mb-1">
+                      <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer" onClick={() => {
+                          if (!item._abzugOpen && (!item.deductions || item.deductions.length === 0)) {
+                            const newDeds = [{ width: '', count: '1' }]
+                            const updated = { ...item, deductions: newDeds, _abzugOpen: true }
+                            const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
+                          } else {
+                            const updated = { ...item, _abzugOpen: !item._abzugOpen }
+                            const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
+                          }
+                        }}>
+                          <span className="text-xs font-medium text-red-300/80 flex-1">📏 Abzüge {(item.deductions || []).length > 0 && `(${(item.deductions || []).length})`}</span>
+                          <span className="text-slate-500 text-xs">{item._abzugOpen ? '▲' : '▼'}</span>
+                        </div>
+                        {item._abzugOpen && (
+                          <div className="p-2 space-y-1">
                       {(item.deductions || []).map((ded, di) => (
                         <div key={di} className="flex items-center gap-1.5 text-xs">
                           <span className="text-red-400">−</span>
@@ -2134,7 +2227,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                               const updated = { ...item, deductions: deds, result: Math.round((base - totalDed) * 100) / 100 }
                               const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
                             }}
-                            className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-white text-center" />
+                            className="w-14 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-white text-center"
+                            style={validated && !parseFloat(ded.width) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                           <span className="text-slate-400">m ×</span>
                           <input type="number" step="1" min="1" value={ded.count || ''} placeholder="1"
                             onChange={e => {
@@ -2145,7 +2239,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                               const updated = { ...item, deductions: deds, result: Math.round((base - totalDed) * 100) / 100 }
                               const newPos = [...positions]; newPos[idx] = updated; setItems(newPos, undefined)
                             }}
-                            className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-white text-center" />
+                            className="w-10 bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-white text-center"
+                            style={validated && !parseInt(ded.count) ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
                           <span className="text-slate-500 font-mono">{formatNum((parseFloat(ded.width) || 0) * (parseInt(ded.count) || 1))} m</span>
                           <button onClick={() => {
                             const deds = (item.deductions || []).filter((_, i) => i !== di)
@@ -2163,6 +2258,9 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                       }} className="text-xs text-red-300/60 hover:text-red-300 transition-colors">
                         + Abzug (Tür, Schrank...)
                       </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2170,8 +2268,8 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
             </div>
           )}
 
-          {/* Öffnungen */}
-          <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+          {/* Öffnungen — skip for bodenbelag (shown inline under Bodenfläche) */}
+          {gewerk !== 'bodenbelag' && <div className="border border-slate-600/50 rounded-lg overflow-hidden">
             <div
               className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/10 cursor-pointer"
               onClick={() => setOpeningsOpen(o => !o)}
@@ -2257,7 +2355,7 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Netto summary */}
           {bruttoM2 > 0 && (
@@ -2630,6 +2728,15 @@ function EditorModal({ aufmass, majstor, token, onSave, onClose }) {
           const isRound = op.description?.toLowerCase().includes('rund')
           if (!parseFloat(op.length)) { setError(`${roomLabel} → ${opLabel}: Bitte ${isRound ? 'Durchmesser (⌀)' : 'Breite (B)'} eingeben`); return false }
           if (!isRound && !parseFloat(op.width)) { setError(`${roomLabel} → ${opLabel}: Bitte Höhe (H) eingeben`); return false }
+        }
+        // Validate Sockelleiste deductions
+        const lfmPositions = (room.items || []).filter(item => !item.subtract && item.unit === 'lfm')
+        for (const pos of lfmPositions) {
+          for (let di = 0; di < (pos.deductions || []).length; di++) {
+            const ded = pos.deductions[di]
+            if (!parseFloat(ded.width)) { setError(`${roomLabel} → Abzug ${di + 1}: Bitte Breite eingeben`); return false }
+            if (!parseInt(ded.count)) { setError(`${roomLabel} → Abzug ${di + 1}: Bitte Anzahl eingeben`); return false }
+          }
         }
       }
     }
