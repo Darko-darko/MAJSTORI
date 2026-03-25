@@ -2134,18 +2134,19 @@ function TradeRaumCard({ room, onChange, onRemove, gewerk, validated }) {
                   return (
                     <div key={op.id} className="text-xs space-y-1">
                       <div className="flex items-center gap-1">
-                        <input list="opening-types" type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
-                          placeholder="Fenster, Tür..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
+                        <input type="text" value={op.description} onChange={e => updateOpening(idx, 'description', e.target.value)}
+                          placeholder="oder eingeben..." className="flex-1 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-white min-w-0"
                           style={validated && !op.description?.trim() ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined} />
-                        <datalist id="opening-types">
-                          <option value="Fenster" />
-                          <option value="Tür" />
-                          <option value="Balkontür" />
-                          <option value="Dachfenster" />
-                          <option value="Sonstiges" />
-                        </datalist>
                         <button onClick={() => removeOpening(idx)} className="text-red-600 hover:text-red-500 shrink-0 text-sm font-bold">✕</button>
                       </div>
+                      {!op.description && (
+                        <div className="flex gap-1 flex-wrap">
+                          {['Fenster', 'Tür', 'Balkontür', 'Dachfenster'].map(t => (
+                            <button key={t} onClick={() => updateOpening(idx, 'description', t)}
+                              className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs transition-colors">{t}</button>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-400">B</span>
                         <input type="number" step="0.01" value={op.length || ''} onChange={e => updateOpening(idx, 'length', e.target.value)}
