@@ -45,7 +45,7 @@ export async function POST(request) {
           subscriptions: [
             {
               subscription: subscriptionId,
-              deactivationDate: null,
+              deactivation: null,
             },
           ],
         }),
