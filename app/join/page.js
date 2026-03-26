@@ -80,9 +80,16 @@ export default function JoinPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
 
-      // Auto-login
+      // Auto-login and redirect
       if (email && password) {
-        await supabase.auth.signInWithPassword({ email, password })
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+        if (!loginError) {
+          setTeamInfo(json)
+          setStep('success')
+          // Auto redirect after 2 seconds
+          setTimeout(() => router.push('/dashboard/worker'), 2000)
+          return
+        }
       }
 
       setTeamInfo(json)
