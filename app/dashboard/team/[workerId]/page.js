@@ -21,6 +21,7 @@ export default function WorkerDetailPage() {
   const [saving, setSaving] = useState(false)
   const [newPhotos, setNewPhotos] = useState([]) // preview URLs
   const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
+  const [expandedTaskId, setExpandedTaskId] = useState(null)
 
   useEffect(() => { loadData() }, [workerId])
 
@@ -380,122 +381,87 @@ export default function WorkerDetailPage() {
             </div>
           )}
 
-          {pendingTasks.length > 0 && (
-            <div>
-              <h3 className="text-white font-semibold mb-2">Offen ({pendingTasks.length})</h3>
-              <div className="space-y-3">
-                {pendingTasks.map(task => (
-                  <div key={task.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+          {tasks.length > 0 && (
+            <div className="space-y-3">
+              {tasks.map(task => {
+                const isDone = task.status === 'done'
+                const taskReports = reports.filter(r => r.task_id === task.id)
+                const isOpen = expandedTaskId === task.id
+
+                return (
+                  <div key={task.id} className={`bg-slate-800/50 border rounded-xl overflow-hidden ${isDone ? 'border-green-500/30' : 'border-slate-700'}`}>
+                    {/* Header — always visible */}
+                    <div className="p-4 flex items-start justify-between gap-3 cursor-pointer" onClick={() => setExpandedTaskId(isOpen ? null : task.id)}>
                       <div className="flex-1">
-                        <h4 className="text-white font-medium">{task.title}</h4>
-                        {task.description && <p className="text-slate-400 text-sm mt-1">{task.description}</p>}
-                        <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-2">
+                          <h4 className={`font-medium ${isDone ? 'text-slate-400' : 'text-white'}`}>{task.title}</h4>
+                          {isDone && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">✓ Erledigt</span>}
+                          {taskReports.length > 0 && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.length} Bericht{taskReports.length > 1 ? 'e' : ''}</span>}
+                        </div>
+                        <div className="flex gap-4 mt-1 text-xs text-slate-500">
                           {task.location && <span>📍 {task.location}</span>}
                           {task.due_date && <span>📅 {new Date(task.due_date).toLocaleDateString('de-DE')}</span>}
                         </div>
                       </div>
-                      <button
-                        onClick={() => { if (confirm('Aufgabe löschen?')) handleDeleteTask(task.id) }}
-                        className="text-slate-500 hover:text-red-400 text-sm"
-                      >✕</button>
+                      <div className="flex items-center gap-2">
+                        {isDone && (
+                          <button onClick={(e) => { e.stopPropagation(); handleResetTask(task.id) }}
+                            className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600">↩</button>
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); if (confirm('Aufgabe löschen?')) handleDeleteTask(task.id) }}
+                          className="text-slate-500 hover:text-red-400 text-sm">✕</button>
+                        <span className="text-slate-500">{isOpen ? '▲' : '▼'}</span>
+                      </div>
                     </div>
-                    {/* Owner photos */}
-                    {(task.owner_photos || []).length > 0 && (
-                      <div>
-                        <p className="text-slate-500 text-xs mb-1">Ihre Fotos:</p>
-                        <div className="grid grid-cols-4 gap-2">
-                          {task.owner_photos.map((p, i) => (
-                            <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30" />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* Worker comment if any */}
-                    {task.worker_comment && (
-                      <div className="bg-slate-900/50 rounded-lg p-2">
-                        <p className="text-slate-500 text-xs mb-1">Kommentar vom Mitarbeiter:</p>
-                        <p className="text-slate-300 text-sm">{task.worker_comment}</p>
-                      </div>
-                    )}
-                    {/* Worker photos if any */}
-                    {((task.photos_before?.length > 0) || (task.photos_after?.length > 0)) && (
-                      <div className="flex gap-4">
-                        {task.photos_before?.length > 0 && (
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Vorher:</p>
-                            <div className="flex gap-1">
-                              {task.photos_before.map((p, i) => (
-                                <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {task.photos_after?.length > 0 && (
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Nachher:</p>
-                            <div className="flex gap-1">
-                              {task.photos_after.map((p, i) => (
-                                <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {doneTasks.length > 0 && (
-            <div>
-              <h3 className="text-slate-400 font-semibold mb-2">Erledigt ({doneTasks.length})</h3>
-              <div className="space-y-2">
-                {doneTasks.map(task => (
-                  <div key={task.id} className="bg-slate-800/30 border border-green-500/20 rounded-xl p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <h4 className="text-white font-medium"><span className="text-green-400">✓</span> {task.title}</h4>
-                        {task.worker_comment && (
-                          <p className="text-slate-300 text-sm mt-1 bg-slate-900/50 rounded p-2">{task.worker_comment}</p>
-                        )}
-                        {(task.photos_before?.length > 0 || task.photos_after?.length > 0) && (
-                          <div className="flex gap-4 mt-2">
-                            {task.photos_before?.length > 0 && (
-                              <div>
-                                <p className="text-slate-500 text-xs mb-1">Vorher:</p>
-                                <div className="flex gap-1">
-                                  {task.photos_before.map((p, i) => (
-                                    <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {task.photos_after?.length > 0 && (
-                              <div>
-                                <p className="text-slate-500 text-xs mb-1">Nachher:</p>
-                                <div className="flex gap-1">
-                                  {task.photos_after.map((p, i) => (
-                                    <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                    {/* Expanded — details + reports */}
+                    {isOpen && (
+                      <div className="border-t border-slate-700 p-4 space-y-3">
+                        {task.description && <p className="text-slate-400 text-sm">{task.description}</p>}
+
+                        {/* Owner photos */}
+                        {(task.owner_photos || []).length > 0 && (
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Ihre Fotos:</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {task.owner_photos.map((p, i) => (
+                                <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30" />
+                              ))}
+                            </div>
                           </div>
                         )}
+
+                        {/* Task reports */}
+                        {taskReports.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-slate-400 text-sm font-semibold">Berichte vom Mitarbeiter:</p>
+                            {taskReports.map(r => (
+                              <div key={r.id} className={`rounded-lg p-3 ${r.is_final ? 'bg-green-900/20 border border-green-500/30' : 'bg-slate-900/50'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-slate-500 text-xs">{new Date(r.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                  {r.is_final ? <span className="text-green-400 text-xs font-semibold">Abschluss</span> : <span className="text-blue-400 text-xs">Zwischenbericht</span>}
+                                </div>
+                                {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
+                                {r.photos?.length > 0 && (
+                                  <div className="grid grid-cols-4 gap-1 mt-2">
+                                    {r.photos.map((p, i) => (
+                                      <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded" />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {taskReports.length === 0 && !isDone && (
+                          <p className="text-slate-500 text-sm">Noch keine Berichte vom Mitarbeiter</p>
+                        )}
                       </div>
-                      <button
-                        onClick={() => handleResetTask(task.id)}
-                        className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors whitespace-nowrap"
-                      >
-                        ↩ Zurücksetzen
-                      </button>
-                    </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
           )}
 
