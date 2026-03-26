@@ -11,7 +11,8 @@ export default function WorkerDetailPage() {
   const [timeEntries, setTimeEntries] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('time') // time, tasks
+  const [tab, setTab] = useState('time') // time, tasks, reports
+  const [reports, setReports] = useState([])
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -40,6 +41,11 @@ export default function WorkerDetailPage() {
       const timeRes = await fetch(`/api/team/time?worker_id=${workerId}`, { headers })
       const timeJson = await timeRes.json()
       if (timeJson.entries) setTimeEntries(timeJson.entries)
+
+      // Load reports for this worker
+      const reportsRes = await fetch(`/api/team/reports?worker_id=${workerId}`, { headers })
+      const reportsJson = await reportsRes.json()
+      if (reportsJson.reports) setReports(reportsJson.reports)
 
       // Load tasks for this worker
       const tasksRes = await fetch('/api/team/tasks', { headers })
@@ -159,6 +165,7 @@ export default function WorkerDetailPage() {
         {[
           { key: 'time', label: '⏱️ Zeiterfassung' },
           { key: 'tasks', label: '📋 Aufgaben' },
+          { key: 'reports', label: '📝 Berichte' },
         ].map(t => (
           <button
             key={t.key}
@@ -301,6 +308,37 @@ export default function WorkerDetailPage() {
 
           {tasks.length === 0 && (
             <p className="text-slate-500 text-center py-8">Keine Aufgaben zugewiesen</p>
+          )}
+        </div>
+      )}
+
+      {/* Reports Tab */}
+      {tab === 'reports' && (
+        <div className="space-y-4">
+          {reports.length > 0 ? (
+            reports.map(r => (
+              <div key={r.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-white font-semibold">
+                    {new Date(r.report_date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </h3>
+                  {r.locked && <span className="text-yellow-400 text-xs">🔒</span>}
+                </div>
+                {r.text && <p className="text-slate-300 text-sm mb-3">{r.text}</p>}
+                {r.photos?.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {r.photos.map((photo, idx) => (
+                      <img key={idx} src={photo.url} alt="" className="w-full h-20 object-cover rounded-lg" />
+                    ))}
+                  </div>
+                )}
+                {!r.text && !r.photos?.length && (
+                  <p className="text-slate-500 text-sm">Kein Inhalt</p>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="text-slate-500 text-center py-8">Noch keine Berichte</p>
           )}
         </div>
       )}
