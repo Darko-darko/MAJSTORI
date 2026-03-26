@@ -143,8 +143,8 @@
 - bag kad na mobilnom prvi put koristim voice kreator faktura!! ✅
 - zipovanje pdf i povezivanje sa knjigovođom... dugme export ✅
 - resend upozorenje ✅
-- swipe side bar (i za iphone)
-- Aufmaß
+- swipe side bar (i za iphone)✅
+- Aufmaß✅
 - pdf za Wand ✅
 - proveriti ako se cancel, ko se ponovo subcribe ✅
 - provera zugfreda detaljna ✅
@@ -155,7 +155,18 @@
 - landing page za knjigovođe
 - fastspring za knjigovođe
 - Yamm
-- sepa qr kod ne radi!!
+- sepa qr kod ne radi!!✅
+- popust✅
+
+- katanac sa 7 dana free sa rehnunga hmmm ne radi još
+- u angebot piše profakture... treba izbrisat
+- regiebercht u team
+- uvećanje slike 
+- uređivanje zadatka za vlasnika ... ako je zaboravio tekst ili neku sliku
+- notifikacije
+- real time ili neki refreš itd
+- faze zadatka send i kraj na kraju :
+- trbala bi da postoji opcija da majtori dobiju usmeni zadatak da šlju slike na početku i kraju, majtro kreira izveštaj bez zadatka od gazde
 
 
 
