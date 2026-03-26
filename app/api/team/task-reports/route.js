@@ -89,11 +89,22 @@ export async function POST(request) {
       return Response.json({ error: 'Bitte Text eingeben' }, { status: 400 })
     }
 
+    // Determine owner_id
+    let ownerId = null
+    const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
+    if (majstor?.role === 'worker') {
+      const { data: membership } = await admin.from('team_members').select('owner_id').eq('worker_id', user.id).eq('status', 'active').single()
+      ownerId = membership?.owner_id
+    } else {
+      ownerId = user.id
+    }
+
     const { data: report, error } = await admin
       .from('task_reports')
       .insert({
         task_id: task_id || null,
         worker_id: user.id,
+        owner_id: ownerId,
         text: text.trim(),
         phase: is_final ? 'final' : 'update',
         is_final: !!is_final,
