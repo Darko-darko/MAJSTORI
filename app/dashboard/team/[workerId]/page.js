@@ -136,6 +136,14 @@ export default function WorkerDetailPage() {
     }
   }
 
+  const handleDeleteTask = async (taskId) => {
+    try {
+      const headers = await getAuthHeaders()
+      await fetch(`/api/team/tasks?id=${taskId}`, { method: 'DELETE', headers })
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+    } catch (err) { console.error(err) }
+  }
+
   const handleResetTask = async (taskId) => {
     const reason = prompt('Grund für Zurücksetzen (optional):')
     if (reason === null) return // cancelled
@@ -372,18 +380,66 @@ export default function WorkerDetailPage() {
           {pendingTasks.length > 0 && (
             <div>
               <h3 className="text-white font-semibold mb-2">Offen ({pendingTasks.length})</h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {pendingTasks.map(task => (
-                  <div key={task.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-                    <h4 className="text-white font-medium">{task.title}</h4>
-                    {task.description && <p className="text-slate-400 text-sm mt-1">{task.description}</p>}
-                    <div className="flex gap-4 mt-2 text-xs text-slate-500">
-                      {task.location && <span>📍 {task.location}</span>}
-                      {task.due_date && <span>📅 {new Date(task.due_date).toLocaleDateString('de-DE')}</span>}
-                      <span className={task.status === 'in_progress' ? 'text-blue-400' : 'text-yellow-400'}>
-                        {task.status === 'in_progress' ? 'In Arbeit' : 'Offen'}
-                      </span>
+                  <div key={task.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <h4 className="text-white font-medium">{task.title}</h4>
+                        {task.description && <p className="text-slate-400 text-sm mt-1">{task.description}</p>}
+                        <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                          {task.location && <span>📍 {task.location}</span>}
+                          {task.due_date && <span>📅 {new Date(task.due_date).toLocaleDateString('de-DE')}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { if (confirm('Aufgabe löschen?')) handleDeleteTask(task.id) }}
+                        className="text-slate-500 hover:text-red-400 text-sm"
+                      >✕</button>
                     </div>
+                    {/* Owner photos */}
+                    {(task.owner_photos || []).length > 0 && (
+                      <div>
+                        <p className="text-slate-500 text-xs mb-1">Ihre Fotos:</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {task.owner_photos.map((p, i) => (
+                            <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Worker comment if any */}
+                    {task.worker_comment && (
+                      <div className="bg-slate-900/50 rounded-lg p-2">
+                        <p className="text-slate-500 text-xs mb-1">Kommentar vom Mitarbeiter:</p>
+                        <p className="text-slate-300 text-sm">{task.worker_comment}</p>
+                      </div>
+                    )}
+                    {/* Worker photos if any */}
+                    {((task.photos_before?.length > 0) || (task.photos_after?.length > 0)) && (
+                      <div className="flex gap-4">
+                        {task.photos_before?.length > 0 && (
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Vorher:</p>
+                            <div className="flex gap-1">
+                              {task.photos_before.map((p, i) => (
+                                <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {task.photos_after?.length > 0 && (
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Nachher:</p>
+                            <div className="flex gap-1">
+                              {task.photos_after.map((p, i) => (
+                                <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
