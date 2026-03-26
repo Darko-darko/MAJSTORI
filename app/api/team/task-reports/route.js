@@ -32,7 +32,14 @@ export async function GET(request) {
     if (taskId) {
       query = query.eq('task_id', taskId)
     } else if (workerId) {
-      query = query.eq('worker_id', workerId)
+      // Get worker's posts + replies to those posts
+      const { data: workerPosts } = await admin.from('task_reports').select('id').eq('worker_id', workerId)
+      const postIds = (workerPosts || []).map(p => p.id)
+      if (postIds.length > 0) {
+        query = query.or(`worker_id.eq.${workerId},parent_id.in.(${postIds.join(',')})`)
+      } else {
+        query = query.eq('worker_id', workerId)
+      }
     } else {
       // Check role
       const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
