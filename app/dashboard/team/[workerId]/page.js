@@ -629,7 +629,7 @@ export default function WorkerDetailPage() {
         })
 
         // Free posts (no task_id)
-        const freePosts = reports.filter(r => !r.task_id)
+        const freePosts = reports.filter(r => !r.task_id && !r.parent_id)
         freePosts.forEach(post => {
           const key = getDateKey(post.created_at)
           if (!byDate[key]) byDate[key] = { label: formatDateLabel(post.created_at), tasks: [], freePosts: [] }
