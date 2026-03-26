@@ -170,8 +170,8 @@ export default function WorkerTasksPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className={`font-semibold ${isDone ? 'text-slate-400 line-through' : 'text-white'}`}>{task.title}</h3>
-                    {taskReports.length > 0 && (
-                      <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.length} Bericht{taskReports.length > 1 ? 'e' : ''}</span>
+                    {taskReports.filter(r => !r.is_final).length > 0 && (
+                      <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length} Bericht{taskReports.filter(r => !r.is_final).length > 1 ? 'e' : ''}</span>
                     )}
                     {isDone && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">✓ Erledigt</span>}
                   </div>
