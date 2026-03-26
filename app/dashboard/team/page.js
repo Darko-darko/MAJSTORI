@@ -46,6 +46,18 @@ export default function TeamPage() {
 
   const handleAddMember = async () => {
     if (!newName.trim()) return
+
+    // Confirm payment for 3rd+ member
+    const activeCount = members.filter(m => m.status !== 'removed').length
+    if (activeCount >= 2) {
+      const confirmed = confirm(
+        `Die ersten 2 Teammitglieder sind in PRO+ enthalten.\n\n` +
+        `Ab dem 3. Mitglied fallen 8€/Monat pro Person an.\n\n` +
+        `Möchten Sie fortfahren?`
+      )
+      if (!confirmed) return
+    }
+
     setAdding(true)
     setError('')
 
@@ -62,7 +74,6 @@ export default function TeamPage() {
 
       if (json.needsPayment) {
         // TODO: otvori FastSpring checkout za additional-user
-        alert(`Hinweis: Die ersten 2 Mitglieder sind in PRO+ enthalten. Ab dem 3. Mitglied fallen 8€/Monat an.`)
       }
 
       setMembers(prev => [...prev, json.member])
@@ -133,17 +144,15 @@ export default function TeamPage() {
                 </p>
               </div>
             )}
-            {activeMembers.length >= includedMembers && (
-              <button
-                onClick={() => {
-                  // TODO: FastSpring checkout for additional-user
-                  alert('Weitere Mitglieder können für 8€/Monat pro Person hinzugebucht werden. Diese Funktion wird in Kürze verfügbar sein.')
-                }}
-                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
-              >
-                + Plätze buchen
-              </button>
-            )}
+            <button
+              onClick={() => {
+                // TODO: FastSpring checkout for additional-user
+                alert('Weitere Mitglieder können für 8€/Monat pro Person hinzugebucht werden. Diese Funktion wird in Kürze verfügbar sein.')
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
+            >
+              + Plätze buchen
+            </button>
           </div>
         </div>
       </div>
