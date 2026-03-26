@@ -44,8 +44,8 @@ export default function WorkerDetailPage() {
       const timeJson = await timeRes.json()
       if (timeJson.entries) setTimeEntries(timeJson.entries)
 
-      // Load reports for this worker
-      const reportsRes = await fetch(`/api/team/reports?worker_id=${workerId}`, { headers })
+      // Load task reports for this worker
+      const reportsRes = await fetch(`/api/team/task-reports?worker_id=${workerId}`, { headers })
       const reportsJson = await reportsRes.json()
       if (reportsJson.reports) setReports(reportsJson.reports)
 
@@ -509,27 +509,29 @@ export default function WorkerDetailPage() {
       {tab === 'reports' && (
         <div className="space-y-4">
           {reports.length > 0 ? (
-            reports.map(r => (
-              <div key={r.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-white font-semibold">
-                    {new Date(r.report_date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  </h3>
-                  {r.locked && <span className="text-yellow-400 text-xs">🔒</span>}
-                </div>
-                {r.text && <p className="text-slate-300 text-sm mb-3">{r.text}</p>}
-                {r.photos?.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2">
-                    {r.photos.map((photo, idx) => (
-                      <img key={idx} src={photo.url} alt="" className="w-full h-20 object-cover rounded-lg" />
-                    ))}
+            reports.map(r => {
+              const task = tasks.find(t => t.id === r.task_id)
+              return (
+                <div key={r.id} className={`bg-slate-800/50 border rounded-xl p-4 ${r.is_final ? 'border-green-500/30' : 'border-slate-700'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-slate-500 text-xs">
+                      {new Date(r.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {task && <span className="text-purple-400 text-xs font-semibold">{task.title}</span>}
+                    {r.is_final && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Abschluss</span>}
+                    {!r.is_final && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">Zwischenbericht</span>}
                   </div>
-                )}
-                {!r.text && !r.photos?.length && (
-                  <p className="text-slate-500 text-sm">Kein Inhalt</p>
-                )}
-              </div>
-            ))
+                  {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
+                  {r.photos?.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mt-2">
+                      {r.photos.map((p, idx) => (
+                        <img key={idx} src={p.url} alt="" className="w-full h-20 object-cover rounded-lg" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })
           ) : (
             <p className="text-slate-500 text-center py-8">Noch keine Berichte</p>
           )}

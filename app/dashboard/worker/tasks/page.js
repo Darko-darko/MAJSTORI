@@ -1,4 +1,4 @@
-// app/dashboard/worker/tasks/page.js — Worker tasks with photos + comments + Abschließen
+// app/dashboard/worker/tasks/page.js — Worker tasks with multi-phase reports
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -20,107 +20,103 @@ function compressImage(file, maxWidth = 1920, quality = 0.8) {
 
 export default function WorkerTasksPage() {
   const [tasks, setTasks] = useState([])
+  const [reports, setReports] = useState({}) // { taskId: [reports] }
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('pending')
   const [expandedTask, setExpandedTask] = useState(null)
-  const [comments, setComments] = useState({}) // { taskId: text }
-  const [uploading, setUploading] = useState(false)
+  const [reportText, setReportText] = useState('')
+  const [reportPhotos, setReportPhotos] = useState([]) // preview URLs
+  const [reportPhotoFiles, setReportPhotoFiles] = useState([])
+  const [sending, setSending] = useState(false)
+  const [fullImage, setFullImage] = useState(null) // fullscreen image URL
   const fileRef = useRef(null)
-  const [uploadType, setUploadType] = useState(null)
 
-  useEffect(() => { loadTasks() }, [])
+  useEffect(() => { loadData() }, [])
 
   const getAuthHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
   }
 
-  const loadTasks = async () => {
+  const loadData = async () => {
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch('/api/team/tasks', { headers })
-      const json = await res.json()
-      if (json.tasks) setTasks(json.tasks)
+      const [tasksRes, reportsRes] = await Promise.all([
+        fetch('/api/team/tasks', { headers }),
+        fetch('/api/team/task-reports', { headers }),
+      ])
+      const tasksJson = await tasksRes.json()
+      const reportsJson = await reportsRes.json()
+
+      if (tasksJson.tasks) setTasks(tasksJson.tasks)
+      if (reportsJson.reports) {
+        const grouped = {}
+        reportsJson.reports.forEach(r => {
+          if (!grouped[r.task_id]) grouped[r.task_id] = []
+          grouped[r.task_id].push(r)
+        })
+        setReports(grouped)
+      }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
 
-  const updateTask = async (taskId, data) => {
-    try {
-      const headers = await getAuthHeaders()
-      const res = await fetch('/api/team/tasks', {
-        method: 'PATCH', headers,
-        body: JSON.stringify({ id: taskId, ...data })
-      })
-      const json = await res.json()
-      if (json.task) setTasks(prev => prev.map(t => t.id === taskId ? json.task : t))
-      return json.task
-    } catch (err) { console.error(err) }
-  }
-
-  const handleAbschliessen = async (task) => {
-    const hasContent = (task.photos_before?.length > 0) || (task.photos_after?.length > 0) || task.worker_comment?.trim()
-    if (!hasContent) {
-      alert('Bitte fügen Sie mindestens einen Kommentar oder ein Foto hinzu, bevor Sie abschließen.')
+  const handleSendReport = async (taskId, isFinal = false) => {
+    if (!reportText.trim() && reportPhotoFiles.length === 0) {
+      alert('Bitte Text oder mindestens ein Foto hinzufügen.')
       return
     }
 
-    const confirmed = confirm(
-      'Aufgabe abschließen?\n\n' +
-      'Nach dem Abschließen können keine Änderungen mehr vorgenommen werden.\n\n' +
-      'Fortfahren?'
-    )
-    if (!confirmed) return
+    if (isFinal) {
+      if (!confirm('Aufgabe abschließen?\n\nNach dem Abschließen können keine weiteren Berichte gesendet werden.')) return
+    }
 
-    await updateTask(task.id, { status: 'done' })
-  }
-
-  const handleCommentSave = async (taskId) => {
-    const text = comments[taskId]?.trim()
-    if (!text) return
-    await updateTask(taskId, { worker_comment: text })
-    setComments(prev => ({ ...prev, [taskId]: '' }))
-  }
-
-  const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files || [])
-    if (!files.length || !uploadType) return
-
-    setUploading(true)
+    setSending(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      for (const file of files) {
-        const compressed = await compressImage(file)
-        const formData = new FormData()
-        formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
-        formData.append('task_id', uploadType.taskId)
-        formData.append('type', uploadType.type)
+      const headers = await getAuthHeaders()
 
-        const res = await fetch('/api/team/tasks', {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${session?.access_token}` },
-          body: formData
-        })
-        const json = await res.json()
-        if (!res.ok) { alert(json.error); break }
+      // Create report
+      const res = await fetch('/api/team/task-reports', {
+        method: 'POST', headers,
+        body: JSON.stringify({ task_id: taskId, text: reportText.trim() || 'Foto-Update', is_final: isFinal })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
 
-        setTasks(prev => prev.map(t => {
-          if (t.id !== uploadType.taskId) return t
-          const field = uploadType.type === 'before' ? 'photos_before' : 'photos_after'
-          return { ...t, [field]: [...(t[field] || []), { url: json.photo }] }
-        }))
+      // Upload photos
+      if (reportPhotoFiles.length > 0 && json.report) {
+        const { data: { session } } = await supabase.auth.getSession()
+        for (const file of reportPhotoFiles) {
+          const compressed = await compressImage(file)
+          const formData = new FormData()
+          formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
+          formData.append('report_id', json.report.id)
+          await fetch('/api/team/task-reports', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+            body: formData
+          })
+        }
       }
-    } catch (err) { alert(err.message) }
-    finally {
-      setUploading(false)
-      setUploadType(null)
-      if (fileRef.current) fileRef.current.value = ''
+
+      // Reload
+      await loadData()
+      setReportText('')
+      setReportPhotos([])
+      setReportPhotoFiles([])
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSending(false)
     }
   }
 
-  const triggerUpload = (taskId, type) => {
-    setUploadType({ taskId, type })
-    setTimeout(() => fileRef.current?.click(), 100)
+  const handlePhotoSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length + reportPhotos.length > 10) { alert('Max. 10 Fotos'); return }
+    setReportPhotoFiles(prev => [...prev, ...files])
+    files.forEach(f => setReportPhotos(prev => [...prev, URL.createObjectURL(f)]))
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const filtered = tasks.filter(t => {
@@ -130,24 +126,26 @@ export default function WorkerTasksPage() {
   })
 
   if (loading) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mx-auto"></div>
-      </div>
-    )
+    return <div className="max-w-2xl mx-auto p-6"><div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mx-auto"></div></div>
   }
 
   const pendingCount = tasks.filter(t => t.status !== 'done').length
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" onChange={handlePhotoUpload} className="hidden" />
+      <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" onChange={handlePhotoSelect} className="hidden" />
+
+      {/* Fullscreen image */}
+      {fullImage && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullImage(null)}>
+          <img src={fullImage} alt="" className="max-w-full max-h-full object-contain" />
+          <button className="absolute top-4 right-4 text-white text-3xl" onClick={() => setFullImage(null)}>✕</button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Meine Aufgaben</h1>
-        {pendingCount > 0 && (
-          <span className="bg-blue-600 text-white text-sm px-3 py-1 rounded-full font-semibold">{pendingCount} offen</span>
-        )}
+        {pendingCount > 0 && <span className="bg-blue-600 text-white text-sm px-3 py-1 rounded-full font-semibold">{pendingCount} offen</span>}
       </div>
 
       <div className="flex gap-2">
@@ -162,115 +160,114 @@ export default function WorkerTasksPage() {
         {filtered.map(task => {
           const isExpanded = expandedTask === task.id
           const isDone = task.status === 'done'
+          const taskReports = reports[task.id] || []
+          const hasFinal = taskReports.some(r => r.is_final)
 
           return (
-            <div key={task.id} className={`bg-slate-800/50 border rounded-xl overflow-hidden ${isDone ? 'border-green-500/30 opacity-70' : 'border-slate-700'}`}>
+            <div key={task.id} className={`bg-slate-800/50 border rounded-xl overflow-hidden ${isDone ? 'border-green-500/30' : 'border-slate-700'}`}>
               {/* Header */}
-              <div className="p-4 flex items-start justify-between gap-4 cursor-pointer" onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
+              <div className="p-4 flex items-start justify-between gap-4 cursor-pointer" onClick={() => { setExpandedTask(isExpanded ? null : task.id); setReportText(''); setReportPhotos([]); setReportPhotoFiles([]) }}>
                 <div className="flex-1">
-                  <h3 className={`font-semibold ${isDone ? 'text-slate-400 line-through' : 'text-white'}`}>{task.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className={`font-semibold ${isDone ? 'text-slate-400 line-through' : 'text-white'}`}>{task.title}</h3>
+                    {taskReports.length > 0 && (
+                      <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.length} Bericht{taskReports.length > 1 ? 'e' : ''}</span>
+                    )}
+                    {isDone && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">✓ Erledigt</span>}
+                  </div>
                   {task.description && <p className="text-slate-400 text-sm mt-1">{task.description}</p>}
                   <div className="flex gap-4 mt-2 text-xs text-slate-500">
                     {task.location && <span>📍 {task.location}</span>}
                     {task.due_date && <span>📅 {new Date(task.due_date).toLocaleDateString('de-DE')}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {isDone ? (
-                    <span className="text-green-400 text-sm font-semibold">✓ Erledigt</span>
-                  ) : (
-                    <span className="text-yellow-400 text-xs">Offen</span>
-                  )}
-                  <span className="text-slate-500">{isExpanded ? '▲' : '▼'}</span>
-                </div>
+                <span className="text-slate-500">{isExpanded ? '▲' : '▼'}</span>
               </div>
 
               {/* Expanded */}
               {isExpanded && (
                 <div className="border-t border-slate-700 p-4 space-y-4">
-                  {/* Owner Photos */}
+                  {/* Owner photos */}
                   {(task.owner_photos || []).length > 0 && (
                     <div>
                       <p className="text-slate-400 text-sm font-semibold mb-2">📌 Vom Chef:</p>
                       <div className="grid grid-cols-4 gap-2">
                         {task.owner_photos.map((p, i) => (
-                          <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30" />
+                          <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30 cursor-pointer" onClick={() => setFullImage(p.url)} />
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Vorher */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-slate-400 text-sm font-semibold">📷 Vorher ({(task.photos_before || []).length}/5)</p>
-                      {!isDone && (task.photos_before || []).length < 5 && (
-                        <button onClick={() => triggerUpload(task.id, 'before')} disabled={uploading}
-                          className="text-blue-400 text-xs hover:underline disabled:opacity-50">
-                          {uploading ? '...' : '+ Foto'}
-                        </button>
-                      )}
+                  {/* Previous reports */}
+                  {taskReports.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-slate-400 text-sm font-semibold">Meine Berichte:</p>
+                      {taskReports.map(r => (
+                        <div key={r.id} className={`rounded-lg p-3 ${r.is_final ? 'bg-green-900/20 border border-green-500/30' : 'bg-slate-900/50'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-slate-500 text-xs">{new Date(r.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                            {r.is_final && <span className="text-green-400 text-xs font-semibold">Abschluss</span>}
+                          </div>
+                          {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
+                          {r.photos?.length > 0 && (
+                            <div className="grid grid-cols-4 gap-1 mt-2">
+                              {r.photos.map((p, i) => (
+                                <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    {(task.photos_before || []).length > 0 && (
-                      <div className="grid grid-cols-4 gap-2">
-                        {task.photos_before.map((p, i) => (
-                          <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg" />
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  )}
 
-                  {/* Nachher */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-slate-400 text-sm font-semibold">📷 Nachher ({(task.photos_after || []).length}/5)</p>
-                      {!isDone && (task.photos_after || []).length < 5 && (
-                        <button onClick={() => triggerUpload(task.id, 'after')} disabled={uploading}
-                          className="text-blue-400 text-xs hover:underline disabled:opacity-50">
-                          {uploading ? '...' : '+ Foto'}
-                        </button>
+                  {/* New report form */}
+                  {!isDone && !hasFinal && (
+                    <div className="border-t border-slate-700 pt-4 space-y-3">
+                      <textarea
+                        value={reportText}
+                        onChange={(e) => setReportText(e.target.value)}
+                        placeholder="Bericht schreiben..."
+                        rows={3}
+                        className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 text-sm"
+                      />
+
+                      {/* Photo previews */}
+                      {reportPhotos.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2">
+                          {reportPhotos.map((url, i) => (
+                            <div key={i} className="relative">
+                              <img src={url} alt="" className="w-full h-16 object-cover rounded-lg" />
+                              <button onClick={() => {
+                                setReportPhotos(prev => prev.filter((_, idx) => idx !== i))
+                                setReportPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
+                              }} className="absolute top-0.5 right-0.5 bg-red-600 text-white w-5 h-5 rounded-full text-xs">✕</button>
+                            </div>
+                          ))}
+                        </div>
                       )}
-                    </div>
-                    {(task.photos_after || []).length > 0 && (
-                      <div className="grid grid-cols-4 gap-2">
-                        {task.photos_after.map((p, i) => (
-                          <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg" />
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Comment */}
-                  <div>
-                    {task.worker_comment && (
-                      <div className="bg-slate-900/50 rounded-lg p-3 mb-2">
-                        <p className="text-slate-300 text-sm">{task.worker_comment}</p>
-                      </div>
-                    )}
-                    {!isDone && (
                       <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={comments[task.id] || ''}
-                          onChange={(e) => setComments(prev => ({ ...prev, [task.id]: e.target.value }))}
-                          placeholder="Kommentar..."
-                          className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
-                          onKeyDown={(e) => e.key === 'Enter' && handleCommentSave(task.id)}
-                        />
-                        <button onClick={() => handleCommentSave(task.id)} disabled={!comments[task.id]?.trim()}
-                          className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm disabled:opacity-50 hover:bg-slate-600">Speichern</button>
+                        <button onClick={() => fileRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600">
+                          📷 Foto
+                        </button>
+                        <button
+                          onClick={() => handleSendReport(task.id, false)}
+                          disabled={sending || (!reportText.trim() && reportPhotoFiles.length === 0)}
+                          className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                        >
+                          {sending ? '...' : '📤 Zwischenbericht senden'}
+                        </button>
+                        <button
+                          onClick={() => handleSendReport(task.id, true)}
+                          disabled={sending || (!reportText.trim() && reportPhotoFiles.length === 0)}
+                          className="py-2 px-4 bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                        >
+                          ✓ Abschließen
+                        </button>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Abschließen */}
-                  {!isDone && (
-                    <button
-                      onClick={() => handleAbschliessen(task)}
-                      className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-500 transition-colors"
-                    >
-                      ✓ Aufgabe abschließen
-                    </button>
+                    </div>
                   )}
                 </div>
               )}

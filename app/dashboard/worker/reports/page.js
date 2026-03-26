@@ -1,107 +1,93 @@
-// app/dashboard/worker/reports/page.js — Tagesbericht = auto gallery from tasks
+// app/dashboard/worker/reports/page.js — Tagesbericht = auto gallery from task reports
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function WorkerReportsPage() {
   const [tasks, setTasks] = useState([])
+  const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
+  const [fullImage, setFullImage] = useState(null)
 
-  useEffect(() => { loadTasks() }, [])
+  useEffect(() => { loadData() }, [])
 
   const getAuthHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
   }
 
-  const loadTasks = async () => {
+  const loadData = async () => {
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch('/api/team/tasks', { headers })
-      const json = await res.json()
-      if (json.tasks) setTasks(json.tasks)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+      const [tasksRes, reportsRes] = await Promise.all([
+        fetch('/api/team/tasks', { headers }),
+        fetch('/api/team/task-reports', { headers }),
+      ])
+      const tasksJson = await tasksRes.json()
+      const reportsJson = await reportsRes.json()
+      if (tasksJson.tasks) setTasks(tasksJson.tasks)
+      if (reportsJson.reports) setReports(reportsJson.reports)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
-  // Group tasks with photos by date
-  const tasksWithPhotos = tasks.filter(t =>
-    (t.photos_before?.length > 0) || (t.photos_after?.length > 0) || t.worker_comment
-  )
-
+  // Group reports by date
   const byDate = {}
-  tasksWithPhotos.forEach(t => {
-    const date = t.completed_at
-      ? new Date(t.completed_at).toLocaleDateString('de-DE')
-      : new Date(t.created_at).toLocaleDateString('de-DE')
+  reports.forEach(r => {
+    const date = new Date(r.created_at).toLocaleDateString('de-DE')
     if (!byDate[date]) byDate[date] = []
-    byDate[date].push(t)
+    byDate[date].push(r)
   })
 
+  // Map task_id to task title
+  const taskMap = {}
+  tasks.forEach(t => { taskMap[t.id] = t })
+
   if (loading) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent mx-auto"></div>
-      </div>
-    )
+    return <div className="max-w-2xl mx-auto p-6"><div className="animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent mx-auto"></div></div>
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Fullscreen image */}
+      {fullImage && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullImage(null)}>
+          <img src={fullImage} alt="" className="max-w-full max-h-full object-contain" />
+          <button className="absolute top-4 right-4 text-white text-3xl" onClick={() => setFullImage(null)}>✕</button>
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold text-white">Tagesbericht</h1>
-      <p className="text-slate-400 text-sm">Automatische Übersicht aus Ihren Aufgaben</p>
+      <p className="text-slate-400 text-sm">Übersicht aller Berichte aus Ihren Aufgaben</p>
 
       {Object.keys(byDate).length > 0 ? (
-        Object.entries(byDate).map(([date, dateTasks]) => (
+        Object.entries(byDate).map(([date, dateReports]) => (
           <div key={date}>
             <h2 className="text-white font-semibold mb-3">{date}</h2>
             <div className="space-y-3">
-              {dateTasks.map(task => (
-                <div key={task.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-                  <h3 className="text-white font-medium mb-2">{task.title}</h3>
-                  {task.location && <p className="text-slate-500 text-xs mb-2">📍 {task.location}</p>}
-                  {task.worker_comment && (
-                    <p className="text-slate-300 text-sm mb-3 bg-slate-900/50 rounded-lg p-2">{task.worker_comment}</p>
-                  )}
-
-                  {/* Vorher */}
-                  {task.photos_before?.length > 0 && (
-                    <div className="mb-2">
-                      <p className="text-slate-500 text-xs mb-1">Vorher:</p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {task.photos_before.map((p, i) => (
-                          <img key={i} src={p.url} alt="" className="w-full h-20 object-cover rounded-lg" />
+              {dateReports.map(r => {
+                const task = taskMap[r.task_id]
+                return (
+                  <div key={r.id} className={`bg-slate-800/50 border rounded-xl p-4 ${r.is_final ? 'border-green-500/30' : 'border-slate-700'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-slate-500 text-xs">
+                        {new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {task && <span className="text-purple-400 text-xs font-semibold">{task.title}</span>}
+                      {task?.location && <span className="text-slate-500 text-xs">📍 {task.location}</span>}
+                      {r.is_final && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Abschluss</span>}
+                    </div>
+                    {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
+                    {r.photos?.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {r.photos.map((p, i) => (
+                          <img key={i} src={p.url} alt="" className="w-full h-20 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Nachher */}
-                  {task.photos_after?.length > 0 && (
-                    <div>
-                      <p className="text-slate-500 text-xs mb-1">Nachher:</p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {task.photos_after.map((p, i) => (
-                          <img key={i} src={p.url} alt="" className="w-full h-20 object-cover rounded-lg" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                      task.status === 'done' ? 'bg-green-500/20 text-green-400' :
-                      task.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-                      'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {task.status === 'done' ? '✓ Erledigt' : task.status === 'in_progress' ? 'In Arbeit' : 'Offen'}
-                    </span>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))
@@ -109,7 +95,7 @@ export default function WorkerReportsPage() {
         <div className="text-center py-12 text-slate-500">
           <p className="text-4xl mb-3">📸</p>
           <p>Noch keine Berichte vorhanden</p>
-          <p className="text-sm mt-1">Fotos und Kommentare aus Aufgaben erscheinen hier automatisch</p>
+          <p className="text-sm mt-1">Senden Sie Berichte aus Ihren Aufgaben</p>
         </div>
       )}
     </div>
