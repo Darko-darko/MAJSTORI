@@ -1,5 +1,6 @@
 // app/api/team/task-reports/route.js — Task reports (multi-phase)
 import { createClient } from '@supabase/supabase-js'
+import { sendTeamPush } from '@/lib/sendTeamPush'
 
 function getAdmin() {
   return createClient(
@@ -116,10 +117,34 @@ export async function POST(request) {
     if (error) return Response.json({ error: error.message }, { status: 500 })
 
     // If final, mark task as done
-    if (is_final) {
+    if (is_final && task_id) {
       await admin.from('tasks')
         .update({ status: 'done', completed_at: new Date().toISOString() })
         .eq('id', task_id)
+    }
+
+    // Send push notification
+    if (majstor?.role === 'worker' && ownerId) {
+      // Worker sent → notify owner
+      const { data: workerInfo } = await admin.from('team_members').select('worker_name').eq('worker_id', user.id).eq('status', 'active').single()
+      const name = workerInfo?.worker_name || 'Mitarbeiter'
+      sendTeamPush({
+        majstorId: ownerId,
+        title: is_final ? `✅ ${name}: Aufgabe abgeschlossen` : `📸 ${name}: Neuer Bericht`,
+        message: text.trim().slice(0, 100),
+        url: '/dashboard/team/feed',
+      })
+    } else if (parent_id && ownerId) {
+      // Owner replied → notify worker (find worker from parent post)
+      const { data: parentPost } = await admin.from('task_reports').select('worker_id').eq('id', parent_id).single()
+      if (parentPost?.worker_id && parentPost.worker_id !== user.id) {
+        sendTeamPush({
+          majstorId: parentPost.worker_id,
+          title: '👔 Nachricht vom Chef',
+          message: text.trim().slice(0, 100),
+          url: '/dashboard/worker/feed',
+        })
+      }
     }
 
     return Response.json({ report })

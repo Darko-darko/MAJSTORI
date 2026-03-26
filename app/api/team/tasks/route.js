@@ -1,5 +1,6 @@
 // app/api/team/tasks/route.js — Tasks CRUD
 import { createClient } from '@supabase/supabase-js'
+import { sendTeamPush } from '@/lib/sendTeamPush'
 
 function getAdmin() {
   return createClient(
@@ -76,6 +77,16 @@ export async function POST(request) {
       .single()
 
     if (error) return Response.json({ error: error.message }, { status: 500 })
+
+    // Push notification to assigned worker
+    if (assigned_to) {
+      sendTeamPush({
+        majstorId: assigned_to,
+        title: '📋 Neue Aufgabe',
+        message: title.trim().slice(0, 100),
+        url: '/dashboard/worker/tasks',
+      })
+    }
 
     return Response.json({ task })
   } catch (err) {
