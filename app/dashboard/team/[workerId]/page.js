@@ -512,14 +512,10 @@ export default function WorkerDetailPage() {
                                 <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length}</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <button onClick={(e) => { e.stopPropagation(); handleResetTask(task.id) }}
-                                className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600">↩</button>
-                              <span className="text-slate-500">{expandedTaskId === task.id ? '▲' : '▼'}</span>
-                            </div>
+                            <span className="text-slate-500">{expandedTaskId === task.id ? '▲' : '▼'}</span>
                           </div>
 
-                          {expandedTaskId === task.id && taskReports.length > 0 && (
+                          {expandedTaskId === task.id && (
                             <div className="border-t border-slate-700 p-4 space-y-2 pl-8 border-l-2 border-slate-600 ml-4">
                               {taskReports.map(r => (
                                 <div key={r.id} className={`rounded-lg p-2 ${r.is_final ? 'bg-green-900/20' : 'bg-slate-900/30'}`}>
@@ -537,6 +533,12 @@ export default function WorkerDetailPage() {
                                   )}
                                 </div>
                               ))}
+                              <button
+                                onClick={() => handleResetTask(task.id)}
+                                className="w-full mt-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+                              >
+                                ↩ Aufgabe wiederholen
+                              </button>
                             </div>
                           )}
                         </div>
