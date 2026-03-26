@@ -121,6 +121,7 @@ export async function PATCH(request) {
       if (assigned_to !== undefined) updateData.assigned_to = assigned_to || null
       if (due_date !== undefined) updateData.due_date = due_date || null
       if (status === 'done') updateData.completed_at = new Date().toISOString()
+      if (status === 'pending') updateData.completed_at = null
     }
 
     const { data: task, error } = await admin

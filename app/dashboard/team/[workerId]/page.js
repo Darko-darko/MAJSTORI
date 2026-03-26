@@ -136,6 +136,25 @@ export default function WorkerDetailPage() {
     }
   }
 
+  const handleResetTask = async (taskId) => {
+    const reason = prompt('Grund für Zurücksetzen (optional):')
+    if (reason === null) return // cancelled
+
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/team/tasks', {
+        method: 'PATCH', headers,
+        body: JSON.stringify({
+          id: taskId,
+          status: 'pending',
+          description: reason ? `[Zurückgesetzt: ${reason}]` : undefined,
+        })
+      })
+      const json = await res.json()
+      if (json.task) setTasks(prev => prev.map(t => t.id === taskId ? json.task : t))
+    } catch (err) { console.error(err) }
+  }
+
   const formatClock = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   const formatDate = (iso) => new Date(iso).toLocaleDateString('de-DE')
   const formatDuration = (start, end) => {
@@ -376,8 +395,45 @@ export default function WorkerDetailPage() {
               <h3 className="text-slate-400 font-semibold mb-2">Erledigt ({doneTasks.length})</h3>
               <div className="space-y-2">
                 {doneTasks.map(task => (
-                  <div key={task.id} className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 opacity-60">
-                    <span className="text-green-400">✓</span> <span className="text-slate-400 line-through">{task.title}</span>
+                  <div key={task.id} className="bg-slate-800/30 border border-green-500/20 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <h4 className="text-white font-medium"><span className="text-green-400">✓</span> {task.title}</h4>
+                        {task.worker_comment && (
+                          <p className="text-slate-300 text-sm mt-1 bg-slate-900/50 rounded p-2">{task.worker_comment}</p>
+                        )}
+                        {(task.photos_before?.length > 0 || task.photos_after?.length > 0) && (
+                          <div className="flex gap-4 mt-2">
+                            {task.photos_before?.length > 0 && (
+                              <div>
+                                <p className="text-slate-500 text-xs mb-1">Vorher:</p>
+                                <div className="flex gap-1">
+                                  {task.photos_before.map((p, i) => (
+                                    <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {task.photos_after?.length > 0 && (
+                              <div>
+                                <p className="text-slate-500 text-xs mb-1">Nachher:</p>
+                                <div className="flex gap-1">
+                                  {task.photos_after.map((p, i) => (
+                                    <img key={i} src={p.url} alt="" className="w-12 h-12 object-cover rounded" />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleResetTask(task.id)}
+                        className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors whitespace-nowrap"
+                      >
+                        ↩ Zurücksetzen
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
