@@ -503,6 +503,14 @@ export default function WorkerDetailPage() {
                               ✏️ Bearbeiten
                             </button>
                           )}
+                          {isDone && (
+                            <button
+                              onClick={() => handleResetTask(task.id)}
+                              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors"
+                            >
+                              ↩ Aufgabe wiederholen
+                            </button>
+                          )}
                           <button
                             onClick={() => { if (confirm('Aufgabe endgültig löschen?')) handleDeleteTask(task.id) }}
                             className="px-3 py-1.5 bg-slate-700 text-red-400 rounded-lg text-xs hover:bg-red-900/30 transition-colors"
