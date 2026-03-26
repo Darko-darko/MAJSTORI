@@ -157,16 +157,20 @@ export async function PUT(request) {
 
     const { data: task } = await admin
       .from('tasks')
-      .select('photos_before, photos_after, assigned_to')
+      .select('photos_before, photos_after, owner_photos, assigned_to, owner_id')
       .eq('id', taskId)
       .single()
 
     if (!task) return Response.json({ error: 'Aufgabe nicht gefunden' }, { status: 404 })
-    if (task.assigned_to !== user.id) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+    // Owner or assigned worker can upload
+    if (task.assigned_to !== user.id && task.owner_id !== user.id) {
+      return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+    }
 
-    const photos = photoType === 'before' ? (task.photos_before || []) : (task.photos_after || [])
+    const photosMap = { before: task.photos_before || [], after: task.photos_after || [], owner: task.owner_photos || [] }
+    const photos = photosMap[photoType] || []
     if (photos.length >= 5) {
-      return Response.json({ error: `Max. 5 ${photoType === 'before' ? 'Vorher' : 'Nachher'}-Fotos` }, { status: 400 })
+      return Response.json({ error: `Max. 5 Fotos pro Kategorie` }, { status: 400 })
     }
 
     // Upload
@@ -184,7 +188,8 @@ export async function PUT(request) {
     const { data: urlData } = admin.storage.from('team-files').getPublicUrl(path)
     photos.push({ url: urlData.publicUrl, uploaded_at: new Date().toISOString() })
 
-    const updateField = photoType === 'before' ? 'photos_before' : 'photos_after'
+    const fieldMap = { before: 'photos_before', after: 'photos_after', owner: 'owner_photos' }
+    const updateField = fieldMap[photoType] || 'photos_before'
     await admin
       .from('tasks')
       .update({ [updateField]: photos, updated_at: new Date().toISOString() })

@@ -19,6 +19,8 @@ export default function WorkerDetailPage() {
   const [newLocation, setNewLocation] = useState('')
   const [newDue, setNewDue] = useState('')
   const [saving, setSaving] = useState(false)
+  const [newPhotos, setNewPhotos] = useState([]) // preview URLs
+  const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
 
   useEffect(() => { loadData() }, [workerId])
 
@@ -60,6 +62,31 @@ export default function WorkerDetailPage() {
     }
   }
 
+  function compressImage(file, maxWidth = 1920, quality = 0.8) {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let w = img.width, h = img.height
+        if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth }
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality)
+      }
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  const handlePhotoSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length + newPhotos.length > 5) {
+      alert('Max. 5 Fotos pro Aufgabe')
+      return
+    }
+    setNewPhotoFiles(prev => [...prev, ...files])
+    files.forEach(f => setNewPhotos(prev => [...prev, URL.createObjectURL(f)]))
+  }
+
   const handleCreateTask = async () => {
     if (!newTitle.trim()) return
     setSaving(true)
@@ -76,8 +103,30 @@ export default function WorkerDetailPage() {
       })
       const json = await res.json()
       if (json.task) {
-        setTasks(prev => [json.task, ...prev])
+        // Upload photos if any
+        if (newPhotoFiles.length > 0) {
+          const { data: { session } } = await supabase.auth.getSession()
+          for (const file of newPhotoFiles) {
+            const compressed = await compressImage(file)
+            const formData = new FormData()
+            formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
+            formData.append('task_id', json.task.id)
+            formData.append('type', 'owner')
+            await fetch('/api/team/tasks', {
+              method: 'PUT',
+              headers: { Authorization: `Bearer ${session?.access_token}` },
+              body: formData
+            })
+          }
+          // Reload to get updated task with photos
+          const reloadRes = await fetch('/api/team/tasks', { headers })
+          const reloadJson = await reloadRes.json()
+          if (reloadJson.tasks) setTasks(reloadJson.tasks.filter(t => t.assigned_to === workerId))
+        } else {
+          setTasks(prev => [json.task, ...prev])
+        }
         setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue('')
+        setNewPhotos([]); setNewPhotoFiles([])
         setShowTaskForm(false)
       }
     } catch (err) {
@@ -254,16 +303,45 @@ export default function WorkerDetailPage() {
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white"
                 />
               </div>
+              {/* Photos */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-slate-400 text-sm">Fotos (optional)</label>
+                  {newPhotos.length < 5 && (
+                    <label className="text-purple-400 text-xs cursor-pointer hover:underline">
+                      + Foto
+                      <input type="file" accept="image/*" multiple capture="environment" onChange={handlePhotoSelect} className="hidden" />
+                    </label>
+                  )}
+                </div>
+                {newPhotos.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {newPhotos.map((url, i) => (
+                      <div key={i} className="relative">
+                        <img src={url} alt="" className="w-full h-16 object-cover rounded-lg" />
+                        <button
+                          onClick={() => {
+                            setNewPhotos(prev => prev.filter((_, idx) => idx !== i))
+                            setNewPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
+                          }}
+                          className="absolute top-0.5 right-0.5 bg-red-600 text-white w-5 h-5 rounded-full text-xs"
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={handleCreateTask}
                   disabled={saving || !newTitle.trim()}
                   className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50"
                 >
-                  {saving ? '...' : 'Erstellen'}
+                  {saving ? 'Wird erstellt...' : 'Erstellen'}
                 </button>
                 <button
-                  onClick={() => setShowTaskForm(false)}
+                  onClick={() => { setShowTaskForm(false); setNewPhotos([]); setNewPhotoFiles([]) }}
                   className="px-4 py-3 bg-slate-700 text-slate-300 rounded-xl hover:bg-slate-600 transition-colors"
                 >
                   Abbrechen

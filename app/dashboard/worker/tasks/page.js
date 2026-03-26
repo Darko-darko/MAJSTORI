@@ -187,6 +187,18 @@ export default function WorkerTasksPage() {
               {/* Expanded: Photos + Comment */}
               {isExpanded && (
                 <div className="border-t border-slate-700 p-4 space-y-4">
+                  {/* Owner Photos */}
+                  {(task.owner_photos || []).length > 0 && (
+                    <div>
+                      <p className="text-slate-400 text-sm font-semibold mb-2">📌 Vom Chef:</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {task.owner_photos.map((p, i) => (
+                          <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Vorher Photos */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
