@@ -260,8 +260,25 @@ export default function WorkerTasksPage() {
                           {sending ? '...' : '📤 Zwischenbericht senden'}
                         </button>
                         <button
-                          onClick={() => handleSendReport(task.id, true)}
-                          disabled={sending || (!reportText.trim() && reportPhotoFiles.length === 0)}
+                          onClick={() => {
+                            if (!confirm('Aufgabe abschließen?\n\nNach dem Abschließen können keine weiteren Berichte gesendet werden.')) return
+                            if (reportText.trim() || reportPhotoFiles.length > 0) {
+                              handleSendReport(task.id, true)
+                            } else {
+                              // Just close without new report
+                              (async () => {
+                                setSending(true)
+                                const headers = await getAuthHeaders()
+                                await fetch('/api/team/task-reports', {
+                                  method: 'POST', headers,
+                                  body: JSON.stringify({ task_id: task.id, text: 'Aufgabe abgeschlossen', is_final: true })
+                                })
+                                await loadData()
+                                setSending(false)
+                              })()
+                            }
+                          }}
+                          disabled={sending}
                           className="py-2 px-4 bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
                         >
                           ✓ Abschließen
