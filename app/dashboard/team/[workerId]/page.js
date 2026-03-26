@@ -390,9 +390,9 @@ export default function WorkerDetailPage() {
             </div>
           )}
 
-          {tasks.length > 0 && (
+          {pendingTasks.length > 0 && (
             <div className="space-y-3">
-              {tasks.map(task => {
+              {pendingTasks.map(task => {
                 const isDone = task.status === 'done'
                 const taskReports = reports.filter(r => r.task_id === task.id)
                 const isOpen = expandedTaskId === task.id
@@ -474,44 +474,78 @@ export default function WorkerDetailPage() {
             </div>
           )}
 
-          {tasks.length === 0 && (
-            <p className="text-slate-500 text-center py-8">Keine Aufgaben zugewiesen</p>
+          {pendingTasks.length === 0 && !showTaskForm && (
+            <p className="text-slate-500 text-center py-8">Keine offenen Aufgaben</p>
           )}
         </div>
       )}
 
       {/* Reports Tab */}
-      {tab === 'reports' && (
-        <div className="space-y-4">
-          {reports.length > 0 ? (
-            reports.map(r => {
-              const task = tasks.find(t => t.id === r.task_id)
-              return (
-                <div key={r.id} className={`bg-slate-800/50 border rounded-xl p-4 ${r.is_final ? 'border-green-500/30' : 'border-slate-700'}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-slate-500 text-xs">
-                      {new Date(r.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    {task && <span className="text-purple-400 text-xs font-semibold">{task.title}</span>}
-                    {r.is_final && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Abschluss</span>}
-                    {!r.is_final && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">Zwischenbericht</span>}
+      {tab === 'reports' && (() => {
+        // Group done tasks by completion date
+        const byDate = {}
+        doneTasks.forEach(task => {
+          const date = task.completed_at
+            ? new Date(task.completed_at).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+            : 'Unbekannt'
+          if (!byDate[date]) byDate[date] = []
+          byDate[date].push(task)
+        })
+
+        return (
+          <div className="space-y-6">
+            {Object.keys(byDate).length > 0 ? (
+              Object.entries(byDate).map(([date, dateTasks]) => (
+                <div key={date}>
+                  <h3 className="text-white font-semibold mb-3">📅 {date}</h3>
+                  <div className="space-y-3">
+                    {dateTasks.map(task => {
+                      const taskReports = reports.filter(r => r.task_id === task.id)
+                      return (
+                        <div key={task.id} className="bg-slate-800/50 border border-green-500/20 rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-green-400">✓</span>
+                              <h4 className="text-white font-medium">{task.title}</h4>
+                            </div>
+                            <button onClick={() => handleResetTask(task.id)}
+                              className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600">↩</button>
+                          </div>
+                          {task.location && <p className="text-slate-500 text-xs">📍 {task.location}</p>}
+
+                          {/* Reports for this task */}
+                          {taskReports.length > 0 && (
+                            <div className="space-y-2 pl-4 border-l-2 border-slate-700">
+                              {taskReports.map(r => (
+                                <div key={r.id} className={`rounded-lg p-2 ${r.is_final ? 'bg-green-900/20' : 'bg-slate-900/30'}`}>
+                                  <span className="text-slate-500 text-xs">
+                                    {new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                    {r.is_final ? ' · Abschluss' : ''}
+                                  </span>
+                                  {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
+                                  {r.photos?.length > 0 && (
+                                    <div className="grid grid-cols-4 gap-1 mt-1">
+                                      {r.photos.map((p, i) => (
+                                        <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
-                  {r.photos?.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mt-2">
-                      {r.photos.map((p, idx) => (
-                        <img key={idx} src={p.url} alt="" className="w-full h-20 object-cover rounded-lg" />
-                      ))}
-                    </div>
-                  )}
                 </div>
-              )
-            })
-          ) : (
-            <p className="text-slate-500 text-center py-8">Noch keine Berichte</p>
-          )}
-        </div>
-      )}
+              ))
+            ) : (
+              <p className="text-slate-500 text-center py-8">Noch keine abgeschlossenen Aufgaben</p>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
