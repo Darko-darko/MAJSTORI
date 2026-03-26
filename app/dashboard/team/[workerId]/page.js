@@ -502,20 +502,25 @@ export default function WorkerDetailPage() {
                     {dateTasks.map(task => {
                       const taskReports = reports.filter(r => r.task_id === task.id)
                       return (
-                        <div key={task.id} className="bg-slate-800/50 border border-green-500/20 rounded-xl p-4 space-y-3">
-                          <div className="flex items-center justify-between">
+                        <div key={task.id} className="bg-slate-800/50 border border-green-500/20 rounded-xl overflow-hidden">
+                          <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}>
                             <div className="flex items-center gap-2">
                               <span className="text-green-400">✓</span>
                               <h4 className="text-white font-medium">{task.title}</h4>
+                              {task.location && <span className="text-slate-500 text-xs">📍 {task.location}</span>}
+                              {taskReports.filter(r => !r.is_final).length > 0 && (
+                                <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length}</span>
+                              )}
                             </div>
-                            <button onClick={() => handleResetTask(task.id)}
-                              className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600">↩</button>
+                            <div className="flex items-center gap-2">
+                              <button onClick={(e) => { e.stopPropagation(); handleResetTask(task.id) }}
+                                className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600">↩</button>
+                              <span className="text-slate-500">{expandedTaskId === task.id ? '▲' : '▼'}</span>
+                            </div>
                           </div>
-                          {task.location && <p className="text-slate-500 text-xs">📍 {task.location}</p>}
 
-                          {/* Reports for this task */}
-                          {taskReports.length > 0 && (
-                            <div className="space-y-2 pl-4 border-l-2 border-slate-700">
+                          {expandedTaskId === task.id && taskReports.length > 0 && (
+                            <div className="border-t border-slate-700 p-4 space-y-2 pl-8 border-l-2 border-slate-600 ml-4">
                               {taskReports.map(r => (
                                 <div key={r.id} className={`rounded-lg p-2 ${r.is_final ? 'bg-green-900/20' : 'bg-slate-900/30'}`}>
                                   <span className="text-slate-500 text-xs">
