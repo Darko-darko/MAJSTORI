@@ -7,6 +7,9 @@ export default function FeedPage() {
   const [feed, setFeed] = useState([])
   const [loading, setLoading] = useState(true)
   const [fullImage, setFullImage] = useState(null)
+  const [replyTo, setReplyTo] = useState(null) // report id
+  const [replyText, setReplyText] = useState('')
+  const [replying, setReplying] = useState(false)
 
   useEffect(() => {
     loadFeed()
@@ -32,6 +35,23 @@ export default function FeedPage() {
       if (json.feed) setFeed(json.feed)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
+  }
+
+  const handleReply = async (parentId) => {
+    if (!replyText.trim()) return
+    setReplying(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/team/task-reports', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: replyText.trim(), task_id: null, parent_id: parentId })
+      })
+      setReplyText('')
+      setReplyTo(null)
+      await loadFeed()
+    } catch (err) { console.error(err) }
+    finally { setReplying(false) }
   }
 
   const formatTime = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
@@ -92,6 +112,40 @@ export default function FeedPage() {
                             <img key={i} src={p.url} alt="" className="w-full h-24 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
                           ))}
                         </div>
+                      )}
+
+                      {/* Replies */}
+                      {feed.filter(r => r.type === 'report' && r.parent_id === item.id).map(reply => (
+                        <div key={reply.id} className="ml-10 mt-2 bg-slate-900/50 rounded-lg p-2 border-l-2 border-purple-500">
+                          <span className="text-purple-400 text-xs font-semibold">Chef</span>
+                          <span className="text-slate-500 text-xs ml-2">{formatTime(reply.timestamp)}</span>
+                          <p className="text-slate-300 text-sm">{reply.text}</p>
+                        </div>
+                      ))}
+
+                      {/* Reply button */}
+                      {replyTo === item.id ? (
+                        <div className="flex gap-2 mt-2">
+                          <input
+                            type="text"
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Antworten..."
+                            className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
+                            autoFocus
+                            onKeyDown={(e) => e.key === 'Enter' && handleReply(item.id)}
+                          />
+                          <button onClick={() => handleReply(item.id)} disabled={replying || !replyText.trim()}
+                            className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50">
+                            {replying ? '...' : 'Senden'}
+                          </button>
+                          <button onClick={() => { setReplyTo(null); setReplyText('') }}
+                            className="px-2 py-2 text-slate-400 text-sm">✕</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setReplyTo(item.id)} className="text-slate-500 text-xs mt-2 hover:text-purple-400">
+                          💬 Antworten
+                        </button>
                       )}
                     </div>
                   )}

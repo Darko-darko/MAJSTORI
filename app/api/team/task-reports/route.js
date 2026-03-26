@@ -66,7 +66,7 @@ export async function POST(request) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { task_id, text, is_final } = body
+    const { task_id, text, is_final, parent_id } = body
 
     const admin = getAdmin()
 
@@ -90,6 +90,7 @@ export async function POST(request) {
         text: text.trim(),
         phase: is_final ? 'final' : 'update',
         is_final: !!is_final,
+        parent_id: parent_id || null,
       })
       .select()
       .single()

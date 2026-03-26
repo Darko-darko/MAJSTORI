@@ -27,11 +27,18 @@ export async function GET(request) {
     let feedItems = []
 
     if (majstor?.role === 'worker') {
-      // Worker sees own feed
+      // Worker sees own feed + replies to own posts
+      const { data: ownReports } = await admin
+        .from('task_reports')
+        .select('id')
+        .eq('worker_id', user.id)
+
+      const ownIds = (ownReports || []).map(r => r.id)
+
       const { data: reports } = await admin
         .from('task_reports')
         .select('*, task:task_id(title, location)')
-        .eq('worker_id', user.id)
+        .or(`worker_id.eq.${user.id}${ownIds.length > 0 ? `,parent_id.in.(${ownIds.join(',')})` : ''}`)
         .order('created_at', { ascending: false })
         .limit(50)
 
