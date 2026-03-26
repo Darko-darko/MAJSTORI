@@ -622,73 +622,83 @@ export default function WorkerDetailPage() {
               Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0])).map(([dateKey, { label, tasks: dateTasks, freePosts: datePosts }]) => (
                 <div key={dateKey}>
                   <h3 className="text-white font-semibold mb-3">📅 {label}</h3>
-                  <div className="space-y-3">
-                    {dateTasks.map(task => {
-                      const taskReports = reports.filter(r => r.task_id === task.id)
-                      return (
-                        <div key={task.id} className="bg-slate-800/50 border border-green-500/20 rounded-xl overflow-hidden">
-                          <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}>
-                            <div className="flex items-center gap-2">
-                              <span className="text-green-400">✓</span>
-                              <h4 className="text-white font-medium">{task.title}</h4>
-                              {task.location && <span className="text-slate-500 text-xs">📍 {task.location}</span>}
-                              {taskReports.filter(r => !r.is_final).length > 0 && (
-                                <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length}</span>
-                              )}
-                            </div>
-                            <span className="text-slate-500">{expandedTaskId === task.id ? '▲' : '▼'}</span>
-                          </div>
+                  {/* Merge tasks + free posts, sort by time newest first */}
+                  {(() => {
+                    const combined = [
+                      ...dateTasks.map(t => ({ itemType: 'task', timestamp: t.completed_at || t.created_at, ...t })),
+                      ...datePosts.map(p => ({ itemType: 'post', timestamp: p.created_at, ...p })),
+                    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 
-                          {expandedTaskId === task.id && (
-                            <div className="border-t border-slate-700 p-4 space-y-2 pl-8 border-l-2 border-slate-600 ml-4">
-                              {taskReports.map(r => (
-                                <div key={r.id} className={`rounded-lg p-2 ${r.is_final ? 'bg-green-900/20' : 'bg-slate-900/30'}`}>
-                                  <span className="text-slate-500 text-xs">
-                                    {new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                    {r.is_final ? ' · Abschluss' : ''}
-                                  </span>
-                                  {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
-                                  {r.photos?.length > 0 && (
-                                    <div className="grid grid-cols-4 gap-1 mt-1">
-                                      {r.photos.map((p, i) => (
-                                        <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
-                                      ))}
-                                    </div>
-                                  )}
+                    return (
+                      <div className="space-y-3">
+                        {combined.map(item => {
+                          if (item.itemType === 'task') {
+                            const task = item
+                            const taskReports = reports.filter(r => r.task_id === task.id)
+                            return (
+                              <div key={task.id} className="bg-slate-800/50 border border-green-500/20 rounded-xl overflow-hidden">
+                                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-green-400">✓</span>
+                                    <h4 className="text-white font-medium">{task.title}</h4>
+                                    {task.location && <span className="text-slate-500 text-xs">📍 {task.location}</span>}
+                                    {taskReports.filter(r => !r.is_final).length > 0 && (
+                                      <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length}</span>
+                                    )}
+                                  </div>
+                                  <span className="text-slate-500">{expandedTaskId === task.id ? '▲' : '▼'}</span>
                                 </div>
-                              ))}
-                              <button
-                                onClick={() => handleResetTask(task.id)}
-                                className="w-full mt-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors"
-                              >
-                                ↩ Aufgabe wiederholen
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Free posts for this date */}
-                  {datePosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(post => (
-                    <div key={post.id} className="bg-slate-800/50 border border-orange-500/20 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">📸 Foto</span>
-                        <span className="text-slate-500 text-xs">
-                          {new Date(post.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                                {expandedTaskId === task.id && (
+                                  <div className="border-t border-slate-700 p-4 space-y-2 pl-8 border-l-2 border-slate-600 ml-4">
+                                    {taskReports.map(r => (
+                                      <div key={r.id} className={`rounded-lg p-2 ${r.is_final ? 'bg-green-900/20' : 'bg-slate-900/30'}`}>
+                                        <span className="text-slate-500 text-xs">
+                                          {new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                          {r.is_final ? ' · Abschluss' : ''}
+                                        </span>
+                                        {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
+                                        {r.photos?.length > 0 && (
+                                          <div className="grid grid-cols-4 gap-1 mt-1">
+                                            {r.photos.map((p, i) => (
+                                              <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    <button onClick={() => handleResetTask(task.id)}
+                                      className="w-full mt-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors">
+                                      ↩ Aufgabe wiederholen
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          } else {
+                            const post = item
+                            return (
+                              <div key={post.id} className="bg-slate-800/50 border border-orange-500/20 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">📸 Foto</span>
+                                  <span className="text-slate-500 text-xs">
+                                    {new Date(post.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                {post.text && <p className="text-slate-300 text-sm">{post.text}</p>}
+                                {post.photos?.length > 0 && (
+                                  <div className="grid grid-cols-4 gap-2 mt-2">
+                                    {post.photos.map((p, i) => (
+                                      <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          }
+                        })}
                       </div>
-                      {post.text && <p className="text-slate-300 text-sm">{post.text}</p>}
-                      {post.photos?.length > 0 && (
-                        <div className="grid grid-cols-4 gap-2 mt-2">
-                          {post.photos.map((p, i) => (
-                            <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })()}
                 </div>
               ))
             ) : (
