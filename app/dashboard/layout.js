@@ -498,7 +498,6 @@ const getWorkerNavigation = () => [
   { name: 'Zeiterfassung', href: '/dashboard/worker/time', icon: '⏱️', protected: false },
   { name: 'Aufgaben', href: '/dashboard/worker/tasks', icon: '📋', protected: false },
   { name: 'Tagesbericht', href: '/dashboard/worker/reports', icon: '📝', protected: false },
-  { name: 'Fotos', href: '/dashboard/worker/photos', icon: '📸', protected: false },
 ]
 
 const getNavigation = () => {
