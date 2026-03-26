@@ -12,6 +12,12 @@ export default function WorkerDetailPage() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('time') // time, tasks
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newLocation, setNewLocation] = useState('')
+  const [newDue, setNewDue] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { loadData() }, [workerId])
 
@@ -45,6 +51,33 @@ export default function WorkerDetailPage() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreateTask = async () => {
+    if (!newTitle.trim()) return
+    setSaving(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/team/tasks', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: newTitle, description: newDesc, location: newLocation,
+          assigned_to: workerId,
+          due_date: newDue || null,
+        })
+      })
+      const json = await res.json()
+      if (json.task) {
+        setTasks(prev => [json.task, ...prev])
+        setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue('')
+        setShowTaskForm(false)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -174,6 +207,64 @@ export default function WorkerDetailPage() {
       {/* Tasks Tab */}
       {tab === 'tasks' && (
         <div className="space-y-4">
+          {/* Add Task Button + Form */}
+          {!showTaskForm ? (
+            <button
+              onClick={() => setShowTaskForm(true)}
+              className="w-full py-3 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-purple-500 hover:text-purple-400 transition-colors"
+            >
+              + Neue Aufgabe für {member.worker_name}
+            </button>
+          ) : (
+            <div className="bg-slate-800/50 border border-purple-500/30 rounded-xl p-5 space-y-3">
+              <input
+                type="text"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Aufgabe *"
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500"
+                autoFocus
+              />
+              <textarea
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Beschreibung (optional)"
+                rows={2}
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={newLocation}
+                  onChange={(e) => setNewLocation(e.target.value)}
+                  placeholder="Ort (optional)"
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500"
+                />
+                <input
+                  type="date"
+                  value={newDue}
+                  onChange={(e) => setNewDue(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCreateTask}
+                  disabled={saving || !newTitle.trim()}
+                  className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50"
+                >
+                  {saving ? '...' : 'Erstellen'}
+                </button>
+                <button
+                  onClick={() => setShowTaskForm(false)}
+                  className="px-4 py-3 bg-slate-700 text-slate-300 rounded-xl hover:bg-slate-600 transition-colors"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+
           {pendingTasks.length > 0 && (
             <div>
               <h3 className="text-white font-semibold mb-2">Offen ({pendingTasks.length})</h3>
