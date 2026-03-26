@@ -119,19 +119,32 @@ export default function TeamPage() {
 
       {/* Stats */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <p className="text-slate-400 text-sm">Teammitglieder</p>
             <p className="text-2xl font-bold text-white">{activeMembers.length} / {includedMembers} inklusive</p>
           </div>
-          {activeMembers.length > includedMembers && (
-            <div className="text-right">
-              <p className="text-slate-400 text-sm">Zusatzkosten</p>
-              <p className="text-lg font-bold text-orange-400">
-                +{(activeMembers.length - includedMembers) * 8}€/Monat
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {activeMembers.length > includedMembers && (
+              <div className="text-right">
+                <p className="text-slate-400 text-sm">Zusatzkosten</p>
+                <p className="text-lg font-bold text-orange-400">
+                  +{(activeMembers.length - includedMembers) * 8}€/Monat
+                </p>
+              </div>
+            )}
+            {activeMembers.length >= includedMembers && (
+              <button
+                onClick={() => {
+                  // TODO: FastSpring checkout for additional-user
+                  alert('Weitere Mitglieder können für 8€/Monat pro Person hinzugebucht werden. Diese Funktion wird in Kürze verfügbar sein.')
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
+              >
+                + Plätze buchen
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
