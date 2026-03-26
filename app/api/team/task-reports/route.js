@@ -45,7 +45,13 @@ export async function GET(request) {
       // Check role
       const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
       if (majstor?.role === 'worker') {
-        query = query.eq('worker_id', user.id)
+        const { data: myPosts } = await admin.from('task_reports').select('id').eq('worker_id', user.id)
+        const myPostIds = (myPosts || []).map(p => p.id)
+        if (myPostIds.length > 0) {
+          query = query.or(`worker_id.eq.${user.id},parent_id.in.(${myPostIds.join(',')})`)
+        } else {
+          query = query.eq('worker_id', user.id)
+        }
       } else {
         // Owner — get reports for all their tasks
         const { data: tasks } = await admin.from('tasks').select('id').eq('owner_id', user.id)

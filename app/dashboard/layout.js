@@ -1086,7 +1086,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
           userName={majstor?.full_name}
         />
 
-        {!isBuchhalter && <AIHelpChat />}
+        {!isBuchhalter && !isWorker && <AIHelpChat />}
         <ScrollToTopButton />
       </div>
     </>

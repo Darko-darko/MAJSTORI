@@ -31,9 +31,13 @@ export default function WorkerReportsPage() {
     finally { setLoading(false) }
   }
 
-  // Group reports by date
+  // Separate main posts and replies
+  const mainPosts = reports.filter(r => !r.parent_id)
+  const allReplies = reports.filter(r => r.parent_id)
+
+  // Group main posts by date
   const byDate = {}
-  reports.forEach(r => {
+  mainPosts.forEach(r => {
     const date = new Date(r.created_at).toLocaleDateString('de-DE')
     if (!byDate[date]) byDate[date] = []
     byDate[date].push(r)
@@ -85,6 +89,22 @@ export default function WorkerReportsPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Replies */}
+                    {allReplies.filter(reply => reply.parent_id === r.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(reply => {
+                      const isChef = reply.worker_id !== r.worker_id
+                      return (
+                        <div key={reply.id} className={`ml-4 mt-2 border-l-2 rounded-r-lg p-2 ${isChef ? 'bg-purple-900/20 border-purple-500' : 'bg-slate-900/30 border-blue-500'}`}>
+                          <span className={`text-xs font-semibold ${isChef ? 'text-purple-400' : 'text-blue-400'}`}>
+                            {isChef ? '👔 Chef' : '👷 Ich'}
+                          </span>
+                          <span className="text-slate-500 text-xs ml-2">
+                            {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <p className="text-slate-300 text-sm">{reply.text}</p>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}
