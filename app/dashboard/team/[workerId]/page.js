@@ -17,7 +17,8 @@ export default function WorkerDetailPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newLocation, setNewLocation] = useState('')
-  const [newDue, setNewDue] = useState('')
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+  const [newDue, setNewDue] = useState(tomorrow)
   const [saving, setSaving] = useState(false)
   const [newPhotos, setNewPhotos] = useState([]) // preview URLs
   const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
@@ -112,7 +113,7 @@ export default function WorkerDetailPage() {
   }
 
   const handleCreateTask = async () => {
-    if (!newTitle.trim()) return
+    if (!newTitle.trim() || !newDue) return
     setSaving(true)
     try {
       const headers = await getAuthHeaders()
@@ -152,7 +153,7 @@ export default function WorkerDetailPage() {
         } else {
           setTasks(prev => [json.task, ...prev])
         }
-        setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue('')
+        setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(tomorrow)
         setNewPhotos([]); setNewPhotoFiles([])
         setShowTaskForm(false)
       }
@@ -175,7 +176,7 @@ export default function WorkerDetailPage() {
   }
 
   const handleUpdateTask = async () => {
-    if (!newTitle.trim()) return
+    if (!newTitle.trim() || !newDue) return
     setSaving(true)
     try {
       const headers = await getAuthHeaders()
@@ -208,7 +209,7 @@ export default function WorkerDetailPage() {
       await loadData()
       setEditingTaskId(null)
       setShowTaskForm(false)
-      setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue('')
+      setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(tomorrow)
       setNewPhotos([]); setNewPhotoFiles([])
     } catch (err) { console.error(err) }
     finally { setSaving(false) }
@@ -400,7 +401,7 @@ export default function WorkerDetailPage() {
           {/* Add Task Button + Form */}
           {!showTaskForm ? (
             <button
-              onClick={() => { setEditingTaskId(null); setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(''); setNewPhotos([]); setNewPhotoFiles([]); setShowTaskForm(true) }}
+              onClick={() => { setEditingTaskId(null); setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(tomorrow); setNewPhotos([]); setNewPhotoFiles([]); setShowTaskForm(true) }}
               className="w-full py-3 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-purple-500 hover:text-purple-400 transition-colors"
             >
               + Neue Aufgabe für {member.worker_name}
@@ -469,7 +470,7 @@ export default function WorkerDetailPage() {
               <div className="flex gap-3">
                 <button
                   onClick={editingTaskId ? handleUpdateTask : handleCreateTask}
-                  disabled={saving || !newTitle.trim()}
+                  disabled={saving || !newTitle.trim() || !newDue}
                   className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50"
                 >
                   {saving ? 'Wird gespeichert...' : editingTaskId ? 'Speichern' : 'Erstellen'}
