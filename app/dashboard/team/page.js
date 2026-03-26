@@ -169,7 +169,7 @@ export default function TeamPage() {
       {/* Add Member */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
         <h3 className="text-white font-semibold mb-3">Mitarbeiter hinzufügen</h3>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={newName}
@@ -181,7 +181,7 @@ export default function TeamPage() {
           <button
             onClick={handleAddMember}
             disabled={adding || !newName.trim()}
-            className="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50 whitespace-nowrap"
           >
             {adding ? '...' : '+ Hinzufügen'}
           </button>
@@ -191,25 +191,25 @@ export default function TeamPage() {
       {/* Members List */}
       <div className="space-y-3">
         {activeMembers.map((member) => (
-          <div key={member.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-center justify-between hover:border-purple-500/50 transition-colors">
+          <div key={member.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors">
             <div
-              className="flex items-center gap-4 flex-1 cursor-pointer"
+              className="flex items-center gap-3 cursor-pointer"
               onClick={() => member.status === 'active' && member.worker_id && router.push(`/dashboard/team/${member.worker_id}`)}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
+              <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-lg font-bold ${
                 member.status === 'active' ? 'bg-green-600' : 'bg-slate-600'
               }`}>
                 {member.worker_name.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <p className="text-white font-medium">{member.worker_name}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium truncate">{member.worker_name}</p>
                 <p className={`text-xs ${member.status === 'active' ? 'text-green-400' : 'text-yellow-400'}`}>
-                  {member.status === 'active' ? 'Aktiv — klicken für Details' : 'Wartet auf Beitritt'}
+                  {member.status === 'active' ? 'Aktiv' : 'Wartet auf Beitritt'}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 mt-2">
               <button
                 onClick={() => copyCode(member.join_code)}
                 className="px-2 py-1.5 bg-slate-700 text-slate-400 rounded-lg text-sm hover:bg-slate-600 transition-colors"
