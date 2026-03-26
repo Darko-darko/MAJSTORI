@@ -595,20 +595,30 @@ export default function WorkerDetailPage() {
 
       {/* Reports Tab */}
       {tab === 'reports' && (() => {
-        // Group done tasks by completion date
+        // Combine done tasks + free posts, group by date
         const byDate = {}
+
+        // Done tasks
         doneTasks.forEach(task => {
           const date = task.completed_at
             ? new Date(task.completed_at).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
             : 'Unbekannt'
-          if (!byDate[date]) byDate[date] = []
-          byDate[date].push(task)
+          if (!byDate[date]) byDate[date] = { tasks: [], freePosts: [] }
+          byDate[date].tasks.push(task)
+        })
+
+        // Free posts (no task_id)
+        const freePosts = reports.filter(r => !r.task_id)
+        freePosts.forEach(post => {
+          const date = new Date(post.created_at).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+          if (!byDate[date]) byDate[date] = { tasks: [], freePosts: [] }
+          byDate[date].freePosts.push(post)
         })
 
         return (
           <div className="space-y-6">
             {Object.keys(byDate).length > 0 ? (
-              Object.entries(byDate).map(([date, dateTasks]) => (
+              Object.entries(byDate).map(([date, { tasks: dateTasks, freePosts: datePosts }]) => (
                 <div key={date}>
                   <h3 className="text-white font-semibold mb-3">📅 {date}</h3>
                   <div className="space-y-3">
@@ -658,10 +668,30 @@ export default function WorkerDetailPage() {
                       )
                     })}
                   </div>
+
+                  {/* Free posts for this date */}
+                  {datePosts.map(post => (
+                    <div key={post.id} className="bg-slate-800/50 border border-orange-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">📸 Foto</span>
+                        <span className="text-slate-500 text-xs">
+                          {new Date(post.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      {post.text && <p className="text-slate-300 text-sm">{post.text}</p>}
+                      {post.photos?.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mt-2">
+                          {post.photos.map((p, i) => (
+                            <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               ))
             ) : (
-              <p className="text-slate-500 text-center py-8">Noch keine abgeschlossenen Aufgaben</p>
+              <p className="text-slate-500 text-center py-8">Noch keine Berichte oder Fotos</p>
             )}
           </div>
         )
