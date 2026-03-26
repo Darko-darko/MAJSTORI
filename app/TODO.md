@@ -167,6 +167,8 @@
 - real time ili neki refreš itd
 - faze zadatka send i kraj na kraju :
 - trbala bi da postoji opcija da majtori dobiju usmeni zadatak da šlju slike na početku i kraju, majtro kreira izveštaj bez zadatka od gazde
+- ako majstor zaboravi šifru
+
 
 
 
