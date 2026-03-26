@@ -25,7 +25,28 @@ export default function WorkerDetailPage() {
   const [fullImage, setFullImage] = useState(null)
   const [editingTaskId, setEditingTaskId] = useState(null)
 
-  useEffect(() => { loadData() }, [workerId])
+  useEffect(() => {
+    loadData()
+
+    // Realtime: listen for changes
+    const channel = supabase
+      .channel(`owner-worker-${workerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        console.log('🔔 Task updated — reloading')
+        loadData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reports' }, () => {
+        console.log('🔔 Report updated — reloading')
+        loadData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => {
+        console.log('🔔 Time updated — reloading')
+        loadData()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [workerId])
 
   const getAuthHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession()

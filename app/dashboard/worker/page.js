@@ -14,6 +14,14 @@ export default function WorkerDashboard() {
 
   useEffect(() => {
     loadWorkerData()
+
+    const channel = supabase
+      .channel('worker-dashboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadWorkerData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => loadWorkerData())
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   const loadWorkerData = async () => {

@@ -31,7 +31,25 @@ export default function WorkerTasksPage() {
   const [fullImage, setFullImage] = useState(null) // fullscreen image URL
   const fileRef = useRef(null)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+
+    // Realtime: listen for task changes
+    const channel = supabase
+      .channel('worker-tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        console.log('🔔 Task updated — reloading')
+        loadData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reports' }, () => {
+        console.log('🔔 Report updated — reloading')
+        loadData()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
 
   const getAuthHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession()
