@@ -263,8 +263,17 @@ export default function WorkerDetailPage() {
 
   const runningEntry = timeEntries.find(e => e.status === 'running')
   const completedEntries = timeEntries.filter(e => e.status === 'completed')
-  const pendingTasks = tasks.filter(t => t.status !== 'done')
-  const doneTasks = tasks.filter(t => t.status === 'done')
+  const today = new Date().toISOString().split('T')[0]
+  const isToday = (dateStr) => dateStr && dateStr.startsWith(today)
+
+  // Aufgaben: open + today completed
+  const aufgabenTasks = tasks.filter(t => t.status !== 'done' || isToday(t.completed_at))
+  // Berichte: completed before today
+  const berichteTasks = tasks.filter(t => t.status === 'done' && !isToday(t.completed_at))
+
+  // Keep old names for compatibility
+  const pendingTasks = aufgabenTasks
+  const doneTasks = berichteTasks
 
   // Group time entries by date
   const entriesByDate = {}
