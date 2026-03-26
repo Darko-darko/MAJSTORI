@@ -22,6 +22,7 @@ export default function WorkerDetailPage() {
   const [newPhotos, setNewPhotos] = useState([]) // preview URLs
   const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
   const [expandedTaskId, setExpandedTaskId] = useState(null)
+  const [fullImage, setFullImage] = useState(null)
 
   useEffect(() => { loadData() }, [workerId])
 
@@ -211,6 +212,14 @@ export default function WorkerDetailPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {/* Fullscreen image */}
+      {fullImage && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullImage(null)}>
+          <img src={fullImage} alt="" className="max-w-full max-h-full object-contain" />
+          <button className="absolute top-4 right-4 text-white text-3xl" onClick={() => setFullImage(null)}>✕</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <button onClick={() => router.push('/dashboard/team')} className="text-slate-400 hover:text-white">
@@ -425,7 +434,7 @@ export default function WorkerDetailPage() {
                             <p className="text-slate-500 text-xs mb-1">Ihre Fotos:</p>
                             <div className="grid grid-cols-4 gap-2">
                               {task.owner_photos.map((p, i) => (
-                                <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30" />
+                                <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30 cursor-pointer" onClick={() => setFullImage(p.url)} />
                               ))}
                             </div>
                           </div>
@@ -445,7 +454,7 @@ export default function WorkerDetailPage() {
                                 {r.photos?.length > 0 && (
                                   <div className="grid grid-cols-4 gap-1 mt-2">
                                     {r.photos.map((p, i) => (
-                                      <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded" />
+                                      <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
                                     ))}
                                   </div>
                                 )}
