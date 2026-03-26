@@ -23,6 +23,7 @@ export default function WorkerDetailPage() {
   const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [fullImage, setFullImage] = useState(null)
+  const [editingTaskId, setEditingTaskId] = useState(null)
 
   useEffect(() => { loadData() }, [workerId])
 
@@ -139,6 +140,57 @@ export default function WorkerDetailPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const startEditing = (task) => {
+    setEditingTaskId(task.id)
+    setNewTitle(task.title)
+    setNewDesc(task.description || '')
+    setNewLocation(task.location || '')
+    setNewDue(task.due_date || '')
+    setNewPhotos((task.owner_photos || []).map(p => p.url))
+    setNewPhotoFiles([])
+    setShowTaskForm(true)
+  }
+
+  const handleUpdateTask = async () => {
+    if (!newTitle.trim()) return
+    setSaving(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/team/tasks', {
+        method: 'PATCH', headers,
+        body: JSON.stringify({
+          id: editingTaskId,
+          title: newTitle, description: newDesc, location: newLocation,
+          due_date: newDue || null,
+        })
+      })
+
+      // Upload new photos if any
+      if (newPhotoFiles.length > 0) {
+        const { data: { session } } = await supabase.auth.getSession()
+        for (const file of newPhotoFiles) {
+          const compressed = await compressImage(file)
+          const formData = new FormData()
+          formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
+          formData.append('task_id', editingTaskId)
+          formData.append('type', 'owner')
+          await fetch('/api/team/tasks', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+            body: formData
+          })
+        }
+      }
+
+      await loadData()
+      setEditingTaskId(null)
+      setShowTaskForm(false)
+      setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue('')
+      setNewPhotos([]); setNewPhotoFiles([])
+    } catch (err) { console.error(err) }
+    finally { setSaving(false) }
   }
 
   const handleDeleteTask = async (taskId) => {
@@ -318,7 +370,7 @@ export default function WorkerDetailPage() {
           {/* Add Task Button + Form */}
           {!showTaskForm ? (
             <button
-              onClick={() => setShowTaskForm(true)}
+              onClick={() => { setEditingTaskId(null); setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(''); setNewPhotos([]); setNewPhotoFiles([]); setShowTaskForm(true) }}
               className="w-full py-3 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-purple-500 hover:text-purple-400 transition-colors"
             >
               + Neue Aufgabe für {member.worker_name}
@@ -386,14 +438,14 @@ export default function WorkerDetailPage() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={handleCreateTask}
+                  onClick={editingTaskId ? handleUpdateTask : handleCreateTask}
                   disabled={saving || !newTitle.trim()}
                   className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50"
                 >
-                  {saving ? 'Wird erstellt...' : 'Erstellen'}
+                  {saving ? 'Wird gespeichert...' : editingTaskId ? 'Speichern' : 'Erstellen'}
                 </button>
                 <button
-                  onClick={() => { setShowTaskForm(false); setNewPhotos([]); setNewPhotoFiles([]) }}
+                  onClick={() => { setShowTaskForm(false); setEditingTaskId(null); setNewPhotos([]); setNewPhotoFiles([]) }}
                   className="px-4 py-3 bg-slate-700 text-slate-300 rounded-xl hover:bg-slate-600 transition-colors"
                 >
                   Abbrechen
@@ -436,21 +488,7 @@ export default function WorkerDetailPage() {
                         <div className="flex gap-2 flex-wrap">
                           {!isDone && (
                             <button
-                              onClick={() => {
-                                const newTitle = prompt('Titel:', task.title)
-                                if (newTitle === null) return
-                                const newDesc = prompt('Beschreibung:', task.description || '')
-                                const newLoc = prompt('Ort:', task.location || '')
-                                ;(async () => {
-                                  const headers = await getAuthHeaders()
-                                  const res = await fetch('/api/team/tasks', {
-                                    method: 'PATCH', headers,
-                                    body: JSON.stringify({ id: task.id, title: newTitle, description: newDesc, location: newLoc })
-                                  })
-                                  const json = await res.json()
-                                  if (json.task) await loadData()
-                                })()
-                              }}
+                              onClick={() => startEditing(task)}
                               className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors"
                             >
                               ✏️ Bearbeiten
