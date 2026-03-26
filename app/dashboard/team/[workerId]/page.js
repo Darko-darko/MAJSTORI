@@ -733,7 +733,7 @@ export default function WorkerDetailPage() {
                                       return (
                                         <div key={reply.id} className={`ml-4 mt-2 border-l-2 rounded-r-lg p-2 ${isWorkerReply ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
                                           <span className={`text-xs font-semibold ${isWorkerReply ? 'text-blue-400' : 'text-purple-400'}`}>
-                                            {isWorkerReply ? '👷 Mitarbeiter' : '👔 Chef'}
+                                            {isWorkerReply ? `👷 ${member?.worker_name || 'Mitarbeiter'}` : '👔 Chef'}
                                           </span>
                                           <span className="text-slate-500 text-xs ml-2">
                                             {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
