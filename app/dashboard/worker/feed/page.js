@@ -26,6 +26,9 @@ export default function WorkerFeedPage() {
   const [postFiles, setPostFiles] = useState([])
   const [postPreviews, setPostPreviews] = useState([])
   const [sending, setSending] = useState(false)
+  const [replyTo, setReplyTo] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [replying, setReplying] = useState(false)
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -85,6 +88,23 @@ export default function WorkerFeedPage() {
       await loadFeed()
     } catch (err) { alert(err.message) }
     finally { setSending(false) }
+  }
+
+  const handleReply = async (parentId) => {
+    if (!replyText.trim()) return
+    setReplying(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/team/task-reports', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: replyText.trim(), task_id: null, parent_id: parentId })
+      })
+      setReplyText('')
+      setReplyTo(null)
+      await loadFeed()
+    } catch (err) { console.error(err) }
+    finally { setReplying(false) }
   }
 
   const formatTime = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
@@ -181,14 +201,37 @@ export default function WorkerFeedPage() {
                     </div>
                   )}
 
-                  {/* Chef replies */}
-                  {replies.filter(r => r.parent_id === item.id).map(reply => (
-                    <div key={reply.id} className="ml-6 mt-2 bg-purple-900/20 border-l-2 border-purple-500 rounded-r-lg p-2">
-                      <span className="text-purple-400 text-xs font-semibold">👔 Chef</span>
-                      <span className="text-slate-500 text-xs ml-2">{formatTime(reply.timestamp)}</span>
-                      <p className="text-slate-300 text-sm">{reply.text}</p>
+                  {/* All replies (chef + own) */}
+                  {replies.filter(r => r.parent_id === item.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).map(reply => {
+                    const isChef = reply.worker_id !== item.worker_id
+                    return (
+                      <div key={reply.id} className={`ml-6 mt-2 border-l-2 rounded-r-lg p-2 ${isChef ? 'bg-purple-900/20 border-purple-500' : 'bg-slate-900/30 border-slate-600'}`}>
+                        <span className={`text-xs font-semibold ${isChef ? 'text-purple-400' : 'text-slate-400'}`}>
+                          {isChef ? '👔 Chef' : '👷 Ich'}
+                        </span>
+                        <span className="text-slate-500 text-xs ml-2">{formatTime(reply.timestamp)}</span>
+                        <p className="text-slate-300 text-sm">{reply.text}</p>
+                      </div>
+                    )
+                  })}
+
+                  {/* Reply input */}
+                  {replyTo === item.id ? (
+                    <div className="flex gap-2 mt-2">
+                      <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Antworten..." autoFocus
+                        className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
+                        onKeyDown={(e) => e.key === 'Enter' && handleReply(item.id)} />
+                      <button onClick={() => handleReply(item.id)} disabled={replying || !replyText.trim()}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Senden</button>
+                      <button onClick={() => { setReplyTo(null); setReplyText('') }}
+                        className="px-2 py-2 text-slate-400 text-sm">✕</button>
                     </div>
-                  ))}
+                  ) : (
+                    <button onClick={() => setReplyTo(item.id)} className="text-slate-500 text-xs mt-2 hover:text-blue-400">
+                      💬 Antworten
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

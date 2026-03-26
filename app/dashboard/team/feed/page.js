@@ -114,14 +114,19 @@ export default function FeedPage() {
                         </div>
                       )}
 
-                      {/* Replies */}
-                      {feed.filter(r => r.type === 'report' && r.parent_id === item.id).map(reply => (
-                        <div key={reply.id} className="ml-10 mt-2 bg-slate-900/50 rounded-lg p-2 border-l-2 border-purple-500">
-                          <span className="text-purple-400 text-xs font-semibold">Chef</span>
-                          <span className="text-slate-500 text-xs ml-2">{formatTime(reply.timestamp)}</span>
-                          <p className="text-slate-300 text-sm">{reply.text}</p>
-                        </div>
-                      ))}
+                      {/* Replies (both chef and worker) */}
+                      {feed.filter(r => r.type === 'report' && r.parent_id === item.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).map(reply => {
+                        const isWorker = reply.worker_id === item.worker_id
+                        return (
+                          <div key={reply.id} className={`ml-10 mt-2 rounded-lg p-2 border-l-2 ${isWorker ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
+                            <span className={`text-xs font-semibold ${isWorker ? 'text-blue-400' : 'text-purple-400'}`}>
+                              {isWorker ? `👷 ${reply.worker_name || 'Mitarbeiter'}` : '👔 Chef'}
+                            </span>
+                            <span className="text-slate-500 text-xs ml-2">{formatTime(reply.timestamp)}</span>
+                            <p className="text-slate-300 text-sm">{reply.text}</p>
+                          </div>
+                        )
+                      })}
 
                       {/* Reply button */}
                       {replyTo === item.id ? (
