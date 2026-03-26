@@ -150,21 +150,33 @@ export default function WorkerDetailPage() {
   }
 
   const handleResetTask = async (taskId) => {
-    const reason = prompt('Grund für Zurücksetzen (optional):')
+    const reason = prompt('Grund für Wiederholen (optional):')
     if (reason === null) return // cancelled
 
     try {
       const headers = await getAuthHeaders()
+      // Reset task status
       const res = await fetch('/api/team/tasks', {
         method: 'PATCH', headers,
         body: JSON.stringify({
           id: taskId,
           status: 'pending',
-          description: reason ? `[Zurückgesetzt: ${reason}]` : undefined,
+          description: reason ? `[Wiederholen: ${reason}]` : undefined,
         })
       })
+      // Remove final flag from reports so worker can continue
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/team/task-reports/reset-final', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId })
+      })
       const json = await res.json()
-      if (json.task) setTasks(prev => prev.map(t => t.id === taskId ? json.task : t))
+      if (json.task) {
+        setTasks(prev => prev.map(t => t.id === taskId ? json.task : t))
+        // Reload reports
+        await loadData()
+      }
     } catch (err) { console.error(err) }
   }
 
