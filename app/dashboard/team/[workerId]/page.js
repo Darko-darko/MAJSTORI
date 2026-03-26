@@ -424,21 +424,45 @@ export default function WorkerDetailPage() {
                           {task.due_date && <span>📅 {new Date(task.due_date).toLocaleDateString('de-DE')}</span>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isDone && (
-                          <button onClick={(e) => { e.stopPropagation(); handleResetTask(task.id) }}
-                            className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600">↩</button>
-                        )}
-                        <button onClick={(e) => { e.stopPropagation(); if (confirm('Aufgabe löschen?')) handleDeleteTask(task.id) }}
-                          className="text-slate-500 hover:text-red-400 text-sm">✕</button>
-                        <span className="text-slate-500">{isOpen ? '▲' : '▼'}</span>
-                      </div>
+                      <span className="text-slate-500">{isOpen ? '▲' : '▼'}</span>
                     </div>
 
-                    {/* Expanded — details + reports */}
+                    {/* Expanded — details + actions + reports */}
                     {isOpen && (
                       <div className="border-t border-slate-700 p-4 space-y-3">
                         {task.description && <p className="text-slate-400 text-sm">{task.description}</p>}
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 flex-wrap">
+                          {!isDone && (
+                            <button
+                              onClick={() => {
+                                const newTitle = prompt('Titel:', task.title)
+                                if (newTitle === null) return
+                                const newDesc = prompt('Beschreibung:', task.description || '')
+                                const newLoc = prompt('Ort:', task.location || '')
+                                ;(async () => {
+                                  const headers = await getAuthHeaders()
+                                  const res = await fetch('/api/team/tasks', {
+                                    method: 'PATCH', headers,
+                                    body: JSON.stringify({ id: task.id, title: newTitle, description: newDesc, location: newLoc })
+                                  })
+                                  const json = await res.json()
+                                  if (json.task) await loadData()
+                                })()
+                              }}
+                              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors"
+                            >
+                              ✏️ Bearbeiten
+                            </button>
+                          )}
+                          <button
+                            onClick={() => { if (confirm('Aufgabe endgültig löschen?')) handleDeleteTask(task.id) }}
+                            className="px-3 py-1.5 bg-slate-700 text-red-400 rounded-lg text-xs hover:bg-red-900/30 transition-colors"
+                          >
+                            🗑️ Löschen
+                          </button>
+                        </div>
 
                         {/* Owner photos */}
                         {(task.owner_photos || []).length > 0 && (
