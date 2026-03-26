@@ -31,7 +31,10 @@ export default function TeamPage() {
         .single()
       setMajstor(m)
 
-      const res = await fetch('/api/team')
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/team', {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      })
       const json = await res.json()
       if (json.members) setMembers(json.members.filter(m => m.status !== 'removed'))
     } catch (err) {
@@ -47,9 +50,10 @@ export default function TeamPage() {
     setError('')
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/team', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ worker_name: newName.trim() })
       })
 
@@ -74,7 +78,11 @@ export default function TeamPage() {
     if (!confirm(`${name} wirklich aus dem Team entfernen?`)) return
 
     try {
-      const res = await fetch(`/api/team?id=${id}`, { method: 'DELETE' })
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/team?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      })
       if (!res.ok) throw new Error('Fehler beim Entfernen')
       setMembers(prev => prev.filter(m => m.id !== id))
     } catch (err) {
