@@ -90,7 +90,7 @@ export async function PATCH(request) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { id, status, title, description, location, assigned_to, due_date } = body
+    const { id, status, title, description, location, assigned_to, due_date, worker_comment, photos_before, photos_after } = body
 
     if (!id) return Response.json({ error: 'Missing task id' }, { status: 400 })
 
@@ -104,11 +104,14 @@ export async function PATCH(request) {
     const updateData = { updated_at: new Date().toISOString() }
 
     if (majstor?.role === 'worker') {
-      // Worker can only change status
+      // Worker can change status, comment, photos
       if (status) {
         updateData.status = status
         if (status === 'done') updateData.completed_at = new Date().toISOString()
       }
+      if (worker_comment !== undefined) updateData.worker_comment = worker_comment
+      if (photos_before !== undefined) updateData.photos_before = photos_before
+      if (photos_after !== undefined) updateData.photos_after = photos_after
     } else {
       // Owner can edit everything
       if (status) updateData.status = status
@@ -130,6 +133,64 @@ export async function PATCH(request) {
     if (error) return Response.json({ error: error.message }, { status: 500 })
 
     return Response.json({ task })
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PUT — upload photo to task (worker)
+export async function PUT(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const formData = await request.formData()
+    const file = formData.get('photo')
+    const taskId = formData.get('task_id')
+    const photoType = formData.get('type') // 'before' or 'after'
+
+    if (!file || !taskId || !photoType) {
+      return Response.json({ error: 'Foto, Task-ID und Typ erforderlich' }, { status: 400 })
+    }
+
+    const admin = getAdmin()
+
+    const { data: task } = await admin
+      .from('tasks')
+      .select('photos_before, photos_after, assigned_to')
+      .eq('id', taskId)
+      .single()
+
+    if (!task) return Response.json({ error: 'Aufgabe nicht gefunden' }, { status: 404 })
+    if (task.assigned_to !== user.id) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+
+    const photos = photoType === 'before' ? (task.photos_before || []) : (task.photos_after || [])
+    if (photos.length >= 5) {
+      return Response.json({ error: `Max. 5 ${photoType === 'before' ? 'Vorher' : 'Nachher'}-Fotos` }, { status: 400 })
+    }
+
+    // Upload
+    const timestamp = Date.now()
+    const ext = file.name?.split('.').pop() || 'jpg'
+    const path = `tasks/${user.id}/${taskId}/${photoType}_${timestamp}.${ext}`
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { error: uploadError } = await admin.storage
+      .from('team-files')
+      .upload(path, buffer, { contentType: file.type || 'image/jpeg' })
+
+    if (uploadError) return Response.json({ error: uploadError.message }, { status: 500 })
+
+    const { data: urlData } = admin.storage.from('team-files').getPublicUrl(path)
+    photos.push({ url: urlData.publicUrl, uploaded_at: new Date().toISOString() })
+
+    const updateField = photoType === 'before' ? 'photos_before' : 'photos_after'
+    await admin
+      .from('tasks')
+      .update({ [updateField]: photos, updated_at: new Date().toISOString() })
+      .eq('id', taskId)
+
+    return Response.json({ success: true, photo: urlData.publicUrl, count: photos.length })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 })
   }
