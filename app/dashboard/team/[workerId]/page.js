@@ -618,7 +618,7 @@ export default function WorkerDetailPage() {
         return (
           <div className="space-y-6">
             {Object.keys(byDate).length > 0 ? (
-              Object.entries(byDate).map(([date, { tasks: dateTasks, freePosts: datePosts }]) => (
+              Object.entries(byDate).sort((a, b) => new Date(b[1].tasks[0]?.completed_at || b[1].freePosts[0]?.created_at || 0) - new Date(a[1].tasks[0]?.completed_at || a[1].freePosts[0]?.created_at || 0)).map(([date, { tasks: dateTasks, freePosts: datePosts }]) => (
                 <div key={date}>
                   <h3 className="text-white font-semibold mb-3">📅 {date}</h3>
                   <div className="space-y-3">
