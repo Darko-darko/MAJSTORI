@@ -1,12 +1,14 @@
 // app/dashboard/worker/page.js — Worker Dashboard
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function WorkerDashboard() {
   const [worker, setWorker] = useState(null)
   const [teamInfo, setTeamInfo] = useState(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     loadWorkerData()
@@ -76,29 +78,20 @@ export default function WorkerDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-4">
-        <button className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-green-500/50 transition-colors">
+      <div className="grid grid-cols-3 gap-4">
+        <button onClick={() => router.push('/dashboard/worker/time')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-green-500/50 transition-colors">
           <div className="text-4xl mb-2">⏱️</div>
           <p className="text-white font-semibold">Zeiterfassung</p>
-          <p className="text-slate-400 text-sm mt-1">Arbeitszeit starten</p>
         </button>
 
-        <button className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-blue-500/50 transition-colors">
+        <button onClick={() => router.push('/dashboard/worker/tasks')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-blue-500/50 transition-colors">
           <div className="text-4xl mb-2">📋</div>
           <p className="text-white font-semibold">Aufgaben</p>
-          <p className="text-slate-400 text-sm mt-1">Meine Aufgaben</p>
         </button>
 
-        <button className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-orange-500/50 transition-colors">
+        <button onClick={() => router.push('/dashboard/worker/reports')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-orange-500/50 transition-colors">
           <div className="text-4xl mb-2">📝</div>
           <p className="text-white font-semibold">Tagesbericht</p>
-          <p className="text-slate-400 text-sm mt-1">Bericht erstellen</p>
-        </button>
-
-        <button className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-purple-500/50 transition-colors">
-          <div className="text-4xl mb-2">📸</div>
-          <p className="text-white font-semibold">Fotos</p>
-          <p className="text-slate-400 text-sm mt-1">Baustellenfotos</p>
         </button>
       </div>
 

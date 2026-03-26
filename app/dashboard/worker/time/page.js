@@ -9,8 +9,6 @@ export default function WorkerTimePage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [elapsed, setElapsed] = useState(0)
-  const [breakMinutes, setBreakMinutes] = useState('')
-  const [note, setNote] = useState('')
   const timerRef = useRef(null)
 
   useEffect(() => {
@@ -93,19 +91,12 @@ export default function WorkerTimePage() {
       const res = await fetch('/api/team/time', {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          action: 'stop',
-          ...gps,
-          break_minutes: parseInt(breakMinutes) || 0,
-          note: note.trim() || null,
-        })
+        body: JSON.stringify({ action: 'stop', ...gps })
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setEntries(prev => [json.entry, ...prev])
       setRunning(null)
-      setBreakMinutes('')
-      setNote('')
     } catch (err) {
       alert(err.message)
     } finally {
@@ -120,9 +111,9 @@ export default function WorkerTimePage() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
-  const formatDuration = (start, end, breakMin) => {
+  const formatDuration = (start, end) => {
     const ms = new Date(end).getTime() - new Date(start).getTime()
-    const totalMin = Math.floor(ms / 60000) - (breakMin || 0)
+    const totalMin = Math.floor(ms / 60000)
     const h = Math.floor(totalMin / 60)
     const m = totalMin % 60
     return `${h}h ${m}m`
@@ -173,30 +164,6 @@ export default function WorkerTimePage() {
               </p>
             )}
 
-            {/* Break + Note before stop */}
-            <div className="space-y-3 mb-4 text-left max-w-sm mx-auto">
-              <div>
-                <label className="block text-slate-400 text-xs mb-1">Pause (Minuten)</label>
-                <input
-                  type="number"
-                  value={breakMinutes}
-                  onChange={(e) => setBreakMinutes(e.target.value)}
-                  placeholder="0"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-400 text-xs mb-1">Notiz (optional)</label>
-                <input
-                  type="text"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="z.B. Baustelle Müller"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm"
-                />
-              </div>
-            </div>
-
             <button
               onClick={handleStop}
               disabled={actionLoading}
@@ -232,14 +199,10 @@ export default function WorkerTimePage() {
                   <p className="text-white font-medium">
                     {formatClock(entry.start_time)} — {formatClock(entry.end_time)}
                   </p>
-                  {entry.note && <p className="text-slate-400 text-sm">{entry.note}</p>}
-                  {entry.break_minutes > 0 && (
-                    <p className="text-slate-500 text-xs">Pause: {entry.break_minutes} Min.</p>
-                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-green-400 font-bold">
-                    {formatDuration(entry.start_time, entry.end_time, entry.break_minutes)}
+                    {formatDuration(entry.start_time, entry.end_time)}
                   </p>
                 </div>
               </div>
