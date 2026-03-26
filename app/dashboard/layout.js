@@ -309,9 +309,16 @@ useEffect(() => {
         // Buchhalter doesn't need a subscription
       if (majstorData.role === 'buchhalter') {
         setMajstor(majstorData)
-        // Redirect buchhalter to their dashboard if on main /dashboard
         if (window.location.pathname === '/dashboard' || window.location.pathname === '/dashboard/') {
           router.push('/dashboard/buchhalter')
+        }
+        return
+      }
+
+      if (majstorData.role === 'worker') {
+        setMajstor(majstorData)
+        if (window.location.pathname === '/dashboard' || window.location.pathname === '/dashboard/') {
+          router.push('/dashboard/worker')
         }
         return
       }
@@ -480,9 +487,18 @@ const getSubscriptionBadge = () => {
 // Samo izmeni getNavigation() i NavigationItem
 
 const isBuchhalter = majstor?.role === 'buchhalter'
+const isWorker = majstor?.role === 'worker'
 
 const getBuchhalterNavigation = () => [
   { name: 'Meine Auftraggeber', href: '/dashboard/buchhalter', icon: '📒', protected: false },
+]
+
+const getWorkerNavigation = () => [
+  { name: 'Übersicht', href: '/dashboard/worker', icon: '👷', protected: false },
+  { name: 'Zeiterfassung', href: '/dashboard/worker/time', icon: '⏱️', protected: false },
+  { name: 'Aufgaben', href: '/dashboard/worker/tasks', icon: '📋', protected: false },
+  { name: 'Tagesbericht', href: '/dashboard/worker/reports', icon: '📝', protected: false },
+  { name: 'Fotos', href: '/dashboard/worker/photos', icon: '📸', protected: false },
 ]
 
 const getNavigation = () => {
@@ -744,7 +760,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
     )
   }
 
-  const navigation = isBuchhalter ? getBuchhalterNavigation() : getNavigation()
+  const navigation = isWorker ? getWorkerNavigation() : isBuchhalter ? getBuchhalterNavigation() : getNavigation()
 
   const partnerItem = majstor?.is_partner
     ? { name: 'Mein ProMeister Partner', href: '/dashboard/partner', icon: '🤝', protected: false }

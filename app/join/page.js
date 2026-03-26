@@ -2,6 +2,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function JoinPage() {
   const [code, setCode] = useState('')
@@ -78,6 +79,11 @@ export default function JoinPage() {
 
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
+
+      // Auto-login
+      if (email && password) {
+        await supabase.auth.signInWithPassword({ email, password })
+      }
 
       setTeamInfo(json)
       setStep('success')
@@ -213,10 +219,10 @@ export default function JoinPage() {
             </p>
 
             <button
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/dashboard/worker')}
               className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-500 transition-colors"
             >
-              Zum Login
+              Zum Dashboard
             </button>
           </div>
         )}
