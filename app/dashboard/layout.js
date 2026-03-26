@@ -495,6 +495,7 @@ const getBuchhalterNavigation = () => [
 
 const getWorkerNavigation = () => [
   { name: 'Übersicht', href: '/dashboard/worker', icon: '👷', protected: false },
+  { name: 'Feed', href: '/dashboard/worker/feed', icon: '📡', protected: false },
   { name: 'Zeiterfassung', href: '/dashboard/worker/time', icon: '⏱️', protected: false },
   { name: 'Aufgaben', href: '/dashboard/worker/tasks', icon: '📋', protected: false },
   { name: 'Tagesbericht', href: '/dashboard/worker/reports', icon: '📝', protected: false },
