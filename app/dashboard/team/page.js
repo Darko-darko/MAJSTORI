@@ -210,14 +210,12 @@ export default function TeamPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              {member.status === 'pending' && (
-                <button
-                  onClick={() => copyCode(member.join_code)}
-                  className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors"
-                >
-                  {copiedCode === member.join_code ? '✓ Kopiert!' : `Code: ${member.join_code}`}
-                </button>
-              )}
+              <button
+                onClick={() => copyCode(member.join_code)}
+                className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+              >
+                {copiedCode === member.join_code ? '✓ Kopiert!' : `Code: ${member.join_code}`}
+              </button>
               <button
                 onClick={() => handleRemoveMember(member.id, member.worker_name)}
                 className="text-slate-500 hover:text-red-400 transition-colors"
