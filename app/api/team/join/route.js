@@ -1,4 +1,4 @@
-// app/api/team/join/route.js — Worker joins team with 6-digit code
+// app/api/team/join/route.js — Worker joins/logs in with 6-digit code
 import { createClient } from '@supabase/supabase-js'
 
 function getAdmin() {
@@ -8,11 +8,10 @@ function getAdmin() {
   )
 }
 
-// POST — worker joins with code + creates account (or links existing)
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { join_code, worker_email, worker_password } = body
+    const { join_code } = body
 
     if (!join_code || join_code.length !== 6) {
       return Response.json({ error: 'Ungültiger Code' }, { status: 400 })
@@ -25,55 +24,67 @@ export async function POST(request) {
       .from('team_members')
       .select('*, owner:owner_id(full_name, business_name)')
       .eq('join_code', join_code)
-      .eq('status', 'pending')
       .single()
 
     if (findError || !member) {
-      return Response.json({ error: 'Code nicht gefunden oder bereits verwendet' }, { status: 404 })
+      return Response.json({ error: 'Code nicht gefunden' }, { status: 404 })
     }
 
-    let workerId = null
+    if (member.status === 'removed') {
+      return Response.json({ error: 'Dieser Zugang wurde deaktiviert' }, { status: 403 })
+    }
 
-    // If email+password provided, create account
-    if (worker_email && worker_password) {
-      // Check if user already exists
-      const { data: existing } = await admin
-        .from('majstors')
-        .select('id')
-        .eq('email', worker_email)
-        .single()
+    const fakeEmail = `worker_${join_code}@promeister.local`
+    const ownerName = member.owner?.business_name || member.owner?.full_name || 'Team'
 
-      if (existing) {
-        // Link existing account
-        workerId = existing.id
-      } else {
-        // Create new auth user
-        const { data: authData, error: authError } = await admin.auth.admin.createUser({
-          email: worker_email,
-          password: worker_password,
-          email_confirm: true,
+    // Already registered — just return login credentials
+    if (member.status === 'active' && member.worker_id) {
+      return Response.json({
+        success: true,
+        action: 'login',
+        email: fakeEmail,
+        password: join_code,
+        team_name: ownerName,
+        worker_name: member.worker_name,
+      })
+    }
+
+    // First time — create account
+    const { data: authData, error: authError } = await admin.auth.admin.createUser({
+      email: fakeEmail,
+      password: join_code,
+      email_confirm: true,
+    })
+
+    if (authError) {
+      // User might already exist (edge case)
+      if (authError.message?.includes('already been registered')) {
+        return Response.json({
+          success: true,
+          action: 'login',
+          email: fakeEmail,
+          password: join_code,
+          team_name: ownerName,
+          worker_name: member.worker_name,
         })
-
-        if (authError) {
-          return Response.json({ error: authError.message }, { status: 400 })
-        }
-
-        workerId = authData.user.id
-
-        // Create majstor profile for worker
-        await admin
-          .from('majstors')
-          .insert({
-            id: workerId,
-            email: worker_email,
-            full_name: member.worker_name,
-            role: 'worker',
-            subscription_status: 'worker',
-          })
       }
+      return Response.json({ error: authError.message }, { status: 400 })
     }
 
-    // Update team member — mark as active
+    const workerId = authData.user.id
+
+    // Create majstor profile for worker
+    await admin
+      .from('majstors')
+      .insert({
+        id: workerId,
+        email: fakeEmail,
+        full_name: member.worker_name,
+        role: 'worker',
+        subscription_status: 'worker',
+      })
+
+    // Activate team member
     await admin
       .from('team_members')
       .update({
@@ -83,10 +94,11 @@ export async function POST(request) {
       })
       .eq('id', member.id)
 
-    const ownerName = member.owner?.business_name || member.owner?.full_name || 'Ihr Arbeitgeber'
-
     return Response.json({
       success: true,
+      action: 'registered',
+      email: fakeEmail,
+      password: join_code,
       team_name: ownerName,
       worker_name: member.worker_name,
     })
