@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useSubscription } from '@/lib/hooks/useSubscription'
+import { useSubscription, clearSubscriptionCache } from '@/lib/hooks/useSubscription'
 import { initializeFastSpring, openFastSpringCheckout, FASTSPRING_CONFIG } from '@/lib/fastspring'
 
 export default function SubscriptionPage() {
@@ -159,51 +159,58 @@ export default function SubscriptionPage() {
   }, [majstor?.id, processingAction, refresh])
 
   // 🔥 FIXED: Direktno otvara FastSpring kao dugmad sa katancem!
-  const handleUpgradeClick = async () => {
-    if (!fastspringReady) {
-      setError('FastSpring wird noch geladen...')
-      return
-    }
-
-    if (!majstor) {
-      setError('Benutzerdaten fehlen')
-      return
-    }
-
-    console.log('🚀 Opening FastSpring Checkout directly!')
-
-    const productId = FASTSPRING_CONFIG.productIds.monthly
-
-    if (!productId) {
-      setError('Product ID nicht konfiguriert')
-      return
-    }
+  // Generic checkout opener
+  const openCheckout = async (productId, planLabel) => {
+    if (!fastspringReady) { setError('FastSpring wird noch geladen...'); return }
+    if (!majstor) { setError('Benutzerdaten fehlen'); return }
+    if (!productId) { setError('Product ID nicht konfiguriert'); return }
 
     try {
       await openFastSpringCheckout({
         priceId: productId,
         email: majstor.email,
         majstorId: majstor.id,
-        billingInterval: 'monthly',
-        onSuccess: (data) => {
-          console.log('✅ Payment successful!', data)
-          setTimeout(() => {
-            refresh(true)
-            window.location.href = '/dashboard?fastspring_success=true&plan=monthly'
-          }, 2000)
+        billingInterval: productId.includes('yearly') ? 'yearly' : 'monthly',
+        onSuccess: () => {
+          clearSubscriptionCache(majstor.id)
+          window.location.href = `/dashboard?fastspring_success=true&plan=${planLabel}`
         },
-        onError: (err) => {
-          console.error('❌ Payment error:', err)
-          setError('Zahlung fehlgeschlagen: ' + err.message)
-        },
-        onClose: () => {
-          console.log('🚪 FastSpring popup closed')
-        }
+        onError: (err) => { setError('Zahlung fehlgeschlagen: ' + err.message) },
+        onClose: () => { console.log('🚪 Popup closed') }
       })
     } catch (err) {
-      console.error('❌ Upgrade error:', err)
       setError('Fehler beim Öffnen des Checkouts')
     }
+  }
+
+  const hadTrial = majstor?.had_trial === true
+
+  // Upgrade to PRO (from Freemium)
+  const handleUpgradeClick = () => {
+    const productId = hadTrial
+      ? FASTSPRING_CONFIG.productIds.monthlyNoTrial
+      : FASTSPRING_CONFIG.productIds.monthly
+    openCheckout(productId, 'pro')
+  }
+
+  // Upgrade to PRO+ (from Freemium or PRO)
+  const handleUpgradeToPlus = () => {
+    const currentPlan = plan?.name
+    // If upgrading from PRO, cancel first then subscribe PRO+
+    if (currentPlan === 'pro' && subscription?.provider_subscription_id) {
+      if (!confirm('Ihr PRO-Abonnement wird gekündigt und durch PRO+ ersetzt. Fortfahren?')) return
+    }
+    const productId = hadTrial
+      ? FASTSPRING_CONFIG.productIds.plusMonthlyNoTrial
+      : FASTSPRING_CONFIG.productIds.plusMonthly
+    openCheckout(productId, 'pro_plus')
+  }
+
+  // Downgrade PRO+ → PRO
+  const handleDowngrade = () => {
+    if (!confirm('Von PRO+ auf PRO wechseln?\n\nAlle Teammitglieder verlieren den Zugang.\n\nFortfahren?')) return
+    const productId = FASTSPRING_CONFIG.productIds.monthlyNoTrial
+    openCheckout(productId, 'pro')
   }
 
   const handleUpdatePaymentMethod = async () => {
@@ -524,14 +531,17 @@ export default function SubscriptionPage() {
     }
 
     if (subscription.status === 'active' && daysRemaining > 0) {
+      const isProPlus = plan?.name === 'pro_plus'
       return {
-        status: 'pro',
-        statusLabel: 'PRO Mitgliedschaft',
-        statusColor: 'text-green-400',
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/30',
-        icon: '💎',
-        description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
+        status: isProPlus ? 'pro_plus' : 'pro',
+        statusLabel: isProPlus ? 'PRO+ Team Mitgliedschaft' : 'PRO Mitgliedschaft',
+        statusColor: isProPlus ? 'text-purple-400' : 'text-green-400',
+        bgColor: isProPlus ? 'bg-purple-500/10' : 'bg-green-500/10',
+        borderColor: isProPlus ? 'border-purple-500/30' : 'border-green-500/30',
+        icon: isProPlus ? '🚀' : '💎',
+        description: isProPlus
+          ? `PRO+ Team aktiv. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`
+          : `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
         showUpgrade: false,
         showCancel: true,
         showUpdatePayment: true
@@ -746,13 +756,21 @@ export default function SubscriptionPage() {
               </li>
             ))}
           </ul>
-          {(statusInfo.showUpgrade || statusInfo.status === 'pro' || statusInfo.status === 'trial') && (
+          {statusInfo.status !== 'pro_plus' && (
             <button
-              onClick={handleUpgradeClick}
+              onClick={handleUpgradeToPlus}
               disabled={!fastspringReady}
               className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {!fastspringReady ? 'FastSpring lädt...' : '🚀 Auf PRO+ upgraden'}
+            </button>
+          )}
+          {statusInfo.status === 'pro_plus' && (
+            <button
+              onClick={handleDowngrade}
+              className="w-full mt-6 bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors"
+            >
+              Auf PRO wechseln
             </button>
           )}
         </div>

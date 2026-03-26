@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/hooks/useSubscription'
+import { initializeFastSpring, openFastSpringCheckout, FASTSPRING_CONFIG } from '@/lib/fastspring'
 
 export default function TeamPage() {
   const [majstor, setMajstor] = useState(null)
@@ -13,12 +14,14 @@ export default function TeamPage() {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const [copiedCode, setCopiedCode] = useState(null)
+  const [fastspringReady, setFastspringReady] = useState(false)
   const router = useRouter()
 
   const { plan } = useSubscription(majstor?.id)
 
   useEffect(() => {
     loadData()
+    initializeFastSpring(() => setFastspringReady(true))
 
     const channel = supabase
       .channel('team-members')
@@ -154,9 +157,19 @@ export default function TeamPage() {
               </div>
             )}
             <button
-              onClick={() => {
-                // TODO: FastSpring checkout for additional-user
-                alert('Weitere Mitglieder können für 8€/Monat pro Person hinzugebucht werden. Diese Funktion wird in Kürze verfügbar sein.')
+              onClick={async () => {
+                if (!fastspringReady) { alert('Zahlungssystem wird geladen...'); return }
+                const { data: { session } } = await supabase.auth.getSession()
+                const { data: { user } } = await supabase.auth.getUser()
+                openFastSpringCheckout({
+                  priceId: FASTSPRING_CONFIG.productIds.teamSeat,
+                  email: majstor?.email,
+                  majstorId: user?.id,
+                  billingInterval: 'monthly',
+                  onSuccess: () => { alert('Zusätzlicher Platz gebucht!') },
+                  onError: (err) => { alert('Fehler: ' + err.message) },
+                  onClose: () => {}
+                })
               }}
               className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
             >
