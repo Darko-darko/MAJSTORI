@@ -218,6 +218,21 @@ export default function TeamPage() {
                 {copiedCode === member.join_code ? '✓ Kopiert!' : '🔑 Code'}
               </button>
               <button
+                onClick={() => {
+                  const text = `Hallo ${member.worker_name}, tritt unserem Team bei!\n\nÖffne: pro-meister.de/join\nDein Code: ${member.join_code}`
+                  if (navigator.share) {
+                    navigator.share({ title: 'Pro-Meister Team', text })
+                  } else {
+                    navigator.clipboard.writeText(text)
+                    alert('Text kopiert!')
+                  }
+                }}
+                className="px-2 py-1.5 bg-slate-700 text-slate-400 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+                title="Code teilen"
+              >
+                📤
+              </button>
+              <button
                 onClick={() => handleRemoveMember(member.id, member.worker_name)}
                 className="text-slate-500 hover:text-red-400 transition-colors"
                 title="Entfernen"
