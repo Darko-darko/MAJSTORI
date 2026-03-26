@@ -17,7 +17,7 @@ function DashboardPageContent() {
   
   const { isOpen: upgradeFeatureModalOpen, modalProps, showUpgradeModal: showFeatureUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  const { isFreemium, refresh: refreshSubscription } = useSubscription(majstor?.id)
+  const { isFreemium, isInGracePeriod, refresh: refreshSubscription } = useSubscription(majstor?.id)
   
   const [stats, setStats] = useState({
     totalInquiries: 0,
@@ -155,7 +155,7 @@ function DashboardPageContent() {
   }
 
   const ProtectedStatCard = ({ href, icon, title, value, subtitle, badgeCount, iconBg }) => {
-    if (isFreemium) {
+    if (isFreemium && !isInGracePeriod) {
       return (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 relative">
           <span className="absolute top-2 right-2 px-1 py-0.5 text-xs rounded font-medium" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>🔒 Pro</span>
