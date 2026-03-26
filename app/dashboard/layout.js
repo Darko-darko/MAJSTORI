@@ -512,6 +512,7 @@ const getNavigation = () => {
     { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
     { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
     { name: 'Team', href: '/dashboard/team', icon: '👷', protected: true, feature: 'invoicing' },
+    { name: 'Aufgaben', href: '/dashboard/team/tasks', icon: '📋', protected: true, feature: 'invoicing' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
