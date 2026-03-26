@@ -215,7 +215,7 @@ export default function TeamPage() {
                 className="px-2 py-1.5 bg-slate-700 text-slate-400 rounded-lg text-sm hover:bg-slate-600 transition-colors"
                 title="Code kopieren"
               >
-                {copiedCode === member.join_code ? '✓ Kopiert!' : '🔑'}
+                {copiedCode === member.join_code ? '✓ Kopiert!' : '🔑 Code'}
               </button>
               <button
                 onClick={() => handleRemoveMember(member.id, member.worker_name)}
