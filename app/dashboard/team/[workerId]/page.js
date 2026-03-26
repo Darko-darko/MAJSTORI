@@ -714,15 +714,20 @@ export default function WorkerDetailPage() {
                                 )}
 
                                 {/* Replies */}
-                                {reports.filter(r => r.parent_id === post.id).map(reply => (
-                                  <div key={reply.id} className="ml-6 mt-2 bg-purple-900/20 border-l-2 border-purple-500 rounded-r-lg p-2">
-                                    <span className="text-purple-400 text-xs font-semibold">👔 Chef</span>
-                                    <span className="text-slate-500 text-xs ml-2">
-                                      {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <p className="text-slate-300 text-sm">{reply.text}</p>
-                                  </div>
-                                ))}
+                                {reports.filter(r => r.parent_id === post.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(reply => {
+                                  const isWorkerReply = reply.worker_id === workerId
+                                  return (
+                                    <div key={reply.id} className={`ml-6 mt-2 border-l-2 rounded-r-lg p-2 ${isWorkerReply ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
+                                      <span className={`text-xs font-semibold ${isWorkerReply ? 'text-blue-400' : 'text-purple-400'}`}>
+                                        {isWorkerReply ? '👷 Mitarbeiter' : '👔 Chef'}
+                                      </span>
+                                      <span className="text-slate-500 text-xs ml-2">
+                                        {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      <p className="text-slate-300 text-sm">{reply.text}</p>
+                                    </div>
+                                  )
+                                })}
 
                                 {/* Reply input */}
                                 {replyTo === post.id ? (
