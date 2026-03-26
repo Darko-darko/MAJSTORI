@@ -191,10 +191,17 @@ export async function PUT(request) {
 
     const fieldMap = { before: 'photos_before', after: 'photos_after', owner: 'owner_photos' }
     const updateField = fieldMap[photoType] || 'photos_before'
-    await admin
+    console.log('📷 Saving photo to field:', updateField, 'count:', photos.length)
+    const { error: updateError } = await admin
       .from('tasks')
       .update({ [updateField]: photos, updated_at: new Date().toISOString() })
       .eq('id', taskId)
+
+    if (updateError) {
+      console.error('📷 Update error:', updateError)
+      return Response.json({ error: updateError.message }, { status: 500 })
+    }
+    console.log('📷 Photo saved successfully')
 
     return Response.json({ success: true, photo: urlData.publicUrl, count: photos.length })
   } catch (err) {

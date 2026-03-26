@@ -112,11 +112,14 @@ export default function WorkerDetailPage() {
             formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
             formData.append('task_id', json.task.id)
             formData.append('type', 'owner')
-            await fetch('/api/team/tasks', {
+            console.log('📷 Uploading owner photo for task:', json.task.id)
+            const uploadRes = await fetch('/api/team/tasks', {
               method: 'PUT',
               headers: { Authorization: `Bearer ${session?.access_token}` },
               body: formData
             })
+            const uploadJson = await uploadRes.json()
+            console.log('📷 Upload result:', uploadRes.status, uploadJson)
           }
           // Reload to get updated task with photos
           const reloadRes = await fetch('/api/team/tasks', { headers })
