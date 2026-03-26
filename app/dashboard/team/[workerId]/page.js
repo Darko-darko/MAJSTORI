@@ -27,6 +27,7 @@ export default function WorkerDetailPage() {
   const [replyTo, setReplyTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [replying, setReplying] = useState(false)
+  const [expandedPostId, setExpandedPostId] = useState(null)
   const [editingTaskId, setEditingTaskId] = useState(null)
 
   useEffect(() => {
@@ -696,55 +697,70 @@ export default function WorkerDetailPage() {
                             )
                           } else {
                             const post = item
+                            const postReplies = reports.filter(r => r.parent_id === post.id)
+                            const isPostOpen = expandedPostId === post.id
                             return (
-                              <div key={post.id} className="bg-slate-800/50 border border-orange-500/20 rounded-xl p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">📸 Foto</span>
-                                  <span className="text-slate-500 text-xs">
-                                    {new Date(post.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                </div>
-                                {post.text && <p className="text-slate-300 text-sm">{post.text}</p>}
-                                {post.photos?.length > 0 && (
-                                  <div className="grid grid-cols-4 gap-2 mt-2">
-                                    {post.photos.map((p, i) => (
-                                      <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
-                                    ))}
-                                  </div>
-                                )}
-
-                                {/* Replies */}
-                                {reports.filter(r => r.parent_id === post.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(reply => {
-                                  const isWorkerReply = reply.worker_id === workerId
-                                  return (
-                                    <div key={reply.id} className={`ml-6 mt-2 border-l-2 rounded-r-lg p-2 ${isWorkerReply ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
-                                      <span className={`text-xs font-semibold ${isWorkerReply ? 'text-blue-400' : 'text-purple-400'}`}>
-                                        {isWorkerReply ? '👷 Mitarbeiter' : '👔 Chef'}
+                              <div key={post.id} className="bg-slate-800/50 border border-orange-500/20 rounded-xl overflow-hidden">
+                                {/* Header — always visible */}
+                                <div className="p-4 cursor-pointer" onClick={() => setExpandedPostId(isPostOpen ? null : post.id)}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">📸 Foto</span>
+                                      <span className="text-slate-500 text-xs">
+                                        {new Date(post.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                                       </span>
-                                      <span className="text-slate-500 text-xs ml-2">
-                                        {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                      </span>
-                                      <p className="text-slate-300 text-sm">{reply.text}</p>
+                                      {postReplies.length > 0 && (
+                                        <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded">💬 {postReplies.length}</span>
+                                      )}
                                     </div>
-                                  )
-                                })}
-
-                                {/* Reply input */}
-                                {replyTo === post.id ? (
-                                  <div className="flex gap-2 mt-2">
-                                    <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
-                                      placeholder="Antworten..." autoFocus
-                                      className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
-                                      onKeyDown={(e) => e.key === 'Enter' && handleReply(post.id)} />
-                                    <button onClick={() => handleReply(post.id)} disabled={replying || !replyText.trim()}
-                                      className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50">Senden</button>
-                                    <button onClick={() => { setReplyTo(null); setReplyText('') }}
-                                      className="px-2 py-2 text-slate-400 text-sm">✕</button>
+                                    <span className="text-slate-500">{isPostOpen ? '▲' : '▼'}</span>
                                   </div>
-                                ) : (
-                                  <button onClick={() => setReplyTo(post.id)} className="text-slate-500 text-xs mt-2 hover:text-purple-400">
-                                    💬 Antworten
-                                  </button>
+                                  {post.text && <p className="text-slate-300 text-sm">{post.text}</p>}
+                                  {post.photos?.length > 0 && (
+                                    <div className="grid grid-cols-4 gap-2 mt-2">
+                                      {post.photos.map((p, i) => (
+                                        <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={(e) => { e.stopPropagation(); setFullImage(p.url) }} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Expanded — replies + reply input */}
+                                {isPostOpen && (
+                                  <div className="border-t border-slate-700 p-4">
+                                    {postReplies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(reply => {
+                                      const isWorkerReply = reply.worker_id === workerId
+                                      return (
+                                        <div key={reply.id} className={`ml-4 mt-2 border-l-2 rounded-r-lg p-2 ${isWorkerReply ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
+                                          <span className={`text-xs font-semibold ${isWorkerReply ? 'text-blue-400' : 'text-purple-400'}`}>
+                                            {isWorkerReply ? '👷 Mitarbeiter' : '👔 Chef'}
+                                          </span>
+                                          <span className="text-slate-500 text-xs ml-2">
+                                            {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                          </span>
+                                          <p className="text-slate-300 text-sm">{reply.text}</p>
+                                        </div>
+                                      )
+                                    })}
+
+                                    {/* Reply input */}
+                                    {replyTo === post.id ? (
+                                      <div className="flex gap-2 mt-3">
+                                        <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                                          placeholder="Antworten..." autoFocus
+                                          className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
+                                          onKeyDown={(e) => e.key === 'Enter' && handleReply(post.id)} />
+                                        <button onClick={() => handleReply(post.id)} disabled={replying || !replyText.trim()}
+                                          className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50">Senden</button>
+                                        <button onClick={() => { setReplyTo(null); setReplyText('') }}
+                                          className="px-2 py-2 text-slate-400 text-sm">✕</button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setReplyTo(post.id)} className="text-slate-500 text-xs mt-3 hover:text-purple-400">
+                                        💬 Antworten
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             )
