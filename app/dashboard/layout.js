@@ -411,7 +411,7 @@ useEffect(() => {
     if (!confirm('Möchten Sie sich wirklich abmelden?')) return
     try {
       await auth.signOut()
-      router.push('/')
+      router.push(isWorker ? '/join' : '/')
     } catch (error) {
       console.error('Sign out error:', error)
     }
