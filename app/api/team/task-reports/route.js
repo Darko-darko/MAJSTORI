@@ -68,15 +68,15 @@ export async function POST(request) {
     const body = await request.json()
     const { task_id, text, is_final } = body
 
-    if (!task_id) return Response.json({ error: 'Task-ID erforderlich' }, { status: 400 })
-
     const admin = getAdmin()
 
-    // Verify task exists and is assigned to worker
-    const { data: task } = await admin.from('tasks').select('id, status, assigned_to').eq('id', task_id).single()
-    if (!task) return Response.json({ error: 'Aufgabe nicht gefunden' }, { status: 404 })
-    if (task.assigned_to !== user.id) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
-    if (task.status === 'done') return Response.json({ error: 'Aufgabe bereits abgeschlossen' }, { status: 400 })
+    // If task_id provided, verify it
+    if (task_id) {
+      const { data: task } = await admin.from('tasks').select('id, status, assigned_to').eq('id', task_id).single()
+      if (!task) return Response.json({ error: 'Aufgabe nicht gefunden' }, { status: 404 })
+      if (task.assigned_to !== user.id) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+      if (task.status === 'done') return Response.json({ error: 'Aufgabe bereits abgeschlossen' }, { status: 400 })
+    }
 
     if (!text?.trim()) {
       return Response.json({ error: 'Bitte Text eingeben' }, { status: 400 })
@@ -85,7 +85,7 @@ export async function POST(request) {
     const { data: report, error } = await admin
       .from('task_reports')
       .insert({
-        task_id,
+        task_id: task_id || null,
         worker_id: user.id,
         text: text.trim(),
         phase: is_final ? 'final' : 'update',
