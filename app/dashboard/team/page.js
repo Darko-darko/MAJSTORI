@@ -212,9 +212,10 @@ export default function TeamPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => copyCode(member.join_code)}
-                className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+                className="px-2 py-1.5 bg-slate-700 text-slate-400 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+                title="Code kopieren"
               >
-                {copiedCode === member.join_code ? '✓ Kopiert!' : `Code: ${member.join_code}`}
+                {copiedCode === member.join_code ? '✓ Kopiert!' : '🔑'}
               </button>
               <button
                 onClick={() => handleRemoveMember(member.id, member.worker_name)}
