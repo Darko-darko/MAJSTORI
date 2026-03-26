@@ -1,6 +1,7 @@
 // app/dashboard/team/page.js — Team Management (PRO+)
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 
@@ -12,6 +13,7 @@ export default function TeamPage() {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const [copiedCode, setCopiedCode] = useState(null)
+  const router = useRouter()
 
   const { plan } = useSubscription(majstor?.id)
 
@@ -189,8 +191,11 @@ export default function TeamPage() {
       {/* Members List */}
       <div className="space-y-3">
         {activeMembers.map((member) => (
-          <div key={member.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div key={member.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 flex items-center justify-between hover:border-purple-500/50 transition-colors">
+            <div
+              className="flex items-center gap-4 flex-1 cursor-pointer"
+              onClick={() => member.status === 'active' && member.worker_id && router.push(`/dashboard/team/${member.worker_id}`)}
+            >
               <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
                 member.status === 'active' ? 'bg-green-600' : 'bg-slate-600'
               }`}>
@@ -199,7 +204,7 @@ export default function TeamPage() {
               <div>
                 <p className="text-white font-medium">{member.worker_name}</p>
                 <p className={`text-xs ${member.status === 'active' ? 'text-green-400' : 'text-yellow-400'}`}>
-                  {member.status === 'active' ? 'Aktiv' : 'Wartet auf Beitritt'}
+                  {member.status === 'active' ? 'Aktiv — klicken für Details' : 'Wartet auf Beitritt'}
                 </p>
               </div>
             </div>
