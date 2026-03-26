@@ -316,6 +316,19 @@ useEffect(() => {
       }
 
       if (majstorData.role === 'worker') {
+        // Check if worker is still active in team
+        const { data: membership } = await supabase
+          .from('team_members')
+          .select('status')
+          .eq('worker_id', currentUser.id)
+          .single()
+
+        if (!membership || membership.status === 'removed') {
+          await supabase.auth.signOut()
+          router.push('/join?deactivated=true')
+          return
+        }
+
         setMajstor(majstorData)
         if (window.location.pathname === '/dashboard' || window.location.pathname === '/dashboard/') {
           router.push('/dashboard/worker')

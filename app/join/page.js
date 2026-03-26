@@ -1,6 +1,6 @@
 // app/join/page.js — Worker joins team with 6-digit code (no email needed)
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -8,6 +8,13 @@ export default function JoinPage() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [deactivated, setDeactivated] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('deactivated') === 'true') {
+      setDeactivated(true)
+    }
+  }, [])
   const [success, setSuccess] = useState(null)
   const router = useRouter()
 
@@ -61,6 +68,13 @@ export default function JoinPage() {
           </h1>
           <p className="text-slate-400">Team beitreten</p>
         </div>
+
+        {deactivated && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 mb-4 text-center">
+            <p className="text-red-400 font-semibold mb-1">Zugang deaktiviert</p>
+            <p className="text-slate-400 text-sm">Ihr Teamzugang wurde vom Chef entfernt. Kontaktieren Sie Ihren Arbeitgeber für einen neuen Code.</p>
+          </div>
+        )}
 
         {!success ? (
           <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
