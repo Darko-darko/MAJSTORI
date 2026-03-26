@@ -63,13 +63,16 @@ export async function GET(request) {
 
       const workerIds = (members || []).map(m => m.worker_id).filter(Boolean)
       const workerNames = {}
+      workerNames[user.id] = 'Chef'
       ;(members || []).forEach(m => { if (m.worker_id) workerNames[m.worker_id] = m.worker_name })
 
       if (workerIds.length > 0) {
+        // Get worker posts + owner's replies (owner_id as worker_id in replies)
+        const allIds = [...workerIds, user.id]
         const { data: reports } = await admin
           .from('task_reports')
           .select('*, task:task_id(title, location)')
-          .in('worker_id', workerIds)
+          .in('worker_id', allIds)
           .order('created_at', { ascending: false })
           .limit(50)
 

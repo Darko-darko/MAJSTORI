@@ -57,13 +57,15 @@ export default function FeedPage() {
   const formatTime = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   const formatDate = (iso) => new Date(iso).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
 
-  // Group by date
+  // Group by date — only main posts (no replies)
   const byDate = {}
-  feed.forEach(item => {
+  feed.filter(item => !item.parent_id).forEach(item => {
     const date = formatDate(item.timestamp)
     if (!byDate[date]) byDate[date] = []
     byDate[date].push(item)
   })
+  // All replies (for lookup)
+  const allReplies = feed.filter(item => item.parent_id)
 
   if (loading) {
     return <div className="max-w-2xl mx-auto p-6"><div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent mx-auto"></div></div>
@@ -115,7 +117,7 @@ export default function FeedPage() {
                       )}
 
                       {/* Replies (both chef and worker) */}
-                      {feed.filter(r => r.type === 'report' && r.parent_id === item.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).map(reply => {
+                      {allReplies.filter(r => r.parent_id === item.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).map(reply => {
                         const isWorker = reply.worker_id === item.worker_id
                         return (
                           <div key={reply.id} className={`ml-10 mt-2 rounded-lg p-2 border-l-2 ${isWorker ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
