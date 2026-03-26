@@ -514,7 +514,13 @@ async function handleSubscriptionChargeCompleted(data) {
         return { error: updateMajstorError.message }
       }
 
-      console.log('✅ Trial → Active conversion complete')
+      // Mark that user had a trial (prevents double trial)
+      await supabaseAdmin
+        .from('majstors')
+        .update({ had_trial: true })
+        .eq('id', existingSub.majstor_id)
+
+      console.log('✅ Trial → Active conversion complete (had_trial=true)')
       console.log('   New period:', nowIso, '→', newCurrentPeriodEnd)
 
     } else if (existingSub.status === 'active') {
@@ -599,7 +605,13 @@ async function handleTrialReminder(data) {
 async function getPlanIdFromProduct(productPath) {
   const productMap = {
     'promeister-monthly': 'pro',
-    'promeister-yearly': 'pro'
+    'promeister-yearly': 'pro',
+    'promeister-monthly-no-trial': 'pro',
+    'promeister-pro-yearly-no-trial': 'pro',
+    'promeister-plus-monthly': 'pro_plus',
+    'promeister-plus-yearly': 'pro_plus',
+    'promeister-plus-monthly-no-trial': 'pro_plus',
+    'promeister-plus-yearly-no-trial': 'pro_plus',
   }
 
   const planName = productMap[productPath]
