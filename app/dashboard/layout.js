@@ -827,7 +827,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            {!isBuchhalter && (
+            {!isBuchhalter && !isWorker && (
               <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
                 <NavigationItem item={mitgliedschaftItem} />
               </div>
@@ -904,7 +904,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            {!isBuchhalter && (
+            {!isBuchhalter && !isWorker && (
               <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
                 <NavigationItem item={mitgliedschaftItem} isMobile={true} />
               </div>
