@@ -24,6 +24,9 @@ export default function WorkerDetailPage() {
   const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
   const [expandedTaskId, setExpandedTaskId] = useState(null)
   const [fullImage, setFullImage] = useState(null)
+  const [replyTo, setReplyTo] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [replying, setReplying] = useState(false)
   const [editingTaskId, setEditingTaskId] = useState(null)
 
   useEffect(() => {
@@ -213,6 +216,23 @@ export default function WorkerDetailPage() {
       setNewPhotos([]); setNewPhotoFiles([])
     } catch (err) { console.error(err) }
     finally { setSaving(false) }
+  }
+
+  const handleReply = async (parentId) => {
+    if (!replyText.trim()) return
+    setReplying(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/team/task-reports', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: replyText.trim(), task_id: null, parent_id: parentId })
+      })
+      setReplyText('')
+      setReplyTo(null)
+      await loadData()
+    } catch (err) { console.error(err) }
+    finally { setReplying(false) }
   }
 
   const handleDeleteTask = async (taskId) => {
@@ -691,6 +711,35 @@ export default function WorkerDetailPage() {
                                       <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={() => setFullImage(p.url)} />
                                     ))}
                                   </div>
+                                )}
+
+                                {/* Replies */}
+                                {reports.filter(r => r.parent_id === post.id).map(reply => (
+                                  <div key={reply.id} className="ml-6 mt-2 bg-purple-900/20 border-l-2 border-purple-500 rounded-r-lg p-2">
+                                    <span className="text-purple-400 text-xs font-semibold">👔 Chef</span>
+                                    <span className="text-slate-500 text-xs ml-2">
+                                      {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <p className="text-slate-300 text-sm">{reply.text}</p>
+                                  </div>
+                                ))}
+
+                                {/* Reply input */}
+                                {replyTo === post.id ? (
+                                  <div className="flex gap-2 mt-2">
+                                    <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                                      placeholder="Antworten..." autoFocus
+                                      className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
+                                      onKeyDown={(e) => e.key === 'Enter' && handleReply(post.id)} />
+                                    <button onClick={() => handleReply(post.id)} disabled={replying || !replyText.trim()}
+                                      className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50">Senden</button>
+                                    <button onClick={() => { setReplyTo(null); setReplyText('') }}
+                                      className="px-2 py-2 text-slate-400 text-sm">✕</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setReplyTo(post.id)} className="text-slate-500 text-xs mt-2 hover:text-purple-400">
+                                    💬 Antworten
+                                  </button>
                                 )}
                               </div>
                             )
