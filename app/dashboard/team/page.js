@@ -19,6 +19,13 @@ export default function TeamPage() {
 
   useEffect(() => {
     loadData()
+
+    const channel = supabase
+      .channel('team-members')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' }, () => loadData())
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   const loadData = async () => {
