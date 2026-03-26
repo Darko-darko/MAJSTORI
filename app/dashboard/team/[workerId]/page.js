@@ -290,8 +290,8 @@ export default function WorkerDetailPage() {
 
   // Aufgaben: open + today completed
   const aufgabenTasks = tasks.filter(t => t.status !== 'done' || isToday(t.completed_at))
-  // Berichte: completed before today
-  const berichteTasks = tasks.filter(t => t.status === 'done' && !isToday(t.completed_at))
+  // Berichte: ALL completed (full history)
+  const berichteTasks = tasks.filter(t => t.status === 'done')
 
   // Keep old names for compatibility
   const pendingTasks = aufgabenTasks
