@@ -1,23 +1,8 @@
 // app/dashboard/worker/page.js — Worker Dashboard
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-
-function compressImage(file, maxWidth = 1920, quality = 0.8) {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      let w = img.width, h = img.height
-      if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth }
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality)
-    }
-    img.src = URL.createObjectURL(file)
-  })
-}
 
 export default function WorkerDashboard() {
   const [worker, setWorker] = useState(null)
@@ -25,12 +10,6 @@ export default function WorkerDashboard() {
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(null)
   const [todayEntries, setTodayEntries] = useState([])
-  const [showPhotoForm, setShowPhotoForm] = useState(false)
-  const [photoText, setPhotoText] = useState('')
-  const [photoFiles, setPhotoFiles] = useState([])
-  const [photoPreviews, setPhotoPreviews] = useState([])
-  const [sendingPhoto, setSendingPhoto] = useState(false)
-  const fileRef = useRef(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -92,44 +71,6 @@ export default function WorkerDashboard() {
     }
   }
 
-  const handleSendPhoto = async () => {
-    if (!photoText.trim() && photoFiles.length === 0) return
-    setSendingPhoto(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers = { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
-
-      // Create report without task_id
-      const res = await fetch('/api/team/task-reports', {
-        method: 'POST', headers,
-        body: JSON.stringify({ text: photoText.trim() || '📸 Foto', task_id: null })
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
-
-      // Upload photos
-      if (photoFiles.length > 0 && json.report) {
-        for (const file of photoFiles) {
-          const compressed = await compressImage(file)
-          const formData = new FormData()
-          formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
-          formData.append('report_id', json.report.id)
-          await fetch('/api/team/task-reports', {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${session?.access_token}` },
-            body: formData
-          })
-        }
-      }
-
-      setPhotoText('')
-      setPhotoFiles([])
-      setPhotoPreviews([])
-      setShowPhotoForm(false)
-    } catch (err) { alert(err.message) }
-    finally { setSendingPhoto(false) }
-  }
-
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto p-6">
@@ -177,61 +118,13 @@ export default function WorkerDashboard() {
         </button>
       </div>
 
-      {/* Quick Photo */}
-      <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
-        const files = Array.from(e.target.files || [])
-        setPhotoFiles(prev => [...prev, ...files])
-        files.forEach(f => setPhotoPreviews(prev => [...prev, URL.createObjectURL(f)]))
-        if (fileRef.current) fileRef.current.value = ''
-        setShowPhotoForm(true)
-      }} className="hidden" />
-
-      {!showPhotoForm ? (
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold text-lg hover:from-orange-500 hover:to-amber-500 transition-all"
-        >
-          📸 Foto senden
-        </button>
-      ) : (
-        <div className="bg-slate-800/50 border border-orange-500/30 rounded-xl p-4 space-y-3">
-          <textarea
-            value={photoText}
-            onChange={(e) => setPhotoText(e.target.value)}
-            placeholder="Beschreibung (optional)..."
-            rows={2}
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 text-sm"
-            autoFocus
-          />
-          {photoPreviews.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              {photoPreviews.map((url, i) => (
-                <div key={i} className="relative">
-                  <img src={url} alt="" className="w-full h-20 object-cover rounded-lg" />
-                  <button onClick={() => {
-                    setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i))
-                    setPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
-                  }} className="absolute top-0.5 right-0.5 bg-red-600 text-white w-5 h-5 rounded-full text-xs">✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <button onClick={() => fileRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
-              + Foto
-            </button>
-            <button
-              onClick={handleSendPhoto}
-              disabled={sendingPhoto || (!photoText.trim() && photoFiles.length === 0)}
-              className="flex-1 py-2 bg-orange-600 text-white rounded-lg font-semibold disabled:opacity-50"
-            >
-              {sendingPhoto ? '...' : '📤 Senden'}
-            </button>
-            <button onClick={() => { setShowPhotoForm(false); setPhotoText(''); setPhotoFiles([]); setPhotoPreviews([]) }}
-              className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">Abbrechen</button>
-          </div>
-        </div>
-      )}
+      {/* Feed */}
+      <button
+        onClick={() => router.push('/dashboard/worker/feed')}
+        className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold text-lg hover:from-orange-500 hover:to-amber-500 transition-all"
+      >
+        📰 Feed
+      </button>
 
       {/* Today's Status */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
