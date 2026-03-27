@@ -239,6 +239,15 @@ export async function DELETE(request) {
     if (!memberId) return Response.json({ error: 'Missing member id' }, { status: 400 })
 
     const admin = getAdmin()
+
+    // Get worker_id before removing
+    const { data: member } = await admin
+      .from('team_members')
+      .select('worker_id')
+      .eq('id', memberId)
+      .eq('owner_id', user.id)
+      .single()
+
     const { error } = await admin
       .from('team_members')
       .update({ status: 'removed' })
@@ -246,6 +255,15 @@ export async function DELETE(request) {
       .eq('owner_id', user.id)
 
     if (error) return Response.json({ error: error.message }, { status: 500 })
+
+    // Stop any running timers for removed worker
+    if (member?.worker_id) {
+      await admin
+        .from('work_times')
+        .update({ status: 'completed', end_time: new Date().toISOString() })
+        .eq('worker_id', member.worker_id)
+        .eq('status', 'running')
+    }
 
     // Return updated counts for UI
     const [membersResult, ownerResult] = await Promise.all([
