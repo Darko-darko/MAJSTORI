@@ -1,5 +1,8 @@
-// app/api/team/route.js — Team members CRUD
+// app/api/team/route.js — Team members CRUD + seat management
 import { createClient } from '@supabase/supabase-js'
+
+const INCLUDED_MEMBERS = 2
+const MAX_PAID_SEATS = 50
 
 function getAdmin() {
   return createClient(
@@ -20,28 +23,37 @@ function generateJoinCode() {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-// GET — list team members for current owner
+// GET — list team members + seat info
 export async function GET(request) {
   try {
     const user = await getUser(request)
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
     const admin = getAdmin()
-    const { data: members, error } = await admin
-      .from('team_members')
-      .select('*')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: true })
 
-    if (error) return Response.json({ error: error.message }, { status: 500 })
+    const [membersResult, ownerResult] = await Promise.all([
+      admin.from('team_members').select('*').eq('owner_id', user.id).order('created_at', { ascending: true }),
+      admin.from('majstors').select('paid_seats, seat_subscription_id').eq('id', user.id).single()
+    ])
 
-    return Response.json({ members })
+    if (membersResult.error) return Response.json({ error: membersResult.error.message }, { status: 500 })
+
+    const paidSeats = ownerResult.data?.paid_seats || 0
+    const totalSlots = INCLUDED_MEMBERS + paidSeats
+
+    return Response.json({
+      members: membersResult.data,
+      paidSeats,
+      totalSlots,
+      includedMembers: INCLUDED_MEMBERS,
+      seatSubscriptionId: ownerResult.data?.seat_subscription_id || null
+    })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 })
   }
 }
 
-// POST — create new team member (generate join code)
+// POST — create new team member (enforce seat limit)
 export async function POST(request) {
   try {
     const user = await getUser(request)
@@ -56,15 +68,25 @@ export async function POST(request) {
 
     const admin = getAdmin()
 
-    // Count existing members
-    const { data: existing } = await admin
-      .from('team_members')
-      .select('id')
-      .eq('owner_id', user.id)
-      .neq('status', 'removed')
+    // Fetch seat info + count existing members
+    const [existingResult, ownerResult] = await Promise.all([
+      admin.from('team_members').select('id').eq('owner_id', user.id).neq('status', 'removed'),
+      admin.from('majstors').select('paid_seats').eq('id', user.id).single()
+    ])
 
-    const memberCount = existing?.length || 0
-    const includedMembers = 2
+    const memberCount = existingResult.data?.length || 0
+    const paidSeats = ownerResult.data?.paid_seats || 0
+    const totalSlots = INCLUDED_MEMBERS + paidSeats
+
+    // Block if no available seats
+    if (memberCount >= totalSlots) {
+      return Response.json({
+        error: 'Keine freien Plätze. Bitte buchen Sie zuerst zusätzliche Plätze.',
+        needsPayment: true,
+        memberCount,
+        totalSlots
+      }, { status: 402 })
+    }
 
     // Generate unique join code
     let joinCode
@@ -96,8 +118,109 @@ export async function POST(request) {
 
     return Response.json({
       member,
-      needsPayment: memberCount >= includedMembers,
       memberCount: memberCount + 1,
+      totalSlots
+    })
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PATCH — reduce paid seats (after removing members)
+export async function PATCH(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = await request.json()
+    const { reduceTo } = body
+
+    if (typeof reduceTo !== 'number' || reduceTo < 0 || reduceTo > MAX_PAID_SEATS) {
+      return Response.json({ error: 'Ungültige Anzahl' }, { status: 400 })
+    }
+
+    const admin = getAdmin()
+
+    // Check current state
+    const [membersResult, ownerResult] = await Promise.all([
+      admin.from('team_members').select('id').eq('owner_id', user.id).neq('status', 'removed'),
+      admin.from('majstors').select('paid_seats, seat_subscription_id').eq('id', user.id).single()
+    ])
+
+    const activeMembers = membersResult.data?.length || 0
+    const currentPaidSeats = ownerResult.data?.paid_seats || 0
+    const seatSubId = ownerResult.data?.seat_subscription_id
+
+    // Can't reduce below what's needed
+    const minSeats = Math.max(0, activeMembers - INCLUDED_MEMBERS)
+    if (reduceTo < minSeats) {
+      return Response.json({
+        error: `Sie haben noch ${activeMembers} aktive Mitglieder. Bitte entfernen Sie zuerst Mitglieder.`,
+        activeMembers,
+        minSeats
+      }, { status: 400 })
+    }
+
+    if (!seatSubId) {
+      return Response.json({ error: 'Kein Platz-Abonnement gefunden' }, { status: 400 })
+    }
+
+    // Call FastSpring API to update quantity or cancel
+    const credentials = Buffer.from(
+      `${process.env.FASTSPRING_USERNAME}:${process.env.FASTSPRING_PASSWORD}`
+    ).toString('base64')
+
+    if (reduceTo === 0) {
+      // Cancel seat subscription entirely
+      const fsRes = await fetch(`https://api.fastspring.com/subscriptions/${seatSubId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Basic ${credentials}` }
+      })
+      if (!fsRes.ok) {
+        const err = await fsRes.text()
+        console.error('FS cancel error:', err)
+        return Response.json({ error: 'FastSpring Fehler beim Kündigen' }, { status: 500 })
+      }
+
+      await admin.from('majstors').update({
+        paid_seats: 0,
+        seat_subscription_id: null,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id)
+
+    } else {
+      // Update quantity on FastSpring
+      const fsRes = await fetch('https://api.fastspring.com/subscriptions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          subscriptions: [{
+            subscription: seatSubId,
+            quantity: reduceTo
+          }]
+        })
+      })
+      if (!fsRes.ok) {
+        const err = await fsRes.text()
+        console.error('FS update error:', err)
+        return Response.json({ error: 'FastSpring Fehler beim Ändern' }, { status: 500 })
+      }
+
+      await admin.from('majstors').update({
+        paid_seats: reduceTo,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id)
+    }
+
+    console.log(`💺 Seats reduced: ${currentPaidSeats} → ${reduceTo} for user ${user.id}`)
+
+    return Response.json({
+      success: true,
+      paidSeats: reduceTo,
+      totalSlots: INCLUDED_MEMBERS + reduceTo
     })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 })
@@ -124,7 +247,22 @@ export async function DELETE(request) {
 
     if (error) return Response.json({ error: error.message }, { status: 500 })
 
-    return Response.json({ success: true })
+    // Return updated counts for UI
+    const [membersResult, ownerResult] = await Promise.all([
+      admin.from('team_members').select('id').eq('owner_id', user.id).neq('status', 'removed'),
+      admin.from('majstors').select('paid_seats').eq('id', user.id).single()
+    ])
+
+    const activeMembers = membersResult.data?.length || 0
+    const paidSeats = ownerResult.data?.paid_seats || 0
+    const unusedSeats = Math.max(0, (INCLUDED_MEMBERS + paidSeats) - activeMembers)
+
+    return Response.json({
+      success: true,
+      activeMembers,
+      paidSeats,
+      unusedSeats
+    })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 })
   }

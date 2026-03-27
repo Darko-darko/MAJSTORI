@@ -236,6 +236,11 @@ async function handleSubscriptionActivated(data) {
     console.log(' Majstor ID:', majstorId)
     console.log(' Status (raw):', statusRaw)
 
+    // ✅ TEAM SEATS: Handle additional-user products separately
+    if (productPath === 'additional-user' || productPath === 'additional-user-yearly') {
+      return await handleSeatSubscriptionActivated(data, majstorId, subscriptionId, productPath)
+    }
+
     const planId = await getPlanIdFromProduct(productPath)
 
     if (!subscriptionId || !planId) {
@@ -430,6 +435,12 @@ async function handleSubscriptionDeactivated(data) {
 
     console.log(' Subscription ID:', subscriptionId)
 
+    // ✅ Check if this is a seat subscription
+    const seatOwner = await isSeatSubscription(subscriptionId)
+    if (seatOwner) {
+      return await handleSeatDeactivated(seatOwner.id)
+    }
+
     const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
       .select('majstor_id, status, trial_starts_at')
@@ -480,6 +491,9 @@ async function handleSubscriptionDeactivated(data) {
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
+
+    // ✅ Cancel seat subscription when PRO+ is cancelled
+    await cancelSeatSubscription(majstorId)
 
     console.log(' Subscription cancelled')
     console.log(' User reverted to freemium')
@@ -715,8 +729,114 @@ async function handleTrialReminder(data) {
 }
 
 // ============================================
+// TEAM SEAT HANDLERS
+// ============================================
+
+async function handleSeatSubscriptionActivated(data, majstorId, subscriptionId, productPath) {
+  console.log('💺 handleSeatSubscriptionActivated')
+
+  try {
+    // Extract quantity from FastSpring event
+    let quantity = 1
+    if (typeof data.subscription === 'object') {
+      quantity = data.subscription.quantity || data.quantity || 1
+    } else {
+      quantity = data.quantity || 1
+    }
+
+    console.log(`💺 Seat subscription: ${subscriptionId}, quantity: ${quantity}, product: ${productPath}`)
+
+    await supabaseAdmin
+      .from('majstors')
+      .update({
+        paid_seats: quantity,
+        seat_subscription_id: subscriptionId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', majstorId)
+
+    console.log(`✅ Saved paid_seats=${quantity} for majstor ${majstorId}`)
+    return { success: true, type: 'team_seat', quantity }
+
+  } catch (error) {
+    console.error('❌ Error in handleSeatSubscriptionActivated:', error)
+    return { error: error.message }
+  }
+}
+
+async function isSeatSubscription(subscriptionId) {
+  const { data: majstor } = await supabaseAdmin
+    .from('majstors')
+    .select('id, paid_seats')
+    .eq('seat_subscription_id', subscriptionId)
+    .single()
+  return majstor || null
+}
+
+async function handleSeatDeactivated(majstorId) {
+  console.log('💺 Seat subscription deactivated for majstor:', majstorId)
+
+  // Reset paid seats
+  await supabaseAdmin
+    .from('majstors')
+    .update({
+      paid_seats: 0,
+      seat_subscription_id: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', majstorId)
+
+  // Soft-remove members beyond the 2 included
+  const { data: members } = await supabaseAdmin
+    .from('team_members')
+    .select('id, created_at')
+    .eq('owner_id', majstorId)
+    .neq('status', 'removed')
+    .order('created_at', { ascending: true })
+
+  if (members && members.length > 2) {
+    const toRemove = members.slice(2) // keep oldest 2
+    for (const m of toRemove) {
+      await supabaseAdmin
+        .from('team_members')
+        .update({ status: 'removed' })
+        .eq('id', m.id)
+    }
+    console.log(`🗑️ Removed ${toRemove.length} members beyond included 2`)
+  }
+
+  console.log('✅ Seat subscription fully deactivated')
+  return { success: true }
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+async function cancelSeatSubscription(majstorId) {
+  // Cancel seat subscription when PRO+ is cancelled
+  const { data: majstor } = await supabaseAdmin
+    .from('majstors')
+    .select('seat_subscription_id')
+    .eq('id', majstorId)
+    .single()
+
+  if (majstor?.seat_subscription_id) {
+    console.log('💺 Cancelling seat subscription:', majstor.seat_subscription_id)
+    try {
+      const credentials = Buffer.from(
+        `${process.env.FASTSPRING_USERNAME}:${process.env.FASTSPRING_PASSWORD}`
+      ).toString('base64')
+      await fetch(`https://api.fastspring.com/subscriptions/${majstor.seat_subscription_id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Basic ${credentials}` }
+      })
+    } catch (err) {
+      console.error('Failed to cancel seat subscription on FS:', err)
+    }
+    await handleSeatDeactivated(majstorId)
+  }
+}
 
 async function getPlanIdFromProduct(productPath) {
   const productMap = {
