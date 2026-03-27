@@ -25,13 +25,17 @@ export async function GET(request) {
     const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
     const isWorker = majstor?.role === 'worker'
 
+    const { searchParams } = new URL(request.url)
+    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const offset = parseInt(searchParams.get('offset') || '0', 10)
+
     // Fetch conversations for this user
     let convQuery = admin
       .from('conversations')
-      .select('*')
+      .select('*', { count: 'exact' })
       .neq('status', 'deleted')
       .order('last_message_at', { ascending: false })
-      .limit(50)
+      .range(offset, offset + limit - 1)
 
     if (isWorker) {
       convQuery = convQuery.eq('worker_id', user.id)
@@ -39,7 +43,7 @@ export async function GET(request) {
       convQuery = convQuery.eq('owner_id', user.id)
     }
 
-    const { data: conversations } = await convQuery
+    const { data: conversations, count: totalConversations } = await convQuery
 
     // Fetch messages for all conversations
     const convIds = (conversations || []).map(c => c.id)
@@ -127,6 +131,8 @@ export async function GET(request) {
       conversations: enrichedConversations,
       timeEntries: timeItems,
       workerNames,
+      total: totalConversations || 0,
+      hasMore: (offset + limit) < (totalConversations || 0),
     })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 })

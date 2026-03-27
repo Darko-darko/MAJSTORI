@@ -22,8 +22,13 @@ function compressImage(file, maxWidth = 1920, quality = 0.8) {
 export default function WorkerFeedPage() {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const PAGE_SIZE = 20
   const [fullImage, setFullImage] = useState(null)
   const [userId, setUserId] = useState(null)
+  const feedEndRef = useRef(null)
 
   // New message form
   const [showNewForm, setShowNewForm] = useState(false)
@@ -79,15 +84,41 @@ export default function WorkerFeedPage() {
     return { Authorization: `Bearer ${session?.access_token}` }
   }
 
-  const loadFeed = async () => {
+  const loadFeed = async (reset = true) => {
     try {
       const headers = await getHeaders()
-      const res = await fetch('/api/team/feed', { headers })
+      const currentOffset = reset ? 0 : offset
+      const res = await fetch(`/api/team/feed?limit=${PAGE_SIZE}&offset=${currentOffset}`, { headers })
       const json = await res.json()
-      if (json.conversations) setConversations(json.conversations)
+      if (json.conversations) {
+        if (reset) {
+          setConversations(json.conversations)
+          setOffset(PAGE_SIZE)
+        } else {
+          setConversations(prev => [...prev, ...json.conversations])
+          setOffset(currentOffset + PAGE_SIZE)
+        }
+        setHasMore(json.hasMore || false)
+      }
     } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    finally { setLoading(false); setLoadingMore(false) }
   }
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    await loadFeed(false)
+  }
+
+  useEffect(() => {
+    if (!feedEndRef.current) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasMore && !loadingMore) loadMore() },
+      { threshold: 0.1 }
+    )
+    observer.observe(feedEndRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore])
 
   // Create new conversation (worker → chef)
   const handleNewMessage = async () => {
@@ -406,11 +437,19 @@ export default function WorkerFeedPage() {
             </div>
           </div>
         ))
-      ) : (
+      ) : !loading && (
         <div className="text-center py-12 text-slate-500">
           <p className="text-4xl mb-3">📡</p>
           <p>Noch keine Aktivitäten</p>
           <p className="text-sm mt-1">Senden Sie Fotos und Updates an Ihren Chef</p>
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={feedEndRef} className="h-4" />
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
         </div>
       )}
     </div>
