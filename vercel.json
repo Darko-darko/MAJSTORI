@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/cron/check-overdue", "schedule": "0 8 * * *" },
     { "path": "/api/cron/onboarding-reminder", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/cleanup-deletions", "schedule": "0 2 * * *" }
+    { "path": "/api/cron/cleanup-deletions", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/stop-timers", "schedule": "5 23 * * *" }
   ]
 }

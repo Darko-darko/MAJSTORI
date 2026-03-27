@@ -13,7 +13,17 @@ export default function WorkerTimePage() {
 
   useEffect(() => {
     loadEntries()
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+
+    // Realtime: if timer is stopped externally (cron, owner), UI updates immediately
+    const channel = supabase
+      .channel('worker-time')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => loadEntries())
+      .subscribe()
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Timer tick
@@ -159,9 +169,7 @@ export default function WorkerTimePage() {
               </p>
             )}
             {running.start_lat && (
-              <p className="text-slate-500 text-xs mb-4">
-                GPS: {running.start_lat.toFixed(4)}, {running.start_lng.toFixed(4)}
-              </p>
+              <p className="text-green-500 text-xs mb-4">📍 Standort erfasst ✓</p>
             )}
 
             <button
@@ -194,17 +202,21 @@ export default function WorkerTimePage() {
         {entries.length > 0 ? (
           <div className="space-y-2">
             {entries.map((entry) => (
-              <div key={entry.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
-                <div>
+              <div key={entry.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                <div className="flex items-center justify-between">
                   <p className="text-white font-medium">
                     {formatClock(entry.start_time)} — {formatClock(entry.end_time)}
                   </p>
-                </div>
-                <div className="text-right">
                   <p className="text-green-400 font-bold">
                     {formatDuration(entry.start_time, entry.end_time)}
                   </p>
                 </div>
+                {(entry.start_lat || entry.end_lat) && (
+                  <p className="text-slate-500 text-xs mt-1">📍 Standort erfasst</p>
+                )}
+                {entry.note && (
+                  <p className="text-slate-400 text-xs mt-1">{entry.note}</p>
+                )}
               </div>
             ))}
           </div>
