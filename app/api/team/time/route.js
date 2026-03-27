@@ -150,3 +150,38 @@ export async function POST(request) {
     return Response.json({ error: err.message }, { status: 500 })
   }
 }
+
+// DELETE — owner deletes a time entry
+export async function DELETE(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const entryId = searchParams.get('id')
+    if (!entryId) return Response.json({ error: 'Missing id' }, { status: 400 })
+
+    const admin = getAdmin()
+
+    // Only owner can delete
+    const { data: entry } = await admin
+      .from('work_times')
+      .select('owner_id')
+      .eq('id', entryId)
+      .single()
+
+    if (!entry) return Response.json({ error: 'Nicht gefunden' }, { status: 404 })
+    if (entry.owner_id !== user.id) return Response.json({ error: 'Nicht berechtigt' }, { status: 403 })
+
+    const { error } = await admin
+      .from('work_times')
+      .delete()
+      .eq('id', entryId)
+
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+
+    return Response.json({ deleted: true })
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 })
+  }
+}

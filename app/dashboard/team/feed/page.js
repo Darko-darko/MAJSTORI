@@ -56,8 +56,9 @@ export default function FeedPage() {
   const convParam = searchParams.get('conv')
   const [expandedConv, setExpandedConv] = useState(convParam || null)
 
-  // Active workers
+  // Active workers + today's completed
   const [activeWorkersList, setActiveWorkersList] = useState([])
+  const [completedTodayList, setCompletedTodayList] = useState([])
   const [showActive, setShowActive] = useState(false)
 
   // Filter
@@ -82,7 +83,7 @@ export default function FeedPage() {
       .channel('owner-feed-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadFeed())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadFeed())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => loadFeed())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => { loadFeed(); loadActiveWorkers() })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -101,19 +102,21 @@ export default function FeedPage() {
   const loadActiveWorkers = async () => {
     try {
       const headers = await getHeaders()
+      // Fetch without date filter — filter locally using local timezone
       const res = await fetch('/api/team/time', { headers })
       const json = await res.json()
       if (json.entries) {
-        const running = json.entries.filter(e => e.status === 'running')
-        // Get worker names
         const teamRes = await fetch('/api/team', { headers })
         const teamJson = await teamRes.json()
         const nameMap = {}
         ;(teamJson.members || []).forEach(m => { if (m.worker_id) nameMap[m.worker_id] = m.worker_name })
-        setActiveWorkersList(running.map(e => ({
-          ...e,
-          worker_name: nameMap[e.worker_id] || 'Mitarbeiter',
-        })))
+        const enrich = (e) => ({ ...e, worker_name: nameMap[e.worker_id] || 'Mitarbeiter' })
+
+        const todayLocal = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+        const isToday = (iso) => new Date(iso).toLocaleDateString('en-CA') === todayLocal
+
+        setActiveWorkersList(json.entries.filter(e => e.status === 'running').map(enrich))
+        setCompletedTodayList(json.entries.filter(e => e.status === 'completed' && isToday(e.start_time)).map(enrich))
       }
     } catch (err) { console.error(err) }
   }
@@ -353,38 +356,130 @@ export default function FeedPage() {
         </button>
       </div>
 
-      {/* Active workers widget */}
-      {activeWorkersList.length > 0 && (
-        <div className="bg-green-900/20 border border-green-500/30 rounded-xl overflow-hidden">
-          <button
-            onClick={() => setShowActive(!showActive)}
-            className="w-full px-4 py-2.5 flex items-center justify-between"
-          >
-            <span className="text-green-400 text-sm font-medium">
-              🟢 {activeWorkersList.length} aktiv
-            </span>
-            <span className="text-slate-500 text-xs">{showActive ? '▲' : '▼'}</span>
-          </button>
-          {showActive && (
-            <div className="px-4 pb-3 space-y-1.5">
-              {activeWorkersList.map(w => {
-                const elapsed = Date.now() - new Date(w.start_time).getTime()
-                const h = Math.floor(elapsed / 3600000)
-                const m = Math.floor((elapsed % 3600000) / 60000)
-                return (
-                  <div key={w.id} className="flex items-center justify-between text-sm">
-                    <span className="text-white light-invert-text">{w.worker_name}</span>
-                    <span className="text-slate-400 text-xs">
-                      seit {new Date(w.start_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                      <span className="text-green-400 ml-2 font-medium">{h}h {m}m</span>
-                    </span>
+      {/* Workers time widget */}
+      {workers.length > 0 && (() => {
+        const activeIds = new Set(activeWorkersList.map(w => w.worker_id))
+        const completedByWorker = {}
+        completedTodayList.forEach(w => {
+          if (!completedByWorker[w.worker_id]) completedByWorker[w.worker_id] = []
+          completedByWorker[w.worker_id].push(w)
+        })
+        const inactiveWorkers = workers.filter(w => !activeIds.has(w.worker_id) && !completedByWorker[w.worker_id])
+
+        return (
+          <div className="bg-slate-800/50 border border-green-500/30 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setShowActive(!showActive)}
+              className="w-full px-4 py-2.5 flex items-center justify-between"
+            >
+              <span className="text-sm font-medium">
+                {activeWorkersList.length > 0
+                  ? <span className="text-green-400">🟢 {activeWorkersList.length} aktiv</span>
+                  : <span className="text-slate-400">⏱️ Zeiterfassung</span>
+                }
+                {completedTodayList.length > 0 && <span className="text-slate-500"> · <span className="text-slate-400">{completedTodayList.length} abgeschlossen</span></span>}
+                {inactiveWorkers.length > 0 && <span className="text-slate-500"> · {inactiveWorkers.length} inaktiv</span>}
+              </span>
+              <span className="text-slate-500 text-xs">{showActive ? '▲' : '▼'}</span>
+            </button>
+            {showActive && (
+              <div className="px-4 pb-3 space-y-1.5">
+                {/* Active workers */}
+                {activeWorkersList.map(w => {
+                  const elapsed = Date.now() - new Date(w.start_time).getTime()
+                  const h = Math.floor(elapsed / 3600000)
+                  const m = Math.floor((elapsed % 3600000) / 60000)
+                  return (
+                    <div key={w.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></span>
+                        <span className="text-white light-invert-text">{w.worker_name}</span>
+                        {w.start_lat ? (
+                          <a href={`https://maps.google.com/?q=${w.start_lat},${w.start_lng}`} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-400 text-xs hover:underline" title="Startstandort">📍</a>
+                        ) : (
+                          <span className="text-slate-500 text-xs" title="Standort nicht verfügbar">📍</span>
+                        )}
+                      </div>
+                      <span className="text-slate-400 text-xs">
+                        seit {new Date(w.start_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                        <span className="text-green-400 ml-2 font-medium">{h}h {m}m</span>
+                      </span>
+                    </div>
+                  )
+                })}
+
+                {/* Completed today */}
+                {activeWorkersList.length > 0 && Object.keys(completedByWorker).length > 0 && (
+                  <div className="border-t border-slate-700/50 my-1.5" />
+                )}
+                {Object.entries(completedByWorker).map(([wId, entries]) => (
+                  entries.map(w => {
+                    const ms = new Date(w.end_time).getTime() - new Date(w.start_time).getTime()
+                    const h = Math.floor(ms / 3600000)
+                    const m = Math.floor((ms % 3600000) / 60000)
+                    const startTime = new Date(w.start_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                    const endTime = new Date(w.end_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <div key={w.id} className="text-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-slate-500 rounded-full flex-shrink-0"></span>
+                            <span className="text-slate-300">{w.worker_name}</span>
+                            {w.start_lat ? (
+                              <a href={`https://maps.google.com/?q=${w.start_lat},${w.start_lng}`} target="_blank" rel="noopener noreferrer"
+                                className="text-blue-400 text-xs hover:underline" title="Angemeldet">📍▶</a>
+                            ) : (
+                              <span className="text-slate-600 text-xs">📍▶</span>
+                            )}
+                            {w.end_lat ? (
+                              <a href={`https://maps.google.com/?q=${w.end_lat},${w.end_lng}`} target="_blank" rel="noopener noreferrer"
+                                className="text-blue-400 text-xs hover:underline" title="Abgemeldet">📍⏹</a>
+                            ) : (
+                              <span className="text-slate-600 text-xs">📍⏹</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 text-xs">
+                              {startTime}–{endTime}
+                              <span className="text-slate-300 ml-2 font-medium">{h}h {m}m</span>
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Eintrag von ${w.worker_name} (${startTime}–${endTime}) löschen?`)) return
+                                const headers = await getHeaders()
+                                await fetch(`/api/team/time?id=${w.id}`, { method: 'DELETE', headers })
+                                loadActiveWorkers()
+                              }}
+                              className="text-slate-600 hover:text-red-400 text-xs transition-colors"
+                              title="Eintrag löschen"
+                            >🗑</button>
+                          </div>
+                        </div>
+                        {w.note && <p className="text-slate-500 text-xs ml-4 mt-0.5">{w.note}</p>}
+                      </div>
+                    )
+                  })
+                ))}
+
+                {/* Inactive workers */}
+                {(activeWorkersList.length > 0 || Object.keys(completedByWorker).length > 0) && inactiveWorkers.length > 0 && (
+                  <div className="border-t border-slate-700/50 my-1.5" />
+                )}
+                {inactiveWorkers.map(w => (
+                  <div key={w.worker_id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-slate-600 rounded-full flex-shrink-0"></span>
+                      <span className="text-slate-500">{w.worker_name}</span>
+                    </div>
+                    <span className="text-slate-600 text-xs">Heute nicht aktiv</span>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* New conversation form */}
       {showNewForm && (

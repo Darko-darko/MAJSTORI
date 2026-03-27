@@ -405,6 +405,12 @@ export default function WorkerDetailPage() {
           {runningEntry && (
             <div className="ml-auto bg-green-500/20 border border-green-500/30 rounded-lg px-4 py-2">
               <p className="text-green-400 text-sm font-semibold animate-pulse">⏱️ Arbeitet seit {formatClock(runningEntry.start_time)}</p>
+              {runningEntry.start_lat ? (
+                <a href={`https://maps.google.com/?q=${runningEntry.start_lat},${runningEntry.start_lng}`} target="_blank" rel="noopener noreferrer"
+                  className="text-blue-400 text-xs hover:underline">📍 Standort anzeigen</a>
+              ) : (
+                <p className="text-slate-500 text-xs">📍 Standort nicht verfügbar</p>
+              )}
             </div>
           )}
         </div>
@@ -438,16 +444,28 @@ export default function WorkerDetailPage() {
                 <h3 className="text-slate-400 text-sm font-semibold mb-2">{date}</h3>
                 <div className="space-y-2">
                   {entries.map(entry => (
-                    <div key={entry.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
-                      <div>
+                    <div key={entry.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                      <div className="flex items-center justify-between">
                         <p className="text-white">{formatClock(entry.start_time)} — {formatClock(entry.end_time)}</p>
-                        {entry.start_lat && (
-                          <p className="text-slate-500 text-xs mt-1">
-                            GPS: {Number(entry.start_lat).toFixed(4)}, {Number(entry.start_lng).toFixed(4)}
-                          </p>
+                        <p className="text-green-400 font-bold">{formatDuration(entry.start_time, entry.end_time)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+                        {entry.start_lat ? (
+                          <a href={`https://maps.google.com/?q=${entry.start_lat},${entry.start_lng}`} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-400 text-xs hover:underline">📍 Angemeldet</a>
+                        ) : (
+                          <span className="text-slate-500 text-xs">📍 Anmeldung — Standort nicht verfügbar</span>
+                        )}
+                        {entry.end_lat ? (
+                          <a href={`https://maps.google.com/?q=${entry.end_lat},${entry.end_lng}`} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-400 text-xs hover:underline">📍 Abgemeldet</a>
+                        ) : (
+                          <span className="text-slate-500 text-xs">📍 Abmeldung — Standort nicht verfügbar</span>
                         )}
                       </div>
-                      <p className="text-green-400 font-bold">{formatDuration(entry.start_time, entry.end_time)}</p>
+                      {entry.note && (
+                        <p className="text-slate-400 text-xs mt-1">{entry.note}</p>
+                      )}
                     </div>
                   ))}
                 </div>
