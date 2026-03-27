@@ -159,12 +159,20 @@ export default function TeamPage() {
                 </p>
               </div>
             )}
-            <button
-              onClick={() => setShowSeatModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
-            >
-              + Plätze buchen
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSeatModal(true)}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
+              >
+                + Plätze buchen
+              </button>
+              <button
+                onClick={() => router.push('/dashboard/subscription')}
+                className="px-4 py-2 bg-slate-700 text-slate-400 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+              >
+                Verwalten
+              </button>
+            </div>
           </div>
         </div>
       </div>

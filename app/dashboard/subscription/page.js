@@ -751,12 +751,20 @@ export default function SubscriptionPage() {
           <div className="bg-slate-800/50 border border-purple-500/30 rounded-2xl p-6 text-center">
             <h3 className="text-white font-bold text-lg mb-2">👥 Zusätzliche Teammitglieder</h3>
             <p className="text-slate-400 text-sm mb-4">2 Mitarbeiter sind in PRO+ enthalten. Weitere können hinzugebucht werden.</p>
-            <button
-              onClick={() => router.push('/dashboard/team')}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
-            >
-              Team verwalten & Plätze buchen
-            </button>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <button
+                onClick={() => router.push('/dashboard/team')}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
+              >
+                Team verwalten & Plätze buchen
+              </button>
+              <button
+                onClick={handleUpdatePaymentMethod}
+                className="px-6 py-3 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 transition-colors"
+              >
+                Plätze kündigen / verwalten
+              </button>
+            </div>
           </div>
           <div className="text-center">
             <button onClick={handleDowngrade}
