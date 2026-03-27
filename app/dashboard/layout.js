@@ -152,8 +152,9 @@ useEffect(() => {
   const [badges, setBadges] = useState({
     inquiries: 0,
     invoices: 0,
- 
   })
+  const [activeWorkers, setActiveWorkers] = useState(0)
+  const [openConvs, setOpenConvs] = useState(0)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -257,6 +258,31 @@ useEffect(() => {
         inquiries: inquiriesResult.count || 0,
         invoices: overdueResult.count || 0,
       })
+
+      // Active workers + open conversations count (for team owners)
+      if (majstor.role !== 'worker') {
+        const { data: members } = await supabase
+          .from('team_members')
+          .select('worker_id')
+          .eq('owner_id', majstor.id)
+          .eq('status', 'active')
+        const workerIds = (members || []).map(m => m.worker_id).filter(Boolean)
+        if (workerIds.length > 0) {
+          const { count } = await supabase
+            .from('work_times')
+            .select('id', { count: 'exact', head: true })
+            .in('worker_id', workerIds)
+            .eq('status', 'running')
+          setActiveWorkers(count || 0)
+        }
+
+        const { count: convCount } = await supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', majstor.id)
+          .eq('status', 'open')
+        setOpenConvs(convCount || 0)
+      }
 
     } catch (error) {
       console.error('Error loading badge counts:', error)
@@ -518,9 +544,8 @@ const getBuchhalterNavigation = () => [
 const getWorkerNavigation = () => [
   { name: 'Übersicht', href: '/dashboard/worker', icon: '👷', protected: false },
   { name: 'Feed', href: '/dashboard/worker/feed', icon: '📡', protected: false },
+  { name: 'Aufgaben', href: '/dashboard/worker/aufgaben', icon: '📋', protected: false },
   { name: 'Zeiterfassung', href: '/dashboard/worker/time', icon: '⏱️', protected: false },
-  { name: 'Aufgaben', href: '/dashboard/worker/tasks', icon: '📋', protected: false },
-  { name: 'Tagesbericht', href: '/dashboard/worker/reports', icon: '📝', protected: false },
 ]
 
 const getNavigation = () => {
@@ -534,9 +559,10 @@ const getNavigation = () => {
 
     { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
     { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
-    { name: 'Team', href: '/dashboard/team', icon: '👷', protected: true, feature: 'team' },
+    { name: 'Team', href: '/dashboard/team', icon: '👷', protected: true, feature: 'team', subtitle: activeWorkers > 0 ? `⏱️ ${activeWorkers} aktiv` : null },
     { name: 'Feed', href: '/dashboard/team/feed', icon: '📡', protected: true, feature: 'team' },
-    { name: 'Aufgaben', href: '/dashboard/team/tasks', icon: '📋', protected: true, feature: 'team' },
+    { name: 'Offen', href: '/dashboard/team/aufgaben', icon: '📋', badge: openConvs > 0 ? String(openConvs) : null, badgeColor: 'bg-orange-500', protected: true, feature: 'team' },
+    { name: 'Erledigt', href: '/dashboard/team/berichte', icon: '📝', protected: true, feature: 'team' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
@@ -591,8 +617,13 @@ const NavigationItem = ({ item, isMobile = false }) => {
   const content = (
     <>
       <span className="mr-3 text-lg">{item.icon}</span>
-      <span className="flex-1">{item.name}</span>
-      
+      <span className="flex-1">
+        {item.name}
+        {item.subtitle && (
+          <span className="block text-xs text-green-400 font-normal leading-tight">{item.subtitle}</span>
+        )}
+      </span>
+
       {/* Regular Badge Display (brojevi) */}
       {item.badge && typeof item.badge === 'string' && (
         <span className={`
@@ -987,7 +1018,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   </button>
                 )}
                 
-                <h1 className="text-base font-semibold text-white whitespace-nowrap">
+                <h1 className={`text-base font-semibold text-white whitespace-nowrap ${isWorker ? 'hidden sm:block' : ''}`}>
                   {isBuchhalter ? 'Buchhaltungs-Portal' : <span>Pro-Meister<span className="text-blue-400">.de</span></span>}
                 </h1>
               </div>

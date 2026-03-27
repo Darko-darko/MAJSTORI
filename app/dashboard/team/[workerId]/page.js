@@ -1,277 +1,194 @@
-// app/dashboard/team/[workerId]/page.js — Owner views worker details
+// app/dashboard/team/[workerId]/page.js — Owner views worker details (conversations-based)
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+
+function compressImage(file, maxWidth = 1920, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let w = img.width, h = img.height
+      if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth }
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
 
 export default function WorkerDetailPage() {
   const { workerId } = useParams()
   const router = useRouter()
   const [member, setMember] = useState(null)
   const [timeEntries, setTimeEntries] = useState([])
-  const [tasks, setTasks] = useState([])
+  const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('time') // time, tasks, reports
-  const [reports, setReports] = useState([])
-  const [showTaskForm, setShowTaskForm] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newDesc, setNewDesc] = useState('')
-  const [newLocation, setNewLocation] = useState('')
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-  const [newDue, setNewDue] = useState(tomorrow)
-  const [saving, setSaving] = useState(false)
-  const [newPhotos, setNewPhotos] = useState([]) // preview URLs
-  const [newPhotoFiles, setNewPhotoFiles] = useState([]) // actual files
-  const [expandedTaskId, setExpandedTaskId] = useState(null)
+  const [tab, setTab] = useState('time') // time, offen, erledigt
+  const [expandedConv, setExpandedConv] = useState(null)
   const [fullImage, setFullImage] = useState(null)
-  const [replyTo, setReplyTo] = useState(null)
+
+  // New conversation form
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [newText, setNewText] = useState('')
+  const [newTitle, setNewTitle] = useState('')
+  const [newLocation, setNewLocation] = useState('')
+  const [newDueDate, setNewDueDate] = useState('')
+  const [showTaskFields, setShowTaskFields] = useState(false)
+  const [newFiles, setNewFiles] = useState([])
+  const [newPreviews, setNewPreviews] = useState([])
+  const [sending, setSending] = useState(false)
+  const newFileRef = useRef(null)
+
+  // Reply
   const [replyText, setReplyText] = useState('')
+  const [replyFiles, setReplyFiles] = useState([])
+  const [replyPreviews, setReplyPreviews] = useState([])
   const [replying, setReplying] = useState(false)
-  const [expandedPostId, setExpandedPostId] = useState(null)
-  const [editingTaskId, setEditingTaskId] = useState(null)
+  const [replyTo, setReplyTo] = useState(null)
+  const replyFileRef = useRef(null)
 
   useEffect(() => {
     loadData()
-
-    // Realtime: listen for changes
     const channel = supabase
       .channel(`owner-worker-${workerId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        console.log('🔔 Task updated — reloading')
-        loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reports' }, () => {
-        console.log('🔔 Report updated — reloading')
-        loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => {
-        console.log('🔔 Time updated — reloading')
-        loadData()
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => loadData())
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [workerId])
 
-  const getAuthHeaders = async () => {
+  const getHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
   }
 
+  const getAuthHeader = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return { Authorization: `Bearer ${session?.access_token}` }
+  }
+
   const loadData = async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getHeaders()
 
-      // Load member info
+      // Member info
       const teamRes = await fetch('/api/team', { headers })
       const teamJson = await teamRes.json()
       const found = teamJson.members?.find(m => m.worker_id === workerId || m.id === workerId)
       setMember(found)
 
-      // Load time entries for this worker
+      // Time entries
       const timeRes = await fetch(`/api/team/time?worker_id=${workerId}`, { headers })
       const timeJson = await timeRes.json()
       if (timeJson.entries) setTimeEntries(timeJson.entries)
 
-      // Load task reports for this worker
-      const reportsRes = await fetch(`/api/team/task-reports?worker_id=${workerId}`, { headers })
-      const reportsJson = await reportsRes.json()
-      if (reportsJson.reports) setReports(reportsJson.reports)
-
-      // Load tasks for this worker
-      const tasksRes = await fetch('/api/team/tasks', { headers })
-      const tasksJson = await tasksRes.json()
-      if (tasksJson.tasks) {
-        setTasks(tasksJson.tasks.filter(t => t.assigned_to === workerId))
+      // Conversations with this worker
+      const convRes = await fetch(`/api/team/conversations?worker_id=${workerId}`, { headers })
+      const convJson = await convRes.json()
+      if (convJson.conversations) {
+        // Fetch messages for each conversation
+        const enriched = await Promise.all(
+          convJson.conversations.map(async (conv) => {
+            const msgRes = await fetch(`/api/team/conversations/${conv.id}`, { headers })
+            const msgJson = await msgRes.json()
+            return { ...conv, messages: msgJson.messages || [] }
+          })
+        )
+        setConversations(enriched)
       }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
-  function compressImage(file, maxWidth = 1920, quality = 0.8) {
-    return new Promise((resolve) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let w = img.width, h = img.height
-        if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth }
-        canvas.width = w; canvas.height = h
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality)
-      }
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
-  const handlePhotoSelect = (e) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length + newPhotos.length > 5) {
-      alert('Max. 5 Fotos pro Aufgabe')
-      return
-    }
-    setNewPhotoFiles(prev => [...prev, ...files])
-    files.forEach(f => setNewPhotos(prev => [...prev, URL.createObjectURL(f)]))
-  }
-
-  const handleCreateTask = async () => {
-    if (!newTitle.trim() || !newDue) return
-    setSaving(true)
+  // Create new conversation
+  const handleNewConversation = async () => {
+    if (!newText.trim()) return
+    setSending(true)
     try {
-      const headers = await getAuthHeaders()
-      const res = await fetch('/api/team/tasks', {
-        method: 'POST',
-        headers,
+      const headers = await getHeaders()
+      const res = await fetch('/api/team/conversations', {
+        method: 'POST', headers,
         body: JSON.stringify({
-          title: newTitle, description: newDesc, location: newLocation,
-          assigned_to: workerId,
-          due_date: newDue || null,
+          worker_id: workerId,
+          text: newText.trim(),
+          title: showTaskFields ? newTitle.trim() || null : null,
+          location: showTaskFields ? newLocation.trim() || null : null,
+          due_date: showTaskFields ? newDueDate || null : null,
         })
       })
       const json = await res.json()
-      if (json.task) {
-        // Upload photos if any
-        if (newPhotoFiles.length > 0) {
-          const { data: { session } } = await supabase.auth.getSession()
-          for (const file of newPhotoFiles) {
-            const compressed = await compressImage(file)
-            const formData = new FormData()
-            formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
-            formData.append('task_id', json.task.id)
-            formData.append('type', 'owner')
-            console.log('📷 Uploading owner photo for task:', json.task.id)
-            const uploadRes = await fetch('/api/team/tasks', {
-              method: 'PUT',
-              headers: { Authorization: `Bearer ${session?.access_token}` },
-              body: formData
-            })
-            const uploadJson = await uploadRes.json()
-            console.log('📷 Upload result:', uploadRes.status, uploadJson)
-          }
-          // Reload to get updated task with photos
-          const reloadRes = await fetch('/api/team/tasks', { headers })
-          const reloadJson = await reloadRes.json()
-          if (reloadJson.tasks) setTasks(reloadJson.tasks.filter(t => t.assigned_to === workerId))
-        } else {
-          setTasks(prev => [json.task, ...prev])
-        }
-        setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(tomorrow)
-        setNewPhotos([]); setNewPhotoFiles([])
-        setShowTaskForm(false)
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setSaving(false)
-    }
-  }
+      if (!res.ok) throw new Error(json.error)
 
-  const startEditing = (task) => {
-    setEditingTaskId(task.id)
-    setNewTitle(task.title)
-    setNewDesc(task.description || '')
-    setNewLocation(task.location || '')
-    setNewDue(task.due_date || '')
-    setNewPhotos((task.owner_photos || []).map(p => p.url))
-    setNewPhotoFiles([])
-    setShowTaskForm(true)
-  }
-
-  const handleUpdateTask = async () => {
-    if (!newTitle.trim() || !newDue) return
-    setSaving(true)
-    try {
-      const headers = await getAuthHeaders()
-      const res = await fetch('/api/team/tasks', {
-        method: 'PATCH', headers,
-        body: JSON.stringify({
-          id: editingTaskId,
-          title: newTitle, description: newDesc, location: newLocation,
-          due_date: newDue || null,
-        })
-      })
-
-      // Upload new photos if any
-      if (newPhotoFiles.length > 0) {
-        const { data: { session } } = await supabase.auth.getSession()
-        for (const file of newPhotoFiles) {
+      if (newFiles.length > 0 && json.message) {
+        const authHeader = await getAuthHeader()
+        for (const file of newFiles) {
           const compressed = await compressImage(file)
           const formData = new FormData()
           formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
-          formData.append('task_id', editingTaskId)
-          formData.append('type', 'owner')
-          await fetch('/api/team/tasks', {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${session?.access_token}` },
-            body: formData
+          formData.append('message_id', json.message.id)
+          await fetch(`/api/team/conversations/${json.conversation.id}/messages`, {
+            method: 'PUT', headers: authHeader, body: formData
           })
         }
       }
 
+      setNewText(''); setNewTitle(''); setNewLocation(''); setNewDueDate('')
+      setNewFiles([]); setNewPreviews([]); setShowNewForm(false); setShowTaskFields(false)
       await loadData()
-      setEditingTaskId(null)
-      setShowTaskForm(false)
-      setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(tomorrow)
-      setNewPhotos([]); setNewPhotoFiles([])
-    } catch (err) { console.error(err) }
-    finally { setSaving(false) }
+    } catch (err) { alert(err.message) }
+    finally { setSending(false) }
   }
 
-  const handleReply = async (parentId) => {
-    if (!replyText.trim()) return
+  // Reply
+  const handleReply = async (conversationId) => {
+    if (!replyText.trim() && replyFiles.length === 0) return
     setReplying(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      await fetch('/api/team/task-reports', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: replyText.trim(), task_id: null, parent_id: parentId })
+      const headers = await getHeaders()
+      const res = await fetch(`/api/team/conversations/${conversationId}/messages`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ text: replyText.trim() || '📸 Foto' })
       })
-      setReplyText('')
-      setReplyTo(null)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+
+      if (replyFiles.length > 0 && json.message) {
+        const authHeader = await getAuthHeader()
+        for (const file of replyFiles) {
+          const compressed = await compressImage(file)
+          const formData = new FormData()
+          formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
+          formData.append('message_id', json.message.id)
+          await fetch(`/api/team/conversations/${conversationId}/messages`, {
+            method: 'PUT', headers: authHeader, body: formData
+          })
+        }
+      }
+
+      setReplyText(''); setReplyFiles([]); setReplyPreviews([]); setReplyTo(null)
       await loadData()
-    } catch (err) { console.error(err) }
+    } catch (err) { alert(err.message) }
     finally { setReplying(false) }
   }
 
-  const handleDeleteTask = async (taskId) => {
+  // Close / Archive / Reopen / Delete
+  const handleAction = async (convId, action) => {
+    if (action === 'delete' && !confirm('Konversation wirklich löschen?')) return
     try {
-      const headers = await getAuthHeaders()
-      await fetch(`/api/team/tasks?id=${taskId}`, { method: 'DELETE', headers })
-      setTasks(prev => prev.filter(t => t.id !== taskId))
-    } catch (err) { console.error(err) }
-  }
-
-  const handleResetTask = async (taskId) => {
-    const reason = prompt('Grund für Wiederholen (optional):')
-    if (reason === null) return // cancelled
-
-    try {
-      const headers = await getAuthHeaders()
-      // Reset task status
-      const res = await fetch('/api/team/tasks', {
-        method: 'PATCH', headers,
-        body: JSON.stringify({
-          id: taskId,
-          status: 'pending',
-          description: reason ? `[Wiederholen: ${reason}]` : undefined,
+      const headers = await getHeaders()
+      if (action === 'delete') {
+        await fetch(`/api/team/conversations/${convId}`, { method: 'DELETE', headers })
+      } else {
+        await fetch(`/api/team/conversations/${convId}`, {
+          method: 'PATCH', headers,
+          body: JSON.stringify({ status: action })
         })
-      })
-      // Remove final flag from reports so worker can continue
-      const { data: { session } } = await supabase.auth.getSession()
-      await fetch('/api/team/task-reports/reset-final', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: taskId })
-      })
-      const json = await res.json()
-      if (json.task) {
-        setTasks(prev => prev.map(t => t.id === taskId ? json.task : t))
-        // Reload reports
-        await loadData()
       }
+      await loadData()
     } catch (err) { console.error(err) }
   }
 
@@ -279,44 +196,28 @@ export default function WorkerDetailPage() {
   const formatDate = (iso) => new Date(iso).toLocaleDateString('de-DE')
   const formatDuration = (start, end) => {
     const ms = new Date(end).getTime() - new Date(start).getTime()
-    const totalMin = Math.floor(ms / 60000)
-    const h = Math.floor(totalMin / 60)
-    const m = totalMin % 60
+    const h = Math.floor(ms / 3600000)
+    const m = Math.floor((ms % 3600000) / 60000)
     return `${h}h ${m}m`
   }
 
   if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto p-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent mx-auto"></div>
-      </div>
-    )
+    return <div className="max-w-3xl mx-auto p-6"><div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent mx-auto"></div></div>
   }
 
   if (!member) {
     return (
       <div className="max-w-3xl mx-auto p-6 text-center">
         <p className="text-slate-400">Mitarbeiter nicht gefunden</p>
-        <button onClick={() => router.push('/dashboard/team')} className="mt-4 text-blue-400 hover:underline">
-          Zurück zum Team
-        </button>
+        <button onClick={() => router.push('/dashboard/team')} className="mt-4 text-blue-400 hover:underline">Zurück zum Team</button>
       </div>
     )
   }
 
   const runningEntry = timeEntries.find(e => e.status === 'running')
   const completedEntries = timeEntries.filter(e => e.status === 'completed')
-  const today = new Date().toISOString().split('T')[0]
-  const isToday = (dateStr) => dateStr && dateStr.startsWith(today)
-
-  // Aufgaben: open + today completed
-  const aufgabenTasks = tasks.filter(t => t.status !== 'done' || isToday(t.completed_at))
-  // Berichte: ALL completed (full history)
-  const berichteTasks = tasks.filter(t => t.status === 'done')
-
-  // Keep old names for compatibility
-  const pendingTasks = aufgabenTasks
-  const doneTasks = berichteTasks
+  const openConvs = conversations.filter(c => c.status === 'open')
+  const closedConvs = conversations.filter(c => c.status === 'closed')
 
   // Group time entries by date
   const entriesByDate = {}
@@ -326,9 +227,145 @@ export default function WorkerDetailPage() {
     entriesByDate[date].push(e)
   })
 
+  // Conversation card renderer
+  const ConvCard = ({ conv }) => {
+    const isExpanded = expandedConv === conv.id
+    const isOpen = conv.status === 'open'
+
+    return (
+      <div className={`border rounded-xl overflow-hidden ${
+        conv.status === 'closed' ? 'bg-slate-800/30 border-slate-700/50' :
+        conv.title ? 'bg-slate-800/50 border-blue-500/30' : 'bg-slate-800/50 border-slate-700'
+      }`}>
+        {/* Header */}
+        <div className="p-4 cursor-pointer" onClick={() => setExpandedConv(isExpanded ? null : conv.id)}>
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+              conv.started_by === conv.owner_id ? 'bg-purple-600' : 'bg-orange-600'
+            }`}>
+              {conv.started_by === conv.owner_id ? '👔' : '👷'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-white font-medium text-sm">
+                {conv.started_by === conv.owner_id ? 'Sie' : member.worker_name}
+              </span>
+              <span className="text-slate-500 text-xs ml-2">{formatClock(conv.last_message_at || conv.created_at)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {conv.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋</span>}
+              {conv.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
+              {conv.started_by !== conv.owner_id && isOpen && <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">Eingang</span>}
+              <span className="text-slate-500 text-xs">{conv.message_count} 💬</span>
+              <span className="text-slate-500">{isExpanded ? '▲' : '▼'}</span>
+            </div>
+          </div>
+          {conv.title && <p className="text-blue-400 text-sm font-medium ml-9">{conv.title}</p>}
+          {(conv.location || conv.due_date) && (
+            <p className="text-slate-500 text-xs ml-9">
+              {conv.location && `📍 ${conv.location}`}
+              {conv.location && conv.due_date && ' · '}
+              {conv.due_date && `📅 ${new Date(conv.due_date).toLocaleDateString('de-DE')}`}
+            </p>
+          )}
+          {!isExpanded && conv.messages?.[0] && (
+            <p className="text-slate-400 text-sm ml-9 mt-1 truncate">{conv.messages[0].text}</p>
+          )}
+        </div>
+
+        {/* Expanded */}
+        {isExpanded && (
+          <div className="border-t border-slate-700/50">
+            <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
+              {(conv.messages || []).map(msg => {
+                const isOwner = msg.sender_id === conv.owner_id
+                return (
+                  <div key={msg.id} className={`rounded-lg p-2.5 ${
+                    isOwner ? 'bg-purple-900/20 border-l-2 border-purple-500 ml-4' : 'bg-slate-900/40 border-l-2 border-orange-500 mr-4'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-semibold ${isOwner ? 'text-purple-400' : 'text-orange-400'}`}>
+                        {isOwner ? '👔 Ich' : `👷 ${member.worker_name}`}
+                      </span>
+                      <span className="text-slate-500 text-xs">{formatClock(msg.created_at)}</span>
+                    </div>
+                    {msg.text && <p className="text-slate-300 text-sm">{msg.text}</p>}
+                    {msg.photos?.length > 0 && (
+                      <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                        {msg.photos.map((p, i) => (
+                          <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer hover:opacity-80" onClick={(e) => { e.stopPropagation(); setFullImage(p.url) }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Reply (only if open) */}
+            {isOpen && (
+              <div className="p-3 border-t border-slate-700/50 space-y-2">
+                {replyPreviews.length > 0 && replyTo === conv.id && (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {replyPreviews.map((url, i) => (
+                      <div key={i} className="relative">
+                        <img src={url} alt="" className="w-full h-14 object-cover rounded-lg" />
+                        <button onClick={() => {
+                          setReplyPreviews(prev => prev.filter((_, idx) => idx !== i))
+                          setReplyFiles(prev => prev.filter((_, idx) => idx !== i))
+                        }} className="absolute top-0.5 right-0.5 bg-red-600 text-white w-4 h-4 rounded-full text-xs leading-none">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => { setReplyTo(conv.id); replyFileRef.current?.click() }}
+                    className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
+                  <input type="text"
+                    value={replyTo === conv.id ? replyText : ''}
+                    onFocus={() => setReplyTo(conv.id)}
+                    onChange={(e) => { setReplyTo(conv.id); setReplyText(e.target.value) }}
+                    placeholder="Antworten..."
+                    className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleReply(conv.id)}
+                  />
+                  <button onClick={() => handleReply(conv.id)}
+                    disabled={replying || ((!replyText.trim() || replyTo !== conv.id) && replyFiles.length === 0)}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50">
+                    {replying && replyTo === conv.id ? '...' : 'Senden'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="px-3 pb-3 flex flex-wrap gap-2">
+              {isOpen && (
+                <>
+                  <button onClick={() => handleAction(conv.id, 'closed')} className="text-xs text-green-400 bg-green-500/10 px-3 py-1.5 rounded-lg hover:bg-green-500/20">
+                    ✓ Abschließen
+                  </button>
+                  <button onClick={() => handleAction(conv.id, 'archived')} className="text-xs text-slate-400 bg-slate-500/10 px-3 py-1.5 rounded-lg hover:bg-slate-500/20">
+                    📥 Archivieren
+                  </button>
+                </>
+              )}
+              {conv.status === 'closed' && (
+                <button onClick={() => handleAction(conv.id, 'open')} className="text-xs text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-lg hover:bg-blue-500/20">
+                  ↩ Wieder öffnen
+                </button>
+              )}
+              <button onClick={() => handleAction(conv.id, 'delete')} className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg hover:bg-red-500/20 ml-auto">
+                🗑 Löschen
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Fullscreen image */}
       {fullImage && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setFullImage(null)}>
           <img src={fullImage} alt="" className="max-w-full max-h-full object-contain" />
@@ -336,12 +373,22 @@ export default function WorkerDetailPage() {
         </div>
       )}
 
+      {/* Hidden file inputs */}
+      <input ref={newFileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+        const files = Array.from(e.target.files || [])
+        setNewFiles(prev => [...prev, ...files])
+        files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
+        if (newFileRef.current) newFileRef.current.value = ''
+      }} className="hidden" />
+      <input ref={replyFileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+        const files = Array.from(e.target.files || [])
+        setReplyFiles(prev => [...prev, ...files])
+        files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
+        if (replyFileRef.current) replyFileRef.current.value = ''
+      }} className="hidden" />
+
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => router.push('/dashboard/team')} className="text-slate-400 hover:text-white">
-          ← Zurück
-        </button>
-      </div>
+      <button onClick={() => router.push('/dashboard/team')} className="text-slate-400 hover:text-white">← Zurück</button>
 
       <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl p-6">
         <div className="flex items-center gap-4">
@@ -357,9 +404,7 @@ export default function WorkerDetailPage() {
           </div>
           {runningEntry && (
             <div className="ml-auto bg-green-500/20 border border-green-500/30 rounded-lg px-4 py-2">
-              <p className="text-green-400 text-sm font-semibold animate-pulse">
-                ⏱️ Arbeitet seit {formatClock(runningEntry.start_time)}
-              </p>
+              <p className="text-green-400 text-sm font-semibold animate-pulse">⏱️ Arbeitet seit {formatClock(runningEntry.start_time)}</p>
             </div>
           )}
         </div>
@@ -369,8 +414,8 @@ export default function WorkerDetailPage() {
       <div className="flex gap-2">
         {[
           { key: 'time', label: '⏱️ Zeiterfassung' },
-          { key: 'tasks', label: '📋 Aufgaben' },
-          { key: 'reports', label: '📝 Berichte' },
+          { key: 'offen', label: `📋 Offen (${openConvs.length})` },
+          { key: 'erledigt', label: `📝 Erledigt (${closedConvs.length})` },
         ].map(t => (
           <button
             key={t.key}
@@ -395,9 +440,7 @@ export default function WorkerDetailPage() {
                   {entries.map(entry => (
                     <div key={entry.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex items-center justify-between">
                       <div>
-                        <p className="text-white">
-                          {formatClock(entry.start_time)} — {formatClock(entry.end_time)}
-                        </p>
+                        <p className="text-white">{formatClock(entry.start_time)} — {formatClock(entry.end_time)}</p>
                         {entry.start_lat && (
                           <p className="text-slate-500 text-xs mt-1">
                             GPS: {Number(entry.start_lat).toFixed(4)}, {Number(entry.start_lng).toFixed(4)}
@@ -416,367 +459,83 @@ export default function WorkerDetailPage() {
         </div>
       )}
 
-      {/* Tasks Tab */}
-      {tab === 'tasks' && (
+      {/* Offen Tab */}
+      {tab === 'offen' && (
         <div className="space-y-4">
-          {/* Add Task Button + Form */}
-          {!showTaskForm ? (
+          {/* New conversation */}
+          {!showNewForm ? (
             <button
-              onClick={() => { setEditingTaskId(null); setNewTitle(''); setNewDesc(''); setNewLocation(''); setNewDue(tomorrow); setNewPhotos([]); setNewPhotoFiles([]); setShowTaskForm(true) }}
+              onClick={() => setShowNewForm(true)}
               className="w-full py-3 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-purple-500 hover:text-purple-400 transition-colors"
             >
-              + Neue Aufgabe für {member.worker_name}
+              + Neue Nachricht an {member.worker_name}
             </button>
           ) : (
-            <div className="bg-slate-800/50 border border-purple-500/30 rounded-xl p-5 space-y-3">
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Aufgabe *"
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500"
-                autoFocus
-              />
-              <textarea
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="Beschreibung (optional)"
-                rows={2}
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={newLocation}
-                  onChange={(e) => setNewLocation(e.target.value)}
-                  placeholder="Ort (optional)"
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500"
-                />
-                <input
-                  type="date"
-                  value={newDue}
-                  onChange={(e) => setNewDue(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white"
-                />
-              </div>
-              {/* Photos */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <label className="block text-slate-400 text-sm">Fotos (optional)</label>
-                  {newPhotos.length < 5 && (
-                    <label className="text-purple-400 text-xs cursor-pointer hover:underline">
-                      + Foto
-                      <input type="file" accept="image/*" multiple capture="environment" onChange={handlePhotoSelect} className="hidden" />
-                    </label>
-                  )}
+            <div className="bg-slate-800/50 border border-purple-500/30 rounded-xl p-4 space-y-3">
+              <button
+                onClick={() => setShowTaskFields(!showTaskFields)}
+                className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${showTaskFields ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+              >
+                {showTaskFields ? '📋 Aufgabe (mit Details)' : '📋 Als Aufgabe markieren'}
+              </button>
+              {showTaskFields && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Titel" className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500" />
+                  <input type="text" value={newLocation} onChange={(e) => setNewLocation(e.target.value)}
+                    placeholder="Ort" className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500" />
+                  <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)}
+                    className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm" />
                 </div>
-                {newPhotos.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mb-2">
-                    {newPhotos.map((url, i) => (
-                      <div key={i} className="relative">
-                        <img src={url} alt="" className="w-full h-16 object-cover rounded-lg" />
-                        <button
-                          onClick={() => {
-                            setNewPhotos(prev => prev.filter((_, idx) => idx !== i))
-                            setNewPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
-                          }}
-                          className="absolute top-0.5 right-0.5 bg-red-600 text-white w-5 h-5 rounded-full text-xs"
-                        >✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={editingTaskId ? handleUpdateTask : handleCreateTask}
-                  disabled={saving || !newTitle.trim() || !newDue}
-                  className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50"
-                >
-                  {saving ? 'Wird gespeichert...' : editingTaskId ? 'Speichern' : 'Erstellen'}
-                </button>
-                <button
-                  onClick={() => { setShowTaskForm(false); setEditingTaskId(null); setNewPhotos([]); setNewPhotoFiles([]) }}
-                  className="px-4 py-3 bg-slate-700 text-slate-300 rounded-xl hover:bg-slate-600 transition-colors"
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          )}
-
-          {pendingTasks.length > 0 && (
-            <div className="space-y-3">
-              {pendingTasks.map(task => {
-                const isDone = task.status === 'done'
-                const taskReports = reports.filter(r => r.task_id === task.id)
-                const isOpen = expandedTaskId === task.id
-
-                return (
-                  <div key={task.id} className={`bg-slate-800/50 border rounded-xl overflow-hidden ${isDone ? 'border-green-500/30' : 'border-slate-700'}`}>
-                    {/* Header — always visible */}
-                    <div className="p-4 flex items-start justify-between gap-3 cursor-pointer" onClick={() => setExpandedTaskId(isOpen ? null : task.id)}>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`font-medium ${isDone ? 'text-slate-400' : 'text-white'}`}>{task.title}</h4>
-                          {isDone && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">✓ Erledigt</span>}
-                          {taskReports.filter(r => !r.is_final).length > 0 && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length} Bericht{taskReports.filter(r => !r.is_final).length > 1 ? 'e' : ''}</span>}
-                        </div>
-                        <div className="flex gap-4 mt-1 text-xs text-slate-500">
-                          {task.location && <span>📍 {task.location}</span>}
-                          {task.due_date && <span>📅 {new Date(task.due_date).toLocaleDateString('de-DE')}</span>}
-                        </div>
-                      </div>
-                      <span className="text-slate-500">{isOpen ? '▲' : '▼'}</span>
+              )}
+              <textarea value={newText} onChange={(e) => setNewText(e.target.value)}
+                placeholder="Nachricht..." rows={3} autoFocus
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 text-sm" />
+              {newPreviews.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {newPreviews.map((url, i) => (
+                    <div key={i} className="relative">
+                      <img src={url} alt="" className="w-full h-16 object-cover rounded-lg" />
+                      <button onClick={() => {
+                        setNewPreviews(prev => prev.filter((_, idx) => idx !== i))
+                        setNewFiles(prev => prev.filter((_, idx) => idx !== i))
+                      }} className="absolute top-0.5 right-0.5 bg-red-600 text-white w-5 h-5 rounded-full text-xs">✕</button>
                     </div>
-
-                    {/* Expanded — details + actions + reports */}
-                    {isOpen && (
-                      <div className="border-t border-slate-700 p-4 space-y-3">
-                        {task.description && <p className="text-slate-400 text-sm">{task.description}</p>}
-
-                        {/* Action buttons */}
-                        <div className="flex gap-2 flex-wrap">
-                          {!isDone && (
-                            <button
-                              onClick={() => startEditing(task)}
-                              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors"
-                            >
-                              ✏️ Bearbeiten
-                            </button>
-                          )}
-                          {isDone && (
-                            <button
-                              onClick={() => handleResetTask(task.id)}
-                              className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors"
-                            >
-                              ↩ Aufgabe wiederholen
-                            </button>
-                          )}
-                          <button
-                            onClick={() => { if (confirm('Aufgabe endgültig löschen?')) handleDeleteTask(task.id) }}
-                            className="px-3 py-1.5 bg-slate-700 text-red-400 rounded-lg text-xs hover:bg-red-900/30 transition-colors"
-                          >
-                            🗑️ Löschen
-                          </button>
-                        </div>
-
-                        {/* Owner photos */}
-                        {(task.owner_photos || []).length > 0 && (
-                          <div>
-                            <p className="text-slate-500 text-xs mb-1">Ihre Fotos:</p>
-                            <div className="grid grid-cols-4 gap-2">
-                              {task.owner_photos.map((p, i) => (
-                                <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg border border-purple-500/30 cursor-pointer" onClick={() => setFullImage(p.url)} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Task reports */}
-                        {taskReports.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-slate-400 text-sm font-semibold">Berichte vom Mitarbeiter:</p>
-                            {taskReports.map(r => (
-                              <div key={r.id} className={`rounded-lg p-3 ${r.is_final ? 'bg-green-900/20 border border-green-500/30' : 'bg-slate-900/50'}`}>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-slate-500 text-xs">{new Date(r.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                                  {r.is_final ? <span className="text-green-400 text-xs font-semibold">Abschluss</span> : <span className="text-blue-400 text-xs">Zwischenbericht</span>}
-                                </div>
-                                {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
-                                {r.photos?.length > 0 && (
-                                  <div className="grid grid-cols-4 gap-1 mt-2">
-                                    {r.photos.map((p, i) => (
-                                      <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {taskReports.length === 0 && !isDone && (
-                          <p className="text-slate-500 text-sm">Noch keine Berichte vom Mitarbeiter</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => newFileRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷 Foto</button>
+                <button onClick={handleNewConversation} disabled={sending || !newText.trim()}
+                  className="flex-1 py-2 bg-purple-600 text-white rounded-lg font-semibold disabled:opacity-50">
+                  {sending ? '...' : '📤 Senden'}
+                </button>
+                <button onClick={() => { setShowNewForm(false); setNewText(''); setNewFiles([]); setNewPreviews([]); setShowTaskFields(false) }}
+                  className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">Abbrechen</button>
+              </div>
             </div>
           )}
 
-          {pendingTasks.length === 0 && !showTaskForm && (
-            <p className="text-slate-500 text-center py-8">Keine offenen Aufgaben</p>
+          {openConvs.length > 0 ? (
+            <div className="space-y-3">
+              {openConvs.map(conv => <ConvCard key={conv.id} conv={conv} />)}
+            </div>
+          ) : !showNewForm && (
+            <p className="text-slate-500 text-center py-8">Keine offenen Konversationen</p>
           )}
         </div>
       )}
 
-      {/* Reports Tab */}
-      {tab === 'reports' && (() => {
-        // Combine done tasks + free posts, group by date
-        const byDate = {}
-
-        const getDateKey = (iso) => iso ? iso.split('T')[0] : '1970-01-01'
-        const formatDateLabel = (iso) => iso ? new Date(iso).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Unbekannt'
-
-        // Done tasks
-        doneTasks.forEach(task => {
-          const key = getDateKey(task.completed_at)
-          if (!byDate[key]) byDate[key] = { label: formatDateLabel(task.completed_at), tasks: [], freePosts: [] }
-          byDate[key].tasks.push(task)
-        })
-
-        // Free posts (no task_id)
-        const freePosts = reports.filter(r => !r.task_id && !r.parent_id)
-        freePosts.forEach(post => {
-          const key = getDateKey(post.created_at)
-          if (!byDate[key]) byDate[key] = { label: formatDateLabel(post.created_at), tasks: [], freePosts: [] }
-          byDate[key].freePosts.push(post)
-        })
-
-        return (
-          <div className="space-y-6">
-            {Object.keys(byDate).length > 0 ? (
-              Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0])).map(([dateKey, { label, tasks: dateTasks, freePosts: datePosts }]) => (
-                <div key={dateKey}>
-                  <h3 className="text-white font-semibold mb-3">📅 {label}</h3>
-                  {/* Merge tasks + free posts, sort by time newest first */}
-                  {(() => {
-                    const combined = [
-                      ...dateTasks.map(t => ({ itemType: 'task', timestamp: t.completed_at || t.created_at, ...t })),
-                      ...datePosts.map(p => ({ itemType: 'post', timestamp: p.created_at, ...p })),
-                    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-
-                    return (
-                      <div className="space-y-3">
-                        {combined.map(item => {
-                          if (item.itemType === 'task') {
-                            const task = item
-                            const taskReports = reports.filter(r => r.task_id === task.id)
-                            return (
-                              <div key={task.id} className="bg-slate-800/50 border border-green-500/20 rounded-xl overflow-hidden">
-                                <div className="p-4 flex items-center justify-between cursor-pointer" onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-green-400">✓</span>
-                                    <h4 className="text-white font-medium">{task.title}</h4>
-                                    {task.location && <span className="text-slate-500 text-xs">📍 {task.location}</span>}
-                                    {taskReports.filter(r => !r.is_final).length > 0 && (
-                                      <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">{taskReports.filter(r => !r.is_final).length}</span>
-                                    )}
-                                  </div>
-                                  <span className="text-slate-500">{expandedTaskId === task.id ? '▲' : '▼'}</span>
-                                </div>
-                                {expandedTaskId === task.id && (
-                                  <div className="border-t border-slate-700 p-4 space-y-2 pl-8 border-l-2 border-slate-600 ml-4">
-                                    {taskReports.map(r => (
-                                      <div key={r.id} className={`rounded-lg p-2 ${r.is_final ? 'bg-green-900/20' : 'bg-slate-900/30'}`}>
-                                        <span className="text-slate-500 text-xs">
-                                          {new Date(r.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                          {r.is_final ? ' · Abschluss' : ''}
-                                        </span>
-                                        {r.text && <p className="text-slate-300 text-sm">{r.text}</p>}
-                                        {r.photos?.length > 0 && (
-                                          <div className="grid grid-cols-4 gap-1 mt-1">
-                                            {r.photos.map((p, i) => (
-                                              <img key={i} src={p.url} alt="" className="w-full h-14 object-cover rounded cursor-pointer" onClick={() => setFullImage(p.url)} />
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                    <button onClick={() => handleResetTask(task.id)}
-                                      className="w-full mt-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors">
-                                      ↩ Aufgabe wiederholen
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          } else {
-                            const post = item
-                            const postReplies = reports.filter(r => r.parent_id === post.id)
-                            const isPostOpen = expandedPostId === post.id
-                            return (
-                              <div key={post.id} className="bg-slate-800/50 border border-orange-500/20 rounded-xl overflow-hidden">
-                                {/* Header — always visible */}
-                                <div className="p-4 cursor-pointer" onClick={() => setExpandedPostId(isPostOpen ? null : post.id)}>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">📸 Foto</span>
-                                      <span className="text-slate-500 text-xs">
-                                        {new Date(post.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                      </span>
-                                      {postReplies.length > 0 && (
-                                        <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded">💬 {postReplies.length}</span>
-                                      )}
-                                    </div>
-                                    <span className="text-slate-500">{isPostOpen ? '▲' : '▼'}</span>
-                                  </div>
-                                  {post.text && <p className="text-slate-300 text-sm">{post.text}</p>}
-                                  {post.photos?.length > 0 && (
-                                    <div className="grid grid-cols-4 gap-2 mt-2">
-                                      {post.photos.map((p, i) => (
-                                        <img key={i} src={p.url} alt="" className="w-full h-16 object-cover rounded-lg cursor-pointer" onClick={(e) => { e.stopPropagation(); setFullImage(p.url) }} />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Expanded — replies + reply input */}
-                                {isPostOpen && (
-                                  <div className="border-t border-slate-700 p-4">
-                                    {postReplies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(reply => {
-                                      const isWorkerReply = reply.worker_id === workerId
-                                      return (
-                                        <div key={reply.id} className={`ml-4 mt-2 border-l-2 rounded-r-lg p-2 ${isWorkerReply ? 'bg-slate-900/30 border-blue-500' : 'bg-purple-900/20 border-purple-500'}`}>
-                                          <span className={`text-xs font-semibold ${isWorkerReply ? 'text-blue-400' : 'text-purple-400'}`}>
-                                            {isWorkerReply ? `👷 ${member?.worker_name || 'Mitarbeiter'}` : '👔 Chef'}
-                                          </span>
-                                          <span className="text-slate-500 text-xs ml-2">
-                                            {new Date(reply.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                          </span>
-                                          <p className="text-slate-300 text-sm">{reply.text}</p>
-                                        </div>
-                                      )
-                                    })}
-
-                                    {/* Reply input */}
-                                    {replyTo === post.id ? (
-                                      <div className="flex gap-2 mt-3">
-                                        <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
-                                          placeholder="Antworten..." autoFocus
-                                          className="flex-1 px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500"
-                                          onKeyDown={(e) => e.key === 'Enter' && handleReply(post.id)} />
-                                        <button onClick={() => handleReply(post.id)} disabled={replying || !replyText.trim()}
-                                          className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50">Senden</button>
-                                        <button onClick={() => { setReplyTo(null); setReplyText('') }}
-                                          className="px-2 py-2 text-slate-400 text-sm">✕</button>
-                                      </div>
-                                    ) : (
-                                      <button onClick={() => setReplyTo(post.id)} className="text-slate-500 text-xs mt-3 hover:text-purple-400">
-                                        💬 Antworten
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          }
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              ))
-            ) : (
-              <p className="text-slate-500 text-center py-8">Noch keine Berichte oder Fotos</p>
-            )}
-          </div>
-        )
-      })()}
+      {/* Erledigt Tab */}
+      {tab === 'erledigt' && (
+        <div className="space-y-3">
+          {closedConvs.length > 0 ? (
+            closedConvs.map(conv => <ConvCard key={conv.id} conv={conv} />)
+          ) : (
+            <p className="text-slate-500 text-center py-8">Keine abgeschlossenen Konversationen</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
