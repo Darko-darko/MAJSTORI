@@ -166,7 +166,7 @@ export default function WorkerDashboard() {
           <p className="text-white font-semibold">Zeiterfassung</p>
         </button>
 
-        <button onClick={() => router.push('/dashboard/worker/tasks')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-blue-500/50 transition-colors">
+        <button onClick={() => router.push('/dashboard/worker/aufgaben')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-blue-500/50 transition-colors">
           <div className="text-4xl mb-2">📋</div>
           <p className="text-white font-semibold">Aufgaben</p>
         </button>

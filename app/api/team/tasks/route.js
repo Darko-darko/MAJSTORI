@@ -84,7 +84,7 @@ export async function POST(request) {
         majstorId: assigned_to,
         title: '📋 Neue Aufgabe',
         message: title.trim().slice(0, 100),
-        url: '/dashboard/worker/tasks',
+        url: '/dashboard/worker/aufgaben',
       })
     }
 
