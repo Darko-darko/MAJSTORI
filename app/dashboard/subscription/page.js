@@ -235,17 +235,56 @@ export default function SubscriptionPage() {
     openCheckout(productId, 'pro_plus')
   }
 
-  // Downgrade PRO+ → PRO
+  // Downgrade PRO+ → PRO (no checkout — switch product on FastSpring)
   const handleDowngrade = async () => {
-    if (!confirm('Von PRO+ auf PRO wechseln?\n\nAlle Teammitglieder verlieren den Zugang.\n\nFortfahren?')) return
-    const cancelled = await cancelExistingSubscription()
-    if (!cancelled) return
-    // If still in trial, use trial product (free); otherwise no-trial (paid immediately)
     const isCurrentlyTrial = subscription?.status === 'trial'
-    const productId = isCurrentlyTrial
-      ? (hadTrial ? FASTSPRING_CONFIG.productIds.monthlyNoTrial : FASTSPRING_CONFIG.productIds.monthly)
-      : FASTSPRING_CONFIG.productIds.monthlyNoTrial
-    openCheckout(productId, 'pro')
+    const priceInfo = isCurrentlyTrial
+      ? 'Nach dem Probezeitraum werden 19,90€/Monat berechnet.'
+      : 'Ab der nächsten Abrechnung werden 19,90€/Monat berechnet (anteilige Gutschrift für den aktuellen Zeitraum).'
+
+    if (!confirm(`Von PRO+ auf PRO wechseln?\n\nAlle Teammitglieder verlieren den Zugang.\n${priceInfo}\n\nFortfahren?`)) return
+
+    setError('')
+    setProcessingAction('downgrade')
+    setProcessingStep(0)
+    setProcessingMessage('Planwechsel wird durchgeführt...')
+
+    try {
+      const response = await fetch('/api/fastspring-switch-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: subscription.provider_subscription_id,
+          majstorId: majstor.id,
+          targetPlan: 'pro'
+        })
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Fehler beim Planwechsel')
+
+      setProcessingStep(100)
+      setProcessingMessage('Planwechsel erfolgreich!')
+
+      setTimeout(() => {
+        setProcessingAction(null)
+        setProcessingStep(0)
+        clearSubscriptionCache(majstor.id)
+        refresh(true)
+      }, 1500)
+
+      alert(
+        isCurrentlyTrial
+          ? 'Sie wurden auf PRO umgestellt.\nNach dem Probezeitraum werden 19,90€/Monat berechnet.'
+          : 'Sie wurden auf PRO umgestellt.\nAb der nächsten Abrechnung werden 19,90€/Monat berechnet.'
+      )
+
+    } catch (err) {
+      console.error('Downgrade error:', err)
+      setError(err.message)
+      setProcessingAction(null)
+      setProcessingStep(0)
+    }
   }
 
   const handleUpdatePaymentMethod = async () => {
