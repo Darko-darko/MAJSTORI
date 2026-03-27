@@ -745,13 +745,25 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* PRO+ user sees downgrade option */}
+      {/* PRO+ user sees team seats + downgrade */}
       {statusInfo.status === 'pro_plus' && (
-        <div className="text-center">
-          <button onClick={handleDowngrade}
-            className="text-slate-400 text-sm hover:text-white transition-colors">
-            Auf PRO wechseln (Team-Funktionen werden deaktiviert)
-          </button>
+        <div className="space-y-4">
+          <div className="bg-slate-800/50 border border-purple-500/30 rounded-2xl p-6 text-center">
+            <h3 className="text-white font-bold text-lg mb-2">👥 Zusätzliche Teammitglieder</h3>
+            <p className="text-slate-400 text-sm mb-4">2 Mitarbeiter sind in PRO+ enthalten. Weitere können hinzugebucht werden.</p>
+            <button
+              onClick={() => router.push('/dashboard/team')}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
+            >
+              Team verwalten & Plätze buchen
+            </button>
+          </div>
+          <div className="text-center">
+            <button onClick={handleDowngrade}
+              className="text-slate-400 text-sm hover:text-white transition-colors">
+              Auf PRO wechseln (Team-Funktionen werden deaktiviert)
+            </button>
+          </div>
         </div>
       )}
     </div>
