@@ -74,7 +74,7 @@ function DashboardLayoutContent({ children }) {
   const [upgradeMessage, setUpgradeMessage] = useState('')
   
   // Subscription hook for menu badges
-  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining } = useSubscription(majstor?.id)
+  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining, hasFeatureAccess } = useSubscription(majstor?.id)
 
   // Push notifikacije
   const { permission, subscribed: subscribedRaw, loading: pushLoading, supported: pushSupported, subscribe, unsubscribe } = usePushNotifications(majstor?.id)
@@ -616,25 +616,31 @@ const NavigationItem = ({ item, isMobile = false }) => {
   )
 
   // 🔒 PROTECTED FEATURES - sa badge dizajnom
-  if (item.protected && isFreemium && !isInGracePeriod) {
+  const isFeatureLocked = item.protected && (
+    (isFreemium && !isInGracePeriod) ||
+    (item.feature === 'team' && !hasFeatureAccess('team'))
+  )
+
+  if (isFeatureLocked) {
+    const badgeLabel = item.feature === 'team' ? 'Pro+' : 'Pro'
     return (
       <button
         onClick={() => {
           showUpgradeModal({
             feature: item.feature || 'premium_feature',
             featureName: item.name,
-            currentPlan: 'freemium'
+            currentPlan: plan?.name || 'freemium'
           })
         }}
         className={linkClasses}
       >
         <span className="mr-3 text-lg opacity-75">{item.icon}</span>
         <span className="flex-1">{item.name}</span>
-        
-        {/* 🔒 PRO BADGE - sa katancem */}
+
+        {/* 🔒 BADGE - sa katancem */}
         <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
           <span>🔒</span>
-          <span>Pro</span>
+          <span>{badgeLabel}</span>
         </span>
       </button>
     )
