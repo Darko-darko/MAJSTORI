@@ -680,101 +680,80 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {/* Features Comparison */}
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Freemium */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold text-white mb-2">Freemium</h3>
-            <p className="text-4xl font-bold text-slate-400">Kostenlos</p>
+      {/* Upgrade/Downgrade options — show only what's relevant */}
+      {statusInfo.status === 'freemium' && (
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* PRO */}
+          <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-2 border-blue-500/50 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">EMPFOHLEN</div>
+            <div className="text-center mb-6 mt-4">
+              <h3 className="text-2xl font-bold text-white mb-2">PRO</h3>
+              <p className="text-4xl font-bold text-blue-400">€19,90<span className="text-lg text-slate-400">/Monat</span></p>
+            </div>
+            <ul className="space-y-2">
+              {['Rechnungen & Angebote', 'Aufmaß', 'KI-Assistent', 'Buchhalter-Zugang'].map(t => (
+                <li key={t} className="flex items-center gap-2 text-sm text-white"><span className="text-green-500">✓</span>{t}</li>
+              ))}
+            </ul>
+            <button onClick={handleUpgradeClick} disabled={!fastspringReady}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50">
+              {!fastspringReady ? 'Laden...' : 'Jetzt PRO werden'}
+            </button>
           </div>
-          <ul className="space-y-3">
-            {['QR Visitenkarte erstellen', 'Kundenanfragen empfangen'].map(t => (
-              <li key={t} className="flex items-start gap-3">
-                <span className="text-green-500 mt-1">✓</span>
-                <span className="text-slate-300">{t}</span>
-              </li>
-            ))}
-            {['Kundenverwaltung', 'Rechnungserstellung', 'Aufmaß', 'Team-Funktionen'].map(t => (
-              <li key={t} className="flex items-start gap-3">
-                <span className="text-red-500 mt-1">✗</span>
-                <span className="text-slate-500">{t}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
 
-        {/* PRO */}
-        <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-2 border-blue-500/50 rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
-            EMPFOHLEN
-          </div>
-          <div className="text-center mb-6 mt-4">
-            <h3 className="text-2xl font-bold text-white mb-2">PRO</h3>
-            <p className="text-4xl font-bold text-blue-400">€19,90<span className="text-lg text-slate-400">/Monat</span></p>
-            <p className="text-sm text-slate-400 mt-1">30 Tage kostenlos testen</p>
-          </div>
-          <ul className="space-y-3">
-            {['Alle Freemium-Funktionen', 'Unbegrenzte Kunden', 'Professionelle Rechnungen', 'Aufmaß & Flächenberechnung', 'KI-Assistent & Sprachdiktat', 'Buchhalter-Zugang'].map(t => (
-              <li key={t} className="flex items-start gap-3">
-                <span className="text-green-500 mt-1">✓</span>
-                <span className="text-white font-medium">{t}</span>
-              </li>
-            ))}
-            <li className="flex items-start gap-3">
-              <span className="text-red-500 mt-1">✗</span>
-              <span className="text-slate-500">Team-Funktionen</span>
-            </li>
-          </ul>
-          {statusInfo.showUpgrade && (
-            <button
-              onClick={handleUpgradeClick}
-              disabled={!fastspringReady}
-              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {!fastspringReady ? 'FastSpring lädt...' : 'Jetzt PRO werden'}
+          {/* PRO+ */}
+          <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-2 border-purple-500/50 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-purple-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">FÜR TEAMS</div>
+            <div className="text-center mb-6 mt-4">
+              <h3 className="text-2xl font-bold text-white mb-2">PRO+ Team</h3>
+              <p className="text-4xl font-bold text-purple-400">€29,90<span className="text-lg text-slate-400">/Monat</span></p>
+              <p className="text-xs text-slate-400">+8€/Monat pro Mitarbeiter</p>
+            </div>
+            <ul className="space-y-2">
+              {['Alles aus PRO', 'Team-Verwaltung', 'Aufgaben & Fotos', 'Zeiterfassung'].map(t => (
+                <li key={t} className="flex items-center gap-2 text-sm text-white"><span className="text-green-500">✓</span>{t}</li>
+              ))}
+            </ul>
+            <button onClick={handleUpgradeToPlus} disabled={!fastspringReady}
+              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50">
+              {!fastspringReady ? 'Laden...' : '🚀 Auf PRO+ upgraden'}
             </button>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* PRO+ */}
-        <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-2 border-purple-500/50 rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 bg-purple-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
-            FÜR TEAMS
-          </div>
-          <div className="text-center mb-6 mt-4">
-            <h3 className="text-2xl font-bold text-white mb-2">PRO+ Team</h3>
-            <p className="text-4xl font-bold text-purple-400">€29,90<span className="text-lg text-slate-400">/Monat</span></p>
-            <p className="text-sm text-slate-400 mt-1">2 Teammitglieder inklusive</p>
-            <p className="text-xs text-slate-500">+8€/Monat pro weiteres Mitglied</p>
-          </div>
-          <ul className="space-y-3">
-            {['Alles aus PRO', 'Team-Chat mit Fotos', 'Arbeitszeiterfassung', '2 Mitarbeiter inklusive', 'Team-Übersicht & Berichte'].map(t => (
-              <li key={t} className="flex items-start gap-3">
-                <span className="text-green-500 mt-1">✓</span>
-                <span className="text-white font-medium">{t}</span>
-              </li>
-            ))}
-          </ul>
-          {statusInfo.status !== 'pro_plus' && (
-            <button
-              onClick={handleUpgradeToPlus}
-              disabled={!fastspringReady}
-              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {!fastspringReady ? 'FastSpring lädt...' : '🚀 Auf PRO+ upgraden'}
+      {/* PRO user sees only PRO+ upgrade */}
+      {(statusInfo.status === 'pro' || statusInfo.status === 'trial') && (
+        <div className="max-w-md mx-auto">
+          <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-2 border-purple-500/50 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-purple-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">UPGRADE</div>
+            <div className="text-center mb-6 mt-4">
+              <h3 className="text-2xl font-bold text-white mb-2">PRO+ Team</h3>
+              <p className="text-4xl font-bold text-purple-400">€29,90<span className="text-lg text-slate-400">/Monat</span></p>
+              <p className="text-xs text-slate-400">2 Mitarbeiter inklusive · +8€/Monat pro weiteres</p>
+            </div>
+            <ul className="space-y-2">
+              {['Alles was Sie haben + Team-Funktionen', 'Aufgaben mit Fotos zuweisen', 'Arbeitszeiterfassung mit GPS', 'Team-Feed in Echtzeit'].map(t => (
+                <li key={t} className="flex items-center gap-2 text-sm text-white"><span className="text-green-500">✓</span>{t}</li>
+              ))}
+            </ul>
+            <button onClick={handleUpgradeToPlus} disabled={!fastspringReady}
+              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50">
+              {!fastspringReady ? 'Laden...' : '🚀 Auf PRO+ upgraden'}
             </button>
-          )}
-          {statusInfo.status === 'pro_plus' && (
-            <button
-              onClick={handleDowngrade}
-              className="w-full mt-6 bg-slate-700 text-slate-300 px-6 py-3 rounded-xl font-medium hover:bg-slate-600 transition-colors"
-            >
-              Auf PRO wechseln
-            </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* PRO+ user sees downgrade option */}
+      {statusInfo.status === 'pro_plus' && (
+        <div className="text-center">
+          <button onClick={handleDowngrade}
+            className="text-slate-400 text-sm hover:text-white transition-colors">
+            Auf PRO wechseln (Team-Funktionen werden deaktiviert)
+          </button>
+        </div>
+      )}
     </div>
   )
 }
