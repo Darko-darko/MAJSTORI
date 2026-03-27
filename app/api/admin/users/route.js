@@ -81,7 +81,7 @@ export async function GET(request) {
 
     // 6) Split buchhalters from handwerkers
     const buchhalters = users.filter(u => u.role === 'buchhalter')
-    const handwerkers = users.filter(u => u.role !== 'buchhalter')
+    const handwerkers = users.filter(u => u.role !== 'buchhalter' && u.role !== 'worker')
 
     // 7) Status filter (only for handwerkers)
     let filteredHandwerkers = handwerkers
