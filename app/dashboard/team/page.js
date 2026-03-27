@@ -287,7 +287,7 @@ export default function TeamPage() {
                 min={1}
                 max={50}
                 value={seatQty}
-                onChange={(e) => setSeatQty(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) => setSeatQty(e.target.value === '' ? '' : Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
                 className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white text-center text-xl"
               />
             </div>
@@ -310,10 +310,10 @@ export default function TeamPage() {
 
             <div className="bg-slate-900/50 rounded-lg p-3 text-center">
               <p className="text-white text-2xl font-bold">
-                {seatInterval === 'monthly' ? `${seatQty * 8},00€` : `${seatQty * 80},00€`}
+                {seatInterval === 'monthly' ? `${(seatQty || 0) * 8},00€` : `${(seatQty || 0) * 80},00€`}
               </p>
               <p className="text-slate-400 text-xs">
-                {seatQty} {seatQty === 1 ? 'Platz' : 'Plätze'} × {seatInterval === 'monthly' ? '8€/Monat' : '80€/Jahr'}
+                {seatQty || 0} {seatQty === 1 ? 'Platz' : 'Plätze'} × {seatInterval === 'monthly' ? '8€/Monat' : '80€/Jahr'}
               </p>
             </div>
 
