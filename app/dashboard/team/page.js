@@ -261,7 +261,7 @@ export default function TeamPage() {
       </div>
 
       {/* Members List */}
-      <div className="space-y-3">
+      <div id="members-list" className="space-y-3">
         {activeMembers.map((member) => (
           <div key={member.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 hover:border-purple-500/50 transition-colors">
             <div
@@ -494,9 +494,21 @@ function SeatReduceModal({ paidSeats, activeMembers, includedMembers, reducing, 
           {reducing ? 'Wird geändert...' : newCount === 0 ? 'Alle Plätze kündigen' : `Auf ${newCount} Plätze reduzieren`}
         </button>
 
-        <button onClick={onClose} className="w-full py-2 text-slate-400 text-sm hover:text-white">
-          Abbrechen
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              onClose()
+              // Scroll to members list
+              setTimeout(() => document.getElementById('members-list')?.scrollIntoView({ behavior: 'smooth' }), 100)
+            }}
+            className="flex-1 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-600 transition-colors"
+          >
+            Mitglieder verwalten
+          </button>
+          <button onClick={onClose} className="flex-1 py-2 text-slate-400 text-sm hover:text-white">
+            Abbrechen
+          </button>
+        </div>
       </div>
     </div>
   )
