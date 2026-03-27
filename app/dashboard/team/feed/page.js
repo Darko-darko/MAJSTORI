@@ -51,6 +51,10 @@ export default function FeedPage() {
   const convParam = searchParams.get('conv')
   const [expandedConv, setExpandedConv] = useState(convParam || null)
 
+  // Active workers
+  const [activeWorkersList, setActiveWorkersList] = useState([])
+  const [showActive, setShowActive] = useState(false)
+
   // Filter
   const [filter, setFilter] = useState('all') // 'all', 'open', 'closed'
 
@@ -67,6 +71,7 @@ export default function FeedPage() {
   useEffect(() => {
     loadFeed()
     loadWorkers()
+    loadActiveWorkers()
 
     const channel = supabase
       .channel('owner-feed-v2')
@@ -86,6 +91,26 @@ export default function FeedPage() {
   const getAuthHeader = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return { Authorization: `Bearer ${session?.access_token}` }
+  }
+
+  const loadActiveWorkers = async () => {
+    try {
+      const headers = await getHeaders()
+      const res = await fetch('/api/team/time', { headers })
+      const json = await res.json()
+      if (json.entries) {
+        const running = json.entries.filter(e => e.status === 'running')
+        // Get worker names
+        const teamRes = await fetch('/api/team', { headers })
+        const teamJson = await teamRes.json()
+        const nameMap = {}
+        ;(teamJson.members || []).forEach(m => { if (m.worker_id) nameMap[m.worker_id] = m.worker_name })
+        setActiveWorkersList(running.map(e => ({
+          ...e,
+          worker_name: nameMap[e.worker_id] || 'Mitarbeiter',
+        })))
+      }
+    } catch (err) { console.error(err) }
   }
 
   const loadFeed = async () => {
@@ -295,6 +320,39 @@ export default function FeedPage() {
           + Neue Nachricht
         </button>
       </div>
+
+      {/* Active workers widget */}
+      {activeWorkersList.length > 0 && (
+        <div className="bg-green-900/20 border border-green-500/30 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setShowActive(!showActive)}
+            className="w-full px-4 py-2.5 flex items-center justify-between"
+          >
+            <span className="text-green-400 text-sm font-medium">
+              🟢 {activeWorkersList.length} aktiv
+            </span>
+            <span className="text-slate-500 text-xs">{showActive ? '▲' : '▼'}</span>
+          </button>
+          {showActive && (
+            <div className="px-4 pb-3 space-y-1.5">
+              {activeWorkersList.map(w => {
+                const elapsed = Date.now() - new Date(w.start_time).getTime()
+                const h = Math.floor(elapsed / 3600000)
+                const m = Math.floor((elapsed % 3600000) / 60000)
+                return (
+                  <div key={w.id} className="flex items-center justify-between text-sm">
+                    <span className="text-white light-invert-text">{w.worker_name}</span>
+                    <span className="text-slate-400 text-xs">
+                      seit {new Date(w.start_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                      <span className="text-green-400 ml-2 font-medium">{h}h {m}m</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* New conversation form */}
       {showNewForm && (
@@ -548,25 +606,25 @@ export default function FeedPage() {
                           <div className="px-3 pb-3 flex flex-wrap gap-2">
                             {item.status === 'open' && (
                               <>
-                                <button onClick={() => handleClose(item.id)} className="text-xs text-green-400 hover:text-green-300 bg-green-500/10 px-3 py-1.5 rounded-lg">
+                                <button onClick={() => handleClose(item.id)} className="text-xs text-green-400 hover:text-green-300 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-lg">
                                   ✓ Abschließen
                                 </button>
-                                <button onClick={() => handleArchive(item.id)} className="text-xs text-slate-400 hover:text-slate-300 bg-slate-500/10 px-3 py-1.5 rounded-lg">
+                                <button onClick={() => handleArchive(item.id)} className="text-xs text-amber-400 hover:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 rounded-lg">
                                   📥 Archivieren
                                 </button>
                               </>
                             )}
                             {item.status === 'closed' && (
-                              <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-1.5 rounded-lg">
+                              <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                                 ↩ Wieder öffnen
                               </button>
                             )}
                             {item.status === 'archived' && (
-                              <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-1.5 rounded-lg">
+                              <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                                 ↩ Wieder öffnen
                               </button>
                             )}
-                            <button onClick={() => handleDelete(item.id)} className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 px-3 py-1.5 rounded-lg ml-auto">
+                            <button onClick={() => handleDelete(item.id)} className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg ml-auto">
                               🗑 Löschen
                             </button>
                           </div>

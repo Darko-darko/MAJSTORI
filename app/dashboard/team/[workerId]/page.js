@@ -341,20 +341,20 @@ export default function WorkerDetailPage() {
             <div className="px-3 pb-3 flex flex-wrap gap-2">
               {isOpen && (
                 <>
-                  <button onClick={() => handleAction(conv.id, 'closed')} className="text-xs text-green-400 bg-green-500/10 px-3 py-1.5 rounded-lg hover:bg-green-500/20">
+                  <button onClick={() => handleAction(conv.id, 'closed')} className="text-xs text-green-400 hover:text-green-300 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-lg">
                     ✓ Abschließen
                   </button>
-                  <button onClick={() => handleAction(conv.id, 'archived')} className="text-xs text-slate-400 bg-slate-500/10 px-3 py-1.5 rounded-lg hover:bg-slate-500/20">
+                  <button onClick={() => handleAction(conv.id, 'archived')} className="text-xs text-amber-400 hover:text-amber-300 bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 rounded-lg">
                     📥 Archivieren
                   </button>
                 </>
               )}
               {conv.status === 'closed' && (
-                <button onClick={() => handleAction(conv.id, 'open')} className="text-xs text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-lg hover:bg-blue-500/20">
+                <button onClick={() => handleAction(conv.id, 'open')} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                   ↩ Wieder öffnen
                 </button>
               )}
-              <button onClick={() => handleAction(conv.id, 'delete')} className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg hover:bg-red-500/20 ml-auto">
+              <button onClick={() => handleAction(conv.id, 'delete')} className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg ml-auto">
                 🗑 Löschen
               </button>
             </div>
