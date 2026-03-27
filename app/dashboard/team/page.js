@@ -328,6 +328,7 @@ export default function TeamPage() {
                   priceId: productId,
                   email: majstor?.email,
                   majstorId: user?.id,
+                  quantity: seatQty || 1,
                   billingInterval: seatInterval,
                   onSuccess: () => { setShowSeatModal(false); alert('Plätze gebucht!') },
                   onError: (err) => { alert('Fehler: ' + err.message) },
