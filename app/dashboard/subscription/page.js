@@ -227,7 +227,9 @@ export default function SubscriptionPage() {
       const cancelled = await cancelExistingSubscription()
       if (!cancelled) return
     }
-    const productId = hadTrial
+    // If still in trial, use trial product (free); otherwise no-trial (paid immediately)
+    const isCurrentlyTrial = subscription?.status === 'trial'
+    const productId = (hadTrial && !isCurrentlyTrial)
       ? FASTSPRING_CONFIG.productIds.plusMonthlyNoTrial
       : FASTSPRING_CONFIG.productIds.plusMonthly
     openCheckout(productId, 'pro_plus')
@@ -238,7 +240,11 @@ export default function SubscriptionPage() {
     if (!confirm('Von PRO+ auf PRO wechseln?\n\nAlle Teammitglieder verlieren den Zugang.\n\nFortfahren?')) return
     const cancelled = await cancelExistingSubscription()
     if (!cancelled) return
-    const productId = FASTSPRING_CONFIG.productIds.monthlyNoTrial
+    // If still in trial, use trial product (free); otherwise no-trial (paid immediately)
+    const isCurrentlyTrial = subscription?.status === 'trial'
+    const productId = isCurrentlyTrial
+      ? (hadTrial ? FASTSPRING_CONFIG.productIds.monthlyNoTrial : FASTSPRING_CONFIG.productIds.monthly)
+      : FASTSPRING_CONFIG.productIds.monthlyNoTrial
     openCheckout(productId, 'pro')
   }
 
