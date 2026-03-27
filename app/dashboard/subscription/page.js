@@ -193,12 +193,39 @@ export default function SubscriptionPage() {
     openCheckout(productId, 'pro')
   }
 
+  // Cancel existing subscription via FastSpring API (for upgrade/downgrade)
+  const cancelExistingSubscription = async () => {
+    if (!subscription?.provider_subscription_id) return true
+    try {
+      const response = await fetch('/api/fastspring-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: subscription.provider_subscription_id,
+          majstorId: majstor.id
+        })
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Fehler beim Kündigen')
+      }
+      console.log('✅ Old subscription cancelled for plan switch')
+      return true
+    } catch (err) {
+      console.error('❌ Failed to cancel old subscription:', err)
+      setError('Fehler beim Planwechsel: ' + err.message)
+      return false
+    }
+  }
+
   // Upgrade to PRO+ (from Freemium or PRO)
-  const handleUpgradeToPlus = () => {
+  const handleUpgradeToPlus = async () => {
     const currentPlan = plan?.name
-    // If upgrading from PRO, cancel first then subscribe PRO+
+    // If upgrading from PRO, cancel old subscription first
     if (currentPlan === 'pro' && subscription?.provider_subscription_id) {
       if (!confirm('Ihr PRO-Abonnement wird gekündigt und durch PRO+ ersetzt. Fortfahren?')) return
+      const cancelled = await cancelExistingSubscription()
+      if (!cancelled) return
     }
     const productId = hadTrial
       ? FASTSPRING_CONFIG.productIds.plusMonthlyNoTrial
@@ -207,8 +234,10 @@ export default function SubscriptionPage() {
   }
 
   // Downgrade PRO+ → PRO
-  const handleDowngrade = () => {
+  const handleDowngrade = async () => {
     if (!confirm('Von PRO+ auf PRO wechseln?\n\nAlle Teammitglieder verlieren den Zugang.\n\nFortfahren?')) return
+    const cancelled = await cancelExistingSubscription()
+    if (!cancelled) return
     const productId = FASTSPRING_CONFIG.productIds.monthlyNoTrial
     openCheckout(productId, 'pro')
   }
@@ -480,7 +509,7 @@ export default function SubscriptionPage() {
             bgColor: 'bg-orange-500/10',
             borderColor: 'border-orange-500/30',
             icon: '⏰',
-            description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+            description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen ${plan?.name === 'pro_plus' ? 'PRO+' : 'PRO'}-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
             showUpgrade: false,
             showCancel: false,
             showReactivate: true
@@ -508,7 +537,7 @@ export default function SubscriptionPage() {
         bgColor: 'bg-orange-500/10',
         borderColor: 'border-orange-500/30',
         icon: '⏰',
-        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen ${plan?.name === 'pro_plus' ? 'PRO+' : 'PRO'}-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
         showUpgrade: false,
         showCancel: false,
         showReactivate: true
@@ -516,14 +545,17 @@ export default function SubscriptionPage() {
     }
 
     if (subscription.status === 'trial' && daysRemaining > 0) {
+      const isTrialPlus = plan?.name === 'pro_plus'
       return {
-        status: 'trial',
-        statusLabel: 'PRO Trial',
-        statusColor: 'text-green-400',
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/30',
-        icon: '🎯',
-        description: `Sie testen PRO kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
+        status: isTrialPlus ? 'trial_plus' : 'trial',
+        statusLabel: isTrialPlus ? 'PRO+ Trial' : 'PRO Trial',
+        statusColor: isTrialPlus ? 'text-purple-400' : 'text-green-400',
+        bgColor: isTrialPlus ? 'bg-purple-500/10' : 'bg-green-500/10',
+        borderColor: isTrialPlus ? 'border-purple-500/30' : 'border-green-500/30',
+        icon: isTrialPlus ? '🚀' : '🎯',
+        description: isTrialPlus
+          ? `Sie testen PRO+ Team kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`
+          : `Sie testen PRO kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
         showUpgrade: false,
         showCancel: true,
         showUpdatePayment: true
@@ -745,8 +777,8 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* PRO+ user sees team seats + downgrade */}
-      {statusInfo.status === 'pro_plus' && (
+      {/* PRO+ user (active or trial) sees team seats + downgrade */}
+      {(statusInfo.status === 'pro_plus' || statusInfo.status === 'trial_plus') && (
         <div className="space-y-4">
           <div className="bg-slate-800/50 border border-purple-500/30 rounded-2xl p-6 text-center">
             <h3 className="text-white font-bold text-lg mb-2">👥 Zusätzliche Teammitglieder</h3>
@@ -768,7 +800,7 @@ export default function SubscriptionPage() {
           </div>
           <div className="text-center">
             <button onClick={handleDowngrade}
-              className="text-slate-400 text-sm hover:text-white transition-colors">
+              className="px-6 py-2 border border-slate-500 text-white rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">
               Auf PRO wechseln (Team-Funktionen werden deaktiviert)
             </button>
           </div>

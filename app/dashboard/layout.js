@@ -464,9 +464,16 @@ const getSubscriptionBadge = () => {
     }
   }
 
-  // ✅ ACTIVE: samo PRO (bez dana)
+  // ✅ Detect PRO vs PRO+
+  const isProPlus = plan?.name === 'pro_plus'
+  const planLabel = isProPlus ? 'PRO+' : 'PRO'
+  const activeColor = isProPlus
+    ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+    : 'bg-gradient-to-r from-green-500 to-emerald-500'
+
+  // ✅ ACTIVE: PRO or PRO+
   if (subscription.status === 'active') {
-    return { text: 'PRO', color: 'bg-gradient-to-r from-green-500 to-emerald-500' }
+    return { text: planLabel, color: activeColor }
   }
 
   // ✅ TRIAL: samo kad je status trial
@@ -483,8 +490,10 @@ const getSubscriptionBadge = () => {
     }
 
     return {
-      text: `PRO(${formatDays(trialDaysLeft)})`,
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500',
+      text: `${planLabel}(${formatDays(trialDaysLeft)})`,
+      color: isProPlus
+        ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+        : 'bg-gradient-to-r from-yellow-500 to-orange-500',
       multiline: true
     }
   }
