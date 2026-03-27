@@ -370,14 +370,14 @@ export default function Home() {
               Einfache Preisgestaltung
             </h2>
             <p className="text-xl text-slate-300">
-              Freemium kostenlos für immer · PRO: 30 Tage kostenlos testen
+              Freemium kostenlos für immer · PRO & PRO+: 30 Tage kostenlos testen
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
 
             {/* PRO Plan */}
-            <div className="bg-gradient-to-br from-blue-500/10 to-orange-500/10 border-2 border-blue-500/50 rounded-2xl p-8 relative transform scale-105">
+            <div className="bg-gradient-to-br from-blue-500/10 to-orange-500/10 border-2 border-blue-500/50 rounded-2xl p-8 relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-blue-600 to-orange-500 text-white px-4 py-1 rounded-full text-sm font-bold whitespace-nowrap">EMPFOHLEN</span>
               </div>
@@ -416,6 +416,44 @@ export default function Home() {
               </a>
             </div>
 
+            {/* PRO+ Team Plan */}
+            <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-2 border-purple-500/50 rounded-2xl p-8 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-4 py-1 rounded-full text-sm font-bold whitespace-nowrap">FÜR TEAMS</span>
+              </div>
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-white mb-4">PRO+ Team</h3>
+                <div className="mb-6">
+                  <div className="flex items-baseline justify-center gap-2">
+                    <span className="text-4xl font-bold text-white">29,90€</span>
+                    <span className="text-slate-400">/Monat</span>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-0.5">zzgl. 19% MwSt. · +8€/Mitarbeiter</p>
+                </div>
+                <p className="text-slate-300">Für Betriebe mit Mitarbeitern</p>
+              </div>
+              <div className="space-y-3 mb-8">
+                {[
+                  'Alles aus PRO',
+                  'Team-Verwaltung (2 inkl.)',
+                  'Aufgaben mit Fotos zuweisen',
+                  'Arbeitszeiterfassung',
+                  'Tagesberichte mit Fotos',
+                  'Team-Feed in Echtzeit',
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-3">
+                    <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                    <span className="text-slate-300 text-sm">{item}</span>
+                  </div>
+                ))}
+              </div>
+              <a href="/signup" className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-opacity block text-center">
+                30 Tage kostenlos testen
+              </a>
+            </div>
+
             {/* Freemium Plan */}
             <div className="bg-slate-800/50 border border-slate-600 rounded-2xl p-8">
               <div className="text-center mb-8">
@@ -449,27 +487,27 @@ export default function Home() {
           </div>
 
           {/* Trial Explanation */}
-          <div className="max-w-3xl mx-auto mt-12 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-8 text-center">
+          <div className="max-w-4xl mx-auto mt-12 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-8 text-center">
             <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-white font-bold text-xl">30</span>
             </div>
-            <h3 className="text-2xl font-bold text-white mb-4">30 Tage PRO-Probezeitraum</h3>
+            <h3 className="text-2xl font-bold text-white mb-4">30 Tage kostenlos testen</h3>
             <p className="text-blue-200 mb-6 text-lg">
-              Nach der Registrierung haben Sie 30 Tage Vollzugang zu allen PRO-Funktionen.
-              Danach wählen Sie zwischen Freemium (kostenlos) oder PRO (19,90€/Monat zzgl. MwSt.).
+              Nach der Registrierung haben Sie 30 Tage Vollzugang zu allen PRO- oder PRO+-Funktionen.
+              Danach wählen Sie Ihren Plan — oder bleiben kostenlos bei Freemium.
             </p>
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div className="bg-slate-800/50 rounded-lg p-4">
                 <div className="text-blue-300 font-semibold mb-2">Tag 1–30</div>
-                <div className="text-slate-300">Vollzugang zu PRO-Funktionen</div>
+                <div className="text-slate-300">Vollzugang zu allen Funktionen</div>
               </div>
               <div className="bg-slate-800/50 rounded-lg p-4">
                 <div className="text-green-300 font-semibold mb-2">Nach 30 Tagen</div>
                 <div className="text-slate-300">Freemium (nur QR-Karte)</div>
               </div>
               <div className="bg-slate-800/50 rounded-lg p-4">
-                <div className="text-blue-300 font-semibold mb-2">Upgrade</div>
-                <div className="text-slate-300">PRO: Jederzeit aktivieren</div>
+                <div className="text-purple-300 font-semibold mb-2">Upgrade</div>
+                <div className="text-slate-300">PRO oder PRO+ jederzeit</div>
               </div>
             </div>
           </div>
