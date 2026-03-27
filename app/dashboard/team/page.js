@@ -15,6 +15,9 @@ export default function TeamPage() {
   const [error, setError] = useState('')
   const [copiedCode, setCopiedCode] = useState(null)
   const [fastspringReady, setFastspringReady] = useState(false)
+  const [showSeatModal, setShowSeatModal] = useState(false)
+  const [seatQty, setSeatQty] = useState(1)
+  const [seatInterval, setSeatInterval] = useState('monthly')
   const router = useRouter()
 
   const { plan } = useSubscription(majstor?.id)
@@ -157,20 +160,7 @@ export default function TeamPage() {
               </div>
             )}
             <button
-              onClick={async () => {
-                if (!fastspringReady) { alert('Zahlungssystem wird geladen...'); return }
-                const { data: { session } } = await supabase.auth.getSession()
-                const { data: { user } } = await supabase.auth.getUser()
-                openFastSpringCheckout({
-                  priceId: FASTSPRING_CONFIG.productIds.teamSeat,
-                  email: majstor?.email,
-                  majstorId: user?.id,
-                  billingInterval: 'monthly',
-                  onSuccess: () => { alert('Zusätzlicher Platz gebucht!') },
-                  onError: (err) => { alert('Fehler: ' + err.message) },
-                  onClose: () => {}
-                })
-              }}
+              onClick={() => setShowSeatModal(true)}
               className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg text-sm font-semibold hover:from-purple-500 hover:to-pink-500 transition-all"
             >
               + Plätze buchen
@@ -282,6 +272,80 @@ export default function TeamPage() {
           <p>4. Fertig — der Mitarbeiter hat Zugriff auf Zeiterfassung und Aufgaben</p>
         </div>
       </div>
+
+      {/* Seat booking modal */}
+      {showSeatModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowSeatModal(false)}>
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full space-y-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-lg">Plätze buchen</h3>
+            <p className="text-slate-400 text-sm">8€/Monat oder 80€/Jahr pro Mitarbeiter</p>
+
+            <div>
+              <label className="block text-slate-400 text-sm mb-1">Anzahl</label>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={seatQty}
+                onChange={(e) => setSeatQty(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white text-center text-xl"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSeatInterval('monthly')}
+                className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${seatInterval === 'monthly' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+              >
+                Monatlich
+              </button>
+              <button
+                onClick={() => setSeatInterval('yearly')}
+                className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all relative ${seatInterval === 'yearly' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+              >
+                Jährlich
+                <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">-17%</span>
+              </button>
+            </div>
+
+            <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+              <p className="text-white text-2xl font-bold">
+                {seatInterval === 'monthly' ? `${seatQty * 8},00€` : `${seatQty * 80},00€`}
+              </p>
+              <p className="text-slate-400 text-xs">
+                {seatQty} {seatQty === 1 ? 'Platz' : 'Plätze'} × {seatInterval === 'monthly' ? '8€/Monat' : '80€/Jahr'}
+              </p>
+            </div>
+
+            <button
+              onClick={async () => {
+                if (!fastspringReady) return
+                const { data: { user } } = await supabase.auth.getUser()
+                const productId = seatInterval === 'yearly'
+                  ? FASTSPRING_CONFIG.productIds.teamSeatYearly
+                  : FASTSPRING_CONFIG.productIds.teamSeat
+                openFastSpringCheckout({
+                  priceId: productId,
+                  email: majstor?.email,
+                  majstorId: user?.id,
+                  billingInterval: seatInterval,
+                  onSuccess: () => { setShowSeatModal(false); alert('Plätze gebucht!') },
+                  onError: (err) => { alert('Fehler: ' + err.message) },
+                  onClose: () => {}
+                })
+              }}
+              disabled={!fastspringReady}
+              className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-500 hover:to-pink-500 transition-all disabled:opacity-50"
+            >
+              {fastspringReady ? 'Jetzt buchen' : 'Laden...'}
+            </button>
+
+            <button onClick={() => setShowSeatModal(false)} className="w-full py-2 text-slate-400 text-sm hover:text-white">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
