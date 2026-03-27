@@ -1,0 +1,210 @@
+// app/api/team/task-reports/route.js — Task reports (multi-phase)
+import { createClient } from '@supabase/supabase-js'
+import { sendTeamPush } from '@/lib/sendTeamPush'
+
+function getAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
+}
+
+async function getUser(request) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return null
+  const admin = getAdmin()
+  const { data: { user } } = await admin.auth.getUser(token)
+  return user || null
+}
+
+// GET — list reports for a task or all tasks
+export async function GET(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = getAdmin()
+    const { searchParams } = new URL(request.url)
+    const taskId = searchParams.get('task_id')
+    const workerId = searchParams.get('worker_id')
+
+    let query = admin.from('task_reports').select('*')
+
+    if (taskId) {
+      query = query.eq('task_id', taskId)
+    } else if (workerId) {
+      // Get worker's posts + replies to those posts
+      const { data: workerPosts } = await admin.from('task_reports').select('id').eq('worker_id', workerId)
+      const postIds = (workerPosts || []).map(p => p.id)
+      if (postIds.length > 0) {
+        query = query.or(`worker_id.eq.${workerId},parent_id.in.(${postIds.join(',')})`)
+      } else {
+        query = query.eq('worker_id', workerId)
+      }
+    } else {
+      // Check role
+      const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
+      if (majstor?.role === 'worker') {
+        const { data: myPosts } = await admin.from('task_reports').select('id').eq('worker_id', user.id)
+        const myPostIds = (myPosts || []).map(p => p.id)
+        if (myPostIds.length > 0) {
+          query = query.or(`worker_id.eq.${user.id},parent_id.in.(${myPostIds.join(',')})`)
+        } else {
+          query = query.eq('worker_id', user.id)
+        }
+      } else {
+        // Owner — get reports for all their tasks
+        const { data: tasks } = await admin.from('tasks').select('id').eq('owner_id', user.id)
+        const taskIds = (tasks || []).map(t => t.id)
+        if (taskIds.length > 0) {
+          query = query.in('task_id', taskIds)
+        } else {
+          return Response.json({ reports: [] })
+        }
+      }
+    }
+
+    const { data: reports, error } = await query.order('created_at', { ascending: true })
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+
+    return Response.json({ reports })
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// POST — create report (text only, photos added via PUT)
+export async function POST(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = await request.json()
+    const { task_id, text, is_final, parent_id } = body
+
+    const admin = getAdmin()
+
+    // If task_id provided, verify it
+    if (task_id) {
+      const { data: task } = await admin.from('tasks').select('id, status, assigned_to').eq('id', task_id).single()
+      if (!task) return Response.json({ error: 'Aufgabe nicht gefunden' }, { status: 404 })
+      if (task.assigned_to !== user.id) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+      if (task.status === 'done') return Response.json({ error: 'Aufgabe bereits abgeschlossen' }, { status: 400 })
+    }
+
+    if (!text?.trim()) {
+      return Response.json({ error: 'Bitte Text eingeben' }, { status: 400 })
+    }
+
+    // Determine owner_id
+    let ownerId = null
+    const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
+    if (majstor?.role === 'worker') {
+      const { data: membership } = await admin.from('team_members').select('owner_id').eq('worker_id', user.id).eq('status', 'active').single()
+      ownerId = membership?.owner_id
+    } else {
+      ownerId = user.id
+    }
+
+    const { data: report, error } = await admin
+      .from('task_reports')
+      .insert({
+        task_id: task_id || null,
+        worker_id: user.id,
+        owner_id: ownerId,
+        text: text.trim(),
+        phase: is_final ? 'final' : 'update',
+        is_final: !!is_final,
+        parent_id: parent_id || null,
+      })
+      .select()
+      .single()
+
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+
+    // If final, mark task as done
+    if (is_final && task_id) {
+      await admin.from('tasks')
+        .update({ status: 'done', completed_at: new Date().toISOString() })
+        .eq('id', task_id)
+    }
+
+    // Send push notification
+    if (majstor?.role === 'worker' && ownerId) {
+      // Worker sent → notify owner
+      const { data: workerInfo } = await admin.from('team_members').select('worker_name').eq('worker_id', user.id).eq('status', 'active').single()
+      const name = workerInfo?.worker_name || 'Mitarbeiter'
+      sendTeamPush({
+        majstorId: ownerId,
+        title: is_final ? `✅ ${name}: Aufgabe abgeschlossen` : `📸 ${name}: Neuer Bericht`,
+        message: text.trim().slice(0, 100),
+        url: '/dashboard/team/feed',
+      })
+    } else if (parent_id && ownerId) {
+      // Owner replied → notify worker (find worker from parent post)
+      const { data: parentPost } = await admin.from('task_reports').select('worker_id').eq('id', parent_id).single()
+      if (parentPost?.worker_id && parentPost.worker_id !== user.id) {
+        sendTeamPush({
+          majstorId: parentPost.worker_id,
+          title: '👔 Nachricht vom Chef',
+          message: text.trim().slice(0, 100),
+          url: '/dashboard/worker/feed',
+        })
+      }
+    }
+
+    return Response.json({ report })
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PUT — upload photo to report
+export async function PUT(request) {
+  try {
+    const user = await getUser(request)
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const formData = await request.formData()
+    const file = formData.get('photo')
+    const reportId = formData.get('report_id')
+
+    if (!file || !reportId) return Response.json({ error: 'Foto und Report-ID erforderlich' }, { status: 400 })
+
+    const admin = getAdmin()
+
+    const { data: report } = await admin
+      .from('task_reports')
+      .select('photos, worker_id')
+      .eq('id', reportId)
+      .single()
+
+    if (!report) return Response.json({ error: 'Bericht nicht gefunden' }, { status: 404 })
+    if (report.worker_id !== user.id) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+
+    const photos = report.photos || []
+    if (photos.length >= 10) return Response.json({ error: 'Max. 10 Fotos pro Bericht' }, { status: 400 })
+
+    const timestamp = Date.now()
+    const path = `task-reports/${user.id}/${reportId}/${timestamp}.jpg`
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { error: uploadError } = await admin.storage
+      .from('team-files')
+      .upload(path, buffer, { contentType: file.type || 'image/jpeg' })
+
+    if (uploadError) return Response.json({ error: uploadError.message }, { status: 500 })
+
+    const { data: urlData } = admin.storage.from('team-files').getPublicUrl(path)
+    photos.push({ url: urlData.publicUrl, uploaded_at: new Date().toISOString() })
+
+    await admin
+      .from('task_reports')
+      .update({ photos })
+      .eq('id', reportId)
+
+    return Response.json({ success: true, photo: urlData.publicUrl, count: photos.length })
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 })
+  }
+}

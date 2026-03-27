@@ -236,6 +236,11 @@ async function handleSubscriptionActivated(data) {
     console.log(' Majstor ID:', majstorId)
     console.log(' Status (raw):', statusRaw)
 
+    // ✅ TEAM SEATS: Handle additional-user products separately
+    if (productPath === 'additional-user' || productPath === 'additional-user-yearly') {
+      return await handleSeatSubscriptionActivated(data, majstorId, subscriptionId, productPath)
+    }
+
     const planId = await getPlanIdFromProduct(productPath)
 
     if (!subscriptionId || !planId) {
@@ -266,9 +271,6 @@ async function handleSubscriptionActivated(data) {
       data.inTrial === true ||
       data.nextNotificationType === 'FREE_TRIAL_NOTIFICATION'
 
-    const finalStatus = inTrial ? 'trial' : 'active'
-    const trialEndsAt = inTrial ? currentPeriodEnd : null
-
     const autoRenew =
       typeof data.subscription === 'object'
         ? data.subscription.autoRenew
@@ -286,6 +288,94 @@ async function handleSubscriptionActivated(data) {
         ? data.subscription.intervalLength
         : data.intervalLength
 
+    // ✅ TRIAL BUDGET: 30 days total across all trial sessions
+    let finalStatus = inTrial ? 'trial' : 'active'
+    let trialEndsAt = inTrial ? currentPeriodEnd : null
+    let adjustedPeriodEnd = currentPeriodEnd
+
+    if (inTrial) {
+      const { data: majstorRow } = await supabaseAdmin
+        .from('majstors')
+        .select('trial_days_used, had_trial')
+        .eq('id', majstorId)
+        .single()
+
+      const usedDays = majstorRow?.trial_days_used || 0
+      const TRIAL_BUDGET = 30
+      const remainingDays = TRIAL_BUDGET - usedDays
+
+      console.log(`⏱️ Trial budget: ${usedDays} used, ${remainingDays} remaining of ${TRIAL_BUDGET}`)
+
+      if (remainingDays <= 0) {
+        // No trial days left — cancel FastSpring subscription and reject
+        console.log('🚫 Trial budget exhausted! Cancelling FastSpring subscription...')
+        try {
+          const credentials = Buffer.from(
+            `${process.env.FASTSPRING_USERNAME}:${process.env.FASTSPRING_PASSWORD}`
+          ).toString('base64')
+          await fetch(`https://api.fastspring.com/subscriptions/${subscriptionId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Basic ${credentials}` }
+          })
+        } catch (cancelErr) {
+          console.error('Failed to cancel exhausted trial on FS:', cancelErr)
+        }
+        return { success: false, reason: 'trial_budget_exhausted', usedDays }
+      }
+
+      // Adjust trial end to remaining days (not full 30 from FastSpring)
+      const now = new Date()
+      const adjustedEnd = new Date(now)
+      adjustedEnd.setDate(adjustedEnd.getDate() + remainingDays)
+      adjustedPeriodEnd = adjustedEnd.toISOString()
+      trialEndsAt = adjustedPeriodEnd
+
+      console.log(`✅ Trial adjusted: ${remainingDays} days → ends ${adjustedPeriodEnd}`)
+    }
+
+    // ✅ UPGRADE/DOWNGRADE: Deactivate any existing subscriptions for this user
+    // (e.g. PRO→PRO+ or PRO+→PRO — new subscription ID from FastSpring)
+    const { data: existingSubs } = await supabaseAdmin
+      .from('user_subscriptions')
+      .select('id, provider_subscription_id, status, trial_starts_at')
+      .eq('majstor_id', majstorId)
+      .neq('provider_subscription_id', subscriptionId)
+      .in('status', ['active', 'trial'])
+
+    if (existingSubs && existingSubs.length > 0) {
+      console.log(`🔄 UPGRADE/DOWNGRADE: Found ${existingSubs.length} existing subscription(s), deactivating...`)
+      for (const oldSub of existingSubs) {
+        console.log(`  🗑️ Deactivating old subscription: ${oldSub.provider_subscription_id} (status: ${oldSub.status})`)
+
+        // If old sub was a trial, count used days toward budget
+        if (oldSub.status === 'trial' && oldSub.trial_starts_at) {
+          const trialStart = new Date(oldSub.trial_starts_at)
+          const daysUsed = Math.max(1, Math.ceil((Date.now() - trialStart.getTime()) / (1000 * 60 * 60 * 24)))
+          const { data: majstorRow } = await supabaseAdmin
+            .from('majstors')
+            .select('trial_days_used')
+            .eq('id', majstorId)
+            .single()
+          const newTotal = Math.min(30, (majstorRow?.trial_days_used || 0) + daysUsed)
+          await supabaseAdmin
+            .from('majstors')
+            .update({ trial_days_used: newTotal })
+            .eq('id', majstorId)
+          console.log(`  ⏱️ Counted ${daysUsed} trial days from old subscription (total: ${newTotal}/30)`)
+        }
+
+        await supabaseAdmin
+          .from('user_subscriptions')
+          .update({
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancel_at_period_end: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', oldSub.id)
+      }
+    }
+
     const { data: sub, error: upsertError } = await supabaseAdmin
       .from('user_subscriptions')
       .upsert({
@@ -296,7 +386,7 @@ async function handleSubscriptionActivated(data) {
         provider_subscription_id: subscriptionId,
         provider_customer_id: accountId || null,
         current_period_start: currentPeriodStart,
-        current_period_end: currentPeriodEnd,
+        current_period_end: adjustedPeriodEnd,
         trial_starts_at: inTrial ? currentPeriodStart : null,
         trial_ends_at: trialEndsAt,
         cancel_at_period_end: false,
@@ -320,7 +410,7 @@ async function handleSubscriptionActivated(data) {
       .from('majstors')
       .update({
         subscription_status: finalStatus,
-        subscription_ends_at: currentPeriodEnd,
+        subscription_ends_at: adjustedPeriodEnd,
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
@@ -345,9 +435,15 @@ async function handleSubscriptionDeactivated(data) {
 
     console.log(' Subscription ID:', subscriptionId)
 
+    // ✅ Check if this is a seat subscription
+    const seatOwner = await isSeatSubscription(subscriptionId)
+    if (seatOwner) {
+      return await handleSeatDeactivated(seatOwner.id)
+    }
+
     const { data: existingSub } = await supabaseAdmin
       .from('user_subscriptions')
-      .select('majstor_id, status')
+      .select('majstor_id, status, trial_starts_at')
       .eq('provider_subscription_id', subscriptionId)
       .single()
 
@@ -357,6 +453,26 @@ async function handleSubscriptionDeactivated(data) {
     }
 
     const majstorId = existingSub.majstor_id
+
+    // ✅ TRIAL BUDGET: Count used days when trial is cancelled
+    if (existingSub.status === 'trial' && existingSub.trial_starts_at) {
+      const trialStart = new Date(existingSub.trial_starts_at)
+      const daysUsed = Math.max(1, Math.ceil((Date.now() - trialStart.getTime()) / (1000 * 60 * 60 * 24)))
+
+      const { data: majstorRow } = await supabaseAdmin
+        .from('majstors')
+        .select('trial_days_used')
+        .eq('id', majstorId)
+        .single()
+
+      const newTotal = (majstorRow?.trial_days_used || 0) + daysUsed
+      await supabaseAdmin
+        .from('majstors')
+        .update({ trial_days_used: newTotal })
+        .eq('id', majstorId)
+
+      console.log(`⏱️ Trial days counted: +${daysUsed} → total ${newTotal}/30`)
+    }
 
     await supabaseAdmin
       .from('user_subscriptions')
@@ -375,6 +491,9 @@ async function handleSubscriptionDeactivated(data) {
         updated_at: new Date().toISOString()
       })
       .eq('id', majstorId)
+
+    // ✅ Cancel seat subscription when PRO+ is cancelled
+    await cancelSeatSubscription(majstorId)
 
     console.log(' Subscription cancelled')
     console.log(' User reverted to freemium')
@@ -514,7 +633,24 @@ async function handleSubscriptionChargeCompleted(data) {
         return { error: updateMajstorError.message }
       }
 
-      console.log('✅ Trial → Active conversion complete')
+      // Mark that user had a trial + count final trial days
+      const trialUpdateData = { had_trial: true }
+      if (existingSub.current_period_start) {
+        const trialStart = new Date(existingSub.current_period_start)
+        const daysUsed = Math.max(1, Math.ceil((Date.now() - trialStart.getTime()) / (1000 * 60 * 60 * 24)))
+        const { data: majstorRow } = await supabaseAdmin
+          .from('majstors')
+          .select('trial_days_used')
+          .eq('id', existingSub.majstor_id)
+          .single()
+        trialUpdateData.trial_days_used = Math.min(30, (majstorRow?.trial_days_used || 0) + daysUsed)
+      }
+      await supabaseAdmin
+        .from('majstors')
+        .update(trialUpdateData)
+        .eq('id', existingSub.majstor_id)
+
+      console.log('✅ Trial → Active conversion complete (had_trial=true, trial_days_used updated)')
       console.log('   New period:', nowIso, '→', newCurrentPeriodEnd)
 
     } else if (existingSub.status === 'active') {
@@ -593,13 +729,126 @@ async function handleTrialReminder(data) {
 }
 
 // ============================================
+// TEAM SEAT HANDLERS
+// ============================================
+
+async function handleSeatSubscriptionActivated(data, majstorId, subscriptionId, productPath) {
+  console.log('💺 handleSeatSubscriptionActivated')
+
+  try {
+    // Extract quantity from FastSpring event
+    let quantity = 1
+    if (typeof data.subscription === 'object') {
+      quantity = data.subscription.quantity || data.quantity || 1
+    } else {
+      quantity = data.quantity || 1
+    }
+
+    console.log(`💺 Seat subscription: ${subscriptionId}, quantity: ${quantity}, product: ${productPath}`)
+
+    await supabaseAdmin
+      .from('majstors')
+      .update({
+        paid_seats: quantity,
+        seat_subscription_id: subscriptionId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', majstorId)
+
+    console.log(`✅ Saved paid_seats=${quantity} for majstor ${majstorId}`)
+    return { success: true, type: 'team_seat', quantity }
+
+  } catch (error) {
+    console.error('❌ Error in handleSeatSubscriptionActivated:', error)
+    return { error: error.message }
+  }
+}
+
+async function isSeatSubscription(subscriptionId) {
+  const { data: majstor } = await supabaseAdmin
+    .from('majstors')
+    .select('id, paid_seats')
+    .eq('seat_subscription_id', subscriptionId)
+    .single()
+  return majstor || null
+}
+
+async function handleSeatDeactivated(majstorId) {
+  console.log('💺 Seat subscription deactivated for majstor:', majstorId)
+
+  // Reset paid seats
+  await supabaseAdmin
+    .from('majstors')
+    .update({
+      paid_seats: 0,
+      seat_subscription_id: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', majstorId)
+
+  // Soft-remove members beyond the 2 included
+  const { data: members } = await supabaseAdmin
+    .from('team_members')
+    .select('id, created_at')
+    .eq('owner_id', majstorId)
+    .neq('status', 'removed')
+    .order('created_at', { ascending: true })
+
+  if (members && members.length > 2) {
+    const toRemove = members.slice(2) // keep oldest 2
+    for (const m of toRemove) {
+      await supabaseAdmin
+        .from('team_members')
+        .update({ status: 'removed' })
+        .eq('id', m.id)
+    }
+    console.log(`🗑️ Removed ${toRemove.length} members beyond included 2`)
+  }
+
+  console.log('✅ Seat subscription fully deactivated')
+  return { success: true }
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+async function cancelSeatSubscription(majstorId) {
+  // Cancel seat subscription when PRO+ is cancelled
+  const { data: majstor } = await supabaseAdmin
+    .from('majstors')
+    .select('seat_subscription_id')
+    .eq('id', majstorId)
+    .single()
+
+  if (majstor?.seat_subscription_id) {
+    console.log('💺 Cancelling seat subscription:', majstor.seat_subscription_id)
+    try {
+      const credentials = Buffer.from(
+        `${process.env.FASTSPRING_USERNAME}:${process.env.FASTSPRING_PASSWORD}`
+      ).toString('base64')
+      await fetch(`https://api.fastspring.com/subscriptions/${majstor.seat_subscription_id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Basic ${credentials}` }
+      })
+    } catch (err) {
+      console.error('Failed to cancel seat subscription on FS:', err)
+    }
+    await handleSeatDeactivated(majstorId)
+  }
+}
 
 async function getPlanIdFromProduct(productPath) {
   const productMap = {
     'promeister-monthly': 'pro',
-    'promeister-yearly': 'pro'
+    'promeister-yearly': 'pro',
+    'promeister-monthly-no-trial': 'pro',
+    'promeister-yearly-no-trial': 'pro',
+    'promeister-pro-yearly-no-trial': 'pro',
+    'promeister-plus-monthly': 'pro_plus',
+    'promeister-plus-yearly': 'pro_plus',
+    'promeister-plus-monthly-no-trial': 'pro_plus',
+    'promeister-plus-yearly-no-trial': 'pro_plus',
   }
 
   const planName = productMap[productPath]

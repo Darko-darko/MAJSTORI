@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useSubscription } from '@/lib/hooks/useSubscription'
+import { useSubscription, clearSubscriptionCache } from '@/lib/hooks/useSubscription'
 import { initializeFastSpring, openFastSpringCheckout, FASTSPRING_CONFIG } from '@/lib/fastspring'
 
 export default function SubscriptionPage() {
@@ -159,51 +159,87 @@ export default function SubscriptionPage() {
   }, [majstor?.id, processingAction, refresh])
 
   // 🔥 FIXED: Direktno otvara FastSpring kao dugmad sa katancem!
-  const handleUpgradeClick = async () => {
-    if (!fastspringReady) {
-      setError('FastSpring wird noch geladen...')
-      return
-    }
-
-    if (!majstor) {
-      setError('Benutzerdaten fehlen')
-      return
-    }
-
-    console.log('🚀 Opening FastSpring Checkout directly!')
-
-    const productId = FASTSPRING_CONFIG.productIds.monthly
-
-    if (!productId) {
-      setError('Product ID nicht konfiguriert')
-      return
-    }
+  // Generic checkout opener
+  const openCheckout = async (productId, planLabel) => {
+    if (!fastspringReady) { setError('FastSpring wird noch geladen...'); return }
+    if (!majstor) { setError('Benutzerdaten fehlen'); return }
+    if (!productId) { setError('Product ID nicht konfiguriert'); return }
 
     try {
       await openFastSpringCheckout({
         priceId: productId,
         email: majstor.email,
         majstorId: majstor.id,
-        billingInterval: 'monthly',
-        onSuccess: (data) => {
-          console.log('✅ Payment successful!', data)
-          setTimeout(() => {
-            refresh(true)
-            window.location.href = '/dashboard?fastspring_success=true&plan=monthly'
-          }, 2000)
+        billingInterval: productId.includes('yearly') ? 'yearly' : 'monthly',
+        onSuccess: () => {
+          clearSubscriptionCache(majstor.id)
+          window.location.href = `/dashboard?fastspring_success=true&plan=${planLabel}`
         },
-        onError: (err) => {
-          console.error('❌ Payment error:', err)
-          setError('Zahlung fehlgeschlagen: ' + err.message)
-        },
-        onClose: () => {
-          console.log('🚪 FastSpring popup closed')
-        }
+        onError: (err) => { setError('Zahlung fehlgeschlagen: ' + err.message) },
+        onClose: () => { console.log('🚪 Popup closed') }
       })
     } catch (err) {
-      console.error('❌ Upgrade error:', err)
       setError('Fehler beim Öffnen des Checkouts')
     }
+  }
+
+  const hadTrial = majstor?.had_trial === true
+
+  // Upgrade to PRO (from Freemium)
+  const handleUpgradeClick = () => {
+    const productId = hadTrial
+      ? FASTSPRING_CONFIG.productIds.monthlyNoTrial
+      : FASTSPRING_CONFIG.productIds.monthly
+    openCheckout(productId, 'pro')
+  }
+
+  // Cancel existing subscription via FastSpring API (for upgrade/downgrade)
+  const cancelExistingSubscription = async () => {
+    if (!subscription?.provider_subscription_id) return true
+    try {
+      const response = await fetch('/api/fastspring-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: subscription.provider_subscription_id,
+          majstorId: majstor.id
+        })
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Fehler beim Kündigen')
+      }
+      console.log('✅ Old subscription cancelled for plan switch')
+      return true
+    } catch (err) {
+      console.error('❌ Failed to cancel old subscription:', err)
+      setError('Fehler beim Planwechsel: ' + err.message)
+      return false
+    }
+  }
+
+  // Upgrade to PRO+ (from Freemium or PRO)
+  const handleUpgradeToPlus = async () => {
+    const currentPlan = plan?.name
+    // If upgrading from PRO, cancel old subscription first
+    if (currentPlan === 'pro' && subscription?.provider_subscription_id) {
+      if (!confirm('Ihr PRO-Abonnement wird gekündigt und durch PRO+ ersetzt. Fortfahren?')) return
+      const cancelled = await cancelExistingSubscription()
+      if (!cancelled) return
+    }
+    const productId = hadTrial
+      ? FASTSPRING_CONFIG.productIds.plusMonthlyNoTrial
+      : FASTSPRING_CONFIG.productIds.plusMonthly
+    openCheckout(productId, 'pro_plus')
+  }
+
+  // Downgrade PRO+ → PRO
+  const handleDowngrade = async () => {
+    if (!confirm('Von PRO+ auf PRO wechseln?\n\nAlle Teammitglieder verlieren den Zugang.\n\nFortfahren?')) return
+    const cancelled = await cancelExistingSubscription()
+    if (!cancelled) return
+    const productId = FASTSPRING_CONFIG.productIds.monthlyNoTrial
+    openCheckout(productId, 'pro')
   }
 
   const handleUpdatePaymentMethod = async () => {
@@ -473,7 +509,7 @@ export default function SubscriptionPage() {
             bgColor: 'bg-orange-500/10',
             borderColor: 'border-orange-500/30',
             icon: '⏰',
-            description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+            description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen ${plan?.name === 'pro_plus' ? 'PRO+' : 'PRO'}-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
             showUpgrade: false,
             showCancel: false,
             showReactivate: true
@@ -501,7 +537,7 @@ export default function SubscriptionPage() {
         bgColor: 'bg-orange-500/10',
         borderColor: 'border-orange-500/30',
         icon: '⏰',
-        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen PRO-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
+        description: `Ihre Kündigung wurde bestätigt. Sie haben noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} vollen ${plan?.name === 'pro_plus' ? 'PRO+' : 'PRO'}-Zugriff. Danach wechseln Sie automatisch zu Freemium.`,
         showUpgrade: false,
         showCancel: false,
         showReactivate: true
@@ -509,14 +545,17 @@ export default function SubscriptionPage() {
     }
 
     if (subscription.status === 'trial' && daysRemaining > 0) {
+      const isTrialPlus = plan?.name === 'pro_plus'
       return {
-        status: 'trial',
-        statusLabel: 'PRO Trial',
-        statusColor: 'text-green-400',
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/30',
-        icon: '🎯',
-        description: `Sie testen PRO kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
+        status: isTrialPlus ? 'trial_plus' : 'trial',
+        statusLabel: isTrialPlus ? 'PRO+ Trial' : 'PRO Trial',
+        statusColor: isTrialPlus ? 'text-purple-400' : 'text-green-400',
+        bgColor: isTrialPlus ? 'bg-purple-500/10' : 'bg-green-500/10',
+        borderColor: isTrialPlus ? 'border-purple-500/30' : 'border-green-500/30',
+        icon: isTrialPlus ? '🚀' : '🎯',
+        description: isTrialPlus
+          ? `Sie testen PRO+ Team kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`
+          : `Sie testen PRO kostenlos. Erste Zahlung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}. Sie können jederzeit kündigen.`,
         showUpgrade: false,
         showCancel: true,
         showUpdatePayment: true
@@ -524,14 +563,17 @@ export default function SubscriptionPage() {
     }
 
     if (subscription.status === 'active' && daysRemaining > 0) {
+      const isProPlus = plan?.name === 'pro_plus'
       return {
-        status: 'pro',
-        statusLabel: 'PRO Mitgliedschaft',
-        statusColor: 'text-green-400',
-        bgColor: 'bg-green-500/10',
-        borderColor: 'border-green-500/30',
-        icon: '💎',
-        description: `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
+        status: isProPlus ? 'pro_plus' : 'pro',
+        statusLabel: isProPlus ? 'PRO+ Team Mitgliedschaft' : 'PRO Mitgliedschaft',
+        statusColor: isProPlus ? 'text-purple-400' : 'text-green-400',
+        bgColor: isProPlus ? 'bg-purple-500/10' : 'bg-green-500/10',
+        borderColor: isProPlus ? 'border-purple-500/30' : 'border-green-500/30',
+        icon: isProPlus ? '🚀' : '💎',
+        description: isProPlus
+          ? `PRO+ Team aktiv. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`
+          : `Sie haben vollen Zugriff auf alle PRO-Funktionen. Nächste Abrechnung in ${daysRemaining} Tag${daysRemaining !== 1 ? 'en' : ''}.`,
         showUpgrade: false,
         showCancel: true,
         showUpdatePayment: true
@@ -670,89 +712,100 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {/* Features Comparison */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Freemium */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold text-white mb-2">Freemium</h3>
-            <p className="text-4xl font-bold text-slate-400">Kostenlos</p>
-          </div>
-          <ul className="space-y-3">
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-slate-300">QR Visitenkarte erstellen</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-slate-300">Kundenanfragen empfangen</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-red-500 mt-1">✗</span>
-              <span className="text-slate-500">Kundenverwaltung</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-red-500 mt-1">✗</span>
-              <span className="text-slate-500">Rechnungserstellung</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-red-500 mt-1">✗</span>
-              <span className="text-slate-500">Services Management</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-red-500 mt-1">✗</span>
-              <span className="text-slate-500">PDF Archiv</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* PRO */}
-        <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-2 border-blue-500/50 rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
-            EMPFOHLEN
-          </div>
-          <div className="text-center mb-6 mt-4">
-            <h3 className="text-2xl font-bold text-white mb-2">PRO</h3>
-            <p className="text-4xl font-bold text-blue-400">€19,90<span className="text-lg text-slate-400">/Monat</span></p>
-            <p className="text-sm text-slate-400 mt-1">1 Tag kostenlos testen</p>
-          </div>
-          <ul className="space-y-3">
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-white font-medium">Alle Freemium-Funktionen</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-white font-medium">Unbegrenzte Kunden</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-white font-medium">Professionelle Rechnungen</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-white font-medium">Services Management</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-white font-medium">Automatisches PDF Archiv</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-green-500 mt-1">✓</span>
-              <span className="text-white font-medium">Priority Support</span>
-            </li>
-          </ul>
-          {statusInfo.showUpgrade && (
-            <button
-              onClick={handleUpgradeClick}
-              disabled={!fastspringReady}
-              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {!fastspringReady ? 'FastSpring lädt...' : 'Jetzt upgraden'}
+      {/* Upgrade/Downgrade options — show only what's relevant */}
+      {statusInfo.status === 'freemium' && (
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* PRO */}
+          <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border-2 border-blue-500/50 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">EMPFOHLEN</div>
+            <div className="text-center mb-6 mt-4">
+              <h3 className="text-2xl font-bold text-white mb-2">PRO</h3>
+              <p className="text-4xl font-bold text-blue-400">€19,90<span className="text-lg text-slate-400">/Monat</span></p>
+            </div>
+            <ul className="space-y-2">
+              {['Rechnungen & Angebote', 'Aufmaß', 'KI-Assistent', 'Buchhalter-Zugang'].map(t => (
+                <li key={t} className="flex items-center gap-2 text-sm text-white"><span className="text-green-500">✓</span>{t}</li>
+              ))}
+            </ul>
+            <button onClick={handleUpgradeClick} disabled={!fastspringReady}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50">
+              {!fastspringReady ? 'Laden...' : 'Jetzt PRO werden'}
             </button>
-          )}
+          </div>
+
+          {/* PRO+ */}
+          <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-2 border-purple-500/50 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-purple-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">FÜR TEAMS</div>
+            <div className="text-center mb-6 mt-4">
+              <h3 className="text-2xl font-bold text-white mb-2">PRO+ Team</h3>
+              <p className="text-4xl font-bold text-purple-400">€29,90<span className="text-lg text-slate-400">/Monat</span></p>
+              <p className="text-xs text-slate-400">+8€/Monat pro Mitarbeiter</p>
+            </div>
+            <ul className="space-y-2">
+              {['Alles aus PRO', 'Team-Verwaltung', 'Aufgaben & Fotos', 'Zeiterfassung'].map(t => (
+                <li key={t} className="flex items-center gap-2 text-sm text-white"><span className="text-green-500">✓</span>{t}</li>
+              ))}
+            </ul>
+            <button onClick={handleUpgradeToPlus} disabled={!fastspringReady}
+              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50">
+              {!fastspringReady ? 'Laden...' : '🚀 Auf PRO+ upgraden'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* PRO user sees only PRO+ upgrade */}
+      {(statusInfo.status === 'pro' || statusInfo.status === 'trial') && (
+        <div className="max-w-md mx-auto">
+          <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-2 border-purple-500/50 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-purple-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">UPGRADE</div>
+            <div className="text-center mb-6 mt-4">
+              <h3 className="text-2xl font-bold text-white mb-2">PRO+ Team</h3>
+              <p className="text-4xl font-bold text-purple-400">€29,90<span className="text-lg text-slate-400">/Monat</span></p>
+              <p className="text-xs text-slate-400">2 Mitarbeiter inklusive · +8€/Monat pro weiteres</p>
+            </div>
+            <ul className="space-y-2">
+              {['Alles was Sie haben + Team-Funktionen', 'Aufgaben mit Fotos zuweisen', 'Arbeitszeiterfassung mit GPS', 'Team-Feed in Echtzeit'].map(t => (
+                <li key={t} className="flex items-center gap-2 text-sm text-white"><span className="text-green-500">✓</span>{t}</li>
+              ))}
+            </ul>
+            <button onClick={handleUpgradeToPlus} disabled={!fastspringReady}
+              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50">
+              {!fastspringReady ? 'Laden...' : '🚀 Auf PRO+ upgraden'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PRO+ user (active or trial) sees team seats + downgrade */}
+      {(statusInfo.status === 'pro_plus' || statusInfo.status === 'trial_plus') && (
+        <div className="space-y-4">
+          <div className="bg-slate-800/50 border border-purple-500/30 rounded-2xl p-6 text-center">
+            <h3 className="text-white font-bold text-lg mb-2">👥 Zusätzliche Teammitglieder</h3>
+            <p className="text-slate-400 text-sm mb-4">2 Mitarbeiter sind in PRO+ enthalten. Weitere können hinzugebucht werden.</p>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <button
+                onClick={() => router.push('/dashboard/team')}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
+              >
+                Team verwalten & Plätze buchen
+              </button>
+              <button
+                onClick={handleUpdatePaymentMethod}
+                className="px-6 py-3 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 transition-colors"
+              >
+                Plätze kündigen / verwalten
+              </button>
+            </div>
+          </div>
+          <div className="text-center">
+            <button onClick={handleDowngrade}
+              className="px-6 py-2 border border-slate-500 text-white rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">
+              Auf PRO wechseln (Team-Funktionen werden deaktiviert)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

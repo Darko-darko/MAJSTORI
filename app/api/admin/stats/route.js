@@ -23,7 +23,7 @@ export async function GET(request) {
     const today = new Date().toISOString().slice(0, 10)
 
     const [totalUsers, activeSubs, trialSubs, totalInvoices, totalInquiries, emailCounter] = await Promise.all([
-      admin.from('majstors').select('id', { count: 'exact', head: true }),
+      admin.from('majstors').select('id', { count: 'exact', head: true }).neq('role', 'worker'),
       admin.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       admin.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'trial'),
       admin.from('invoices').select('id', { count: 'exact', head: true }),

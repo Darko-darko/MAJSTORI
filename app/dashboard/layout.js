@@ -74,7 +74,7 @@ function DashboardLayoutContent({ children }) {
   const [upgradeMessage, setUpgradeMessage] = useState('')
   
   // Subscription hook for menu badges
-  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining } = useSubscription(majstor?.id)
+  const { subscription, plan, isFreemium, isPaid, refresh, loading: subscriptionLoading, isInGracePeriod, graceDaysRemaining, hasFeatureAccess } = useSubscription(majstor?.id)
 
   // Push notifikacije
   const { permission, subscribed: subscribedRaw, loading: pushLoading, supported: pushSupported, subscribe, unsubscribe } = usePushNotifications(majstor?.id)
@@ -152,8 +152,9 @@ useEffect(() => {
   const [badges, setBadges] = useState({
     inquiries: 0,
     invoices: 0,
- 
   })
+  const [activeWorkers, setActiveWorkers] = useState(0)
+  const [openConvs, setOpenConvs] = useState(0)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -258,6 +259,31 @@ useEffect(() => {
         invoices: overdueResult.count || 0,
       })
 
+      // Active workers + open conversations count (for team owners)
+      if (majstor.role !== 'worker') {
+        const { data: members } = await supabase
+          .from('team_members')
+          .select('worker_id')
+          .eq('owner_id', majstor.id)
+          .eq('status', 'active')
+        const workerIds = (members || []).map(m => m.worker_id).filter(Boolean)
+        if (workerIds.length > 0) {
+          const { count } = await supabase
+            .from('work_times')
+            .select('id', { count: 'exact', head: true })
+            .in('worker_id', workerIds)
+            .eq('status', 'running')
+          setActiveWorkers(count || 0)
+        }
+
+        const { count: convCount } = await supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', majstor.id)
+          .eq('status', 'open')
+        setOpenConvs(convCount || 0)
+      }
+
     } catch (error) {
       console.error('Error loading badge counts:', error)
     }
@@ -309,9 +335,29 @@ useEffect(() => {
         // Buchhalter doesn't need a subscription
       if (majstorData.role === 'buchhalter') {
         setMajstor(majstorData)
-        // Redirect buchhalter to their dashboard if on main /dashboard
         if (window.location.pathname === '/dashboard' || window.location.pathname === '/dashboard/') {
           router.push('/dashboard/buchhalter')
+        }
+        return
+      }
+
+      if (majstorData.role === 'worker') {
+        // Check if worker is still active in team
+        const { data: membership } = await supabase
+          .from('team_members')
+          .select('status')
+          .eq('worker_id', currentUser.id)
+          .single()
+
+        if (!membership || membership.status === 'removed') {
+          await supabase.auth.signOut()
+          router.push('/join?deactivated=true')
+          return
+        }
+
+        setMajstor(majstorData)
+        if (window.location.pathname === '/dashboard' || window.location.pathname === '/dashboard/') {
+          router.push('/dashboard/worker')
         }
         return
       }
@@ -391,7 +437,7 @@ useEffect(() => {
     if (!confirm('Möchten Sie sich wirklich abmelden?')) return
     try {
       await auth.signOut()
-      router.push('/')
+      router.push(isWorker ? '/join' : '/')
     } catch (error) {
       console.error('Sign out error:', error)
     }
@@ -444,9 +490,16 @@ const getSubscriptionBadge = () => {
     }
   }
 
-  // ✅ ACTIVE: samo PRO (bez dana)
+  // ✅ Detect PRO vs PRO+
+  const isProPlus = plan?.name === 'pro_plus'
+  const planLabel = isProPlus ? 'PRO+' : 'PRO'
+  const activeColor = isProPlus
+    ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+    : 'bg-gradient-to-r from-green-500 to-emerald-500'
+
+  // ✅ ACTIVE: PRO or PRO+
   if (subscription.status === 'active') {
-    return { text: 'PRO', color: 'bg-gradient-to-r from-green-500 to-emerald-500' }
+    return { text: planLabel, color: activeColor }
   }
 
   // ✅ TRIAL: samo kad je status trial
@@ -463,8 +516,10 @@ const getSubscriptionBadge = () => {
     }
 
     return {
-      text: `PRO(${formatDays(trialDaysLeft)})`,
-      color: 'bg-gradient-to-r from-yellow-500 to-orange-500',
+      text: `${planLabel}(${formatDays(trialDaysLeft)})`,
+      color: isProPlus
+        ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+        : 'bg-gradient-to-r from-yellow-500 to-orange-500',
       multiline: true
     }
   }
@@ -480,9 +535,17 @@ const getSubscriptionBadge = () => {
 // Samo izmeni getNavigation() i NavigationItem
 
 const isBuchhalter = majstor?.role === 'buchhalter'
+const isWorker = majstor?.role === 'worker'
 
 const getBuchhalterNavigation = () => [
   { name: 'Meine Auftraggeber', href: '/dashboard/buchhalter', icon: '📒', protected: false },
+]
+
+const getWorkerNavigation = () => [
+  { name: 'Übersicht', href: '/dashboard/worker', icon: '👷', protected: false },
+  { name: 'Feed', href: '/dashboard/worker/feed', icon: '📡', protected: false },
+  { name: 'Aufgaben', href: '/dashboard/worker/aufgaben', icon: '📋', protected: false },
+  { name: 'Zeiterfassung', href: '/dashboard/worker/time', icon: '⏱️', protected: false },
 ]
 
 const getNavigation = () => {
@@ -496,6 +559,12 @@ const getNavigation = () => {
 
     { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
     { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
+
+    { isGroupHeader: true, label: 'Team', key: 'gh-team' },
+    { name: 'Mitglieder', href: '/dashboard/team', icon: '👷', protected: true, feature: 'team', subtitle: activeWorkers > 0 ? `⏱️ ${activeWorkers} aktiv` : null },
+    { name: 'Feed', href: '/dashboard/team/feed', icon: '📡', protected: true, feature: 'team' },
+    { name: 'Offen', href: '/dashboard/team/aufgaben', icon: '📋', badge: openConvs > 0 ? String(openConvs) : null, badgeColor: 'bg-orange-500', protected: true, feature: 'team' },
+    { name: 'Erledigt', href: '/dashboard/team/berichte', icon: '📝', protected: true, feature: 'team' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
@@ -550,8 +619,13 @@ const NavigationItem = ({ item, isMobile = false }) => {
   const content = (
     <>
       <span className="mr-3 text-lg">{item.icon}</span>
-      <span className="flex-1">{item.name}</span>
-      
+      <span className="flex-1">
+        {item.name}
+        {item.subtitle && (
+          <span className="block text-xs text-green-400 font-normal leading-tight">{item.subtitle}</span>
+        )}
+      </span>
+
       {/* Regular Badge Display (brojevi) */}
       {item.badge && typeof item.badge === 'string' && (
         <span className={`
@@ -584,25 +658,31 @@ const NavigationItem = ({ item, isMobile = false }) => {
   )
 
   // 🔒 PROTECTED FEATURES - sa badge dizajnom
-  if (item.protected && isFreemium && !isInGracePeriod) {
+  const isFeatureLocked = item.protected && (
+    (isFreemium && !isInGracePeriod) ||
+    (item.feature === 'team' && !hasFeatureAccess('team'))
+  )
+
+  if (isFeatureLocked) {
+    const badgeLabel = item.feature === 'team' ? 'Pro+' : 'Pro'
     return (
       <button
         onClick={() => {
           showUpgradeModal({
             feature: item.feature || 'premium_feature',
             featureName: item.name,
-            currentPlan: 'freemium'
+            currentPlan: plan?.name || 'freemium'
           })
         }}
         className={linkClasses}
       >
         <span className="mr-3 text-lg opacity-75">{item.icon}</span>
         <span className="flex-1">{item.name}</span>
-        
-        {/* 🔒 PRO BADGE - sa katancem */}
+
+        {/* 🔒 BADGE - sa katancem */}
         <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
           <span>🔒</span>
-          <span>Pro</span>
+          <span>{badgeLabel}</span>
         </span>
       </button>
     )
@@ -743,7 +823,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
     )
   }
 
-  const navigation = isBuchhalter ? getBuchhalterNavigation() : getNavigation()
+  const navigation = isWorker ? getWorkerNavigation() : isBuchhalter ? getBuchhalterNavigation() : getNavigation()
 
   const partnerItem = majstor?.is_partner
     ? { name: 'Mein ProMeister Partner', href: '/dashboard/partner', icon: '🤝', protected: false }
@@ -751,7 +831,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
   const mitgliedschaftItem = { name: 'Meine Mitgliedschaft', href: '/dashboard/subscription', icon: '💎', protected: false, badge: getSubscriptionBadge() }
 
-  const bottomNavigation = [
+  const bottomNavigation = isWorker ? [] : [
     { name: 'Einstellungen', href: '/dashboard/settings', icon: '⚙️', protected: false },
     { name: 'FAQ & Hilfe', href: '/dashboard/help', icon: '📚', protected: false },
   ]
@@ -810,7 +890,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            {!isBuchhalter && (
+            {!isBuchhalter && !isWorker && (
               <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
                 <NavigationItem item={mitgliedschaftItem} />
               </div>
@@ -887,7 +967,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            {!isBuchhalter && (
+            {!isBuchhalter && !isWorker && (
               <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
                 <NavigationItem item={mitgliedschaftItem} isMobile={true} />
               </div>
@@ -940,7 +1020,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   </button>
                 )}
                 
-                <h1 className="text-base font-semibold text-white whitespace-nowrap">
+                <h1 className={`text-base font-semibold text-white whitespace-nowrap ${isWorker ? 'hidden sm:block' : ''}`}>
                   {isBuchhalter ? 'Buchhaltungs-Portal' : <span>Pro-Meister<span className="text-blue-400">.de</span></span>}
                 </h1>
               </div>
@@ -1067,7 +1147,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
           userName={majstor?.full_name}
         />
 
-        {!isBuchhalter && <AIHelpChat />}
+        {!isBuchhalter && !isWorker && <AIHelpChat />}
         <ScrollToTopButton />
       </div>
     </>
