@@ -127,11 +127,16 @@ function DashboardPageContent() {
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')
     const fromInvoice = searchParams.get('from')
-    
+
     if (tabFromUrl && ['quotes', 'invoices', 'settings'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
       console.log('Setting active tab from URL:', tabFromUrl)
     }
+
+    // Scroll to tab nav when navigating to this page (e.g. from sidebar)
+    setTimeout(() => {
+      document.getElementById('invoices-tab-nav')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 400)
 
     if (fromInvoice === 'aufmass') {
       const raw = sessionStorage.getItem('prm_aufmass_import')
@@ -2853,7 +2858,7 @@ const HardResetModal = () => {
         )
       })()}
 
-      <div className="border-b border-slate-700 overflow-x-auto">
+      <div id="invoices-tab-nav" className="border-b border-slate-700 overflow-x-auto">
         <nav className="flex space-x-1 sm:space-x-8 min-w-max">
           {tabs.map((tab) => (
             <button
