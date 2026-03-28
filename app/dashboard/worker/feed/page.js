@@ -36,7 +36,9 @@ export default function WorkerFeedPage() {
   const [newFiles, setNewFiles] = useState([])
   const [newPreviews, setNewPreviews] = useState([])
   const [sending, setSending] = useState(false)
-  const newFileRef = useRef(null)
+  const newCameraRef = useRef(null)
+  const newGalleryRef = useRef(null)
+  const [showNewPhotoPicker, setShowNewPhotoPicker] = useState(false)
 
   // Reply state
   const [replyTo, setReplyTo] = useState(null)
@@ -44,7 +46,9 @@ export default function WorkerFeedPage() {
   const [replyFiles, setReplyFiles] = useState([])
   const [replyPreviews, setReplyPreviews] = useState([])
   const [replying, setReplying] = useState(false)
-  const replyFileRef = useRef(null)
+  const replyCameraRef = useRef(null)
+  const replyGalleryRef = useRef(null)
+  const [showReplyPhotoPicker, setShowReplyPhotoPicker] = useState(false)
 
   // Expanded conversation
   const searchParams = useSearchParams()
@@ -238,18 +242,33 @@ export default function WorkerFeedPage() {
       )}
 
       {/* Hidden file inputs */}
-      <input ref={newFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
+      <input ref={newCameraRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
         const files = Array.from(e.target.files || [])
         setNewFiles(prev => [...prev, ...files])
         files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
-        if (newFileRef.current) newFileRef.current.value = ''
+        if (newCameraRef.current) newCameraRef.current.value = ''
         setShowNewForm(true)
+        setShowNewPhotoPicker(false)
       }} className="hidden" />
-      <input ref={replyFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
+      <input ref={newGalleryRef} type="file" accept="image/*" multiple onChange={(e) => {
+        const files = Array.from(e.target.files || [])
+        setNewFiles(prev => [...prev, ...files])
+        files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
+        if (newGalleryRef.current) newGalleryRef.current.value = ''
+        setShowNewForm(true)
+        setShowNewPhotoPicker(false)
+      }} className="hidden" />
+      <input ref={replyCameraRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
         const files = Array.from(e.target.files || [])
         setReplyFiles(prev => [...prev, ...files])
         files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
-        if (replyFileRef.current) replyFileRef.current.value = ''
+        if (replyCameraRef.current) replyCameraRef.current.value = ''
+      }} className="hidden" />
+      <input ref={replyGalleryRef} type="file" accept="image/*" multiple onChange={(e) => {
+        const files = Array.from(e.target.files || [])
+        setReplyFiles(prev => [...prev, ...files])
+        files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
+        if (replyGalleryRef.current) replyGalleryRef.current.value = ''
       }} className="hidden" />
 
       <h1 className="text-2xl font-bold text-white">Mein Feed</h1>
@@ -263,12 +282,24 @@ export default function WorkerFeedPage() {
           >
             💬 Neue Nachricht
           </button>
-          <button
-            onClick={() => newFileRef.current?.click()}
-            className="px-4 py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600 transition-colors"
-          >
-            📷
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowNewPhotoPicker(!showNewPhotoPicker)}
+              className="px-4 py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600 transition-colors"
+            >
+              📷
+            </button>
+            {showNewPhotoPicker && (
+              <div className="absolute bottom-full right-0 mb-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg overflow-hidden z-20">
+                <button onClick={() => { newCameraRef.current?.click(); setShowNewPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors">
+                  📸 Kamera
+                </button>
+                <button onClick={() => { newGalleryRef.current?.click(); setShowNewPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors border-t border-slate-600">
+                  🖼️ Galerie
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className="bg-slate-800/50 border border-orange-500/30 rounded-xl p-4 space-y-3">
@@ -294,9 +325,21 @@ export default function WorkerFeedPage() {
             </div>
           )}
           <div className="flex gap-2">
-            <button onClick={() => newFileRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
-              📷
-            </button>
+            <div className="relative">
+              <button onClick={() => setShowNewPhotoPicker(!showNewPhotoPicker)} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
+                📷 Foto
+              </button>
+              {showNewPhotoPicker && (
+                <div className="absolute bottom-full left-0 mb-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg overflow-hidden z-20">
+                  <button onClick={() => { newCameraRef.current?.click(); setShowNewPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors">
+                    📸 Kamera
+                  </button>
+                  <button onClick={() => { newGalleryRef.current?.click(); setShowNewPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors border-t border-slate-600">
+                    🖼️ Galerie
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={handleNewMessage}
               disabled={sending || (!newText.trim() && newFiles.length === 0)}
@@ -418,8 +461,20 @@ export default function WorkerFeedPage() {
                                 </div>
                               )}
                               <div className="flex gap-2">
-                                <button onClick={() => { setReplyTo(item.id); replyFileRef.current?.click() }}
-                                  className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
+                                <div className="relative">
+                                  <button onClick={() => { setReplyTo(item.id); setShowReplyPhotoPicker(!showReplyPhotoPicker) }}
+                                    className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
+                                  {showReplyPhotoPicker && replyTo === item.id && (
+                                    <div className="absolute bottom-full left-0 mb-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg overflow-hidden z-20">
+                                      <button onClick={() => { replyCameraRef.current?.click(); setShowReplyPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors">
+                                        📸 Kamera
+                                      </button>
+                                      <button onClick={() => { replyGalleryRef.current?.click(); setShowReplyPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors border-t border-slate-600">
+                                        🖼️ Galerie
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                                 <input
                                   type="text"
                                   value={replyTo === item.id ? replyText : ''}
