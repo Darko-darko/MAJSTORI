@@ -275,14 +275,18 @@ useEffect(() => {
             .in('worker_id', workerIds)
             .eq('status', 'running')
           setActiveWorkers(count || 0)
-        }
 
-        const { count: convCount } = await supabase
-          .from('conversations')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_id', majstor.id)
-          .eq('status', 'open')
-        setOpenConvs(convCount || 0)
+          const { count: convCount } = await supabase
+            .from('conversations')
+            .select('id', { count: 'exact', head: true })
+            .eq('owner_id', majstor.id)
+            .eq('status', 'open')
+            .eq('is_broadcast', false)
+            .in('worker_id', workerIds)
+          setOpenConvs(convCount || 0)
+        } else {
+          setOpenConvs(0)
+        }
       }
 
     } catch (error) {

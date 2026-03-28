@@ -355,10 +355,10 @@ export default function FeedPage() {
   const feedItems = []
 
   const filteredConversations = conversations.filter(c => {
-    if (filter === 'open') return c.status === 'open'
-    if (filter === 'closed') return c.status === 'closed'
-    if (filter === 'archived') return c.status === 'archived'
-    return true // 'all' shows everything including archived
+    if (filter === 'open') return c.status === 'open' && !c.is_broadcast
+    if (filter === 'closed') return c.status === 'closed' && !c.is_broadcast
+    if (filter === 'archived') return c.status === 'archived' && !c.is_broadcast
+    return true // 'all' shows everything including broadcasts
   })
 
   filteredConversations.forEach(c => {
