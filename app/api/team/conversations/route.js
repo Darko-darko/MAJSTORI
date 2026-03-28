@@ -37,7 +37,15 @@ export async function GET(request) {
       .order('last_message_at', { ascending: false })
 
     if (majstor?.role === 'worker') {
-      query = query.eq('worker_id', user.id)
+      // Worker sees: own conversations + broadcasts from owner
+      const { data: membership } = await admin
+        .from('team_members')
+        .select('owner_id')
+        .eq('worker_id', user.id)
+        .eq('status', 'active')
+        .single()
+
+      query = query.or(`worker_id.eq.${user.id},and(is_broadcast.eq.true,owner_id.eq.${membership?.owner_id})`)
     } else {
       query = query.eq('owner_id', user.id)
       if (workerId) query = query.eq('worker_id', workerId)
@@ -140,10 +148,10 @@ export async function POST(request) {
       ownerId = membership.owner_id
       workerId = user.id
     } else {
-      // Owner starts conversation → worker_id required
-      if (!worker_id) return Response.json({ error: 'Mitarbeiter auswählen' }, { status: 400 })
+      // Owner starts conversation
+      if (!is_broadcast && !worker_id) return Response.json({ error: 'Mitarbeiter auswählen' }, { status: 400 })
       ownerId = user.id
-      workerId = worker_id
+      workerId = is_broadcast ? null : worker_id
     }
 
     // Create conversation — sender has read it by definition
@@ -192,6 +200,21 @@ export async function POST(request) {
         message: text.trim().slice(0, 100),
         url: '/dashboard/team/feed',
       })
+    } else if (is_broadcast) {
+      // Owner broadcast → notify all workers
+      const { data: members } = await admin
+        .from('team_members')
+        .select('worker_id')
+        .eq('owner_id', ownerId)
+        .eq('status', 'active')
+      for (const m of (members || [])) {
+        sendTeamPush({
+          majstorId: m.worker_id,
+          title: '📢 Nachricht an alle',
+          message: text.trim().slice(0, 100),
+          url: '/dashboard/worker/feed',
+        })
+      }
     } else {
       // Owner → notify worker
       sendTeamPush({

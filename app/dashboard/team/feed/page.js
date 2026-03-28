@@ -233,14 +233,7 @@ export default function FeedPage() {
       const headers = await getHeaders()
       const authHeader = await getAuthHeader()
 
-      if (newWorkerId === '__all__') {
-        // Broadcast: send to each worker
-        for (const w of workers) {
-          await sendToWorker(w.worker_id, headers, authHeader)
-        }
-      } else {
-        await sendToWorker(newWorkerId, headers, authHeader)
-      }
+      await sendToWorker(newWorkerId === '__all__' ? null : newWorkerId, headers, authHeader)
 
       // Reset form
       setNewText('')
@@ -713,19 +706,21 @@ export default function FeedPage() {
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                            item.started_by === item.owner_id ? 'bg-purple-600' : 'bg-orange-600'
+                            item.is_broadcast ? 'bg-yellow-600' : item.started_by === item.owner_id ? 'bg-purple-600' : 'bg-orange-600'
                           }`}>
-                            {item.worker_name?.charAt(0)?.toUpperCase() || '?'}
+                            {item.is_broadcast ? '📢' : item.worker_name?.charAt(0)?.toUpperCase() || '?'}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <span className="text-white font-medium text-sm">{item.worker_name}</span>
+                            <span className="text-white font-medium text-sm">{item.is_broadcast ? '📢 Alle Mitarbeiter' : item.worker_name}</span>
                             <span className="text-slate-500 text-xs ml-2">{formatTime(item.last_message_at || item.created_at)}</span>
-                            {item.worker_read_at && new Date(item.worker_read_at) >= new Date(item.last_message_at) && (
+                            {!item.is_broadcast && item.worker_read_at && new Date(item.worker_read_at) >= new Date(item.last_message_at) && (
                               <span className="text-blue-400 text-xs ml-1" title="Gelesen">✓✓</span>
+                            )}
+                            {item.is_broadcast && (item.reactions || []).length > 0 && (
+                              <span className="text-green-400 text-xs ml-1">👍 {(item.reactions || []).length}</span>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {item.is_broadcast && <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded">📢 Broadcast</span>}
                             {!item.is_broadcast && item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
                             {item.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
                             {item.status === 'open' && item.started_by !== item.owner_id && <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">Eingang</span>}
