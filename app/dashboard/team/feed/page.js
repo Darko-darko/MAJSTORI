@@ -574,7 +574,7 @@ export default function FeedPage() {
           )}
 
           {/* Actions */}
-          <input ref={newFileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+          <input ref={newFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
             const files = Array.from(e.target.files || [])
             setNewFiles(prev => [...prev, ...files])
             files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
@@ -619,7 +619,7 @@ export default function FeedPage() {
       </div>
 
       {/* Hidden file input for replies */}
-      <input ref={replyFileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+      <input ref={replyFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
         const files = Array.from(e.target.files || [])
         setReplyFiles(prev => [...prev, ...files])
         files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
