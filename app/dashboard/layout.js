@@ -592,7 +592,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
   const bottomBorder = item.hasBottomBorder ? 'mb-6 pb-6 border-b border-slate-700' : ''
 
   const baseClasses = `
-    group flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-all
+    group flex items-center w-full px-3 py-1.5 text-sm font-medium rounded-md transition-all
     ${separator}
     ${bottomBorder}
   `
@@ -608,7 +608,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
           text-slate-300 hover:bg-slate-700 hover:text-white
         `}
       >
-        <span className="mr-3 text-lg">{item.icon}</span>
+        <span className="mr-3 w-6 shrink-0 text-lg">{item.icon}</span>
         <span className="flex-1">{item.name}</span>
       </button>
     )
@@ -621,7 +621,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
   const content = (
     <>
-      <span className="mr-3 text-lg">{item.icon}</span>
+      <span className="mr-3 w-6 shrink-0 text-lg">{item.icon}</span>
       <span className="flex-1">
         {item.name}
         {item.subtitle && (
@@ -679,11 +679,11 @@ const NavigationItem = ({ item, isMobile = false }) => {
         }}
         className={linkClasses}
       >
-        <span className="mr-3 text-lg opacity-75">{item.icon}</span>
-        <span className="flex-1">{item.name}</span>
+        <span className="mr-3 w-6 shrink-0 text-lg opacity-75">{item.icon}</span>
+        <span className="flex-1 text-left">{item.name}</span>
 
         {/* 🔒 BADGE - sa katancem */}
-        <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
+        <span className="ml-auto shrink-0 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
           <span>🔒</span>
           <span>{badgeLabel}</span>
         </span>
@@ -737,7 +737,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 onClick={() => toggleFavorite(item.key)}
                 className="group flex items-center w-full px-3 py-1.5 text-sm font-medium rounded-md text-yellow-300 hover:bg-slate-700 transition-all"
               >
-                <span className="mr-3 text-lg">{item.icon}</span>
+                <span className="mr-3 w-6 shrink-0 text-lg">{item.icon}</span>
                 <span className="flex-1">{item.name}</span>
                 <span className="w-5 h-5 rounded-full bg-yellow-500 text-black text-xs flex items-center justify-center">−</span>
               </button>
@@ -752,9 +752,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 onClick={() => showFeatureModal({ feature: item.feature, featureName: item.name, currentPlan: plan?.name || 'freemium' })}
                 className="group flex items-center w-full px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 transition-all"
               >
-                <span className="mr-3 text-lg opacity-75">{item.icon}</span>
-                <span className="flex-1">{item.name}</span>
-                <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
+                <span className="mr-3 w-6 shrink-0 text-lg opacity-75">{item.icon}</span>
+                <span className="flex-1 text-left">{item.name}</span>
+                <span className="ml-auto shrink-0 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
                   <span>🔒</span><span>{badgeLabel}</span>
                 </span>
               </button>
@@ -768,7 +768,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               onClick={isMobile ? () => setSidebarOpen(false) : undefined}
               className="group flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-all"
             >
-              <span className="mr-3 text-lg">{item.icon}</span>
+              <span className="mr-3 w-6 shrink-0 text-lg">{item.icon}</span>
               <span className="flex-1">{item.name}</span>
             </Link>
           )
@@ -788,7 +788,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     canAdd ? 'text-slate-400 hover:bg-slate-700 hover:text-white' : 'text-slate-600 cursor-not-allowed'
                   }`}
                 >
-                  <span className="mr-3 text-lg">{item.icon}</span>
+                  <span className="mr-3 w-6 shrink-0 text-lg">{item.icon}</span>
                   <span className="flex-1">{item.name}</span>
                   <span className={`w-5 h-5 rounded-full text-xs flex items-center justify-center ${
                     canAdd ? 'bg-slate-600 text-slate-300' : 'bg-slate-800 text-slate-600'
