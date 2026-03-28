@@ -538,7 +538,7 @@ const getSubscriptionBadge = () => {
 const isBuchhalter = majstor?.role === 'buchhalter'
 const isWorker = majstor?.role === 'worker'
 
-const { getFavoriteItems, editMode: favEditMode, setEditMode: setFavEditMode, toggleFavorite } = useFavorites()
+const { getFavoriteItems, getNonFavoriteItems, editMode: favEditMode, setEditMode: setFavEditMode, toggleFavorite, favorites: favKeys, MAX_FAVORITES } = useFavorites()
 
 const getBuchhalterNavigation = () => [
   { name: 'Meine Auftraggeber', href: '/dashboard/buchhalter', icon: '📒', protected: false },
@@ -770,6 +770,31 @@ const NavigationItem = ({ item, isMobile = false }) => {
             </Link>
           )
         })}
+
+        {/* Edit mode: show non-favorites with + button */}
+        {favEditMode && getNonFavoriteItems().length > 0 && (
+          <>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 pt-3 pb-1">Hinzufügen</p>
+            {getNonFavoriteItems().map(item => {
+              const canAdd = favKeys.length < MAX_FAVORITES
+              return (
+                <button
+                  key={item.key}
+                  onClick={canAdd ? () => toggleFavorite(item.key) : undefined}
+                  className={`group flex items-center w-full px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    canAdd ? 'text-slate-400 hover:bg-slate-700 hover:text-white' : 'text-slate-600 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="mr-3 text-lg">{item.icon}</span>
+                  <span className="flex-1">{item.name}</span>
+                  <span className={`w-5 h-5 rounded-full text-xs flex items-center justify-center ${
+                    canAdd ? 'bg-slate-600 text-slate-300' : 'bg-slate-800 text-slate-600'
+                  }`}>+</span>
+                </button>
+              )
+            })}
+          </>
+        )}
       </div>
     )
   }
