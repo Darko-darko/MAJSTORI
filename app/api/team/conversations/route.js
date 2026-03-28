@@ -119,7 +119,7 @@ export async function POST(request) {
     const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
 
     const body = await request.json()
-    const { worker_id, text, title, location, due_date } = body
+    const { worker_id, text, title, location, due_date, is_broadcast } = body
 
     if (!text?.trim()) {
       return Response.json({ error: 'Bitte Text eingeben' }, { status: 400 })
@@ -162,6 +162,7 @@ export async function POST(request) {
         last_message_at: now,
         message_count: 1,
         [senderReadField]: now,
+        is_broadcast: is_broadcast || false,
       })
       .select()
       .single()

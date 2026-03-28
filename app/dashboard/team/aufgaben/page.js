@@ -54,9 +54,10 @@ export default function OwnerAufgabenPage() {
   const formatDate = (iso) => new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })
   const formatTime = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 
+  const nonBroadcast = conversations.filter(c => !c.is_broadcast)
   const filtered = filterWorker
-    ? conversations.filter(c => c.worker_id === filterWorker)
-    : conversations
+    ? nonBroadcast.filter(c => c.worker_id === filterWorker)
+    : nonBroadcast
 
   // Separate: owner-started (tasks) first, then worker-started (incoming)
   const ownerStarted = filtered.filter(c => c.started_by === c.owner_id)

@@ -392,7 +392,8 @@ export default function WorkerFeedPage() {
                             <span className="text-slate-500 text-xs ml-2">{formatTime(item.last_message_at || item.created_at)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋</span>}
+                            {item.is_broadcast && <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded">📢</span>}
+                            {!item.is_broadcast && item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋</span>}
                             {item.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
                             {item.unread_count > 0 && (
                               <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse min-w-[20px] text-center">{item.unread_count}</span>
@@ -449,8 +450,31 @@ export default function WorkerFeedPage() {
                             })}
                           </div>
 
-                          {/* Reply (only if open) */}
-                          {item.status === 'open' && (
+                          {/* Broadcast: 👍 reaction only */}
+                          {item.is_broadcast && item.status === 'open' && (
+                            <div className="p-3 border-t border-slate-700/50 flex items-center gap-3">
+                              <button
+                                onClick={async () => {
+                                  const headers = await getHeaders()
+                                  await fetch(`/api/team/conversations/${item.id}`, {
+                                    method: 'PATCH', headers,
+                                    body: JSON.stringify({ react: true })
+                                  })
+                                  loadFeed()
+                                }}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  (item.reactions || []).some(r => r.user_id === userId)
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                }`}
+                              >
+                                👍 {(item.reactions || []).some(r => r.user_id === userId) ? 'Bestätigt' : 'Verstanden'}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Reply (only if open and NOT broadcast) */}
+                          {!item.is_broadcast && item.status === 'open' && (
                             <div className="p-3 border-t border-slate-700/50 space-y-2">
                               {replyPreviews.length > 0 && replyTo === item.id && (
                                 <div className="grid grid-cols-4 gap-1.5">

@@ -205,7 +205,7 @@ export default function FeedPage() {
         title: showTaskFields ? newTitle.trim() || null : null,
         location: showTaskFields ? newLocation.trim() || null : null,
         due_date: showTaskFields ? newDueDate || null : null,
-        is_broadcast: newWorkerId === '__all__' || undefined,
+        is_broadcast: newWorkerId === '__all__',
       })
     })
     const json = await res.json()
@@ -725,7 +725,8 @@ export default function FeedPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
+                            {item.is_broadcast && <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded">📢 Broadcast</span>}
+                            {!item.is_broadcast && item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
                             {item.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
                             {item.status === 'open' && item.started_by !== item.owner_id && <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">Eingang</span>}
                             {item.unread_count > 0 && (
@@ -785,8 +786,26 @@ export default function FeedPage() {
                             })}
                           </div>
 
-                          {/* Reply form (only if open) */}
-                          {item.status === 'open' && (
+                          {/* Broadcast reactions */}
+                          {item.is_broadcast && (item.reactions || []).length > 0 && (
+                            <div className="p-3 border-t border-slate-700/50">
+                              <div className="flex flex-wrap gap-2">
+                                {(item.reactions || []).map((r, i) => {
+                                  const name = conversations.find(c => c.id === item.id)?.worker_name
+                                    || workers.find(w => w.worker_id === r.user_id)?.worker_name
+                                    || '?'
+                                  return (
+                                    <span key={i} className="inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-full border border-green-500/20">
+                                      👍 {name}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Reply form (only if open and NOT broadcast) */}
+                          {!item.is_broadcast && item.status === 'open' && (
                             <div className="p-3 border-t border-slate-700/50 space-y-2">
                               {replyPreviews.length > 0 && replyTo === item.id && (
                                 <div className="grid grid-cols-4 gap-1.5">

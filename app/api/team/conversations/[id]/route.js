@@ -98,6 +98,23 @@ export async function PATCH(request, { params }) {
       return Response.json({ success: true })
     }
 
+    // React to broadcast — worker only
+    if (body.react) {
+      if (!isParticipant) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+      // Fetch current reactions
+      const { data: conv } = await admin.from('conversations').select('reactions').eq('id', id).single()
+      const reactions = conv?.reactions || []
+      // Toggle: remove if exists, add if not
+      const existing = reactions.findIndex(r => r.user_id === user.id)
+      if (existing >= 0) {
+        reactions.splice(existing, 1)
+      } else {
+        reactions.push({ user_id: user.id, emoji: '👍', at: new Date().toISOString() })
+      }
+      await admin.from('conversations').update({ reactions }).eq('id', id)
+      return Response.json({ success: true, reactions })
+    }
+
     // All other actions — owner only
     if (!isOwner) return Response.json({ error: 'Nur der Chef kann Konversationen bearbeiten' }, { status: 403 })
 
