@@ -418,7 +418,9 @@ export default function WorkerFeedPage() {
                       {/* Expanded messages */}
                       {expandedConv === item.id && (
                         <div className="border-t border-slate-700/50">
-                          <div className="p-3 space-y-2 max-h-96 overflow-y-auto">
+                          <div className="p-3 space-y-2 max-h-96 overflow-y-auto" ref={el => {
+                            if (el) setTimeout(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }), 50)
+                          }}>
                             {(item.messages || []).map(msg => {
                               const isChef = msg.sender_id === item.owner_id
                               return (
