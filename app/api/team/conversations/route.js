@@ -51,16 +51,16 @@ export async function GET(request) {
     // Get last message for each conversation
     const convIds = conversations.map(c => c.id)
     let lastMessages = {}
+    let allMsgs = []
     if (convIds.length > 0) {
-      // Fetch the latest message per conversation
       const { data: msgs } = await admin
         .from('messages')
         .select('*')
         .in('conversation_id', convIds)
         .order('created_at', { ascending: false })
 
-      // Group by conversation, take first (latest)
-      for (const msg of (msgs || [])) {
+      allMsgs = msgs || []
+      for (const msg of allMsgs) {
         if (!lastMessages[msg.conversation_id]) {
           lastMessages[msg.conversation_id] = msg
         }
@@ -80,11 +80,27 @@ export async function GET(request) {
       }
     }
 
+    // Calculate unread counts — use already-fetched messages
+    const isWorkerRole = majstor?.role === 'worker'
+    let unreadCounts = {}
+    if (allMsgs.length > 0) {
+      for (const c of conversations) {
+        const readAt = isWorkerRole ? c.worker_read_at : c.owner_read_at
+        const otherMsgs = allMsgs.filter(m => m.conversation_id === c.id && m.sender_id !== user.id)
+        if (!readAt) {
+          unreadCounts[c.id] = otherMsgs.length
+        } else {
+          unreadCounts[c.id] = otherMsgs.filter(m => new Date(m.created_at) > new Date(readAt)).length
+        }
+      }
+    }
+
     // Enrich conversations
     const enriched = conversations.map(c => ({
       ...c,
       worker_name: workerNames[c.worker_id] || null,
       last_message: lastMessages[c.id] || null,
+      unread_count: unreadCounts[c.id] || 0,
     }))
 
     return Response.json({ conversations: enriched })
