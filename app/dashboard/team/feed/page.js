@@ -41,7 +41,9 @@ export default function FeedPage() {
   const [newFiles, setNewFiles] = useState([])
   const [newPreviews, setNewPreviews] = useState([])
   const [sending, setSending] = useState(false)
-  const newFileRef = useRef(null)
+  const newCameraRef = useRef(null)
+  const newGalleryRef = useRef(null)
+  const [showNewPhotoPicker, setShowNewPhotoPicker] = useState(false)
 
   // Reply state per conversation
   const [replyTo, setReplyTo] = useState(null)
@@ -49,7 +51,9 @@ export default function FeedPage() {
   const [replyFiles, setReplyFiles] = useState([])
   const [replyPreviews, setReplyPreviews] = useState([])
   const [replying, setReplying] = useState(false)
-  const replyFileRef = useRef(null)
+  const replyCameraRef = useRef(null)
+  const replyGalleryRef = useRef(null)
+  const [showReplyPhotoPicker, setShowReplyPhotoPicker] = useState(false)
 
   // Expanded conversation
   const searchParams = useSearchParams()
@@ -574,17 +578,37 @@ export default function FeedPage() {
           )}
 
           {/* Actions */}
-          <input ref={newFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
+          <input ref={newCameraRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
             const files = Array.from(e.target.files || [])
             setNewFiles(prev => [...prev, ...files])
             files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
-            if (newFileRef.current) newFileRef.current.value = ''
+            if (newCameraRef.current) newCameraRef.current.value = ''
+            setShowNewPhotoPicker(false)
+          }} className="hidden" />
+          <input ref={newGalleryRef} type="file" accept="image/*" multiple onChange={(e) => {
+            const files = Array.from(e.target.files || [])
+            setNewFiles(prev => [...prev, ...files])
+            files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
+            if (newGalleryRef.current) newGalleryRef.current.value = ''
+            setShowNewPhotoPicker(false)
           }} className="hidden" />
 
           <div className="flex gap-2">
-            <button onClick={() => newFileRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
-              📷 Foto
-            </button>
+            <div className="relative">
+              <button onClick={() => setShowNewPhotoPicker(!showNewPhotoPicker)} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
+                📷 Foto
+              </button>
+              {showNewPhotoPicker && (
+                <div className="absolute bottom-full left-0 mb-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg overflow-hidden z-20">
+                  <button onClick={() => { newCameraRef.current?.click(); setShowNewPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors">
+                    📸 Kamera
+                  </button>
+                  <button onClick={() => { newGalleryRef.current?.click(); setShowNewPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors border-t border-slate-600">
+                    🖼️ Galerie
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={handleNewConversation}
               disabled={sending || !newWorkerId || !newText.trim()}
@@ -618,12 +642,18 @@ export default function FeedPage() {
         ))}
       </div>
 
-      {/* Hidden file input for replies */}
-      <input ref={replyFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
+      {/* Hidden file inputs for replies */}
+      <input ref={replyCameraRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
         const files = Array.from(e.target.files || [])
         setReplyFiles(prev => [...prev, ...files])
         files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
-        if (replyFileRef.current) replyFileRef.current.value = ''
+        if (replyCameraRef.current) replyCameraRef.current.value = ''
+      }} className="hidden" />
+      <input ref={replyGalleryRef} type="file" accept="image/*" multiple onChange={(e) => {
+        const files = Array.from(e.target.files || [])
+        setReplyFiles(prev => [...prev, ...files])
+        files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
+        if (replyGalleryRef.current) replyGalleryRef.current.value = ''
       }} className="hidden" />
 
       {/* Feed */}
@@ -733,8 +763,20 @@ export default function FeedPage() {
                                 </div>
                               )}
                               <div className="flex gap-2">
-                                <button onClick={() => { setReplyTo(item.id); replyFileRef.current?.click() }}
-                                  className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
+                                <div className="relative">
+                                  <button onClick={() => { setReplyTo(item.id); setShowReplyPhotoPicker(!showReplyPhotoPicker) }}
+                                    className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
+                                  {showReplyPhotoPicker && replyTo === item.id && (
+                                    <div className="absolute bottom-full left-0 mb-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg overflow-hidden z-20">
+                                      <button onClick={() => { replyCameraRef.current?.click(); setShowReplyPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors">
+                                        📸 Kamera
+                                      </button>
+                                      <button onClick={() => { replyGalleryRef.current?.click(); setShowReplyPhotoPicker(false) }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-white hover:bg-slate-600 transition-colors border-t border-slate-600">
+                                        🖼️ Galerie
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                                 <input
                                   type="text"
                                   value={replyTo === item.id ? replyText : ''}
