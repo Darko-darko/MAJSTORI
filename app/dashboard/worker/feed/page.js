@@ -238,14 +238,14 @@ export default function WorkerFeedPage() {
       )}
 
       {/* Hidden file inputs */}
-      <input ref={newFileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+      <input ref={newFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
         const files = Array.from(e.target.files || [])
         setNewFiles(prev => [...prev, ...files])
         files.forEach(f => setNewPreviews(prev => [...prev, URL.createObjectURL(f)]))
         if (newFileRef.current) newFileRef.current.value = ''
         setShowNewForm(true)
       }} className="hidden" />
-      <input ref={replyFileRef} type="file" accept="image/*" multiple capture="environment" onChange={(e) => {
+      <input ref={replyFileRef} type="file" accept="image/*" multiple  onChange={(e) => {
         const files = Array.from(e.target.files || [])
         setReplyFiles(prev => [...prev, ...files])
         files.forEach(f => setReplyPreviews(prev => [...prev, URL.createObjectURL(f)]))
@@ -295,7 +295,7 @@ export default function WorkerFeedPage() {
           )}
           <div className="flex gap-2">
             <button onClick={() => newFileRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
-              📷 Foto
+              📷
             </button>
             <button
               onClick={handleNewMessage}
