@@ -146,7 +146,9 @@ export async function POST(request) {
       workerId = worker_id
     }
 
-    // Create conversation
+    // Create conversation — sender has read it by definition
+    const now = new Date().toISOString()
+    const senderReadField = majstor?.role === 'worker' ? 'worker_read_at' : 'owner_read_at'
     const { data: conversation, error: convError } = await admin
       .from('conversations')
       .insert({
@@ -157,8 +159,9 @@ export async function POST(request) {
         location: location?.trim() || null,
         due_date: due_date || null,
         status: 'open',
-        last_message_at: new Date().toISOString(),
+        last_message_at: now,
         message_count: 1,
+        [senderReadField]: now,
       })
       .select()
       .single()

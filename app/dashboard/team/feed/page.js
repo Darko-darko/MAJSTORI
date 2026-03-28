@@ -61,6 +61,8 @@ export default function FeedPage() {
   const searchParams = useSearchParams()
   const convParam = searchParams.get('conv')
   const [expandedConv, setExpandedConv] = useState(convParam || null)
+  const expandedConvRef = useRef(expandedConv)
+  useEffect(() => { expandedConvRef.current = expandedConv }, [expandedConv])
 
   // Active workers + today's completed
   const [activeWorkersList, setActiveWorkersList] = useState([])
@@ -89,14 +91,28 @@ export default function FeedPage() {
       .channel('owner-feed-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadFeed())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-        // Auto-expand conversation that received new message
-        if (payload.new?.conversation_id) setExpandedConv(payload.new.conversation_id)
+        const convId = payload.new?.conversation_id
+        if (convId) {
+          setExpandedConv(convId)
+          if (document.visibilityState === 'visible') markRead(convId)
+        }
         loadFeed()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => { loadFeed(); loadActiveWorkers() })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    // Mark read when tab becomes visible with expanded conversation
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && expandedConvRef.current) {
+        markRead(expandedConvRef.current)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   const getHeaders = async () => {
