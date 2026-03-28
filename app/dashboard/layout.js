@@ -708,7 +708,6 @@ const NavigationItem = ({ item, isMobile = false }) => {
   // Favoriten Section for sidebar
   const FavoritenSection = ({ isMobile = false }) => {
     const favItems = getFavoriteItems()
-    if (favItems.length === 0) return null
 
     return (
       <div className="px-2 pt-2 pb-1 border-b border-slate-700">
@@ -721,6 +720,10 @@ const NavigationItem = ({ item, isMobile = false }) => {
             {favEditMode ? 'Fertig' : 'Anpassen'}
           </button>
         </div>
+
+        {!favEditMode && favItems.length === 0 && (
+          <p className="px-3 py-2 text-xs text-slate-500 italic">Keine Favoriten gesetzt</p>
+        )}
         {favItems.map(item => {
           const isLocked = item.protected && (
             (isFreemium && !isInGracePeriod) ||
