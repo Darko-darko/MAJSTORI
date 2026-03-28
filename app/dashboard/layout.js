@@ -987,19 +987,21 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            {!isBuchhalter && !isWorker && (
-              <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
-                <NavigationItem item={mitgliedschaftItem} />
-              </div>
-            )}
+            <div key={badgeKey + '-scroll'} className="flex-1 overflow-y-auto overscroll-contain">
+              {!isBuchhalter && !isWorker && (
+                <div className="px-2 pt-2 pb-1 border-b border-slate-700">
+                  <NavigationItem item={mitgliedschaftItem} />
+                </div>
+              )}
 
-            {!isBuchhalter && !isWorker && <FavoritenSection />}
+              {!isBuchhalter && !isWorker && <FavoritenSection />}
 
-            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
-              {navigation.map((item) => (
-                <NavigationItem key={item.key || item.name} item={item} />
-              ))}
-            </nav>
+              <nav className="px-2 py-4 pb-20 space-y-1">
+                {navigation.map((item) => (
+                  <NavigationItem key={item.key || item.name} item={item} />
+                ))}
+              </nav>
+            </div>
 
             <div className="border-t border-slate-700 px-2 py-2">
               {!isBuchhalter && bottomNavigation.map((item) => (
@@ -1066,19 +1068,21 @@ const NavigationItem = ({ item, isMobile = false }) => {
 
             </div>
 
-            {!isBuchhalter && !isWorker && (
-              <div key={badgeKey} className="px-2 pt-2 pb-1 border-b border-slate-700">
-                <NavigationItem item={mitgliedschaftItem} isMobile={true} />
-              </div>
-            )}
+            <div key={badgeKey + '-mscroll'} className="flex-1 overflow-y-auto overscroll-contain">
+              {!isBuchhalter && !isWorker && (
+                <div className="px-2 pt-2 pb-1 border-b border-slate-700">
+                  <NavigationItem item={mitgliedschaftItem} isMobile={true} />
+                </div>
+              )}
 
-            {!isBuchhalter && !isWorker && <FavoritenSection isMobile={true} />}
+              {!isBuchhalter && !isWorker && <FavoritenSection isMobile={true} />}
 
-            <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
-              {navigation.map((item) => (
-                <NavigationItem key={item.key || item.name} item={item} isMobile={true} />
-              ))}
-            </nav>
+              <nav className="px-2 py-4 pb-20 space-y-1">
+                {navigation.map((item) => (
+                  <NavigationItem key={item.key || item.name} item={item} isMobile={true} />
+                ))}
+              </nav>
+            </div>
 
             <div className="border-t border-slate-700 px-2 py-2">
               {!isBuchhalter && bottomNavigation.map((item) => (
