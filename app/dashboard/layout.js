@@ -15,6 +15,7 @@ import { SupportModal, useSupportModal } from '@/app/components/SupportModal'
 import AIHelpChat from '@/app/components/AIHelpChat'
 import ScrollToTopButton from '@/app/components/ScrollToTopButton'
 import { useTheme } from '@/lib/context/ThemeContext'
+import { useFavorites } from '@/lib/hooks/useFavorites'
 
 
 
@@ -537,6 +538,8 @@ const getSubscriptionBadge = () => {
 const isBuchhalter = majstor?.role === 'buchhalter'
 const isWorker = majstor?.role === 'worker'
 
+const { getFavoriteItems, editMode: favEditMode, setEditMode: setFavEditMode, toggleFavorite } = useFavorites()
+
 const getBuchhalterNavigation = () => [
   { name: 'Meine Auftraggeber', href: '/dashboard/buchhalter', icon: '📒', protected: false },
 ]
@@ -701,6 +704,75 @@ const NavigationItem = ({ item, isMobile = false }) => {
     </Link>
   )
 }
+
+  // Favoriten Section for sidebar
+  const FavoritenSection = ({ isMobile = false }) => {
+    const favItems = getFavoriteItems()
+    if (favItems.length === 0) return null
+
+    return (
+      <div className="px-2 pt-2 pb-1 border-b border-slate-700">
+        <div className="flex items-center justify-between px-3 pb-1">
+          <p className="text-xs font-semibold text-yellow-400/80 uppercase tracking-wider">Favoriten</p>
+          <button
+            onClick={() => setFavEditMode(!favEditMode)}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            {favEditMode ? 'Fertig' : 'Anpassen'}
+          </button>
+        </div>
+        {favItems.map(item => {
+          const isLocked = item.protected && (
+            (isFreemium && !isInGracePeriod) ||
+            (item.feature === 'team' && !hasFeatureAccess('team'))
+          )
+
+          if (favEditMode) {
+            return (
+              <button
+                key={item.key}
+                onClick={() => toggleFavorite(item.key)}
+                className="group flex items-center w-full px-3 py-1.5 text-sm font-medium rounded-md text-yellow-300 hover:bg-slate-700 transition-all"
+              >
+                <span className="mr-3 text-lg">{item.icon}</span>
+                <span className="flex-1">{item.name}</span>
+                <span className="w-5 h-5 rounded-full bg-yellow-500 text-black text-xs flex items-center justify-center">−</span>
+              </button>
+            )
+          }
+
+          if (isLocked) {
+            const badgeLabel = item.feature === 'team' ? 'Pro+' : 'Pro'
+            return (
+              <button
+                key={item.key}
+                onClick={() => showFeatureModal({ feature: item.feature, featureName: item.name, currentPlan: plan?.name || 'freemium' })}
+                className="group flex items-center w-full px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 transition-all"
+              >
+                <span className="mr-3 text-lg opacity-75">{item.icon}</span>
+                <span className="flex-1">{item.name}</span>
+                <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full font-medium inline-flex items-center gap-1">
+                  <span>🔒</span><span>{badgeLabel}</span>
+                </span>
+              </button>
+            )
+          }
+
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              onClick={isMobile ? () => setSidebarOpen(false) : undefined}
+              className="group flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:bg-slate-700 hover:text-white transition-all"
+            >
+              <span className="mr-3 text-lg">{item.icon}</span>
+              <span className="flex-1">{item.name}</span>
+            </Link>
+          )
+        })}
+      </div>
+    )
+  }
 
   // 🔥 UPGRADE PROCESSING MODAL - NA TOP LAYOUT NIVOU!
   const UpgradeProcessingModal = () => {
@@ -896,6 +968,8 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </div>
             )}
 
+            {!isBuchhalter && !isWorker && <FavoritenSection />}
+
             <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
               {navigation.map((item) => (
                 <NavigationItem key={item.key || item.name} item={item} />
@@ -972,6 +1046,8 @@ const NavigationItem = ({ item, isMobile = false }) => {
                 <NavigationItem item={mitgliedschaftItem} isMobile={true} />
               </div>
             )}
+
+            {!isBuchhalter && !isWorker && <FavoritenSection isMobile={true} />}
 
             <nav key={badgeKey + '-nav'} className="flex-1 px-2 py-4 pb-20 space-y-1 overflow-y-auto overscroll-contain">
               {navigation.map((item) => (
