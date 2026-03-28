@@ -179,39 +179,51 @@ export default function FeedPage() {
     } catch (err) { console.error(err) }
   }
 
-  // Create new conversation
+  // Send conversation to one worker (+ photo uploads)
+  const sendToWorker = async (workerId, headers, authHeader) => {
+    const res = await fetch('/api/team/conversations', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        worker_id: workerId,
+        text: newText.trim(),
+        title: showTaskFields ? newTitle.trim() || null : null,
+        location: showTaskFields ? newLocation.trim() || null : null,
+        due_date: showTaskFields ? newDueDate || null : null,
+        is_broadcast: newWorkerId === '__all__' || undefined,
+      })
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error)
+
+    if (newFiles.length > 0 && json.message) {
+      for (const file of newFiles) {
+        const compressed = await compressImage(file)
+        const formData = new FormData()
+        formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
+        formData.append('message_id', json.message.id)
+        await fetch(`/api/team/conversations/${json.conversation.id}/messages`, {
+          method: 'PUT', headers: authHeader, body: formData
+        })
+      }
+    }
+    return json
+  }
+
+  // Create new conversation (single or broadcast)
   const handleNewConversation = async () => {
     if (!newWorkerId || !newText.trim()) return
     setSending(true)
     try {
       const headers = await getHeaders()
-      const res = await fetch('/api/team/conversations', {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          worker_id: newWorkerId,
-          text: newText.trim(),
-          title: showTaskFields ? newTitle.trim() || null : null,
-          location: showTaskFields ? newLocation.trim() || null : null,
-          due_date: showTaskFields ? newDueDate || null : null,
-        })
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      const authHeader = await getAuthHeader()
 
-      // Upload photos
-      if (newFiles.length > 0 && json.message) {
-        const authHeader = await getAuthHeader()
-        for (const file of newFiles) {
-          const compressed = await compressImage(file)
-          const formData = new FormData()
-          formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
-          formData.append('message_id', json.message.id)
-          await fetch(`/api/team/conversations/${json.conversation.id}/messages`, {
-            method: 'PUT',
-            headers: authHeader,
-            body: formData
-          })
+      if (newWorkerId === '__all__') {
+        // Broadcast: send to each worker
+        for (const w of workers) {
+          await sendToWorker(w.worker_id, headers, authHeader)
         }
+      } else {
+        await sendToWorker(newWorkerId, headers, authHeader)
       }
 
       // Reset form
@@ -516,6 +528,7 @@ export default function FeedPage() {
             className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white text-sm"
           >
             <option value="">Mitarbeiter auswählen...</option>
+            {workers.length > 1 && <option value="__all__">📢 Alle Mitarbeiter</option>}
             {workers.map(w => (
               <option key={w.worker_id} value={w.worker_id}>{w.worker_name}</option>
             ))}
@@ -691,6 +704,9 @@ export default function FeedPage() {
                           <div className="flex-1 min-w-0">
                             <span className="text-white font-medium text-sm">{item.worker_name}</span>
                             <span className="text-slate-500 text-xs ml-2">{formatTime(item.last_message_at || item.created_at)}</span>
+                            {item.worker_read_at && new Date(item.worker_read_at) >= new Date(item.last_message_at) && (
+                              <span className="text-blue-400 text-xs ml-1" title="Gelesen">✓✓</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             {item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
@@ -734,6 +750,9 @@ export default function FeedPage() {
                                       {isOwner ? '👔 Ich' : `👷 ${item.worker_name}`}
                                     </span>
                                     <span className="text-slate-500 text-xs">{formatTime(msg.created_at)}</span>
+                                    {isOwner && item.worker_read_at && new Date(item.worker_read_at) >= new Date(msg.created_at) && (
+                                      <span className="text-blue-400 text-xs" title="Gelesen">✓✓</span>
+                                    )}
                                   </div>
                                   {msg.text && <p className="text-slate-300 text-sm">{msg.text}</p>}
                                   {msg.photos?.length > 0 && (

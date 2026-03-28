@@ -430,6 +430,9 @@ export default function WorkerFeedPage() {
                                       {isChef ? '👔 Chef' : '👷 Ich'}
                                     </span>
                                     <span className="text-slate-500 text-xs">{formatTime(msg.created_at)}</span>
+                                    {!isChef && item.owner_read_at && new Date(item.owner_read_at) >= new Date(msg.created_at) && (
+                                      <span className="text-blue-400 text-xs" title="Gelesen">✓✓</span>
+                                    )}
                                   </div>
                                   {msg.text && <p className="text-slate-300 text-sm">{msg.text}</p>}
                                   {msg.photos?.length > 0 && (
