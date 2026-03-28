@@ -55,6 +55,8 @@ export default function FeedPage() {
   const replyGalleryRef = useRef(null)
   const [showReplyPhotoPicker, setShowReplyPhotoPicker] = useState(false)
 
+  const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
   // Expanded conversation
   const searchParams = useSearchParams()
   const convParam = searchParams.get('conv')
@@ -595,7 +597,7 @@ export default function FeedPage() {
 
           <div className="flex gap-2">
             <div className="relative">
-              <button onClick={() => setShowNewPhotoPicker(!showNewPhotoPicker)} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
+              <button onClick={() => isMobile ? setShowNewPhotoPicker(!showNewPhotoPicker) : newGalleryRef.current?.click()} className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">
                 📷 Foto
               </button>
               {showNewPhotoPicker && (
@@ -764,7 +766,7 @@ export default function FeedPage() {
                               )}
                               <div className="flex gap-2">
                                 <div className="relative">
-                                  <button onClick={() => { setReplyTo(item.id); setShowReplyPhotoPicker(!showReplyPhotoPicker) }}
+                                  <button onClick={() => { setReplyTo(item.id); isMobile ? setShowReplyPhotoPicker(!showReplyPhotoPicker) : replyGalleryRef.current?.click() }}
                                     className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
                                   {showReplyPhotoPicker && replyTo === item.id && (
                                     <div className="absolute bottom-full left-0 mb-1 bg-slate-700 border border-slate-600 rounded-lg shadow-lg overflow-hidden z-20">
