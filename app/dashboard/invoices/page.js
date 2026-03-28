@@ -9,6 +9,7 @@ import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
 import LogoUpload from '@/app/components/LogoUpload'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 import RegieberichtForm from '@/app/components/RegieberichtForm'
+import InvoiceNumbersSetupModal from '@/app/components/InvoiceNumbersSetupModal'
 
 
 function DashboardPageContent() {
@@ -26,6 +27,10 @@ function DashboardPageContent() {
   const [createType, setCreateType] = useState('quote')
   const [quoteInvoiceMap, setQuoteInvoiceMap] = useState({})
   
+  // Setup-required redirect (new user hasn't configured settings yet)
+  const [setupRequired, setSetupRequired] = useState(false)
+  const [showNumbersSetupModal, setShowNumbersSetupModal] = useState(false)
+
   // Hard Reset states
   const [showHardResetModal, setShowHardResetModal] = useState(false)
   const [hardResetLoading, setHardResetLoading] = useState(false)
@@ -372,7 +377,20 @@ function DashboardPageContent() {
       }
       setSettingsData(newSettings)
       setLocalSettings(newSettings)
-      
+
+      // Check if setup is needed (new user without business data or numbers)
+      const needsSetup = !isBusinessDataComplete(majstorData) || !majstorData.numbers_initialized
+      if (needsSetup) {
+        setSetupRequired(true)
+        setActiveTab('settings')
+        const url = new URL(window.location.href)
+        url.searchParams.set('tab', 'settings')
+        window.history.replaceState({}, '', url.toString())
+        setTimeout(() => {
+          document.getElementById('setup-hint-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 300)
+      }
+
       await loadInvoicesData(majstorData.id)
 
     } catch (err) {
@@ -2214,7 +2232,11 @@ const HardResetModal = () => {
       updatedFields: Object.keys(updateData)
     })
     
-    if (pendingInvoiceCreation) {
+    if (setupRequired && isNowComplete && !newMajstorData.numbers_initialized) {
+      // Business data now complete, but numbers not set up yet — open numbers modal
+      alert('Einstellungen gespeichert!\n\nJetzt richten wir Ihre Rechnungsnummern ein.')
+      setShowNumbersSetupModal(true)
+    } else if (pendingInvoiceCreation) {
       if (isNowComplete) {
         alert('Einstellungen gespeichert!\n\nSie werden jetzt zur Rechnungserstellung weitergeleitet...')
       } else {
@@ -2261,6 +2283,19 @@ const HardResetModal = () => {
             </div>
           )}
         </div>
+
+        {/* Setup-required hint banner for new users */}
+        {setupRequired && (
+          <div id="setup-hint-banner" className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-2xl mt-0.5">⚠️</span>
+            <div>
+              <p className="text-amber-200 font-medium">Geschäftsdaten erforderlich</p>
+              <p className="text-amber-300/80 text-sm mt-1">
+                Bevor Sie Rechnungen oder Angebote erstellen können, füllen Sie bitte zuerst Ihre Geschäftsdaten aus und speichern Sie diese. Danach richten wir Ihre Rechnungsnummern ein.
+              </p>
+            </div>
+          </div>
+        )}
         
         <form onSubmit={(e) => { e.preventDefault(); handleLocalSave(); }}>
 
@@ -2900,6 +2935,22 @@ const HardResetModal = () => {
           isReminder={true}
         />
       )}
+
+      {/* Numbers Setup Modal (first-time setup flow) */}
+      <InvoiceNumbersSetupModal
+        isOpen={showNumbersSetupModal}
+        onClose={() => setShowNumbersSetupModal(false)}
+        majstor={majstor}
+        onSuccess={(updatedMajstor) => {
+          setShowNumbersSetupModal(false)
+          setSetupRequired(false)
+          setMajstor(prev => ({ ...prev, numbers_initialized: true }))
+          setActiveTab('invoices')
+          const url = new URL(window.location.href)
+          url.searchParams.set('tab', 'invoices')
+          window.history.replaceState({}, '', url.toString())
+        }}
+      />
 
       {/* Share Preview Modal */}
       {sharePreviewInvoice && (
