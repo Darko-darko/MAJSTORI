@@ -37,13 +37,39 @@ export async function GET(request) {
       .order('last_message_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
+    let conversations = []
+    let totalConversations = 0
+
     if (isWorker) {
-      convQuery = convQuery.eq('worker_id', user.id)
+      // Worker: personal conversations + broadcasts from owner
+      const { data: membership } = await admin
+        .from('team_members')
+        .select('owner_id')
+        .eq('worker_id', user.id)
+        .eq('status', 'active')
+        .single()
+
+      const [personalRes, broadcastRes] = await Promise.all([
+        admin.from('conversations').select('*', { count: 'exact' })
+          .eq('worker_id', user.id).neq('status', 'deleted')
+          .order('last_message_at', { ascending: false }).range(offset, offset + limit - 1),
+        admin.from('conversations').select('*')
+          .eq('is_broadcast', true).eq('owner_id', membership?.owner_id).neq('status', 'deleted')
+          .order('last_message_at', { ascending: false }).limit(20),
+      ])
+
+      const seen = new Set()
+      conversations = [...(personalRes.data || []), ...(broadcastRes.data || [])]
+        .filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true })
+        .sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at))
+        .slice(offset, offset + limit)
+      totalConversations = (personalRes.count || 0) + (broadcastRes.data?.length || 0)
     } else {
       convQuery = convQuery.eq('owner_id', user.id)
+      const { data, count } = await convQuery
+      conversations = data || []
+      totalConversations = count || 0
     }
-
-    const { data: conversations, count: totalConversations } = await convQuery
 
     // Fetch messages for all conversations
     const convIds = (conversations || []).map(c => c.id)
@@ -78,6 +104,7 @@ export async function GET(request) {
         .single()
       if (membership?.owner_id) {
         workerNames[membership.owner_id] = membership.owner?.business_name || membership.owner?.full_name || 'Chef'
+        workerNames['__owner__'] = workerNames[membership.owner_id]
       }
     }
 

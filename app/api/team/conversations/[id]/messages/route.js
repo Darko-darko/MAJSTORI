@@ -62,18 +62,20 @@ export async function POST(request, { params }) {
 
     if (msgError) return Response.json({ error: msgError.message }, { status: 500 })
 
-    // Update conversation metadata
+    // Update conversation metadata + mark sender as read
+    const isOwner = conversation.owner_id === user.id
+    const readField = isOwner ? 'owner_read_at' : 'worker_read_at'
     await admin
       .from('conversations')
       .update({
         last_message_at: new Date().toISOString(),
         message_count: (conversation.message_count || 0) + 1,
         updated_at: new Date().toISOString(),
+        [readField]: new Date().toISOString(),
       })
       .eq('id', conversationId)
 
     // Push notification to the other participant
-    const isOwner = conversation.owner_id === user.id
     const recipientId = isOwner ? conversation.worker_id : conversation.owner_id
 
     if (isOwner) {

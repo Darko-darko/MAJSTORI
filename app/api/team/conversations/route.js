@@ -37,30 +37,67 @@ export async function GET(request) {
       .order('last_message_at', { ascending: false })
 
     if (majstor?.role === 'worker') {
-      query = query.eq('worker_id', user.id)
+      // Worker sees: own conversations + broadcasts from owner
+      const { data: membership } = await admin
+        .from('team_members')
+        .select('owner_id')
+        .eq('worker_id', user.id)
+        .eq('status', 'active')
+        .single()
+
+      // Two queries: personal + broadcasts
+      let personalQuery = admin
+        .from('conversations')
+        .select('*')
+        .eq('worker_id', user.id)
+        .neq('status', 'deleted')
+        .order('last_message_at', { ascending: false })
+        .limit(50)
+
+      let broadcastQuery = admin
+        .from('conversations')
+        .select('*')
+        .eq('is_broadcast', true)
+        .eq('owner_id', membership?.owner_id)
+        .neq('status', 'deleted')
+        .order('last_message_at', { ascending: false })
+        .limit(20)
+
+      if (status) {
+        personalQuery = personalQuery.eq('status', status)
+        broadcastQuery = broadcastQuery.eq('status', status)
+      }
+
+      const [personalRes, broadcastRes] = await Promise.all([personalQuery, broadcastQuery])
+      const all = [...(personalRes.data || []), ...(broadcastRes.data || [])]
+      // Deduplicate and sort
+      const seen = new Set()
+      var conversations = all.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true })
+        .sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at))
+      var error = personalRes.error || broadcastRes.error
     } else {
       query = query.eq('owner_id', user.id)
       if (workerId) query = query.eq('worker_id', workerId)
+
+      if (status) query = query.eq('status', status)
+
+      var { data: conversations, error } = await query.limit(50)
     }
-
-    if (status) query = query.eq('status', status)
-
-    const { data: conversations, error } = await query.limit(50)
     if (error) return Response.json({ error: error.message }, { status: 500 })
 
     // Get last message for each conversation
     const convIds = conversations.map(c => c.id)
     let lastMessages = {}
+    let allMsgs = []
     if (convIds.length > 0) {
-      // Fetch the latest message per conversation
       const { data: msgs } = await admin
         .from('messages')
         .select('*')
         .in('conversation_id', convIds)
         .order('created_at', { ascending: false })
 
-      // Group by conversation, take first (latest)
-      for (const msg of (msgs || [])) {
+      allMsgs = msgs || []
+      for (const msg of allMsgs) {
         if (!lastMessages[msg.conversation_id]) {
           lastMessages[msg.conversation_id] = msg
         }
@@ -80,11 +117,27 @@ export async function GET(request) {
       }
     }
 
+    // Calculate unread counts — use already-fetched messages
+    const isWorkerRole = majstor?.role === 'worker'
+    let unreadCounts = {}
+    if (allMsgs.length > 0) {
+      for (const c of conversations) {
+        const readAt = isWorkerRole ? c.worker_read_at : c.owner_read_at
+        const otherMsgs = allMsgs.filter(m => m.conversation_id === c.id && m.sender_id !== user.id)
+        if (!readAt) {
+          unreadCounts[c.id] = otherMsgs.length
+        } else {
+          unreadCounts[c.id] = otherMsgs.filter(m => new Date(m.created_at) > new Date(readAt)).length
+        }
+      }
+    }
+
     // Enrich conversations
     const enriched = conversations.map(c => ({
       ...c,
       worker_name: workerNames[c.worker_id] || null,
       last_message: lastMessages[c.id] || null,
+      unread_count: unreadCounts[c.id] || 0,
     }))
 
     return Response.json({ conversations: enriched })
@@ -103,7 +156,7 @@ export async function POST(request) {
     const { data: majstor } = await admin.from('majstors').select('role').eq('id', user.id).single()
 
     const body = await request.json()
-    const { worker_id, text, title, location, due_date } = body
+    const { worker_id, text, title, location, due_date, is_broadcast } = body
 
     if (!text?.trim()) {
       return Response.json({ error: 'Bitte Text eingeben' }, { status: 400 })
@@ -124,13 +177,15 @@ export async function POST(request) {
       ownerId = membership.owner_id
       workerId = user.id
     } else {
-      // Owner starts conversation → worker_id required
-      if (!worker_id) return Response.json({ error: 'Mitarbeiter auswählen' }, { status: 400 })
+      // Owner starts conversation
+      if (!is_broadcast && !worker_id) return Response.json({ error: 'Mitarbeiter auswählen' }, { status: 400 })
       ownerId = user.id
-      workerId = worker_id
+      workerId = is_broadcast ? null : worker_id
     }
 
-    // Create conversation
+    // Create conversation — sender has read it by definition
+    const now = new Date().toISOString()
+    const senderReadField = majstor?.role === 'worker' ? 'worker_read_at' : 'owner_read_at'
     const { data: conversation, error: convError } = await admin
       .from('conversations')
       .insert({
@@ -141,8 +196,10 @@ export async function POST(request) {
         location: location?.trim() || null,
         due_date: due_date || null,
         status: 'open',
-        last_message_at: new Date().toISOString(),
+        last_message_at: now,
         message_count: 1,
+        [senderReadField]: now,
+        is_broadcast: is_broadcast || false,
       })
       .select()
       .single()
@@ -172,6 +229,21 @@ export async function POST(request) {
         message: text.trim().slice(0, 100),
         url: '/dashboard/team/feed',
       })
+    } else if (is_broadcast) {
+      // Owner broadcast → notify all workers
+      const { data: members } = await admin
+        .from('team_members')
+        .select('worker_id')
+        .eq('owner_id', ownerId)
+        .eq('status', 'active')
+      for (const m of (members || [])) {
+        sendTeamPush({
+          majstorId: m.worker_id,
+          title: '📢 Nachricht an alle',
+          message: text.trim().slice(0, 100),
+          url: '/dashboard/worker/feed',
+        })
+      }
     } else {
       // Owner → notify worker
       sendTeamPush({

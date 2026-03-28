@@ -27,7 +27,7 @@ export default function WorkerAufgabenPage() {
       const json = await res.json()
       if (json.conversations) {
         // Only show conversations started by owner (= tasks for worker)
-        setConversations(json.conversations.filter(c => c.started_by === c.owner_id))
+        setConversations(json.conversations.filter(c => c.started_by === c.owner_id && !c.is_broadcast))
       }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }

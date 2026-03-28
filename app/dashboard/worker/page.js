@@ -17,7 +17,7 @@ export default function WorkerDashboard() {
 
     const channel = supabase
       .channel('worker-dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadWorkerData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadWorkerData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => loadWorkerData())
       .subscribe()
 
@@ -101,7 +101,7 @@ export default function WorkerDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <button onClick={() => router.push('/dashboard/worker/time')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-green-500/50 transition-colors">
           <div className="text-4xl mb-2">⏱️</div>
           <p className="text-white font-semibold">Zeiterfassung</p>
@@ -110,11 +110,6 @@ export default function WorkerDashboard() {
         <button onClick={() => router.push('/dashboard/worker/aufgaben')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-blue-500/50 transition-colors">
           <div className="text-4xl mb-2">📋</div>
           <p className="text-white font-semibold">Aufgaben</p>
-        </button>
-
-        <button onClick={() => router.push('/dashboard/worker/reports')} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 text-center hover:border-orange-500/50 transition-colors">
-          <div className="text-4xl mb-2">📝</div>
-          <p className="text-white font-semibold">Tagesbericht</p>
         </button>
       </div>
 

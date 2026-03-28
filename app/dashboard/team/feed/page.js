@@ -61,6 +61,8 @@ export default function FeedPage() {
   const searchParams = useSearchParams()
   const convParam = searchParams.get('conv')
   const [expandedConv, setExpandedConv] = useState(convParam || null)
+  const expandedConvRef = useRef(expandedConv)
+  useEffect(() => { expandedConvRef.current = expandedConv }, [expandedConv])
 
   // Active workers + today's completed
   const [activeWorkersList, setActiveWorkersList] = useState([])
@@ -89,14 +91,28 @@ export default function FeedPage() {
       .channel('owner-feed-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadFeed())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-        // Auto-expand conversation that received new message
-        if (payload.new?.conversation_id) setExpandedConv(payload.new.conversation_id)
+        const convId = payload.new?.conversation_id
+        if (convId) {
+          setExpandedConv(convId)
+          if (document.visibilityState === 'visible') markRead(convId)
+        }
         loadFeed()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => { loadFeed(); loadActiveWorkers() })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    // Mark read when tab becomes visible with expanded conversation
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && expandedConvRef.current) {
+        markRead(expandedConvRef.current)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   const getHeaders = async () => {
@@ -179,40 +195,45 @@ export default function FeedPage() {
     } catch (err) { console.error(err) }
   }
 
-  // Create new conversation
+  // Send conversation to one worker (+ photo uploads)
+  const sendToWorker = async (workerId, headers, authHeader) => {
+    const res = await fetch('/api/team/conversations', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        worker_id: workerId,
+        text: newText.trim(),
+        title: showTaskFields ? newTitle.trim() || null : null,
+        location: showTaskFields ? newLocation.trim() || null : null,
+        due_date: showTaskFields ? newDueDate || null : null,
+        is_broadcast: newWorkerId === '__all__',
+      })
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error)
+
+    if (newFiles.length > 0 && json.message) {
+      for (const file of newFiles) {
+        const compressed = await compressImage(file)
+        const formData = new FormData()
+        formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
+        formData.append('message_id', json.message.id)
+        await fetch(`/api/team/conversations/${json.conversation.id}/messages`, {
+          method: 'PUT', headers: authHeader, body: formData
+        })
+      }
+    }
+    return json
+  }
+
+  // Create new conversation (single or broadcast)
   const handleNewConversation = async () => {
     if (!newWorkerId || !newText.trim()) return
     setSending(true)
     try {
       const headers = await getHeaders()
-      const res = await fetch('/api/team/conversations', {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          worker_id: newWorkerId,
-          text: newText.trim(),
-          title: showTaskFields ? newTitle.trim() || null : null,
-          location: showTaskFields ? newLocation.trim() || null : null,
-          due_date: showTaskFields ? newDueDate || null : null,
-        })
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      const authHeader = await getAuthHeader()
 
-      // Upload photos
-      if (newFiles.length > 0 && json.message) {
-        const authHeader = await getAuthHeader()
-        for (const file of newFiles) {
-          const compressed = await compressImage(file)
-          const formData = new FormData()
-          formData.append('photo', compressed, `photo_${Date.now()}.jpg`)
-          formData.append('message_id', json.message.id)
-          await fetch(`/api/team/conversations/${json.conversation.id}/messages`, {
-            method: 'PUT',
-            headers: authHeader,
-            body: formData
-          })
-        }
-      }
+      await sendToWorker(newWorkerId === '__all__' ? null : newWorkerId, headers, authHeader)
 
       // Reset form
       setNewText('')
@@ -516,6 +537,7 @@ export default function FeedPage() {
             className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white text-sm"
           >
             <option value="">Mitarbeiter auswählen...</option>
+            {workers.length > 1 && <option value="__all__">📢 Alle Mitarbeiter</option>}
             {workers.map(w => (
               <option key={w.worker_id} value={w.worker_id}>{w.worker_name}</option>
             ))}
@@ -684,16 +706,22 @@ export default function FeedPage() {
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                            item.started_by === item.owner_id ? 'bg-purple-600' : 'bg-orange-600'
+                            item.is_broadcast ? 'bg-yellow-600' : item.started_by === item.owner_id ? 'bg-purple-600' : 'bg-orange-600'
                           }`}>
-                            {item.worker_name?.charAt(0)?.toUpperCase() || '?'}
+                            {item.is_broadcast ? '📢' : item.worker_name?.charAt(0)?.toUpperCase() || '?'}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <span className="text-white font-medium text-sm">{item.worker_name}</span>
+                            <span className="text-white font-medium text-sm">{item.is_broadcast ? '📢 Alle Mitarbeiter' : item.worker_name}</span>
                             <span className="text-slate-500 text-xs ml-2">{formatTime(item.last_message_at || item.created_at)}</span>
+                            {!item.is_broadcast && item.worker_read_at && new Date(item.worker_read_at) >= new Date(item.last_message_at) && (
+                              <span className="text-blue-400 text-xs ml-1" title="Gelesen">✓✓</span>
+                            )}
+                            {item.is_broadcast && (item.reactions || []).length > 0 && (
+                              <span className="text-green-400 text-xs ml-1">👍 {(item.reactions || []).length}</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
+                            {!item.is_broadcast && item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
                             {item.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
                             {item.status === 'open' && item.started_by !== item.owner_id && <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">Eingang</span>}
                             {item.unread_count > 0 && (
@@ -722,7 +750,9 @@ export default function FeedPage() {
                       {/* Expanded: all messages */}
                       {expandedConv === item.id && (
                         <div className="border-t border-slate-700/50">
-                          <div className="p-3 space-y-2 max-h-96 overflow-y-auto">
+                          <div className="p-3 space-y-2 max-h-96 overflow-y-auto" ref={el => {
+                            if (el) setTimeout(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }), 50)
+                          }}>
                             {(item.messages || []).map(msg => {
                               const isOwner = msg.sender_id === item.owner_id
                               return (
@@ -734,6 +764,9 @@ export default function FeedPage() {
                                       {isOwner ? '👔 Ich' : `👷 ${item.worker_name}`}
                                     </span>
                                     <span className="text-slate-500 text-xs">{formatTime(msg.created_at)}</span>
+                                    {isOwner && item.worker_read_at && new Date(item.worker_read_at) >= new Date(msg.created_at) && (
+                                      <span className="text-blue-400 text-xs" title="Gelesen">✓✓</span>
+                                    )}
                                   </div>
                                   {msg.text && <p className="text-slate-300 text-sm">{msg.text}</p>}
                                   {msg.photos?.length > 0 && (
@@ -748,8 +781,26 @@ export default function FeedPage() {
                             })}
                           </div>
 
-                          {/* Reply form (only if open) */}
-                          {item.status === 'open' && (
+                          {/* Broadcast reactions */}
+                          {item.is_broadcast && (item.reactions || []).length > 0 && (
+                            <div className="p-3 border-t border-slate-700/50">
+                              <div className="flex flex-wrap gap-2">
+                                {(item.reactions || []).map((r, i) => {
+                                  const name = conversations.find(c => c.id === item.id)?.worker_name
+                                    || workers.find(w => w.worker_id === r.user_id)?.worker_name
+                                    || '?'
+                                  return (
+                                    <span key={i} className="inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-full border border-green-500/20">
+                                      👍 {name}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Reply form (only if open and NOT broadcast) */}
+                          {!item.is_broadcast && item.status === 'open' && (
                             <div className="p-3 border-t border-slate-700/50 space-y-2">
                               {replyPreviews.length > 0 && replyTo === item.id && (
                                 <div className="grid grid-cols-4 gap-1.5">
@@ -801,7 +852,7 @@ export default function FeedPage() {
 
                           {/* Actions */}
                           <div className="px-3 pb-3 flex flex-wrap gap-2">
-                            {item.status === 'open' && (
+                            {!item.is_broadcast && item.status === 'open' && (
                               <>
                                 <button onClick={() => handleClose(item.id)} className="text-xs text-green-400 hover:text-green-300 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-lg">
                                   ✓ Abschließen
@@ -811,12 +862,12 @@ export default function FeedPage() {
                                 </button>
                               </>
                             )}
-                            {item.status === 'closed' && (
+                            {!item.is_broadcast && item.status === 'closed' && (
                               <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                                 ↩ Wieder öffnen
                               </button>
                             )}
-                            {item.status === 'archived' && (
+                            {!item.is_broadcast && item.status === 'archived' && (
                               <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                                 ↩ Wieder öffnen
                               </button>
