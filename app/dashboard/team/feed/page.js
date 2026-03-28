@@ -852,7 +852,7 @@ export default function FeedPage() {
 
                           {/* Actions */}
                           <div className="px-3 pb-3 flex flex-wrap gap-2">
-                            {item.status === 'open' && (
+                            {!item.is_broadcast && item.status === 'open' && (
                               <>
                                 <button onClick={() => handleClose(item.id)} className="text-xs text-green-400 hover:text-green-300 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-lg">
                                   ✓ Abschließen
@@ -862,12 +862,12 @@ export default function FeedPage() {
                                 </button>
                               </>
                             )}
-                            {item.status === 'closed' && (
+                            {!item.is_broadcast && item.status === 'closed' && (
                               <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                                 ↩ Wieder öffnen
                               </button>
                             )}
-                            {item.status === 'archived' && (
+                            {!item.is_broadcast && item.status === 'archived' && (
                               <button onClick={() => handleReopen(item.id)} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 rounded-lg">
                                 ↩ Wieder öffnen
                               </button>
