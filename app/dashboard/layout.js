@@ -267,26 +267,25 @@ useEffect(() => {
           .select('worker_id')
           .eq('owner_id', majstor.id)
           .eq('status', 'active')
-        const workerIds = (members || []).map(m => m.worker_id).filter(Boolean)
-        if (workerIds.length > 0) {
+        const activeWorkerIds = (members || []).map(m => m.worker_id).filter(Boolean)
+        if (activeWorkerIds.length > 0) {
           const { count } = await supabase
             .from('work_times')
             .select('id', { count: 'exact', head: true })
-            .in('worker_id', workerIds)
+            .in('worker_id', activeWorkerIds)
             .eq('status', 'running')
           setActiveWorkers(count || 0)
-
-          const { count: convCount } = await supabase
-            .from('conversations')
-            .select('id', { count: 'exact', head: true })
-            .eq('owner_id', majstor.id)
-            .eq('status', 'open')
-            .eq('is_broadcast', false)
-            .in('worker_id', workerIds)
-          setOpenConvs(convCount || 0)
-        } else {
-          setOpenConvs(0)
         }
+
+        // Count ALL open non-broadcast conversations (including removed workers)
+        const { count: convCount } = await supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', majstor.id)
+          .eq('status', 'open')
+          .eq('is_broadcast', false)
+          .not('worker_id', 'is', null)
+        setOpenConvs(convCount || 0)
       }
 
     } catch (error) {
@@ -675,7 +674,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
     return (
       <button
         onClick={() => {
-          showUpgradeModal({
+          showFeatureModal({
             feature: item.feature || 'premium_feature',
             featureName: item.name,
             currentPlan: plan?.name || 'freemium'

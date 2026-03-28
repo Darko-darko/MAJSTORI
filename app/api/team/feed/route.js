@@ -88,16 +88,22 @@ export async function GET(request) {
       allMessages = msgs || []
     }
 
-    // Build worker name map
+    // Build worker name map — include removed workers so their conversations still show names
     const workerNames = {}
+    const removedWorkerIds = new Set()
     if (!isWorker) {
       const { data: members } = await admin
         .from('team_members')
-        .select('worker_id, worker_name')
+        .select('worker_id, worker_name, status')
         .eq('owner_id', user.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'removed'])
       for (const m of (members || [])) {
-        if (m.worker_id) workerNames[m.worker_id] = m.worker_name
+        if (m.worker_id) {
+          workerNames[m.worker_id] = m.status === 'removed'
+            ? `${m.worker_name} (Entlassen)`
+            : m.worker_name
+          if (m.status === 'removed') removedWorkerIds.add(m.worker_id)
+        }
       }
     } else {
       // Worker needs owner name

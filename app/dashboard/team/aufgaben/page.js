@@ -54,8 +54,8 @@ export default function OwnerAufgabenPage() {
   const formatDate = (iso) => new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })
   const formatTime = (iso) => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 
-  const activeWorkerIds = new Set(workers.map(w => w.worker_id))
-  const nonBroadcast = conversations.filter(c => !c.is_broadcast && activeWorkerIds.has(c.worker_id))
+  // Show all non-broadcast conversations (including removed workers)
+  const nonBroadcast = conversations.filter(c => !c.is_broadcast && c.worker_id)
   const filtered = filterWorker
     ? nonBroadcast.filter(c => c.worker_id === filterWorker)
     : nonBroadcast

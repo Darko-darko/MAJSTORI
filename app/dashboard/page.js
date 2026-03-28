@@ -17,7 +17,7 @@ function DashboardPageContent() {
   
   const { isOpen: upgradeFeatureModalOpen, modalProps, showUpgradeModal: showFeatureUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  const { isFreemium, isInGracePeriod, hasFeatureAccess, refresh: refreshSubscription } = useSubscription(majstor?.id)
+  const { isFreemium, isInGracePeriod, hasFeatureAccess, plan, refresh: refreshSubscription } = useSubscription(majstor?.id)
   const { favorites, editMode, setEditMode, toggleFavorite, getFavoriteItems, getNonFavoriteItems, MAX_FAVORITES } = useFavorites()
   
   const [stats, setStats] = useState({
@@ -134,7 +134,7 @@ function DashboardPageContent() {
   }, [majstor?.id])
 
   const handleProtectedFeatureClick = (feature, featureName) => {
-    showFeatureUpgradeModal(feature, featureName, 'Freemium')
+    showFeatureUpgradeModal(feature, featureName, plan?.name || 'freemium')
   }
 
   const WelcomeMessage = () => {
@@ -155,11 +155,17 @@ function DashboardPageContent() {
     )
   }
 
-  const ProtectedStatCard = ({ href, icon, title, value, subtitle, badgeCount, iconBg }) => {
-    if (isFreemium && !isInGracePeriod) {
+  const ProtectedStatCard = ({ href, icon, title, value, subtitle, badgeCount, iconBg, feature = 'invoicing' }) => {
+    const isTeam = feature === 'team'
+    const isLocked = isTeam ? !hasFeatureAccess('team') : (isFreemium && !isInGracePeriod)
+    if (isLocked) {
+      const badgeLabel = isTeam ? 'Pro+' : 'Pro'
       return (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 relative">
-          <span className="absolute top-2 right-2 px-1 py-0.5 text-xs rounded font-medium" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>🔒 Pro</span>
+        <button
+          onClick={() => handleProtectedFeatureClick(feature, title)}
+          className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 relative text-left hover:border-slate-500 transition-colors cursor-pointer w-full"
+        >
+          <span className="absolute top-2 right-2 px-1 py-0.5 text-xs rounded font-medium" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>🔒 {badgeLabel}</span>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">{title}</p>
@@ -172,7 +178,7 @@ function DashboardPageContent() {
               {icon}
             </div>
           </div>
-        </div>
+        </button>
       )
     }
 

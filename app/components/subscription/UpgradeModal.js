@@ -12,6 +12,9 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
   const [error, setError] = useState('')
   const [fastspringReady, setFastspringReady] = useState(false)
 
+  // Determine target plan: PRO+ for team features, PRO for everything else
+  const isProPlus = feature === 'team'
+
   useEffect(() => {
     if (isOpen && !fastspringReady) {
       console.log('🔥 Initializing FastSpring...')
@@ -56,9 +59,9 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
       if (majstorError) throw majstorError
 
       // 🔥 PROMENA: FastSpring productIds umesto Paddle priceIds
-      const productId = billingInterval === 'monthly' 
-        ? FASTSPRING_CONFIG.productIds.monthly
-        : FASTSPRING_CONFIG.productIds.yearly
+      const productId = isProPlus
+        ? (billingInterval === 'monthly' ? FASTSPRING_CONFIG.productIds.plusMonthly : FASTSPRING_CONFIG.productIds.plusYearly)
+        : (billingInterval === 'monthly' ? FASTSPRING_CONFIG.productIds.monthly : FASTSPRING_CONFIG.productIds.yearly)
 
       if (!productId) {
         throw new Error('Product ID not configured')
@@ -111,7 +114,22 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
     return null
   }
 
-  const pricing = {
+  const pricing = isProPlus ? {
+    monthly: {
+      price: 29.90,
+      period: 'Monat',
+      periodShort: 'mtl.',
+      savings: null,
+      popular: false
+    },
+    yearly: {
+      price: 299.90,
+      period: 'Jahr',
+      periodShort: 'jährl.',
+      savings: '16%',
+      popular: true
+    }
+  } : {
     monthly: {
       price: 19.90,
       period: 'Monat',
@@ -146,13 +164,13 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
         </button>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-center">
-          <div className="text-5xl mb-4">💎</div>
+        <div className={`p-8 text-center ${isProPlus ? 'bg-gradient-to-r from-purple-600 to-pink-600' : 'bg-gradient-to-r from-blue-600 to-purple-600'}`}>
+          <div className="text-5xl mb-4">{isProPlus ? '👑' : '💎'}</div>
           <h2 className="text-3xl font-bold text-white mb-2">
-            Upgrade auf PRO
+            Upgrade auf {isProPlus ? 'PRO+' : 'PRO'}
           </h2>
-          <p className="text-blue-100">
-            Schalten Sie alle Funktionen frei
+          <p className={isProPlus ? 'text-purple-100' : 'text-blue-100'}>
+            {isProPlus ? 'Team-Funktionen für Ihren Betrieb' : 'Schalten Sie alle Funktionen frei'}
           </p>
           {currentPlan && (
             <p className="text-blue-200 text-sm mt-2">
@@ -219,10 +237,19 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
           {/* Features List */}
           <div className="bg-slate-900 rounded-xl p-6 mb-6">
             <h3 className="text-white font-semibold mb-4 text-center">
-              ✨ Alle PRO-Funktionen:
+              {isProPlus ? '👑 Alle PRO+ Funktionen:' : '✨ Alle PRO-Funktionen:'}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
+              {(isProPlus ? [
+                { icon: '👷', text: 'Mitarbeiter verwalten' },
+                { icon: '📡', text: 'Team Feed & Nachrichten' },
+                { icon: '📋', text: 'Aufgaben zuweisen' },
+                { icon: '📝', text: 'Berichte & Erledigtes' },
+                { icon: '⏱️', text: 'Zeiterfassung pro Mitarbeiter' },
+                { icon: '📢', text: 'Broadcasts an alle' },
+                { icon: '📄', text: 'Alle PRO-Funktionen inklusive' },
+                { icon: '🚀', text: 'Prioritäts-Support' }
+              ] : [
                 { icon: '👥', text: 'Unbegrenzte Kundenverwaltung' },
                 { icon: '📩', text: 'Kundenanfragen Management' },
                 { icon: '📄', text: 'Rechnungen & Angebote' },
@@ -231,10 +258,10 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
                 { icon: '⚙️', text: 'Erweiterte Einstellungen' },
                 { icon: '📊', text: 'Analytics & Berichte' },
                 { icon: '🚀', text: 'Prioritäts-Support' }
-              ].map((feature, i) => (
+              ]).map((f, i) => (
                 <div key={i} className="flex items-center gap-3 text-slate-300">
-                  <span className="text-xl">{feature.icon}</span>
-                  <span className="text-sm">{feature.text}</span>
+                  <span className="text-xl">{f.icon}</span>
+                  <span className="text-sm">{f.text}</span>
                 </div>
               ))}
             </div>
@@ -294,7 +321,7 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
                 </span>
               ) : (
                 <>
-                  🚀 Jetzt auf PRO upgraden ({currentPricing.periodShort})
+                  🚀 Jetzt auf {isProPlus ? 'PRO+' : 'PRO'} upgraden ({currentPricing.periodShort})
                 </>
               )}
             </button>
@@ -324,9 +351,13 @@ export function useUpgradeModal() {
     currentPlan: null
   })
 
-  const showUpgradeModal = (feature, featureName, currentPlan) => {
-    console.log('🔥 showUpgradeModal CALLED!', { feature, featureName, currentPlan })
-    setModalProps({ feature, featureName, currentPlan })
+  const showUpgradeModal = (featureOrObj, featureName, currentPlan) => {
+    // Support both: showUpgradeModal({ feature, featureName, currentPlan }) and showUpgradeModal(feature, featureName, currentPlan)
+    const props = typeof featureOrObj === 'object'
+      ? featureOrObj
+      : { feature: featureOrObj, featureName, currentPlan }
+    console.log('🔥 showUpgradeModal CALLED!', props)
+    setModalProps(props)
     setIsOpen(true)
   }
 
