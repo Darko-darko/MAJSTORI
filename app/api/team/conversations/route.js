@@ -45,15 +45,44 @@ export async function GET(request) {
         .eq('status', 'active')
         .single()
 
-      query = query.or(`worker_id.eq.${user.id},and(is_broadcast.eq.true,owner_id.eq.${membership?.owner_id})`)
+      // Two queries: personal + broadcasts
+      let personalQuery = admin
+        .from('conversations')
+        .select('*')
+        .eq('worker_id', user.id)
+        .neq('status', 'deleted')
+        .order('last_message_at', { ascending: false })
+        .limit(50)
+
+      let broadcastQuery = admin
+        .from('conversations')
+        .select('*')
+        .eq('is_broadcast', true)
+        .eq('owner_id', membership?.owner_id)
+        .neq('status', 'deleted')
+        .order('last_message_at', { ascending: false })
+        .limit(20)
+
+      if (status) {
+        personalQuery = personalQuery.eq('status', status)
+        broadcastQuery = broadcastQuery.eq('status', status)
+      }
+
+      const [personalRes, broadcastRes] = await Promise.all([personalQuery, broadcastQuery])
+      const all = [...(personalRes.data || []), ...(broadcastRes.data || [])]
+      // Deduplicate and sort
+      const seen = new Set()
+      var conversations = all.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true })
+        .sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at))
+      var error = personalRes.error || broadcastRes.error
     } else {
       query = query.eq('owner_id', user.id)
       if (workerId) query = query.eq('worker_id', workerId)
+
+      if (status) query = query.eq('status', status)
+
+      var { data: conversations, error } = await query.limit(50)
     }
-
-    if (status) query = query.eq('status', status)
-
-    const { data: conversations, error } = await query.limit(50)
     if (error) return Response.json({ error: error.message }, { status: 500 })
 
     // Get last message for each conversation
