@@ -158,6 +158,18 @@ export default function WorkerFeedPage() {
     finally { setSending(false) }
   }
 
+  // Mark conversation as read
+  const markRead = async (convId) => {
+    try {
+      const headers = await getHeaders()
+      await fetch(`/api/team/conversations/${convId}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ mark_read: true })
+      })
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
+    } catch (err) { console.error(err) }
+  }
+
   // Reply
   const handleReply = async (conversationId) => {
     if (!replyText.trim() && replyFiles.length === 0) return
@@ -318,7 +330,11 @@ export default function WorkerFeedPage() {
                       {/* Header */}
                       <div
                         className="p-4 cursor-pointer"
-                        onClick={() => setExpandedConv(expandedConv === item.id ? null : item.id)}
+                        onClick={() => {
+                          const opening = expandedConv !== item.id
+                          setExpandedConv(opening ? item.id : null)
+                          if (opening && item.unread_count > 0) markRead(item.id)
+                        }}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${
@@ -335,7 +351,10 @@ export default function WorkerFeedPage() {
                           <div className="flex items-center gap-1.5">
                             {item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋</span>}
                             {item.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
-                            <span className="text-slate-500 text-xs">{item.message_count} 💬</span>
+                            {item.unread_count > 0 && (
+                              <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse min-w-[20px] text-center">{item.unread_count}</span>
+                            )}
+                            <span className="bg-purple-500/20 text-purple-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-purple-500/30">{item.message_count} 💬</span>
                           </div>
                         </div>
 
