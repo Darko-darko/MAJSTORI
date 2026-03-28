@@ -44,18 +44,23 @@ export async function GET(request) {
       // Worker: personal conversations + broadcasts from owner
       const { data: membership } = await admin
         .from('team_members')
-        .select('owner_id')
+        .select('owner_id, joined_at')
         .eq('worker_id', user.id)
         .eq('status', 'active')
         .single()
+
+      let broadcastQuery = admin.from('conversations').select('*')
+        .eq('is_broadcast', true).eq('owner_id', membership?.owner_id).neq('status', 'deleted')
+        .order('last_message_at', { ascending: false }).limit(20)
+      if (membership?.joined_at) {
+        broadcastQuery = broadcastQuery.gte('created_at', membership.joined_at)
+      }
 
       const [personalRes, broadcastRes] = await Promise.all([
         admin.from('conversations').select('*', { count: 'exact' })
           .eq('worker_id', user.id).neq('status', 'deleted')
           .order('last_message_at', { ascending: false }).range(offset, offset + limit - 1),
-        admin.from('conversations').select('*')
-          .eq('is_broadcast', true).eq('owner_id', membership?.owner_id).neq('status', 'deleted')
-          .order('last_message_at', { ascending: false }).limit(20),
+        broadcastQuery,
       ])
 
       const seen = new Set()

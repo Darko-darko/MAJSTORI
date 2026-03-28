@@ -40,7 +40,7 @@ export async function GET(request) {
       // Worker sees: own conversations + broadcasts from owner
       const { data: membership } = await admin
         .from('team_members')
-        .select('owner_id')
+        .select('owner_id, joined_at')
         .eq('worker_id', user.id)
         .eq('status', 'active')
         .single()
@@ -62,6 +62,10 @@ export async function GET(request) {
         .neq('status', 'deleted')
         .order('last_message_at', { ascending: false })
         .limit(20)
+
+      if (membership?.joined_at) {
+        broadcastQuery = broadcastQuery.gte('created_at', membership.joined_at)
+      }
 
       if (status) {
         personalQuery = personalQuery.eq('status', status)
