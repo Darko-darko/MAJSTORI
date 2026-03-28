@@ -76,17 +76,31 @@ export async function PATCH(request, { params }) {
     const { id } = await params
     const admin = getAdmin()
 
-    // Verify ownership
+    // Verify participation
     const { data: conversation } = await admin
       .from('conversations')
-      .select('owner_id')
+      .select('owner_id, worker_id')
       .eq('id', id)
       .single()
 
     if (!conversation) return Response.json({ error: 'Nicht gefunden' }, { status: 404 })
-    if (conversation.owner_id !== user.id) return Response.json({ error: 'Nur der Chef kann Konversationen bearbeiten' }, { status: 403 })
+
+    const isOwner = conversation.owner_id === user.id
+    const isParticipant = isOwner || conversation.worker_id === user.id
 
     const body = await request.json()
+
+    // Mark read — both owner and worker can do this
+    if (body.mark_read) {
+      if (!isParticipant) return Response.json({ error: 'Nicht autorisiert' }, { status: 403 })
+      const readField = isOwner ? 'owner_read_at' : 'worker_read_at'
+      await admin.from('conversations').update({ [readField]: new Date().toISOString() }).eq('id', id)
+      return Response.json({ success: true })
+    }
+
+    // All other actions — owner only
+    if (!isOwner) return Response.json({ error: 'Nur der Chef kann Konversationen bearbeiten' }, { status: 403 })
+
     const updates = { updated_at: new Date().toISOString() }
 
     if (body.status === 'closed') {

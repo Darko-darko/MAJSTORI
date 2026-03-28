@@ -82,7 +82,11 @@ export default function FeedPage() {
     const channel = supabase
       .channel('owner-feed-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadFeed())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadFeed())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+        // Auto-expand conversation that received new message
+        if (payload.new?.conversation_id) setExpandedConv(payload.new.conversation_id)
+        loadFeed()
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'work_times' }, () => { loadFeed(); loadActiveWorkers() })
       .subscribe()
 
@@ -293,6 +297,19 @@ export default function FeedPage() {
     } catch (err) { console.error(err) }
   }
 
+  // Mark conversation as read
+  const markRead = async (convId) => {
+    try {
+      const headers = await getHeaders()
+      await fetch(`/api/team/conversations/${convId}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ mark_read: true })
+      })
+      // Update locally without full reload
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
+    } catch (err) { console.error(err) }
+  }
+
   // Delete conversation
   const handleDelete = async (convId) => {
     if (!confirm('Konversation wirklich löschen?')) return
@@ -345,16 +362,8 @@ export default function FeedPage() {
         </div>
       )}
 
-      {/* Header + New button */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Team Feed</h1>
-        <button
-          onClick={() => setShowNewForm(!showNewForm)}
-          className="px-4 py-2 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors"
-        >
-          + Neue Nachricht
-        </button>
-      </div>
+      {/* Header */}
+      <h1 className="text-2xl font-bold text-white">Team Feed</h1>
 
       {/* Workers time widget */}
       {workers.length > 0 && (() => {
@@ -480,6 +489,16 @@ export default function FeedPage() {
           </div>
         )
       })()}
+
+      {/* New conversation button */}
+      {!showNewForm && (
+        <button
+          onClick={() => setShowNewForm(true)}
+          className="w-full py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-500 transition-colors"
+        >
+          + Neue Nachricht
+        </button>
+      )}
 
       {/* New conversation form */}
       {showNewForm && (
@@ -625,7 +644,11 @@ export default function FeedPage() {
                       {/* Conversation header */}
                       <div
                         className="p-4 cursor-pointer"
-                        onClick={() => setExpandedConv(expandedConv === item.id ? null : item.id)}
+                        onClick={() => {
+                          const opening = expandedConv !== item.id
+                          setExpandedConv(opening ? item.id : null)
+                          if (opening && item.unread_count > 0) markRead(item.id)
+                        }}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${
@@ -641,7 +664,10 @@ export default function FeedPage() {
                             {item.title && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">📋 Aufgabe</span>}
                             {item.status === 'closed' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">Erledigt</span>}
                             {item.status === 'open' && item.started_by !== item.owner_id && <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded">Eingang</span>}
-                            <span className="text-slate-500 text-xs">{item.message_count} 💬</span>
+                            {item.unread_count > 0 && (
+                              <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse min-w-[20px] text-center">{item.unread_count}</span>
+                            )}
+                            <span className="bg-purple-500/20 text-purple-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-purple-500/30">{item.message_count} 💬</span>
                           </div>
                         </div>
 

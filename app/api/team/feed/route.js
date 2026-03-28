@@ -88,12 +88,20 @@ export async function GET(request) {
       messagesByConv[msg.conversation_id].push(msg)
     }
 
-    // Enrich conversations
-    const enrichedConversations = (conversations || []).map(c => ({
-      ...c,
-      worker_name: workerNames[c.worker_id] || null,
-      messages: messagesByConv[c.id] || [],
-    }))
+    // Enrich conversations with unread count
+    const enrichedConversations = (conversations || []).map(c => {
+      const msgs = messagesByConv[c.id] || []
+      const readAt = isWorker ? c.worker_read_at : c.owner_read_at
+      const unread = readAt
+        ? msgs.filter(m => new Date(m.created_at) > new Date(readAt) && m.sender_id !== user.id).length
+        : msgs.filter(m => m.sender_id !== user.id).length
+      return {
+        ...c,
+        worker_name: workerNames[c.worker_id] || null,
+        messages: msgs,
+        unread_count: unread,
+      }
+    })
 
     // Fetch work_times
     let timeItems = []
