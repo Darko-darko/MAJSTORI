@@ -4,9 +4,9 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { SubscriptionGuard } from '@/app/components/subscription/SubscriptionGuard'
 import { UpgradeModal, useUpgradeModal } from '@/app/components/subscription/UpgradeModal'
 import { useSubscription } from '@/lib/hooks/useSubscription'
+import { useFavorites } from '@/lib/hooks/useFavorites'
 import Link from 'next/link'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 
@@ -17,7 +17,8 @@ function DashboardPageContent() {
   
   const { isOpen: upgradeFeatureModalOpen, modalProps, showUpgradeModal: showFeatureUpgradeModal, hideUpgradeModal } = useUpgradeModal()
   
-  const { isFreemium, isInGracePeriod, refresh: refreshSubscription } = useSubscription(majstor?.id)
+  const { isFreemium, isInGracePeriod, hasFeatureAccess, refresh: refreshSubscription } = useSubscription(majstor?.id)
+  const { favorites, editMode, setEditMode, toggleFavorite, getFavoriteItems, getNonFavoriteItems, MAX_FAVORITES } = useFavorites()
   
   const [stats, setStats] = useState({
     totalInquiries: 0,
@@ -201,69 +202,76 @@ function DashboardPageContent() {
     )
   }
 
-  const ProtectedNavItem = ({ feature, href, icon, title, description, buttonText, isAlwaysFree = false }) => {
-    if (isAlwaysFree) {
+  const QuickItem = ({ item, isFav, editMode, onToggle, canAddMore = true, isFreemium, isInGracePeriod, hasFeatureAccess, onProtectedClick, stats }) => {
+    const isLocked = item.protected && isFreemium && !isInGracePeriod
+    const isTeamLocked = item.feature === 'team' && !hasFeatureAccess('team')
+    const locked = isLocked || isTeamLocked
+
+    // Edit mode: tap to toggle favorite
+    if (editMode) {
+      const canToggle = isFav || canAddMore
       return (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">
-            {icon}
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-          <p className="text-slate-400 text-sm mb-4">{description}</p>
-          <Link
-            href={href}
-            className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
-          >
-            {buttonText}
-          </Link>
-        </div>
+        <button
+          onClick={canToggle ? onToggle : undefined}
+          className={`relative rounded-lg p-4 text-center transition-all ${
+            isFav
+              ? 'bg-yellow-500/10 border-2 border-yellow-500/50'
+              : canToggle
+                ? 'bg-slate-800/50 border border-slate-700 hover:border-slate-500'
+                : 'bg-slate-800/30 border border-slate-800 opacity-40 cursor-not-allowed'
+          }`}
+        >
+          <div className="text-2xl mb-2">{item.icon}</div>
+          <div className={`font-medium text-sm ${isFav ? 'text-yellow-300' : 'text-slate-400'}`}>{item.name}</div>
+          <span className={`absolute top-1 right-1 w-5 h-5 rounded-full text-xs flex items-center justify-center ${
+            isFav ? 'bg-yellow-500 text-black' : 'bg-slate-600 text-slate-300'
+          }`}>
+            {isFav ? '−' : '+'}
+          </span>
+        </button>
       )
     }
 
+    // Locked state
+    if (locked) {
+      const badgeLabel = item.feature === 'team' ? 'Pro+' : 'Pro'
+      const featureNames = {
+        'customer_management': 'Kundenverwaltung',
+        'invoicing': 'Rechnungen & Angebote',
+        'services_management': 'Services Verwaltung',
+        'pdf_archive': 'PDF Archiv',
+        'team': 'Team Funktionen',
+      }
+      return (
+        <button
+          onClick={() => onProtectedClick(item.feature, featureNames[item.feature] || item.name)}
+          className={`relative rounded-lg p-4 text-center transition-colors group ${
+            isFav ? 'bg-yellow-500/5 border border-yellow-500/20' : 'bg-slate-800/50 border border-slate-600'
+          } hover:border-slate-500`}
+        >
+          <div className="text-2xl mb-2 opacity-60">{item.icon}</div>
+          <div className="text-slate-400 font-medium text-sm">{item.name}</div>
+          <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 {badgeLabel}</span>
+        </button>
+      )
+    }
+
+    // Normal state
     return (
-      <SubscriptionGuard
-        feature={feature}
-        majstorId={majstor?.id}
-        fallback={
-          <div className="bg-slate-800/50 border border-slate-600 rounded-2xl p-6 relative">
-            <div className="w-12 h-12 bg-slate-600 rounded-xl flex items-center justify-center text-2xl mb-4 opacity-75">
-              {icon}
-            </div>
-            <h3 className="text-lg font-semibold text-slate-400 mb-2">{title}</h3>
-            <p className="text-slate-500 text-sm mb-4">{description}</p>
-            <button
-              onClick={() => {
-                const featureNames = {
-                  'customer_management': 'Kundenverwaltung',
-                  'customer_inquiries': 'Kundenanfragen',
-                  'invoicing': 'Rechnungen & Angebote',
-                  'services_management': 'Services Verwaltung',
-                  'pdf_archive': 'PDF Archiv'
-                }
-                handleProtectedFeatureClick(feature, featureNames[feature] || title)
-              }}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
-            >
-              🔒 Jetzt freischalten
-            </button>
-          </div>
-        }
-        showUpgradePrompt={false}
+      <Link
+        href={item.href}
+        className={`relative rounded-lg p-4 text-center transition-colors group ${
+          isFav ? 'bg-yellow-500/5 border border-yellow-500/20 hover:border-yellow-500/40' : 'bg-slate-800/50 border border-slate-700 hover:border-slate-600'
+        }`}
       >
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">
-            {icon}
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-          <p className="text-slate-400 text-sm mb-4">{description}</p>
-          <Link
-            href={href}
-            className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
-          >
-            {buttonText}
-          </Link>
-        </div>
-      </SubscriptionGuard>
+        <div className="text-2xl mb-2">{item.icon}</div>
+        <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">{item.name}</div>
+        {item.key === 'kundenanfragen' && stats.newInquiries > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+            {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
+          </span>
+        )}
+      </Link>
     )
   }
 
@@ -354,138 +362,73 @@ function DashboardPageContent() {
         </Link>
       </div>
 
+      {/* Schnellzugriff — Favoriten zuerst, dann alle anderen */}
       <div>
-        <h2 className="text-2xl font-bold text-white mb-6">Schnellzugriff</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <ProtectedNavItem
-            feature="invoicing"
-            href="/dashboard/invoices?tab=invoices"
-            icon="📄"
-            title={stats.totalInvoices === 0 ? 'Erste Rechnung' : 'Neue Rechnung'}
-            description={stats.totalInvoices === 0
-              ? 'Erstellen Sie eine professionelle PDF-Rechnung für Ihre Kunden'
-              : 'Erstellen Sie eine neue Rechnung oder ein Angebot'
-            }
-            buttonText="Rechnung erstellen"
-          />
-
-          <ProtectedNavItem
-            isAlwaysFree={true}
-            href="/dashboard/business-card/create"
-            icon="📱"
-            title="QR Visitenkarte erstellen"
-            description="Erstellen Sie Ihre digitale Visitenkarte mit QR-Code für Kunden"
-            buttonText="Jetzt erstellen"
-          />
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-white">Schnellzugriff</h2>
+          <button
+            onClick={() => setEditMode(!editMode)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              editMode
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            {editMode ? 'Fertig' : 'Anpassen'}
+          </button>
         </div>
-      </div>
 
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-6">Schnellzugriff</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {editMode && (
+          <p className="text-slate-400 text-sm mb-4">
+            Tippen Sie auf ein Element um es als Favorit hinzuzufügen oder zu entfernen (max. {MAX_FAVORITES}).
+          </p>
+        )}
 
-          {/* 1. Rechnungen */}
-          <SubscriptionGuard feature="invoicing" majstorId={majstor?.id} fallback={
-            <button onClick={() => handleProtectedFeatureClick('invoicing', 'Rechnungen & Angebote')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
-              <div className="text-2xl mb-2 opacity-60">📄</div>
-              <div className="text-slate-400 font-medium text-sm">Rechnungen</div>
-              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
-            </button>
-          } showUpgradePrompt={false}>
-            <Link href="/dashboard/invoices?tab=invoices" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">📄</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Rechnungen</div>
-            </Link>
-          </SubscriptionGuard>
+        {/* Favoriten */}
+        {getFavoriteItems().length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-yellow-400/80 uppercase tracking-wider mb-3">Favoriten</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {getFavoriteItems().map(item => (
+                <QuickItem
+                  key={item.key}
+                  item={item}
+                  isFav={true}
+                  editMode={editMode}
+                  onToggle={() => toggleFavorite(item.key)}
+                  isFreemium={isFreemium}
+                  isInGracePeriod={isInGracePeriod}
+                  hasFeatureAccess={hasFeatureAccess}
+                  onProtectedClick={handleProtectedFeatureClick}
+                  stats={stats}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-          {/* 2. Ausgaben */}
-          <SubscriptionGuard feature="invoicing" majstorId={majstor?.id} fallback={
-            <button onClick={() => handleProtectedFeatureClick('invoicing', 'Ausgaben')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
-              <div className="text-2xl mb-2 opacity-60">🧾</div>
-              <div className="text-slate-400 font-medium text-sm">Ausgaben</div>
-              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
-            </button>
-          } showUpgradePrompt={false}>
-            <Link href="/dashboard/ausgaben" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">🧾</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Ausgaben</div>
-            </Link>
-          </SubscriptionGuard>
-
-          {/* 3. Visitenkarte */}
-          <Link href="/dashboard/business-card/create" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-            <div className="text-2xl mb-2">📱</div>
-            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Visitenkarte</div>
-          </Link>
-
-          {/* 4. Kundenanfragen */}
-          <Link href="/dashboard/inquiries" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors relative group">
-            <div className="text-2xl mb-2">📩</div>
-            <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Kundenanfragen</div>
-            {stats.newInquiries > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {stats.newInquiries > 9 ? '9+' : stats.newInquiries}
-              </span>
-            )}
-          </Link>
-
-          {/* 5. Meine Kunden */}
-          <SubscriptionGuard feature="customer_management" majstorId={majstor?.id} fallback={
-            <button onClick={() => handleProtectedFeatureClick('customer_management', 'Kundenverwaltung')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
-              <div className="text-2xl mb-2 opacity-60">👥</div>
-              <div className="text-slate-400 font-medium text-sm">Meine Kunden</div>
-              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
-            </button>
-          } showUpgradePrompt={false}>
-            <Link href="/dashboard/customers" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">👥</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Meine Kunden</div>
-            </Link>
-          </SubscriptionGuard>
-
-          {/* 6. Meine Services */}
-          <SubscriptionGuard feature="services_management" majstorId={majstor?.id} fallback={
-            <button onClick={() => handleProtectedFeatureClick('services_management', 'Services Verwaltung')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
-              <div className="text-2xl mb-2 opacity-60">🔧</div>
-              <div className="text-slate-400 font-medium text-sm">Meine Services</div>
-              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
-            </button>
-          } showUpgradePrompt={false}>
-            <Link href="/dashboard/services" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">🔧</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Meine Services</div>
-            </Link>
-          </SubscriptionGuard>
-
-          {/* 7. Aufmaß */}
-          <SubscriptionGuard feature="invoicing" majstorId={majstor?.id} fallback={
-            <button onClick={() => handleProtectedFeatureClick('invoicing', 'Aufmaß')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
-              <div className="text-2xl mb-2 opacity-60">📐</div>
-              <div className="text-slate-400 font-medium text-sm">Aufmaß</div>
-              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
-            </button>
-          } showUpgradePrompt={false}>
-            <Link href="/dashboard/aufmass" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">📐</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Aufmaß</div>
-            </Link>
-          </SubscriptionGuard>
-
-          {/* 8. Einstellungen */}
-          <SubscriptionGuard feature="settings" majstorId={majstor?.id} fallback={
-            <button onClick={() => handleProtectedFeatureClick('settings', 'Erweiterte Einstellungen')} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4 hover:border-slate-500 transition-colors group relative">
-              <div className="text-2xl mb-2 opacity-60">⚙️</div>
-              <div className="text-slate-400 font-medium text-sm">Einstellungen</div>
-              <span className="absolute top-2 right-2 px-1 py-0.5 text-xs bg-blue-600 text-white rounded font-medium">🔒 Pro</span>
-            </button>
-          } showUpgradePrompt={false}>
-            <Link href="/dashboard/settings" className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors group">
-              <div className="text-2xl mb-2">⚙️</div>
-              <div className="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Einstellungen</div>
-            </Link>
-          </SubscriptionGuard>
-
+        {/* Alle anderen */}
+        <div>
+          {!editMode && getFavoriteItems().length > 0 && (
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Alle Funktionen</p>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {getNonFavoriteItems().map(item => (
+              <QuickItem
+                key={item.key}
+                item={item}
+                isFav={false}
+                editMode={editMode}
+                onToggle={() => toggleFavorite(item.key)}
+                canAddMore={favorites.length < MAX_FAVORITES}
+                isFreemium={isFreemium}
+                isInGracePeriod={isInGracePeriod}
+                hasFeatureAccess={hasFeatureAccess}
+                onProtectedClick={handleProtectedFeatureClick}
+                stats={stats}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
