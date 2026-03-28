@@ -158,16 +158,26 @@
 - sepa qr kod ne radi!!✅
 - popust✅
 
-- katanac sa 7 dana free sa rehnunga hmmm ne radi još
+- katanac sa 7 dana free sa rehnunga hmmm ne radi još✅
 - u angebot piše profakture... treba izbrisat
 - regiebercht u team
-- uvećanje slike 
-- uređivanje zadatka za vlasnika ... ako je zaboravio tekst ili neku sliku
+- uvećanje slike ✅
+- uređivanje zadatka za vlasnika ... ako je zaboravio✅ tekst ili neku sliku✅
 - notifikacije
-- real time ili neki refreš itd
-- faze zadatka send i kraj na kraju :
-- trbala bi da postoji opcija da majtori dobiju usmeni zadatak da šlju slike na početku i kraju, majtro kreira izveštaj bez zadatka od gazde
-- ako majstor zaboravi šifru
+- real time ili neki refreš itd✅
+- faze zadatka send i kraj na kraju :✅
+- trbala bi da postoji opcija da majtori dobiju usmeni zadatak da šlju slike na početku i kraju, majtro kreira izveštaj bez zadatka od gazde✅
+
+- da i gazda može da pokrene čet, daa ne ide kroz zadata, ako je ovako lakše!
+
+
+- ako majstor zaboravi šifru✅
+- pro + na landing
+- einštelung i na profilnu sliku u side baru
+- mejlovi u admin worker-0789797@pro-meister... Odakle?
+- bug ... prvo sam izbrisao radnike, pa hteo da reduciram, nije mi dao ... mora da može i tako
+- Da li da radnik i gazda treba da mogu i iz galerije da šalje slike?
+
 
 
 
