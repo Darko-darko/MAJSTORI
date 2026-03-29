@@ -820,9 +820,13 @@ export default function InvoiceCreator({
       const file = new File([blob], safeName, { type: 'application/pdf' })
       setPendingAttachments(prev => [...prev, { file, localId: `regie_${bericht.id}` }])
 
-      // Update regiebericht invoice_id will happen on save
-      // Store the ID for later linking
-      setFormData(prev => ({ ...prev, regiebericht_id: bericht.id }))
+      // Mark as attached + link invoice_id immediately
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/regieberichte', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: bericht.id, status: 'attached', invoice_id: editData?.id || null })
+      })
 
       setShowRegiePicker(false)
       setAnlagenOpen(false)
