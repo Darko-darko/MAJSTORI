@@ -489,7 +489,7 @@ export default function WorkerFeedPage() {
                                   ))}
                                 </div>
                               )}
-                              <div className="flex gap-2">
+                              <div className="flex gap-1.5">
                                 <div className="relative">
                                   <button onClick={() => { setReplyTo(item.id); setShowReplyPhotoPicker(!showReplyPhotoPicker) }}
                                     className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
@@ -516,9 +516,9 @@ export default function WorkerFeedPage() {
                                 <button
                                   onClick={() => handleReply(item.id)}
                                   disabled={replying || ((!replyText.trim() || replyTo !== item.id) && replyFiles.length === 0)}
-                                  className="px-3 py-2 bg-orange-600 text-white rounded-lg text-sm disabled:opacity-50"
+                                  className="px-2.5 py-2 bg-purple-600 text-white rounded-xl text-sm disabled:opacity-50 shrink-0"
                                 >
-                                  {replying && replyTo === item.id ? '...' : 'Senden'}
+                                  {replying && replyTo === item.id ? '...' : <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>}
                                 </button>
                               </div>
                             </div>
