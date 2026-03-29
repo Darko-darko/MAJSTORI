@@ -1658,7 +1658,7 @@ const HardResetModal = () => {
     return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-white">Angebote (Profakture)</h3>
+        <h3 className="text-lg font-semibold text-white">Angebote</h3>
         <button
           onClick={() => {
             setCreateType('quote')
