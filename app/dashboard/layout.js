@@ -45,14 +45,32 @@ function DashboardLayoutContent({ children }) {
     const file = e.target.files?.[0]
     if (!file || !user) return
     try {
-      const ext = file.name.split('.').pop()
-      const path = `avatars/${user.id}.${ext}`
-      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      // Resize to max 400x400 JPEG (same as AvatarUpload component)
+      const resized = await new Promise((resolve, reject) => {
+        const img = new Image()
+        const url = URL.createObjectURL(file)
+        img.onload = () => {
+          URL.revokeObjectURL(url)
+          const canvas = document.createElement('canvas')
+          let w = img.width, h = img.height
+          const max = 400
+          if (w > h) { if (w > max) { h = Math.round(h * max / w); w = max } }
+          else { if (h > max) { w = Math.round(w * max / h); h = max } }
+          canvas.width = w; canvas.height = h
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+          canvas.toBlob(resolve, 'image/jpeg', 0.85)
+        }
+        img.onerror = reject
+        img.src = url
+      })
+
+      const filePath = `${user.id}/avatar.jpg`
+      const { error: upErr } = await supabase.storage.from('avatars').upload(filePath, resized, { upsert: true, contentType: 'image/jpeg' })
       if (upErr) throw upErr
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-      const url = publicUrl + '?t=' + Date.now()
-      await supabase.from('majstors').update({ avatar_url: url }).eq('id', user.id)
-      setMajstor(prev => ({ ...prev, avatar_url: url }))
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`
+      await supabase.from('majstors').update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() }).eq('id', user.id)
+      setMajstor(prev => ({ ...prev, avatar_url: avatarUrl }))
       setWorkerMenuOpen(false)
     } catch (err) {
       alert('Fehler beim Hochladen: ' + err.message)
