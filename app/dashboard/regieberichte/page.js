@@ -204,6 +204,22 @@ export default function RegieberichtePage() {
                         📤 Teilen
                       </button>
                     )}
+                    {b.status === 'draft' && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const headers = await getHeaders()
+                            await fetch('/api/regieberichte', {
+                              method: 'PATCH', headers,
+                              body: JSON.stringify({ id: b.id, status: 'signed' })
+                            })
+                            setBerichte(prev => prev.map(r => r.id === b.id ? { ...r, status: 'signed' } : r))
+                          } catch (err) { alert(err.message) }
+                        }}
+                        className="px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg text-xs hover:bg-blue-600/30 transition-colors">
+                        ✅ Extern unterschrieben
+                      </button>
+                    )}
                     <button onClick={() => handleDelete(b.id)}
                       className="px-3 py-2 bg-red-900/30 text-red-400 rounded-lg text-xs hover:bg-red-900/50 transition-colors ml-auto">
                       🗑 Löschen
