@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import WorkerBerichteTab from '@/app/components/WorkerBerichteTab'
 
 function compressImage(file, maxWidth = 1920, quality = 0.8) {
   return new Promise((resolve) => {
@@ -41,7 +42,7 @@ export default function WorkerDashboard() {
   const [userId, setUserId] = useState(null)
 
   // Tab state
-  const [activeTab, setActiveTab] = useState('alle') // 'alle' | 'aufgaben'
+  const [activeTab, setActiveTab] = useState('alle') // 'alle' | 'aufgaben' | 'berichte'
 
   // New message form
   const [showNewForm, setShowNewForm] = useState(false)
@@ -563,10 +564,23 @@ export default function WorkerDashboard() {
             }`}>{aufgabenCount}</span>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('berichte')}
+          className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
+            activeTab === 'berichte'
+              ? 'bg-purple-600 text-white'
+              : 'bg-slate-800 text-slate-400 hover:text-white'
+          }`}
+        >
+          Berichte
+        </button>
       </div>
 
-      {/* 5. Feed */}
-      {Object.keys(byDate).length > 0 ? (
+      {/* 5. Berichte Tab */}
+      {activeTab === 'berichte' && <WorkerBerichteTab worker={worker} />}
+
+      {/* 6. Feed (nur bei Alle/Aufgaben) */}
+      {activeTab !== 'berichte' && (Object.keys(byDate).length > 0 ? (
         Object.entries(byDate).map(([date, items]) => (
           <div key={date}>
             <h2 className="text-slate-400 text-sm font-semibold mb-3 sticky top-0 bg-slate-900/80 backdrop-blur py-1 z-10">{date}</h2>
@@ -760,7 +774,7 @@ export default function WorkerDashboard() {
           <p>{activeTab === 'aufgaben' ? 'Keine offenen Aufgaben' : 'Noch keine Aktivitäten'}</p>
           <p className="text-sm mt-1">{activeTab === 'aufgaben' ? 'Hier erscheinen Aufträge vom Chef' : 'Senden Sie Fotos und Updates an Ihren Chef'}</p>
         </div>
-      )}
+      ))}
 
       {/* Infinite scroll sentinel */}
       <div ref={feedEndRef} className="h-4" />
