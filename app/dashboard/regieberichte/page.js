@@ -6,6 +6,11 @@ import { supabase } from '@/lib/supabase'
 export default function RegieberichtePage() {
   const [berichte, setBerichte] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [berichteOffset, setBerichteOffset] = useState(0)
+  const PAGE_SIZE = 20
+  const scrollRef = useRef(null)
   const [expandedId, setExpandedId] = useState(null)
   const [filterWorker, setFilterWorker] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -25,9 +30,7 @@ export default function RegieberichtePage() {
       const headers = await getHeaders()
 
       // Load berichte
-      const res = await fetch('/api/regieberichte', { headers })
-      const json = await res.json()
-      if (json.regieberichte) setBerichte(json.regieberichte)
+      await loadBerichte(true)
 
       // Check if team owner (has workers)
       const teamRes = await fetch('/api/team', { headers })
@@ -39,6 +42,34 @@ export default function RegieberichtePage() {
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
+
+  const loadBerichte = async (reset = true) => {
+    const headers = await getHeaders()
+    const currentOffset = reset ? 0 : berichteOffset
+    const res = await fetch(`/api/regieberichte?limit=${PAGE_SIZE}&offset=${currentOffset}`, { headers })
+    const json = await res.json()
+    if (json.regieberichte) {
+      if (reset) {
+        setBerichte(json.regieberichte)
+        setBerichteOffset(PAGE_SIZE)
+      } else {
+        setBerichte(prev => [...prev, ...json.regieberichte])
+        setBerichteOffset(currentOffset + PAGE_SIZE)
+      }
+      setHasMore(json.hasMore || false)
+    }
+    setLoadingMore(false)
+  }
+
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasMore && !loadingMore) { setLoadingMore(true); loadBerichte(false) } },
+      { threshold: 0.1 }
+    )
+    observer.observe(scrollRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore])
 
   const handleDelete = async (id) => {
     if (!confirm('Regiebericht wirklich löschen?')) return
@@ -239,6 +270,14 @@ export default function RegieberichtePage() {
           ) : (
             <p className="text-sm mt-1">Regieberichte werden über Rechnungen oder vom Team erstellt</p>
           )}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={scrollRef} className="h-4" />
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
         </div>
       )}
     </div>

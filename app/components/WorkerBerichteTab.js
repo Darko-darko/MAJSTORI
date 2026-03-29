@@ -6,6 +6,11 @@ import { supabase } from '@/lib/supabase'
 export default function WorkerBerichteTab({ worker }) {
   const [berichte, setBerichte] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [berichteOffset, setBerichteOffset] = useState(0)
+  const PAGE_SIZE = 20
+  const scrollRef = useRef(null)
   const [showForm, setShowForm] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
 
@@ -60,15 +65,35 @@ export default function WorkerBerichteTab({ worker }) {
     return { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
   }
 
-  const loadBerichte = async () => {
+  const loadBerichte = async (reset = true) => {
     try {
       const headers = await getHeaders()
-      const res = await fetch('/api/regieberichte', { headers })
+      const currentOffset = reset ? 0 : berichteOffset
+      const res = await fetch(`/api/regieberichte?limit=${PAGE_SIZE}&offset=${currentOffset}`, { headers })
       const json = await res.json()
-      if (json.regieberichte) setBerichte(json.regieberichte)
+      if (json.regieberichte) {
+        if (reset) {
+          setBerichte(json.regieberichte)
+          setBerichteOffset(PAGE_SIZE)
+        } else {
+          setBerichte(prev => [...prev, ...json.regieberichte])
+          setBerichteOffset(currentOffset + PAGE_SIZE)
+        }
+        setHasMore(json.hasMore || false)
+      }
     } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    finally { setLoading(false); setLoadingMore(false) }
   }
+
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasMore && !loadingMore) { setLoadingMore(true); loadBerichte(false) } },
+      { threshold: 0.1 }
+    )
+    observer.observe(scrollRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore])
 
   // Canvas drawing
   const getPos = (e, canvas) => {
@@ -489,6 +514,14 @@ export default function WorkerBerichteTab({ worker }) {
           <p className="text-4xl mb-3">📋</p>
           <p>Noch keine Regieberichte</p>
           <p className="text-sm mt-1">Erstellen Sie einen Bericht nach getaner Arbeit</p>
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={scrollRef} className="h-4" />
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
         </div>
       )}
     </>

@@ -89,6 +89,10 @@ export async function GET(request) {
   // Für Picker: Regieberichte für diese Rechnung (nicht attached) + unverknüpfte
   const forInvoice = searchParams.get('for_invoice')
 
+  // Pagination
+  const limit = parseInt(searchParams.get('limit')) || 20
+  const offsetParam = parseInt(searchParams.get('offset')) || 0
+
   query = query.order('created_at', { ascending: false })
 
   if (forInvoice) {
@@ -118,6 +122,8 @@ export async function GET(request) {
     return NextResponse.json({ regieberichte: combined })
   }
 
+  query = query.range(offsetParam, offsetParam + limit - 1)
+
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -137,7 +143,7 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ regieberichte: data })
+  return NextResponse.json({ regieberichte: data, hasMore: data?.length === limit })
 }
 
 // POST /api/regieberichte — neuen Regiebericht erstellen
