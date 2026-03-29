@@ -572,7 +572,7 @@ export default function WorkerDashboard() {
               : 'bg-slate-800 text-slate-400 hover:text-white'
           }`}
         >
-          Berichte
+          Regieberichte
         </button>
       </div>
 
