@@ -1022,7 +1022,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </Link>
             </div>
 
-            <div className="px-4 py-4 border-b border-slate-700">
+            <Link href="/dashboard/settings" className="block px-4 py-4 border-b border-slate-700 hover:bg-slate-700/50 transition-colors cursor-pointer">
               <div className="flex items-center space-x-3">
                 {majstor?.avatar_url ? (
                   <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
@@ -1040,8 +1040,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   </p>
                 </div>
               </div>
-
-            </div>
+            </Link>
 
             <div key={badgeKey + '-scroll'} className="flex-1 overflow-y-auto overscroll-contain">
               {!isBuchhalter && !isWorker && (
@@ -1103,7 +1102,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
               </button>
             </div>
 
-            <div className="px-4 py-4 border-b border-slate-700">
+            <Link href="/dashboard/settings" onClick={() => setSidebarOpen(false)} className="block px-4 py-4 border-b border-slate-700 hover:bg-slate-700/50 transition-colors cursor-pointer">
               <div className="flex items-center space-x-3">
                 {majstor?.avatar_url ? (
                   <img src={majstor.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
@@ -1121,8 +1120,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
                   </p>
                 </div>
               </div>
-
-            </div>
+            </Link>
 
             <div key={badgeKey + '-mscroll'} className="flex-1 overflow-y-auto overscroll-contain">
               {!isBuchhalter && !isWorker && (
