@@ -691,7 +691,7 @@ export default function FeedPage() {
       <div className="flex gap-2 flex-wrap">
         {[
           { key: 'all', label: 'Alle' },
-          { key: 'open', label: 'Offen' },
+          { key: 'open', label: 'Offen', count: conversations.filter(c => c.status === 'open' && !c.is_broadcast).length },
           { key: 'closed', label: 'Erledigt' },
           { key: 'archived', label: 'Archiv' },
           { key: 'berichte', label: 'Regieberichte' },
@@ -704,6 +704,9 @@ export default function FeedPage() {
             }`}
           >
             {f.label}
+            {f.count > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-orange-500 text-white">{f.count}</span>
+            )}
           </button>
         ))}
       </div>
