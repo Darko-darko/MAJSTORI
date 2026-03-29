@@ -2542,15 +2542,13 @@ if (searchError) {
                     </label>
                   )}
                   {/* Regiebericht anhängen */}
-                  {!pendingAttachments.some(a => a.localId?.startsWith('regie_')) && !savedAttachments.some(a => a.filename?.startsWith('Regiebericht_')) && (
-                    <button
-                      type="button"
-                      onClick={openRegiePicker}
-                      className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 py-2 px-3 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors w-full"
-                    >
-                      📋 Regiebericht anhängen
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={openRegiePicker}
+                    className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 py-2 px-3 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors w-full"
+                  >
+                    📋 Regiebericht anhängen
+                  </button>
                   {/* Aufmaß als Anlage */}
                   {selectedAufmassIds.length > 0 && !pendingAttachments.some(a => a.localId?.startsWith('aufmass_')) && !savedAttachments.some(a => a.filename?.startsWith('Aufmass_')) && (
                     <button
