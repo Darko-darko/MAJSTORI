@@ -26,12 +26,13 @@ STIL:
 === PRO-MEISTER PLATTFORM — WISSEN ===
 
 PLÄNE:
-- Freemium (0€): QR-Visitenkarte, Kundenanfragen empfangen, Basis-Dashboard. Kostenlos für immer. KEINE Kreditkarte — niemals. Keine Rechnungen/Angebote.
-- PRO (19,90€/Monat oder günstigerer Jahrestarif + MwSt.): + Kundenverwaltung, Rechnungen/Angebote, PDF-Archiv, Statistiken, Mahnungen
-- PRO+ (in Entwicklung): Erweiterter Plan mit zusätzlichen Funktionen — Details folgen in Kürze
-- 30 Tage Probezeitraum für PRO: Kreditkarte erforderlich (FastSpring), aber KEINE Abbuchung während der Testphase. Jederzeit vor Ablauf kündbar — keine Kosten.
-- Nach 30 Tagen: Automatischer Wechsel zu Freemium wenn nicht aktiv PRO gewählt. Daten bleiben erhalten. PRO jederzeit aktivierbar.
-- Kündigung: Klick auf PRO-Badge → kündigen. Zugriff bis Ende der bezahlten Zeit. Danach automatisch Freemium.
+- Freemium (0€): QR-Visitenkarte, Kundenanfragen empfangen, Basis-Dashboard. Kostenlos für immer. KEINE Kreditkarte — niemals. Nach der Registrierung erhalten neue Nutzer automatisch 7 Tage lang alle PRO-Funktionen kostenlos — ohne Kreditkarte, ohne Verpflichtung. Danach nur noch Freemium-Funktionen (QR-Visitenkarte, Anfragen empfangen).
+- PRO (19,90€/Monat + MwSt.): Für Einzelunternehmer. Kundenverwaltung, Rechnungen/Angebote (ZUGFeRD), PDF-Archiv, Statistiken, Mahnungen, KI-Sprachdiktat, Regiebericht, Buchhalter-Zugang/Export, Ausgaben-Tracking.
+- PRO+ (29,90€/Monat + 8€/Mitarbeiter + MwSt.): Für Teams. Alles aus PRO + Team-Kommunikation (Aufgaben, Nachrichten, Broadcast), Aufmaß (digitales Aufmaß mit PDF und Übernahme ins Angebot), Mitarbeiterverwaltung (2 Mitarbeiter inklusive, weitere für 8€/Monat pro Mitarbeiter).
+- 30 Tage Probezeitraum für PRO und PRO+: Kreditkarte erforderlich (FastSpring), aber KEINE Abbuchung während der Testphase. Jederzeit vor Ablauf kündbar — keine Kosten.
+- Nach 30 Tagen: Automatischer Wechsel zu Freemium wenn nicht aktiv PRO/PRO+ gewählt. Daten bleiben erhalten. Jederzeit aktivierbar.
+- Kündigung: Klick auf PRO/PRO+-Badge → kündigen. Zugriff bis Ende der bezahlten Zeit. Danach automatisch Freemium.
+- Upgrade PRO → PRO+: Jederzeit möglich. Downgrade PRO+ → PRO: Ebenfalls jederzeit möglich.
 
 HAUPTFUNKTIONEN:
 - Rechnungen & Angebote: ZUGFeRD PDF (elektronische Rechnung mit XML), automatische Nummerierung (RE-2026-0001), DIN 5008 konform, für Fensterbriefumschlag geeignet
@@ -49,7 +50,10 @@ HAUPTFUNKTIONEN:
 - Statistiken: Dashboard → Umsatzübersicht, offene Rechnungen, überfällige Rechnungen. Nur PRO.
 - KI-Sprachdiktat (PRO): Rechnung per Sprache diktieren — Mikrofon-Taste halten, sprechen, loslassen. KI füllt Kunde, Leistungen und Preise automatisch aus. Bekannte Kunden werden aus der Datenbank automatisch erkannt.
 - Anhänge: Beim Erstellen einer Rechnung können Dateien (PDFs, Fotos) angehängt werden — werden automatisch beim E-Mail-Versand mitgeschickt
-- Regiebericht: Spezialdokument für Arbeiten in Mietobjekten/WEG — enthält Arbeitsnachweis + digitale Unterschrift des Mieters. Wird als Anhang zur Rechnung gespeichert.
+- Regiebericht (PRO): Spezialdokument für Arbeiten in Mietobjekten/WEG — enthält Arbeitsnachweis + digitale Unterschrift des Mieters. Wird als Anhang zur Rechnung gespeichert.
+- Team-Kommunikation (PRO+): Aufgaben an Mitarbeiter zuweisen, Nachrichten austauschen (Text + Fotos), Broadcast-Nachrichten an alle Mitarbeiter, Lesebestätigungen, Reaktionen. Mitarbeiter nutzen die App mit eigenem Login.
+- Aufmaß (PRO+): Digitales Aufmaß vor Ort erfassen — Räume/Bereiche mit Positionen (m², lfm, m³, Stk, Wand, Trapez), Abzüge für Öffnungen (Türen/Fenster), Ergänzungen, Materialien. PDF mit Skizzen und Unterschrift. Positionen direkt ins Angebot übernehmen.
+- Mitarbeiterverwaltung (PRO+): Mitarbeiter einladen, Aufgaben zuweisen, Arbeitszeiten erfassen (Timer). 2 Mitarbeiter im PRO+-Preis inklusive, weitere für 8€/Monat pro Mitarbeiter.
 
 KI-SPRACHDIKTAT — DETAILS (nur PRO):
 Wo: Neue Rechnung oder Neues Angebot → 🎙 Mikrofon-Taste unten gedrückt halten
@@ -110,6 +114,17 @@ Tipps:
   - Materialien erfassen spart Zeit beim Angebot erstellen
   - PDF vor Ort mit Kunden unterschreiben lassen
   - Aus Aufmaß direkt Angebot erstellen — spart Zeit beim Übertragen
+
+TEAM-KOMMUNIKATION — DETAILS (nur PRO+):
+Was ist das: Kommunikationsplattform zwischen Firmenchef und Mitarbeitern — Aufgaben zuweisen, Nachrichten austauschen, Fotos senden.
+Wo: Dashboard → "Team" (linkes Menü, nur für PRO+ sichtbar)
+Aufgaben: Neue Aufgabe erstellen → Mitarbeiter zuweisen → Titel, Beschreibung, Fälligkeitsdatum → Mitarbeiter sieht die Aufgabe in seinem Dashboard
+Nachrichten: Direkte Konversation mit jedem Mitarbeiter — Text und Fotos. Lesebestätigungen (✓✓) zeigen ob die Nachricht gelesen wurde.
+Broadcast: Nachricht an alle Mitarbeiter gleichzeitig — z.B. "Morgen Baubesprechung um 8 Uhr". Mitarbeiter können mit 👍 reagieren um Bestätigung zu zeigen.
+Fotos: Kamera oder Galerie — ideal für Baustellenfotos, Materialfotos, Fortschrittsberichte.
+Mitarbeiter einladen: Team → "Mitarbeiter einladen" → E-Mail eingeben → Mitarbeiter erhält Einladung und erstellt eigenen Login.
+Mitarbeiter-Kosten: 2 Mitarbeiter sind im PRO+-Preis (29,90€/Monat) inklusive. Jeder weitere Mitarbeiter kostet 8€/Monat.
+Timer: Mitarbeiter können ihre Arbeitszeit per Timer erfassen — Start/Stop direkt in der App.
 
 QR-VISITENKARTE — DETAILS:
 Erstellen: Dashboard → "Visitenkarte" → Formular ausfüllen:
