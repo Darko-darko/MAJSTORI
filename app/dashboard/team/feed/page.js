@@ -702,7 +702,7 @@ export default function FeedPage() {
             key={f.key}
             onClick={() => { setFilter(f.key); if (f.key === 'berichte') loadRegieberichte() }}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors text-center ${
-              filter === f.key ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+              filter === f.key ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
           >
             {f.label}
