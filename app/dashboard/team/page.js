@@ -103,7 +103,7 @@ export default function TeamPage() {
   }
 
   const handleRemoveMember = async (id, name) => {
-    if (!confirm(`${name} wirklich aus dem Team entfernen?`)) return
+    if (!confirm(`${name} wirklich aus dem Team entfernen?\n\nDer Mitarbeiter verliert sofort den Zugriff auf das Team. Bestehende Aufgaben und Nachrichten bleiben für Sie sichtbar.`)) return
 
     try {
       const headers = await getAuthHeader()
@@ -306,7 +306,7 @@ export default function TeamPage() {
               </button>
               <button
                 onClick={() => handleRemoveMember(member.id, member.worker_name)}
-                className="text-slate-500 hover:text-red-400 transition-colors"
+                className="ml-auto text-slate-500 hover:text-red-400 transition-colors"
                 title="Entfernen"
               >
                 ✕
