@@ -616,12 +616,11 @@ const getNavigation = () => {
 
     { isGroupHeader: true, label: 'Baustelle', key: 'gh-baustelle' },
     { name: 'Aufmaß', href: '/dashboard/aufmass', icon: '📐', protected: true, feature: 'invoicing' },
+    { name: 'Regieberichte', href: '/dashboard/regieberichte', icon: '📋', protected: true, feature: 'invoicing' },
 
     { isGroupHeader: true, label: 'Team', key: 'gh-team' },
     { name: 'Mitglieder', href: '/dashboard/team', icon: '👷', protected: true, feature: 'team', subtitle: activeWorkers > 0 ? `⏱️ ${activeWorkers} aktiv` : null },
-    { name: 'Feed', href: '/dashboard/team/feed', icon: '📡', protected: true, feature: 'team' },
-    { name: 'Offen', href: '/dashboard/team/aufgaben', icon: '📋', badge: openConvs > 0 ? String(openConvs) : null, badgeColor: 'bg-orange-500', protected: true, feature: 'team' },
-    { name: 'Erledigt', href: '/dashboard/team/berichte', icon: '📝', protected: true, feature: 'team' },
+    { name: 'Feed', href: '/dashboard/team/feed', icon: '📡', badge: openConvs > 0 ? String(openConvs) : null, badgeColor: 'bg-orange-500', protected: true, feature: 'team' },
 
     { isGroupHeader: true, label: 'Marketing', key: 'gh-marketing' },
     { name: 'Visitenkarte', href: '/dashboard/business-card/create', icon: '📱', protected: false },
