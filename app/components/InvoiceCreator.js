@@ -2141,91 +2141,96 @@ if (searchError) {
               
               <div className="space-y-3">
                 {formData.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 bg-slate-900/50 rounded-lg relative">
-                    <div className="md:col-span-4 relative" ref={showServicesDropdown === index ? servicesDropdownRef : null}>
-                      <label className="block text-sm text-slate-400 mb-1">Beschreibung *</label>
-                      <input
-                        type="text"
-                        value={item.description}
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                        placeholder="z.B. Beratung (min. 2 Zeichen)"
-                        style={reqStyle(item.description)}
-                      />
-                      
-                      {/* Services Dropdown */}
-                      {showServicesDropdown === index && filteredServices.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                          {filteredServices.map((service, sIndex) => (
-                            <button
-                              key={sIndex}
-                              type="button"
-                              onClick={() => handleServiceSelect(index, service)}
-                              className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0"
-                            >
-                              <div className="font-medium">{service.name}</div>
-                              {service.default_price && (
-                                <div className="text-slate-400 text-xs">{formatCurrency(service.default_price)}</div>
-                              )}
-                            </button>
-                          ))}
+                  <div key={index} className="p-3 bg-slate-900/50 rounded-lg relative">
+                    {/* Hint: Netto oder Brutto eingeben */}
+                    {!formData.is_kleinunternehmer && index === 0 && (
+                      <p className="text-xs text-slate-500 mb-2">Netto- oder Bruttopreis eingeben — der andere wird automatisch berechnet</p>
+                    )}
+                    {/* Row 1: Beschreibung, Menge, Netto, Brutto, Gesamt, X */}
+                    <div className={`grid grid-cols-1 ${formData.is_kleinunternehmer ? 'md:grid-cols-[3fr_2fr_1.5fr_1.5fr_auto]' : 'md:grid-cols-[3fr_2fr_1fr_1fr_1.5fr_auto]'} gap-3 items-end`}>
+                      <div className="relative" ref={showServicesDropdown === index ? servicesDropdownRef : null}>
+                        <label className="block text-sm text-slate-400 mb-1">Beschreibung *</label>
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                          placeholder="z.B. Beratung (min. 2 Zeichen)"
+                          style={reqStyle(item.description)}
+                        />
+
+                        {/* Services Dropdown */}
+                        {showServicesDropdown === index && filteredServices.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                            {filteredServices.map((service, sIndex) => (
+                              <button
+                                key={sIndex}
+                                type="button"
+                                onClick={() => handleServiceSelect(index, service)}
+                                className="w-full text-left px-3 py-2 hover:bg-slate-700 text-white text-sm border-b border-slate-700 last:border-b-0"
+                              >
+                                <div className="font-medium">{service.name}</div>
+                                {service.default_price && (
+                                  <div className="text-slate-400 text-xs">{formatCurrency(service.default_price)}</div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-slate-400 mb-1">Menge *</label>
+                        <div className="flex gap-1">
+                          <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={item.quantity}
+                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
+                            placeholder="1"
+                            required
+                          />
+                          <select
+                            value={item.unit || ''}
+                            onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                            className="px-2 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm w-20 shrink-0"
+                          >
+                            <option value="">–</option>
+                            <option value="m²">m²</option>
+                            <option value="lfm">lfm</option>
+                            <option value="m³">m³</option>
+                            <option value="Stk">Stk</option>
+                            <option value="Std">Std</option>
+                            <option value="pausch">pausch</option>
+                            <option value="L">L</option>
+                            <option value="kg">kg</option>
+                            <option value="Karton">Karton</option>
+                            <option value="Sack">Sack</option>
+                          </select>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="md:col-span-3">
-                      <label className="block text-sm text-slate-400 mb-1">Menge *</label>
-                      <div className="flex gap-1">
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-slate-400 mb-1">
+                          {formData.is_kleinunternehmer ? 'Preis *' : 'Netto'}
+                        </label>
                         <input
                           type="number"
-                          min="0.01"
+                          min="0"
                           step="0.01"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                          value={item.price}
+                          onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                          placeholder="1"
-                          required
+                          placeholder="100.00"
+                          style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                         />
-                        <select
-                          value={item.unit || ''}
-                          onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
-                          className="px-2 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm w-24 shrink-0"
-                        >
-                          <option value="">–</option>
-                          <option value="m²">m²</option>
-                          <option value="lfm">lfm</option>
-                          <option value="m³">m³</option>
-                          <option value="Stk">Stk</option>
-                          <option value="Std">Std</option>
-                          <option value="pausch">pausch</option>
-                          <option value="L">L</option>
-                          <option value="kg">kg</option>
-                          <option value="Karton">Karton</option>
-                          <option value="Sack">Sack</option>
-                        </select>
                       </div>
-                    </div>
-                    
-                    <div className="md:col-span-2">
-                      <p className={`text-xs mb-1 ${submitAttempted && item.price <= 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                        {formData.is_kleinunternehmer ? 'Preis eingeben' : 'Netto- oder Bruttopreis eingeben'}
-                      </p>
-                      <label className="block text-sm text-slate-400 mb-1">
-                        Einzelpreis ({formData.is_kleinunternehmer ? 'inkl.' : 'netto'})
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.price}
-                        onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white text-sm"
-                        placeholder="100.00"
-                        style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
-                      />
+
                       {!formData.is_kleinunternehmer && (
-                        <>
-                          <label className="block text-sm text-slate-400 mb-1 mt-2">Einzelpreis (brutto)</label>
+                        <div>
+                          <label className="block text-sm text-slate-400 mb-1">Brutto</label>
                           <input
                             type="number"
                             min="0"
@@ -2236,39 +2241,39 @@ if (searchError) {
                             placeholder="119.00"
                             style={submitAttempted && item.price <= 0 ? { outline: '2px solid #ef4444', outlineOffset: '-1px' } : undefined}
                           />
-                        </>
+                        </div>
                       )}
-                    </div>
-                    
-                    <div className="md:col-span-2">
-                      <label className="block text-sm text-slate-400 mb-1">Gesamt</label>
-                      <div className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm">
-                        {(() => {
-                          const qty = parseFloat(item.quantity) || 0
-                          const rate = parseFloat(formData.tax_rate) || 0
-                          if (formData.is_kleinunternehmer) return formatCurrency(item.total)
-                          if (item.price_source === 'brutto') {
-                            const itemBrutto = parseFloat((qty * (parseFloat(item.price_gross) || 0)).toFixed(2))
-                            const itemTax = parseFloat((itemBrutto * rate / (100 + rate)).toFixed(2))
-                            const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
-                            return <>{formatCurrency(itemBrutto)} <span className="text-slate-400 text-xs ml-1">({formatCurrency(itemNetto)} netto)</span></>
-                          }
-                          const itemBrutto = parseFloat((item.total * (1 + rate / 100)).toFixed(2))
-                          return <>{formatCurrency(itemBrutto)} <span className="text-slate-400 text-xs ml-1">({formatCurrency(item.total)} netto)</span></>
-                        })()}
+
+                      <div>
+                        <label className="block text-sm text-slate-400 mb-1">Gesamt</label>
+                        <div className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm whitespace-nowrap">
+                          {(() => {
+                            const qty = parseFloat(item.quantity) || 0
+                            const rate = parseFloat(formData.tax_rate) || 0
+                            if (formData.is_kleinunternehmer) return formatCurrency(item.total)
+                            if (item.price_source === 'brutto') {
+                              const itemBrutto = parseFloat((qty * (parseFloat(item.price_gross) || 0)).toFixed(2))
+                              const itemTax = parseFloat((itemBrutto * rate / (100 + rate)).toFixed(2))
+                              const itemNetto = parseFloat((itemBrutto - itemTax).toFixed(2))
+                              return <>{formatCurrency(itemBrutto)} <span className="text-slate-400 text-xs ml-1">({formatCurrency(itemNetto)} netto)</span></>
+                            }
+                            const itemBrutto = parseFloat((item.total * (1 + rate / 100)).toFixed(2))
+                            return <>{formatCurrency(itemBrutto)} <span className="text-slate-400 text-xs ml-1">({formatCurrency(item.total)} netto)</span></>
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="md:col-span-1">
-                      {formData.items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="w-full px-2 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                        >
-                          ×
-                        </button>
-                      )}
+
+                      <div>
+                        {formData.items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="px-2 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
