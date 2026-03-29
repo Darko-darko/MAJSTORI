@@ -440,7 +440,14 @@ function DashboardPageContent() {
         const regieMap = {}
         attData?.forEach(a => {
           counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1
-          if (a.filename?.startsWith('Regiebericht_')) regieMap[a.invoice_id] = (regieMap[a.invoice_id] || 0) + 1
+        })
+        // Count from regieberichte table (includes "Nur speichern" ones)
+        const { data: regieData } = await supabase
+          .from('regieberichte')
+          .select('invoice_id')
+          .in('invoice_id', allIds)
+        regieData?.forEach(r => {
+          if (r.invoice_id) regieMap[r.invoice_id] = (regieMap[r.invoice_id] || 0) + 1
         })
         setAttachmentCounts(counts)
         setRegieberichtExists(regieMap)
@@ -3210,6 +3217,7 @@ const HardResetModal = () => {
                     })
                   })
 
+                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: (typeof prev[invoiceId] === 'number' ? prev[invoiceId] : prev[invoiceId] ? 1 : 0) + 1 }))
                   setRegieberichtInvoice(null)
                   alert('✅ Regiebericht gespeichert! (Nicht als Anhang hinzugefügt)')
                 } catch (err) {
