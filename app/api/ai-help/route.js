@@ -27,8 +27,8 @@ STIL:
 
 PLÄNE:
 - Freemium (0€): QR-Visitenkarte, Kundenanfragen empfangen, Basis-Dashboard. Kostenlos für immer. KEINE Kreditkarte — niemals. Nach der Registrierung erhalten neue Nutzer automatisch 7 Tage lang alle PRO-Funktionen kostenlos — ohne Kreditkarte, ohne Verpflichtung. Danach nur noch Freemium-Funktionen (QR-Visitenkarte, Anfragen empfangen).
-- PRO (19,90€/Monat + MwSt.): Für Einzelunternehmer. Kundenverwaltung, Rechnungen/Angebote (ZUGFeRD), PDF-Archiv, Statistiken, Mahnungen, KI-Sprachdiktat, Regiebericht, Buchhalter-Zugang/Export, Ausgaben-Tracking.
-- PRO+ (29,90€/Monat + 8€/Mitarbeiter + MwSt.): Für Teams. Alles aus PRO + Team-Kommunikation (Aufgaben, Nachrichten, Broadcast), Aufmaß (digitales Aufmaß mit PDF und Übernahme ins Angebot), Mitarbeiterverwaltung (2 Mitarbeiter inklusive, weitere für 8€/Monat pro Mitarbeiter).
+- PRO (19,90€/Monat + MwSt.): Für Einzelunternehmer. Kundenverwaltung, Rechnungen/Angebote (ZUGFeRD), PDF-Archiv, Statistiken, Mahnungen, KI-Sprachdiktat, Regiebericht, Aufmaß, Buchhalter-Zugang/Export, Ausgaben-Tracking.
+- PRO+ (29,90€/Monat + 8€/Mitarbeiter + MwSt.): Für Teams. Alles aus PRO + Team-Kommunikation (Aufgaben, Nachrichten, Broadcast), Mitarbeiterverwaltung (2 Mitarbeiter inklusive, weitere für 8€/Monat pro Mitarbeiter).
 - 30 Tage Probezeitraum für PRO und PRO+: Kreditkarte erforderlich (FastSpring), aber KEINE Abbuchung während der Testphase. Jederzeit vor Ablauf kündbar — keine Kosten.
 - Nach 30 Tagen: Automatischer Wechsel zu Freemium wenn nicht aktiv PRO/PRO+ gewählt. Daten bleiben erhalten. Jederzeit aktivierbar.
 - Kündigung: Klick auf PRO/PRO+-Badge → kündigen. Zugriff bis Ende der bezahlten Zeit. Danach automatisch Freemium.
@@ -52,7 +52,7 @@ HAUPTFUNKTIONEN:
 - Anhänge: Beim Erstellen einer Rechnung können Dateien (PDFs, Fotos) angehängt werden — werden automatisch beim E-Mail-Versand mitgeschickt
 - Regiebericht (PRO): Spezialdokument für Arbeiten in Mietobjekten/WEG — enthält Arbeitsnachweis + digitale Unterschrift des Mieters. Wird als Anhang zur Rechnung gespeichert.
 - Team-Kommunikation (PRO+): Aufgaben an Mitarbeiter zuweisen, Nachrichten austauschen (Text + Fotos), Broadcast-Nachrichten an alle Mitarbeiter, Lesebestätigungen, Reaktionen. Mitarbeiter nutzen die App mit eigenem Login.
-- Aufmaß (PRO+): Digitales Aufmaß vor Ort erfassen — Räume/Bereiche mit Positionen (m², lfm, m³, Stk, Wand, Trapez), Abzüge für Öffnungen (Türen/Fenster), Ergänzungen, Materialien. PDF mit Skizzen und Unterschrift. Positionen direkt ins Angebot übernehmen.
+- Aufmaß (PRO): Digitales Aufmaß vor Ort erfassen — Räume/Bereiche mit Positionen (m², lfm, m³, Stk, Wand, Trapez), Abzüge für Öffnungen (Türen/Fenster), Ergänzungen, Materialien. PDF mit Skizzen und Unterschrift. Positionen direkt ins Angebot übernehmen.
 - Mitarbeiterverwaltung (PRO+): Mitarbeiter einladen, Aufgaben zuweisen, Arbeitszeiten erfassen (Timer). 2 Mitarbeiter im PRO+-Preis inklusive, weitere für 8€/Monat pro Mitarbeiter.
 
 KI-SPRACHDIKTAT — DETAILS (nur PRO):
@@ -87,7 +87,7 @@ Inhalt des PDFs: Auftragnehmer (Handwerker) und Auftraggeber (Kunde) nebeneinand
 Versand: Regiebericht wird beim E-Mail-Versand der Rechnung automatisch als Anhang mitgeschickt — kein separater Versand nötig
 Tipp: Regiebericht direkt beim Kunden vor Ort ausfüllen lassen — Mieter unterschreibt auf dem Handy
 
-AUFMASS — DETAILS (PRO+):
+AUFMASS — DETAILS (PRO):
 Was ist das: Ein digitales Aufmaß-Dokument für die Baustelle — Maße direkt vor Ort erfassen, PDF generieren, Unterschrift einholen und Positionen in ein Angebot übernehmen.
 Wo: Dashboard → "📐 Aufmaß" (linkes Menü)
 Neues Aufmaß erstellen: "📐 Neues Aufmaß" → Titel (Pflichtfeld), Datum, Kundenname eingeben → Bereiche und Positionen erfassen → Speichern
