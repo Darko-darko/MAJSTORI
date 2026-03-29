@@ -410,20 +410,22 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
             >
               👁 Vorschau öffnen
             </button>
-            <button
-              type="button"
-              onClick={() => { onGenerated(generatedFile, { ...data, signatureDataUrl }) }}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              ✅ Als Anhang hinzufügen
-            </button>
+            {onGenerated && (
+              <button
+                type="button"
+                onClick={() => { onGenerated(generatedFile, { ...data, signatureDataUrl }) }}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                ✅ Als Anhang hinzufügen
+              </button>
+            )}
             {onSaveOnly && (
               <button
                 type="button"
                 onClick={() => { onSaveOnly(generatedFile, { ...data, signatureDataUrl }) }}
-                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+                className={`w-full py-2.5 ${onGenerated ? 'bg-slate-700 hover:bg-slate-600' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg text-sm font-medium transition-colors`}
               >
-                💾 Nur speichern (ohne Anhang)
+                {onGenerated ? '💾 Nur speichern (ohne Anhang)' : '✅ Regiebericht speichern'}
               </button>
             )}
             <button
