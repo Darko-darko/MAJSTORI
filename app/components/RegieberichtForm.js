@@ -385,7 +385,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
       )}
 
       {/* Main form */}
-      <div className="bg-slate-800/80 border border-blue-500/30 rounded-lg p-4 mt-2">
+      <div className="p-4">
         <div className="flex items-center justify-between mb-4">
           <span className="text-white font-medium text-sm">📋 Regiebericht erstellen</span>
           <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-300 text-xl leading-none px-1">×</button>
