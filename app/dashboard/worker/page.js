@@ -543,7 +543,7 @@ export default function WorkerDashboard() {
           onClick={() => setActiveTab('alle')}
           className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
             activeTab === 'alle'
-              ? 'bg-purple-600 text-white'
+              ? 'bg-slate-600 text-white'
               : 'bg-slate-800 text-slate-400 hover:text-white'
           }`}
         >
@@ -553,7 +553,7 @@ export default function WorkerDashboard() {
           onClick={() => setActiveTab('aufgaben')}
           className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors flex items-center gap-1.5 ${
             activeTab === 'aufgaben'
-              ? 'bg-purple-600 text-white'
+              ? 'bg-slate-600 text-white'
               : 'bg-slate-800 text-slate-400 hover:text-white'
           }`}
         >
@@ -568,7 +568,7 @@ export default function WorkerDashboard() {
           onClick={() => setActiveTab('berichte')}
           className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
             activeTab === 'berichte'
-              ? 'bg-purple-600 text-white'
+              ? 'bg-slate-600 text-white'
               : 'bg-slate-800 text-slate-400 hover:text-white'
           }`}
         >

@@ -22,6 +22,7 @@ function compressImage(file, maxWidth = 1920, quality = 0.8) {
 export default function FeedPage() {
   const [conversations, setConversations] = useState([])
   const [workers, setWorkers] = useState([])
+  const [allMembers, setAllMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
@@ -232,6 +233,7 @@ export default function FeedPage() {
       const json = await res.json()
       if (json.members) {
         setWorkers(json.members.filter(m => m.status === 'active'))
+        setAllMembers(json.members)
       }
     } catch (err) { console.error(err) }
   }
@@ -688,10 +690,10 @@ export default function FeedPage() {
       )}
 
       {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
         {[
           { key: 'all', label: 'Alle' },
-          { key: 'open', label: 'Offen' },
+          { key: 'open', label: 'Offen', count: conversations.filter(c => c.status === 'open' && !c.is_broadcast).length },
           { key: 'closed', label: 'Erledigt' },
           { key: 'archived', label: 'Archiv' },
           { key: 'berichte', label: 'Regieberichte' },
@@ -699,11 +701,14 @@ export default function FeedPage() {
           <button
             key={f.key}
             onClick={() => { setFilter(f.key); if (f.key === 'berichte') loadRegieberichte() }}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === f.key ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors text-center ${
+              filter === f.key ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
           >
             {f.label}
+            {f.count > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-orange-500 text-white">{f.count}</span>
+            )}
           </button>
         ))}
       </div>
@@ -911,8 +916,7 @@ export default function FeedPage() {
                             <div className="p-3 border-t border-slate-700/50">
                               <div className="flex flex-wrap gap-2">
                                 {(item.reactions || []).map((r, i) => {
-                                  const name = conversations.find(c => c.id === item.id)?.worker_name
-                                    || workers.find(w => w.worker_id === r.user_id)?.worker_name
+                                  const name = allMembers.find(w => w.worker_id === r.user_id)?.worker_name
                                     || '?'
                                   return (
                                     <span key={i} className="inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-full border border-green-500/20">
