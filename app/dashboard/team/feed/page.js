@@ -688,7 +688,7 @@ export default function FeedPage() {
       )}
 
       {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
         {[
           { key: 'all', label: 'Alle' },
           { key: 'open', label: 'Offen', count: conversations.filter(c => c.status === 'open' && !c.is_broadcast).length },
@@ -699,7 +699,7 @@ export default function FeedPage() {
           <button
             key={f.key}
             onClick={() => { setFilter(f.key); if (f.key === 'berichte') loadRegieberichte() }}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors text-center ${
               filter === f.key ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
           >
