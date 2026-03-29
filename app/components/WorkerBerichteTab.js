@@ -222,7 +222,7 @@ export default function WorkerBerichteTab({ worker }) {
       let signatureStorageUrl = null
       if (signatureDataUrl) {
         const blob = await (await fetch(signatureDataUrl)).blob()
-        const sigPath = `regieberichte/${session.user.id}/${Date.now()}_signature.png`
+        const sigPath = `attachments/${session.user.id}/regieberichte/${Date.now()}_signature.png`
         const { error: sigErr } = await supabase.storage.from('invoice-pdfs').upload(sigPath, blob, { contentType: 'image/png' })
         if (!sigErr) {
           const { data: { publicUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(sigPath)
@@ -234,7 +234,7 @@ export default function WorkerBerichteTab({ worker }) {
       const pdfBlob = await generatePDFBlob()
       const safeName = (formData.mieterName || 'Bericht').replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_')
       const pdfFileName = `Regiebericht_${formData.datum.replace(/\./g, '-')}_${safeName}.pdf`
-      const pdfPath = `regieberichte/${session.user.id}/${Date.now()}_${pdfFileName}`
+      const pdfPath = `attachments/${session.user.id}/regieberichte/${Date.now()}_${pdfFileName}`
       let pdfStorageUrl = null
 
       const { error: pdfErr } = await supabase.storage.from('invoice-pdfs').upload(pdfPath, pdfBlob, { contentType: 'application/pdf' })
