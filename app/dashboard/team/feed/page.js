@@ -75,6 +75,11 @@ export default function FeedPage() {
   // Regieberichte
   const [regieberichte, setRegieberichte] = useState([])
   const [berichteLoading, setBerichteLoading] = useState(false)
+  const [berichteLoadingMore, setBerichteLoadingMore] = useState(false)
+  const [berichteHasMore, setBerichteHasMore] = useState(false)
+  const [berichteOffset, setBerichteOffset] = useState(0)
+  const BERICHTE_PAGE = 20
+  const berichteScrollRef = useRef(null)
   const [expandedBericht, setExpandedBericht] = useState(null)
 
   // Scroll to conversation from URL param
@@ -189,16 +194,36 @@ export default function FeedPage() {
     return () => observer.disconnect()
   }, [hasMore, loadingMore])
 
-  const loadRegieberichte = async () => {
-    setBerichteLoading(true)
+  const loadRegieberichte = async (reset = true) => {
+    if (reset) setBerichteLoading(true)
     try {
       const headers = await getHeaders()
-      const res = await fetch('/api/regieberichte', { headers })
+      const currentOffset = reset ? 0 : berichteOffset
+      const res = await fetch(`/api/regieberichte?limit=${BERICHTE_PAGE}&offset=${currentOffset}`, { headers })
       const json = await res.json()
-      if (json.regieberichte) setRegieberichte(json.regieberichte)
+      if (json.regieberichte) {
+        if (reset) {
+          setRegieberichte(json.regieberichte)
+          setBerichteOffset(BERICHTE_PAGE)
+        } else {
+          setRegieberichte(prev => [...prev, ...json.regieberichte])
+          setBerichteOffset(currentOffset + BERICHTE_PAGE)
+        }
+        setBerichteHasMore(json.hasMore || false)
+      }
     } catch (err) { console.error(err) }
-    finally { setBerichteLoading(false) }
+    finally { setBerichteLoading(false); setBerichteLoadingMore(false) }
   }
+
+  useEffect(() => {
+    if (!berichteScrollRef.current || filter !== 'berichte') return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && berichteHasMore && !berichteLoadingMore) { setBerichteLoadingMore(true); loadRegieberichte(false) } },
+      { threshold: 0.1 }
+    )
+    observer.observe(berichteScrollRef.current)
+    return () => observer.disconnect()
+  }, [berichteHasMore, berichteLoadingMore, filter])
 
   const loadWorkers = async () => {
     try {
@@ -768,6 +793,16 @@ export default function FeedPage() {
             <p className="text-sm mt-1">Regieberichte Ihrer Mitarbeiter erscheinen hier</p>
           </div>
         )
+      )}
+      {filter === 'berichte' && (
+        <>
+          <div ref={berichteScrollRef} className="h-4" />
+          {berichteLoadingMore && (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Feed */}
