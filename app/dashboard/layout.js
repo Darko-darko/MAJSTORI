@@ -26,6 +26,39 @@ function DashboardLayoutContent({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [workerMenuOpen, setWorkerMenuOpen] = useState(false)
+  const workerMenuRef = useRef(null)
+  const workerAvatarInputRef = useRef(null)
+
+  // Close worker menu on outside click
+  useEffect(() => {
+    if (!workerMenuOpen) return
+    const handler = (e) => {
+      if (workerMenuRef.current && !workerMenuRef.current.contains(e.target)) setWorkerMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('touchstart', handler) }
+  }, [workerMenuOpen])
+
+  const handleWorkerAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `avatars/${user.id}.${ext}`
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = publicUrl + '?t=' + Date.now()
+      await supabase.from('majstors').update({ avatar_url: url }).eq('id', user.id)
+      setMajstor(prev => ({ ...prev, avatar_url: url }))
+      setWorkerMenuOpen(false)
+    } catch (err) {
+      alert('Fehler beim Hochladen: ' + err.message)
+    }
+    if (workerAvatarInputRef.current) workerAvatarInputRef.current.value = ''
+  }
 
   // Swipe gesture for mobile sidebar (document-level listeners, no overlay div)
   const touchStart = useRef(null)
@@ -948,22 +981,22 @@ const NavigationItem = ({ item, isMobile = false }) => {
        
       
         
-        {/* 🔥 Swipe Indicator - vizuelni hint za korisnika */}
-        {!sidebarOpen && (
+        {/* 🔥 Swipe Indicator - vizuelni hint za korisnika (nicht für Worker) */}
+        {!isWorker && !sidebarOpen && (
           <div className="lg:hidden fixed left-0 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
             <div className="w-1 h-16 bg-gradient-to-r from-blue-500/30 to-transparent rounded-r-full animate-pulse"></div>
           </div>
         )}
-        
-        {sidebarOpen && (
-          <div 
+
+        {!isWorker && sidebarOpen && (
+          <div
             className="fixed inset-0 z-40 bg-black/40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Desktop Sidebar */}
-        <div className={`hidden ${!isBuchhalter ? 'lg:flex' : ''} lg:flex-shrink-0`}>
+        {/* Desktop Sidebar (nicht für Worker) */}
+        <div className={`hidden ${!isBuchhalter && !isWorker ? 'lg:flex' : ''} lg:flex-shrink-0`}>
           <div className="flex flex-col w-64 bg-slate-800 border-r border-slate-700">
             
             <div className="flex items-center h-16 px-4 border-b border-slate-700">
@@ -1034,9 +1067,9 @@ const NavigationItem = ({ item, isMobile = false }) => {
           </div>
         </div>
 
-        {/* Mobile Sidebar */}
+        {/* Mobile Sidebar (nicht für Worker) */}
         <div
-          className={`${isBuchhalter ? 'hidden' : ''} lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 ${
+          className={`${isBuchhalter || isWorker ? 'hidden' : ''} lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -1122,7 +1155,7 @@ const NavigationItem = ({ item, isMobile = false }) => {
           <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-4 py-3 lg:px-6 lg:py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                {!isBuchhalter && (
+                {!isBuchhalter && !isWorker && (
                   <button
                     onClick={() => setSidebarOpen(true)}
                     className="lg:hidden text-slate-400 hover:text-white p-1"
@@ -1197,7 +1230,40 @@ const NavigationItem = ({ item, isMobile = false }) => {
                     🚪 Abmelden
                   </button>
                 )}
-                {!isBuchhalter && (isFreemium ? (
+                {/* Worker: avatar with dropdown (Profilbild + Abmelden) */}
+                {isWorker && (
+                  <div className="relative" ref={workerMenuRef}>
+                    <input ref={workerAvatarInputRef} type="file" accept="image/*" onChange={handleWorkerAvatarUpload} className="hidden" />
+                    <button onClick={() => setWorkerMenuOpen(!workerMenuOpen)} className="flex-shrink-0">
+                      {majstor?.avatar_url ? (
+                        <div className="w-8 h-8 rounded-full overflow-hidden">
+                          <img src={majstor.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                          {majstor?.full_name?.charAt(0) || user?.email?.charAt(0) || 'M'}
+                        </div>
+                      )}
+                    </button>
+                    {workerMenuOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-lg overflow-hidden z-50">
+                        <button
+                          onClick={() => workerAvatarInputRef.current?.click()}
+                          className="flex items-center gap-2 w-full px-4 py-3 text-sm text-white hover:bg-slate-700 transition-colors"
+                        >
+                          📷 Profilbild ändern
+                        </button>
+                        <button
+                          onClick={handleSignOut}
+                          className="flex items-center gap-2 w-full px-4 py-3 text-sm text-red-400 hover:bg-slate-700 transition-colors border-t border-slate-700"
+                        >
+                          🚪 Abmelden
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!isBuchhalter && !isWorker && (isFreemium ? (
                   majstor?.avatar_url ? (
                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                       <img src={majstor.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
