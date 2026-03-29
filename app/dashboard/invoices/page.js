@@ -3082,8 +3082,8 @@ const HardResetModal = () => {
                 weg_country: regieberichtInvoice.weg_country || '',
                 items: regieberichtInvoice.items ? JSON.parse(regieberichtInvoice.items) : [],
               }}
-              onGenerated={async (file) => {
-                // Upload directly to Supabase storage as invoice attachment
+              onGenerated={async (file, formData) => {
+                // Upload directly to Supabase storage as invoice attachment + save to DB
                 setRegieberichtUploading(true)
                 try {
                   const invoiceId = regieberichtInvoice.id
@@ -3104,6 +3104,44 @@ const HardResetModal = () => {
                     mime_type: 'application/pdf',
                   })
                   if (dbErr) throw dbErr
+
+                  // Save to regieberichte table
+                  if (formData) {
+                    const { data: { publicUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(storagePath)
+                    // Upload signature separately if exists
+                    let signatureStorageUrl = null
+                    if (formData.signatureDataUrl) {
+                      const sigBlob = await (await fetch(formData.signatureDataUrl)).blob()
+                      const sigPath = `regieberichte/${majstor.id}/${Date.now()}_signature.png`
+                      const { error: sigErr } = await supabase.storage.from('invoice-pdfs').upload(sigPath, sigBlob, { contentType: 'image/png' })
+                      if (!sigErr) {
+                        const { data: { publicUrl: sigUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(sigPath)
+                        signatureStorageUrl = sigUrl
+                      }
+                    }
+                    // Parse datum DD.MM.YYYY → YYYY-MM-DD
+                    const dp = formData.datum?.split('.') || []
+                    const datumISO = dp.length === 3 ? `${dp[2]}-${dp[1]}-${dp[0]}` : new Date().toISOString().split('T')[0]
+
+                    const { data: { session } } = await supabase.auth.getSession()
+                    await fetch('/api/regieberichte', {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        invoice_id: invoiceId,
+                        datum: datumISO,
+                        uhrzeit: formData.uhrzeit || null,
+                        objekt: formData.objekt || null,
+                        beschreibung: formData.beschreibung || null,
+                        mieter_name: formData.mieterName || null,
+                        wohnungsnummer: formData.wohnungsnummer || null,
+                        customer_name: regieberichtInvoice.customer_name || null,
+                        customer_address: [regieberichtInvoice.customer_street, `${regieberichtInvoice.customer_postal_code || ''} ${regieberichtInvoice.customer_city || ''}`.trim()].filter(Boolean).join(', ') || null,
+                        signature_url: signatureStorageUrl,
+                        pdf_url: publicUrl,
+                      })
+                    })
+                  }
 
                   // Update local state
                   setAttachmentCounts(prev => ({

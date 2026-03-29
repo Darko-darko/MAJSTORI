@@ -405,7 +405,7 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
             </button>
             <button
               type="button"
-              onClick={() => { onGenerated(generatedFile) }}
+              onClick={() => { onGenerated(generatedFile, { ...data, signatureDataUrl }) }}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               ✅ Als Anhang hinzufügen
