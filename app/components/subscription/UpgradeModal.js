@@ -232,6 +232,11 @@ export function UpgradeModal({ isOpen, onClose, feature, featureName, currentPla
                 ≈ {monthlyEquivalent}€/Monat (spare {pricing.yearly.savings}!)
               </div>
             )}
+            {isProPlus && (
+              <div className="text-purple-300 text-sm mt-2">
+                2 Mitarbeiter inklusive · +8€/Monat pro weiteres
+              </div>
+            )}
           </div>
 
           {/* Features List */}

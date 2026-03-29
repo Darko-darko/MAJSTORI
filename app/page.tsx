@@ -428,7 +428,7 @@ export default function Home() {
                     <span className="text-4xl font-bold text-white">29,90€</span>
                     <span className="text-slate-400">/Monat</span>
                   </div>
-                  <p className="text-slate-400 text-xs mt-0.5">zzgl. 19% MwSt. · +8€/Mitarbeiter</p>
+                  <p className="text-slate-400 text-xs mt-0.5">zzgl. 19% MwSt. · 2 Mitarbeiter inklusive · +8€/Monat pro weiteres</p>
                 </div>
                 <p className="text-slate-300">Für Betriebe mit Mitarbeitern</p>
               </div>
