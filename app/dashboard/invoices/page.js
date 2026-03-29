@@ -440,7 +440,7 @@ function DashboardPageContent() {
         const regieMap = {}
         attData?.forEach(a => {
           counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1
-          if (a.filename?.startsWith('Regiebericht_')) regieMap[a.invoice_id] = true
+          if (a.filename?.startsWith('Regiebericht_')) regieMap[a.invoice_id] = (regieMap[a.invoice_id] || 0) + 1
         })
         setAttachmentCounts(counts)
         setRegieberichtExists(regieMap)
@@ -2074,19 +2074,16 @@ const HardResetModal = () => {
 
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
-                        onClick={() => {
-                          if (regieberichtExists[invoice.id]) {
-                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
-                          }
-                          setRegieberichtInvoice(invoice)
-                        }}
+                        onClick={() => setRegieberichtInvoice(invoice)}
                         className="px-3 py-2 rounded text-sm transition-colors border-2"
                         style={regieberichtExists[invoice.id]
                           ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
                           : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
                         }
                       >
-                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
+                        {regieberichtExists[invoice.id]
+                          ? `✅ Regiebericht (${regieberichtExists[invoice.id]})`
+                          : '📋 Regiebericht'}
                       </button>
                     )}
 
@@ -3157,7 +3154,7 @@ const HardResetModal = () => {
                     ...prev,
                     [invoiceId]: (prev[invoiceId] || 0) + 1
                   }))
-                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: true }))
+                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: (prev[invoiceId] || 0) + 1 }))
 
                   setRegieberichtInvoice(null)
                   alert('✅ Regiebericht wurde als Anhang hinzugefügt!')
