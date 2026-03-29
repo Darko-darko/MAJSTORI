@@ -27,7 +27,7 @@ function buildBeschreibung(fd) {
     .join('\n')
 }
 
-export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated, onClose }) {
+export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated, onSaveOnly, onClose }) {
   const today = new Date()
 
   const [data, setData] = useState({
@@ -410,6 +410,15 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
             >
               ✅ Als Anhang hinzufügen
             </button>
+            {onSaveOnly && (
+              <button
+                type="button"
+                onClick={() => { onSaveOnly(generatedFile, { ...data, signatureDataUrl }) }}
+                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                💾 Nur speichern (ohne Anhang)
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setGeneratedFile(null)}

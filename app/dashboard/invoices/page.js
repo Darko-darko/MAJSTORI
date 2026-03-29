@@ -3159,6 +3159,60 @@ const HardResetModal = () => {
                   setRegieberichtUploading(false)
                 }
               }}
+              onSaveOnly={async (file, formData) => {
+                // Save to DB only, no attachment
+                setRegieberichtUploading(true)
+                try {
+                  const invoiceId = regieberichtInvoice.id
+                  // Upload PDF to storage
+                  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                  const storagePath = `regieberichte/${majstor.id}/${Date.now()}_${safeName}`
+                  const { error: uploadErr } = await supabase.storage.from('invoice-pdfs').upload(storagePath, file, { contentType: 'application/pdf' })
+                  if (uploadErr) throw uploadErr
+                  const { data: { publicUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(storagePath)
+
+                  let signatureStorageUrl = null
+                  if (formData?.signatureDataUrl) {
+                    const sigBlob = await (await fetch(formData.signatureDataUrl)).blob()
+                    const sigPath = `regieberichte/${majstor.id}/${Date.now()}_signature.png`
+                    const { error: sigErr } = await supabase.storage.from('invoice-pdfs').upload(sigPath, sigBlob, { contentType: 'image/png' })
+                    if (!sigErr) {
+                      const { data: { publicUrl: sigUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(sigPath)
+                      signatureStorageUrl = sigUrl
+                    }
+                  }
+
+                  const dp = formData?.datum?.split('.') || []
+                  const datumISO = dp.length === 3 ? `${dp[2]}-${dp[1]}-${dp[0]}` : new Date().toISOString().split('T')[0]
+
+                  const { data: { session } } = await supabase.auth.getSession()
+                  await fetch('/api/regieberichte', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      invoice_id: invoiceId,
+                      datum: datumISO,
+                      uhrzeit: formData?.uhrzeit || null,
+                      objekt: formData?.objekt || null,
+                      beschreibung: formData?.beschreibung || null,
+                      mieter_name: formData?.mieterName || null,
+                      wohnungsnummer: formData?.wohnungsnummer || null,
+                      customer_name: regieberichtInvoice.customer_name || null,
+                      customer_address: [regieberichtInvoice.customer_street, `${regieberichtInvoice.customer_postal_code || ''} ${regieberichtInvoice.customer_city || ''}`.trim()].filter(Boolean).join(', ') || null,
+                      signature_url: signatureStorageUrl,
+                      pdf_url: publicUrl,
+                    })
+                  })
+
+                  setRegieberichtInvoice(null)
+                  alert('✅ Regiebericht gespeichert! (Nicht als Anhang hinzugefügt)')
+                } catch (err) {
+                  console.error('Regiebericht save error:', err)
+                  alert('❌ Fehler: ' + (err.message || 'Unbekannter Fehler'))
+                } finally {
+                  setRegieberichtUploading(false)
+                }
+              }}
               onClose={() => !regieberichtUploading && setRegieberichtInvoice(null)}
             />
             {regieberichtUploading && (
