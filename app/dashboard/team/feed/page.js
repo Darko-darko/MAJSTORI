@@ -690,7 +690,7 @@ export default function FeedPage() {
       )}
 
       {/* Filter tabs */}
-      <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {[
           { key: 'all', label: 'Alle' },
           { key: 'open', label: 'Offen', count: conversations.filter(c => c.status === 'open' && !c.is_broadcast).length },
@@ -701,7 +701,7 @@ export default function FeedPage() {
           <button
             key={f.key}
             onClick={() => { setFilter(f.key); if (f.key === 'berichte') loadRegieberichte() }}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors text-center ${
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               filter === f.key ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
           >
@@ -944,7 +944,7 @@ export default function FeedPage() {
                                   ))}
                                 </div>
                               )}
-                              <div className="flex gap-2">
+                              <div className="flex gap-1.5">
                                 <div className="relative">
                                   <button onClick={() => { setReplyTo(item.id); isMobile ? setShowReplyPhotoPicker(!showReplyPhotoPicker) : replyGalleryRef.current?.click() }}
                                     className="px-2 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm">📷</button>
@@ -971,9 +971,9 @@ export default function FeedPage() {
                                 <button
                                   onClick={() => handleReply(item.id)}
                                   disabled={replying || ((!replyText.trim() || replyTo !== item.id) && replyFiles.length === 0)}
-                                  className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm disabled:opacity-50"
+                                  className="px-2.5 py-2 bg-purple-600 text-white rounded-xl text-sm disabled:opacity-50 shrink-0"
                                 >
-                                  {replying && replyTo === item.id ? '...' : 'Senden'}
+                                  {replying && replyTo === item.id ? '...' : <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>}
                                 </button>
                               </div>
                             </div>

@@ -2,6 +2,16 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import RegieberichtForm from '@/app/components/RegieberichtForm'
+
+function dataUrlToBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)[1]
+  const binary = atob(base64)
+  const arr = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
 
 export default function RegieberichtePage() {
   const [berichte, setBerichte] = useState([])
@@ -17,6 +27,9 @@ export default function RegieberichtePage() {
   const [search, setSearch] = useState('')
   const [workers, setWorkers] = useState([])
   const [isTeamOwner, setIsTeamOwner] = useState(false)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [majstor, setMajstor] = useState(null)
 
   useEffect(() => { loadAll() }, [])
 
@@ -31,6 +44,13 @@ export default function RegieberichtePage() {
 
       // Load berichte
       await loadBerichte(true)
+
+      // Load majstor profile
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: m } = await supabase.from('majstors').select('*').eq('id', user.id).single()
+        if (m) setMajstor(m)
+      }
 
       // Check if team owner (has workers)
       const teamRes = await fetch('/api/team', { headers })
@@ -111,7 +131,84 @@ export default function RegieberichtePage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
-      <h1 className="text-2xl font-bold text-white">Regieberichte</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-white">Regieberichte</h1>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="px-4 py-2 bg-purple-600 text-white rounded-xl font-semibold text-sm hover:bg-purple-500 transition-colors"
+        >
+          + Neuer Regiebericht
+        </button>
+      </div>
+
+      {/* Create Form Modal */}
+      {showCreateForm && majstor && (
+        <div className="fixed inset-0 bg-black/60 z-40 flex items-start justify-center overflow-y-auto pt-8 pb-8" onClick={() => !uploading && setShowCreateForm(false)}>
+          <div className="bg-slate-800 rounded-xl w-full max-w-lg mx-4 border border-slate-700 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <RegieberichtForm
+              majstor={majstor}
+              invoiceFormData={null}
+              onGenerated={null}
+              onSaveOnly={async (file, formData) => {
+                setUploading(true)
+                try {
+                  // Upload PDF
+                  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                  const storagePath = `${majstor.id}/${Date.now()}_${safeName}`
+                  const { error: uploadErr } = await supabase.storage.from('regieberichte').upload(storagePath, file, { contentType: 'application/pdf' })
+                  if (uploadErr) throw uploadErr
+                  const { data: { publicUrl } } = supabase.storage.from('regieberichte').getPublicUrl(storagePath)
+
+                  // Upload signature if exists
+                  let signatureStorageUrl = null
+                  if (formData?.signatureDataUrl) {
+                    const sigBlob = dataUrlToBlob(formData.signatureDataUrl)
+                    const sigPath = `${majstor.id}/${Date.now()}_signature.png`
+                    const { error: sigErr } = await supabase.storage.from('regieberichte').upload(sigPath, sigBlob, { contentType: 'image/png' })
+                    if (!sigErr) {
+                      const { data: { publicUrl: sigUrl } } = supabase.storage.from('regieberichte').getPublicUrl(sigPath)
+                      signatureStorageUrl = sigUrl
+                    }
+                  }
+
+                  // Convert datum DD.MM.YYYY → YYYY-MM-DD
+                  const dp = formData?.datum?.split('.') || []
+                  const datumISO = dp.length === 3 ? `${dp[2]}-${dp[1]}-${dp[0]}` : new Date().toISOString().split('T')[0]
+
+                  const headers = await getHeaders()
+                  await fetch('/api/regieberichte', {
+                    method: 'POST', headers,
+                    body: JSON.stringify({
+                      datum: datumISO,
+                      uhrzeit: formData?.uhrzeit || null,
+                      objekt: formData?.objekt || null,
+                      beschreibung: formData?.beschreibung || null,
+                      mieter_name: formData?.mieterName || null,
+                      wohnungsnummer: formData?.wohnungsnummer || null,
+                      signature_url: signatureStorageUrl,
+                      pdf_url: publicUrl,
+                    })
+                  })
+                  setShowCreateForm(false)
+                  loadBerichte(true)
+                  alert('✅ Regiebericht erstellt!')
+                } catch (err) {
+                  console.error('Regiebericht create error:', err)
+                  alert('❌ Fehler: ' + (err.message || 'Unbekannter Fehler'))
+                } finally {
+                  setUploading(false)
+                }
+              }}
+              onClose={() => !uploading && setShowCreateForm(false)}
+            />
+            {uploading && (
+              <div className="p-4 text-center">
+                <p className="text-blue-400 text-sm animate-pulse">⏳ Wird hochgeladen...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search + Filters */}
       <div className="space-y-3">
@@ -268,7 +365,7 @@ export default function RegieberichtePage() {
           {search || filterStatus !== 'all' || filterWorker !== 'all' ? (
             <p className="text-sm mt-1">Versuchen Sie andere Filtereinstellungen</p>
           ) : (
-            <p className="text-sm mt-1">Regieberichte werden über Rechnungen oder vom Team erstellt</p>
+            <p className="text-sm mt-1">Erstellen Sie einen neuen Regiebericht mit dem Button oben</p>
           )}
         </div>
       )}
