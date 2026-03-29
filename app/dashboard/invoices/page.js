@@ -3112,7 +3112,7 @@ const HardResetModal = () => {
                     let signatureStorageUrl = null
                     if (formData.signatureDataUrl) {
                       const sigBlob = await (await fetch(formData.signatureDataUrl)).blob()
-                      const sigPath = `attachments/${majstor.id}/regieberichte/${Date.now()}_signature.png`
+                      const sigPath = `attachments/${majstor.id}/${invoiceId}/${Date.now()}_signature.png`
                       const { error: sigErr } = await supabase.storage.from('invoice-pdfs').upload(sigPath, sigBlob, { contentType: 'image/png' })
                       if (!sigErr) {
                         const { data: { publicUrl: sigUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(sigPath)
@@ -3166,7 +3166,7 @@ const HardResetModal = () => {
                   const invoiceId = regieberichtInvoice.id
                   // Upload PDF to storage
                   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-                  const storagePath = `attachments/${majstor.id}/regieberichte/${Date.now()}_${safeName}`
+                  const storagePath = `attachments/${majstor.id}/${invoiceId}/${Date.now()}_${safeName}`
                   const { error: uploadErr } = await supabase.storage.from('invoice-pdfs').upload(storagePath, file, { contentType: 'application/pdf' })
                   if (uploadErr) throw uploadErr
                   const { data: { publicUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(storagePath)
@@ -3174,7 +3174,7 @@ const HardResetModal = () => {
                   let signatureStorageUrl = null
                   if (formData?.signatureDataUrl) {
                     const sigBlob = await (await fetch(formData.signatureDataUrl)).blob()
-                    const sigPath = `attachments/${majstor.id}/regieberichte/${Date.now()}_signature.png`
+                    const sigPath = `attachments/${majstor.id}/${invoiceId}/${Date.now()}_signature.png`
                     const { error: sigErr } = await supabase.storage.from('invoice-pdfs').upload(sigPath, sigBlob, { contentType: 'image/png' })
                     if (!sigErr) {
                       const { data: { publicUrl: sigUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(sigPath)
