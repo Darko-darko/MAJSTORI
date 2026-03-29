@@ -221,7 +221,12 @@ export default function WorkerBerichteTab({ worker }) {
       // Upload signature if exists
       let signatureStorageUrl = null
       if (signatureDataUrl) {
-        const blob = await (await fetch(signatureDataUrl)).blob()
+        const [header, base64] = signatureDataUrl.split(',')
+        const mime = header.match(/:(.*?);/)[1]
+        const binary = atob(base64)
+        const arr = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+        const blob = new Blob([arr], { type: mime })
         const sigPath = `${session.user.id}/${Date.now()}_signature.png`
         const { error: sigErr } = await supabase.storage.from('regieberichte').upload(sigPath, blob, { contentType: 'image/png' })
         if (!sigErr) {

@@ -9,6 +9,15 @@ import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
 import LogoUpload from '@/app/components/LogoUpload'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 import RegieberichtForm from '@/app/components/RegieberichtForm'
+
+function dataUrlToBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)[1]
+  const binary = atob(base64)
+  const arr = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
 import InvoiceNumbersSetupModal from '@/app/components/InvoiceNumbersSetupModal'
 
 
@@ -3111,7 +3120,7 @@ const HardResetModal = () => {
                     // Upload signature separately if exists
                     let signatureStorageUrl = null
                     if (formData.signatureDataUrl) {
-                      const sigBlob = await (await fetch(formData.signatureDataUrl)).blob()
+                      const sigBlob = dataUrlToBlob(formData.signatureDataUrl)
                       const sigPath = `${majstor.id}/${Date.now()}_signature.png`
                       const { error: sigErr } = await supabase.storage.from('regieberichte').upload(sigPath, sigBlob, { contentType: 'image/png' })
                       if (!sigErr) {
@@ -3173,7 +3182,7 @@ const HardResetModal = () => {
 
                   let signatureStorageUrl = null
                   if (formData?.signatureDataUrl) {
-                    const sigBlob = await (await fetch(formData.signatureDataUrl)).blob()
+                    const sigBlob = dataUrlToBlob(formData.signatureDataUrl)
                     const sigPath = `${majstor.id}/${Date.now()}_signature.png`
                     const { error: sigErr } = await supabase.storage.from('regieberichte').upload(sigPath, sigBlob, { contentType: 'image/png' })
                     if (!sigErr) {
