@@ -22,6 +22,7 @@ function compressImage(file, maxWidth = 1920, quality = 0.8) {
 export default function FeedPage() {
   const [conversations, setConversations] = useState([])
   const [workers, setWorkers] = useState([])
+  const [allMembers, setAllMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
@@ -232,6 +233,7 @@ export default function FeedPage() {
       const json = await res.json()
       if (json.members) {
         setWorkers(json.members.filter(m => m.status === 'active'))
+        setAllMembers(json.members)
       }
     } catch (err) { console.error(err) }
   }
@@ -914,8 +916,7 @@ export default function FeedPage() {
                             <div className="p-3 border-t border-slate-700/50">
                               <div className="flex flex-wrap gap-2">
                                 {(item.reactions || []).map((r, i) => {
-                                  const name = conversations.find(c => c.id === item.id)?.worker_name
-                                    || workers.find(w => w.worker_id === r.user_id)?.worker_name
+                                  const name = allMembers.find(w => w.worker_id === r.user_id)?.worker_name
                                     || '?'
                                   return (
                                     <span key={i} className="inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded-full border border-green-500/20">
