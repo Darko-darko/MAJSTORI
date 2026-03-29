@@ -92,6 +92,9 @@ function DashboardPageContent() {
 
   // Regiebericht
   const [regieberichtInvoice, setRegieberichtInvoice] = useState(null)
+  const [regieberichtList, setRegieberichtList] = useState([]) // existing for this invoice
+  const [regieberichtListLoading, setRegieberichtListLoading] = useState(false)
+  const [showRegieForm, setShowRegieForm] = useState(false) // show create form vs list
   const [regieberichtUploading, setRegieberichtUploading] = useState(false)
   const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
   const [regieberichtExists, setRegieberichtExists] = useState({}) // {invoiceId: true}
@@ -2081,7 +2084,21 @@ const HardResetModal = () => {
 
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
-                        onClick={() => setRegieberichtInvoice(invoice)}
+                        onClick={async () => {
+                          setRegieberichtInvoice(invoice)
+                          setShowRegieForm(false)
+                          setRegieberichtListLoading(true)
+                          try {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch(`/api/regieberichte?invoice_id=${invoice.id}`, {
+                              headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+                            })
+                            const json = await res.json()
+                            setRegieberichtList(json.regieberichte || [])
+                            if (!json.regieberichte?.length) setShowRegieForm(true)
+                          } catch (e) { console.error(e); setShowRegieForm(true) }
+                          finally { setRegieberichtListLoading(false) }
+                        }}
                         className="px-3 py-2 rounded text-sm transition-colors border-2"
                         style={regieberichtExists[invoice.id]
                           ? { borderColor: '#16a34a', color: '#ffffff', backgroundColor: 'rgba(22,163,106,0.55)', borderStyle: 'solid' }
@@ -3079,7 +3096,58 @@ const HardResetModal = () => {
       {regieberichtInvoice && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !regieberichtUploading && setRegieberichtInvoice(null)}>
           <div className="bg-slate-800 rounded-xl w-full max-w-lg border border-slate-700 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <RegieberichtForm
+
+            {/* Liste der bestehenden Regieberichte */}
+            {!showRegieForm && (
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-semibold">📋 Regieberichte</h3>
+                  <button onClick={() => !regieberichtUploading && setRegieberichtInvoice(null)} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
+                </div>
+
+                {regieberichtListLoading ? (
+                  <div className="flex justify-center py-6">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
+                  </div>
+                ) : (
+                  <>
+                    {regieberichtList.length > 0 && (
+                      <div className="space-y-2 mb-4">
+                        {regieberichtList.map(b => (
+                          <div key={b.id} className="flex items-center justify-between bg-slate-700/50 border border-slate-600 rounded-lg p-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-white text-sm font-medium truncate">{b.mieter_name || b.objekt || 'Ohne Name'}</p>
+                              <p className="text-slate-400 text-xs">
+                                {new Date(b.datum).toLocaleDateString('de-DE')}
+                                {b.uhrzeit && ` · ${b.uhrzeit}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-2">
+                              <span className={`text-xs px-2 py-0.5 rounded ${b.status === 'signed' ? 'bg-blue-500/20 text-blue-400' : b.status === 'attached' ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                                {b.status === 'signed' ? '✍️' : b.status === 'attached' ? '📎' : '📝'}
+                              </span>
+                              {b.pdf_url && (
+                                <a href={b.pdf_url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white text-xs">📄</a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setShowRegieForm(true)}
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition-all"
+                    >
+                      + Neuen Regiebericht erstellen
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Formular */}
+            {showRegieForm && <RegieberichtForm
               majstor={majstor}
               invoiceFormData={{
                 customer_name: regieberichtInvoice.customer_name || '',
@@ -3227,8 +3295,8 @@ const HardResetModal = () => {
                   setRegieberichtUploading(false)
                 }
               }}
-              onClose={() => !regieberichtUploading && setRegieberichtInvoice(null)}
-            />
+              onClose={() => !regieberichtUploading && (regieberichtList.length > 0 ? setShowRegieForm(false) : setRegieberichtInvoice(null))}
+            />}
             {regieberichtUploading && (
               <div className="p-4 text-center">
                 <p className="text-blue-400 text-sm animate-pulse">⏳ Wird hochgeladen...</p>
