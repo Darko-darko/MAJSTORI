@@ -27,7 +27,7 @@ function buildBeschreibung(fd) {
     .join('\n')
 }
 
-export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated, onClose }) {
+export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated, onSaveOnly, onClose }) {
   const today = new Date()
 
   const [data, setData] = useState({
@@ -147,7 +147,14 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
     setShowSignatureModal(false)
   }
 
+  const [validationError, setValidationError] = useState('')
+
   const generatePDF = async () => {
+    if (!data.objekt?.trim()) {
+      setValidationError('Objekt / Leistungsort ist ein Pflichtfeld')
+      return
+    }
+    setValidationError('')
     const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF({ unit: 'mm', format: 'a4' })
     const pageW = 210
@@ -405,11 +412,20 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
             </button>
             <button
               type="button"
-              onClick={() => { onGenerated(generatedFile) }}
+              onClick={() => { onGenerated(generatedFile, { ...data, signatureDataUrl }) }}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               ✅ Als Anhang hinzufügen
             </button>
+            {onSaveOnly && (
+              <button
+                type="button"
+                onClick={() => { onSaveOnly(generatedFile, { ...data, signatureDataUrl }) }}
+                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                💾 Nur speichern (ohne Anhang)
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setGeneratedFile(null)}
@@ -444,13 +460,13 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
 
             {/* Objekt */}
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Objekt / Leistungsort</label>
+              <label className="block text-xs text-slate-400 mb-1">Objekt / Leistungsort <span className="text-red-400">*</span></label>
               <input
                 type="text"
                 value={data.objekt}
-                onChange={e => setData(p => ({ ...p, objekt: e.target.value }))}
+                onChange={e => { setData(p => ({ ...p, objekt: e.target.value })); setValidationError('') }}
                 placeholder="z.B. Musterstraße 5, 80333 München"
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm placeholder-slate-500"
+                className={`w-full px-3 py-2 bg-slate-700 border rounded text-white text-sm placeholder-slate-500 ${validationError && !data.objekt?.trim() ? 'border-red-500' : 'border-slate-600'}`}
               />
             </div>
 
@@ -534,7 +550,10 @@ export default function RegieberichtForm({ majstor, invoiceFormData, onGenerated
               📄 Regiebericht erstellen &amp; anhängen
             </button>
 
-            {!signatureDataUrl && (
+            {validationError && (
+              <p className="text-xs text-red-400 text-center -mt-1">{validationError}</p>
+            )}
+            {!signatureDataUrl && !validationError && (
               <p className="text-xs text-slate-500 text-center -mt-1">
                 Ohne Unterschrift wird das PDF trotzdem erstellt
               </p>

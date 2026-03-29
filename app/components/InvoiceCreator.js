@@ -137,6 +137,10 @@ export default function InvoiceCreator({
   const [aufmassPickerList, setAufmassPickerList] = useState([])
   const [aufmassPickerLoading, setAufmassPickerLoading] = useState(false)
   const [selectedAufmassIds, setSelectedAufmassIds] = useState(aufmassId ? [aufmassId] : [])
+  // Regiebericht picker
+  const [showRegiePicker, setShowRegiePicker] = useState(false)
+  const [regiePickerList, setRegiePickerList] = useState([])
+  const [regiePickerLoading, setRegiePickerLoading] = useState(false)
 
   // Check business data completeness on mount
   useEffect(() => {
@@ -784,6 +788,51 @@ export default function InvoiceCreator({
       console.error('Aufmaß list error:', e)
     } finally {
       setAufmassPickerLoading(false)
+    }
+  }
+
+  // Open Regiebericht picker modal
+  const openRegiePicker = async () => {
+    setShowRegiePicker(true)
+    setRegiePickerLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const qp = editData?.id ? `for_invoice=${editData.id}` : 'unlinked=true'
+      const res = await fetch(`/api/regieberichte?${qp}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+      })
+      const json = await res.json()
+      setRegiePickerList(json.regieberichte || [])
+    } catch (e) {
+      console.error('Regiebericht list error:', e)
+    } finally {
+      setRegiePickerLoading(false)
+    }
+  }
+
+  const attachRegiebericht = async (bericht) => {
+    try {
+      if (!bericht.pdf_url) { alert('Kein PDF vorhanden'); return }
+      // Download PDF and add as pending attachment
+      const response = await fetch(bericht.pdf_url)
+      const blob = await response.blob()
+      const safeName = `Regiebericht_${bericht.datum}_${(bericht.mieter_name || 'Bericht').replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_')}.pdf`
+      const file = new File([blob], safeName, { type: 'application/pdf' })
+      setPendingAttachments(prev => [...prev, { file, localId: `regie_${bericht.id}` }])
+
+      // Mark as attached + link invoice_id immediately
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/regieberichte', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: bericht.id, status: 'attached', invoice_id: editData?.id || null })
+      })
+
+      setShowRegiePicker(false)
+      setAnlagenOpen(false)
+    } catch (e) {
+      console.error('Regiebericht attach failed:', e)
+      alert('Fehler beim Anhängen')
     }
   }
 
@@ -2496,6 +2545,14 @@ if (searchError) {
                       📎 Datei hochladen
                     </label>
                   )}
+                  {/* Regiebericht anhängen */}
+                  <button
+                    type="button"
+                    onClick={openRegiePicker}
+                    className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 py-2 px-3 border border-dashed border-slate-600 hover:border-slate-400 rounded-lg transition-colors w-full"
+                  >
+                    📋 Regiebericht anhängen
+                  </button>
                   {/* Aufmaß als Anlage */}
                   {selectedAufmassIds.length > 0 && !pendingAttachments.some(a => a.localId?.startsWith('aufmass_')) && !savedAttachments.some(a => a.filename?.startsWith('Aufmass_')) && (
                     <button
@@ -2673,6 +2730,53 @@ if (searchError) {
                           {a.gewerk && <p className="text-blue-400 text-xs font-medium mb-0.5">{a.gewerk === 'fensterbau' ? 'Fensterbau' : a.gewerk}</p>}
                           <p className="text-slate-400 text-xs">{a.date ? new Date(a.date).toLocaleDateString('de-DE') : ''}</p>
                           <p className="text-slate-500 text-xs">{(a.rooms || []).length} {a.gewerk === 'fensterbau' ? 'Pos.' : ((a.rooms || []).length === 1 ? 'Raum' : 'Räume')}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regiebericht Picker Modal */}
+      {showRegiePicker && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setShowRegiePicker(false)}>
+          <div className="bg-slate-800 rounded-xl max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-white">📋 Regiebericht auswählen</h3>
+              <button onClick={() => setShowRegiePicker(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {regiePickerLoading ? (
+                <p className="text-slate-400 text-center py-8">Laden...</p>
+              ) : regiePickerList.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-slate-400">Keine verfügbaren Regieberichte.</p>
+                  <p className="text-slate-500 text-sm mt-1">Nur Berichte ohne Rechnungszuordnung werden angezeigt.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {regiePickerList.map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => attachRegiebericht(b)}
+                      className="w-full text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-blue-500 rounded-lg p-3 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white font-medium">{b.objekt || 'Ohne Adresse'}</p>
+                          {b.mieter_name && <p className="text-slate-400 text-sm">Mieter: {b.mieter_name}</p>}
+                          {b.worker_name && <p className="text-purple-400 text-xs">👷 {b.worker_name}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-slate-400 text-xs">{new Date(b.datum).toLocaleDateString('de-DE')}</p>
+                          <p className={`text-xs mt-0.5 ${b.status === 'signed' ? 'text-blue-400' : 'text-slate-500'}`}>
+                            {b.status === 'signed' ? '✍️ Unterschrieben' : 'Entwurf'}
+                          </p>
                         </div>
                       </div>
                     </button>

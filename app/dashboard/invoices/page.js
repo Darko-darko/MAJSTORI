@@ -9,6 +9,15 @@ import EmailInvoiceModal from '@/app/components/EmailInvoiceModal'
 import LogoUpload from '@/app/components/LogoUpload'
 import FirstVisitHint from '@/app/components/FirstVisitHint'
 import RegieberichtForm from '@/app/components/RegieberichtForm'
+
+function dataUrlToBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)[1]
+  const binary = atob(base64)
+  const arr = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
 import InvoiceNumbersSetupModal from '@/app/components/InvoiceNumbersSetupModal'
 
 
@@ -83,6 +92,9 @@ function DashboardPageContent() {
 
   // Regiebericht
   const [regieberichtInvoice, setRegieberichtInvoice] = useState(null)
+  const [regieberichtList, setRegieberichtList] = useState([]) // existing for this invoice
+  const [regieberichtListLoading, setRegieberichtListLoading] = useState(false)
+  const [showRegieForm, setShowRegieForm] = useState(false) // show create form vs list
   const [regieberichtUploading, setRegieberichtUploading] = useState(false)
   const [attachmentCounts, setAttachmentCounts] = useState({}) // {invoiceId: count}
   const [regieberichtExists, setRegieberichtExists] = useState({}) // {invoiceId: true}
@@ -431,7 +443,14 @@ function DashboardPageContent() {
         const regieMap = {}
         attData?.forEach(a => {
           counts[a.invoice_id] = (counts[a.invoice_id] || 0) + 1
-          if (a.filename?.startsWith('Regiebericht_')) regieMap[a.invoice_id] = true
+        })
+        // Count from regieberichte table (includes "Nur speichern" ones)
+        const { data: regieData } = await supabase
+          .from('regieberichte')
+          .select('invoice_id')
+          .in('invoice_id', allIds)
+        regieData?.forEach(r => {
+          if (r.invoice_id) regieMap[r.invoice_id] = (regieMap[r.invoice_id] || 0) + 1
         })
         setAttachmentCounts(counts)
         setRegieberichtExists(regieMap)
@@ -2065,11 +2084,20 @@ const HardResetModal = () => {
 
                     {invoice.type !== 'storno' && invoice.status !== 'cancelled' && invoice.status !== 'paid' && (
                       <button
-                        onClick={() => {
-                          if (regieberichtExists[invoice.id]) {
-                            if (!confirm('Regiebericht bereits vorhanden. Neuen erstellen?')) return
-                          }
+                        onClick={async () => {
                           setRegieberichtInvoice(invoice)
+                          setShowRegieForm(false)
+                          setRegieberichtListLoading(true)
+                          try {
+                            const { data: { session } } = await supabase.auth.getSession()
+                            const res = await fetch(`/api/regieberichte?invoice_id=${invoice.id}`, {
+                              headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+                            })
+                            const json = await res.json()
+                            setRegieberichtList(json.regieberichte || [])
+                            if (!json.regieberichte?.length) setShowRegieForm(true)
+                          } catch (e) { console.error(e); setShowRegieForm(true) }
+                          finally { setRegieberichtListLoading(false) }
                         }}
                         className="px-3 py-2 rounded text-sm transition-colors border-2"
                         style={regieberichtExists[invoice.id]
@@ -2077,7 +2105,9 @@ const HardResetModal = () => {
                           : { borderColor: '#2563eb', color: '#ffffff', backgroundColor: 'rgba(37,99,235,0.55)', borderStyle: 'dashed' }
                         }
                       >
-                        {regieberichtExists[invoice.id] ? '✅ Regiebericht' : '📋 Regiebericht'}
+                        {regieberichtExists[invoice.id]
+                          ? `✅ Regiebericht${typeof regieberichtExists[invoice.id] === 'number' && regieberichtExists[invoice.id] > 1 ? ` (${regieberichtExists[invoice.id]})` : ''}`
+                          : '📋 Regiebericht'}
                       </button>
                     )}
 
@@ -3066,7 +3096,58 @@ const HardResetModal = () => {
       {regieberichtInvoice && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !regieberichtUploading && setRegieberichtInvoice(null)}>
           <div className="bg-slate-800 rounded-xl w-full max-w-lg border border-slate-700 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <RegieberichtForm
+
+            {/* Liste der bestehenden Regieberichte */}
+            {!showRegieForm && (
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-semibold">📋 Regieberichte</h3>
+                  <button onClick={() => !regieberichtUploading && setRegieberichtInvoice(null)} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
+                </div>
+
+                {regieberichtListLoading ? (
+                  <div className="flex justify-center py-6">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
+                  </div>
+                ) : (
+                  <>
+                    {regieberichtList.length > 0 && (
+                      <div className="space-y-2 mb-4">
+                        {regieberichtList.map(b => (
+                          <div key={b.id} className="flex items-center justify-between bg-slate-700/50 border border-slate-600 rounded-lg p-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-white text-sm font-medium truncate">{b.mieter_name || b.objekt || 'Ohne Name'}</p>
+                              <p className="text-slate-400 text-xs">
+                                {new Date(b.datum).toLocaleDateString('de-DE')}
+                                {b.uhrzeit && ` · ${b.uhrzeit}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-2">
+                              <span className={`text-xs px-2 py-0.5 rounded ${b.status === 'signed' ? 'bg-blue-500/20 text-blue-400' : b.status === 'attached' ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                                {b.status === 'signed' ? '✍️' : b.status === 'attached' ? '📎' : '📝'}
+                              </span>
+                              {b.pdf_url && (
+                                <a href={b.pdf_url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white text-xs">📄</a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setShowRegieForm(true)}
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition-all"
+                    >
+                      + Neuen Regiebericht erstellen
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Formular */}
+            {showRegieForm && <RegieberichtForm
               majstor={majstor}
               invoiceFormData={{
                 customer_name: regieberichtInvoice.customer_name || '',
@@ -3082,8 +3163,8 @@ const HardResetModal = () => {
                 weg_country: regieberichtInvoice.weg_country || '',
                 items: regieberichtInvoice.items ? JSON.parse(regieberichtInvoice.items) : [],
               }}
-              onGenerated={async (file) => {
-                // Upload directly to Supabase storage as invoice attachment
+              onGenerated={async (file, formData) => {
+                // Upload directly to Supabase storage as invoice attachment + save to DB
                 setRegieberichtUploading(true)
                 try {
                   const invoiceId = regieberichtInvoice.id
@@ -3105,12 +3186,50 @@ const HardResetModal = () => {
                   })
                   if (dbErr) throw dbErr
 
+                  // Save to regieberichte table
+                  if (formData) {
+                    const { data: { publicUrl } } = supabase.storage.from('invoice-pdfs').getPublicUrl(storagePath)
+                    // Upload signature separately if exists
+                    let signatureStorageUrl = null
+                    if (formData.signatureDataUrl) {
+                      const sigBlob = dataUrlToBlob(formData.signatureDataUrl)
+                      const sigPath = `${majstor.id}/${Date.now()}_signature.png`
+                      const { error: sigErr } = await supabase.storage.from('regieberichte').upload(sigPath, sigBlob, { contentType: 'image/png' })
+                      if (!sigErr) {
+                        const { data: { publicUrl: sigUrl } } = supabase.storage.from('regieberichte').getPublicUrl(sigPath)
+                        signatureStorageUrl = sigUrl
+                      }
+                    }
+                    // Parse datum DD.MM.YYYY → YYYY-MM-DD
+                    const dp = formData.datum?.split('.') || []
+                    const datumISO = dp.length === 3 ? `${dp[2]}-${dp[1]}-${dp[0]}` : new Date().toISOString().split('T')[0]
+
+                    const { data: { session } } = await supabase.auth.getSession()
+                    await fetch('/api/regieberichte', {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        invoice_id: invoiceId,
+                        datum: datumISO,
+                        uhrzeit: formData.uhrzeit || null,
+                        objekt: formData.objekt || null,
+                        beschreibung: formData.beschreibung || null,
+                        mieter_name: formData.mieterName || null,
+                        wohnungsnummer: formData.wohnungsnummer || null,
+                        customer_name: regieberichtInvoice.customer_name || null,
+                        customer_address: [regieberichtInvoice.customer_street, `${regieberichtInvoice.customer_postal_code || ''} ${regieberichtInvoice.customer_city || ''}`.trim()].filter(Boolean).join(', ') || null,
+                        signature_url: signatureStorageUrl,
+                        pdf_url: publicUrl,
+                      })
+                    })
+                  }
+
                   // Update local state
                   setAttachmentCounts(prev => ({
                     ...prev,
                     [invoiceId]: (prev[invoiceId] || 0) + 1
                   }))
-                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: true }))
+                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: (prev[invoiceId] || 0) + 1 }))
 
                   setRegieberichtInvoice(null)
                   alert('✅ Regiebericht wurde als Anhang hinzugefügt!')
@@ -3121,8 +3240,63 @@ const HardResetModal = () => {
                   setRegieberichtUploading(false)
                 }
               }}
-              onClose={() => !regieberichtUploading && setRegieberichtInvoice(null)}
-            />
+              onSaveOnly={async (file, formData) => {
+                // Save to DB only, no attachment
+                setRegieberichtUploading(true)
+                try {
+                  const invoiceId = regieberichtInvoice.id
+                  // Upload PDF to storage
+                  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+                  const storagePath = `${majstor.id}/${Date.now()}_${safeName}`
+                  const { error: uploadErr } = await supabase.storage.from('regieberichte').upload(storagePath, file, { contentType: 'application/pdf' })
+                  if (uploadErr) throw uploadErr
+                  const { data: { publicUrl } } = supabase.storage.from('regieberichte').getPublicUrl(storagePath)
+
+                  let signatureStorageUrl = null
+                  if (formData?.signatureDataUrl) {
+                    const sigBlob = dataUrlToBlob(formData.signatureDataUrl)
+                    const sigPath = `${majstor.id}/${Date.now()}_signature.png`
+                    const { error: sigErr } = await supabase.storage.from('regieberichte').upload(sigPath, sigBlob, { contentType: 'image/png' })
+                    if (!sigErr) {
+                      const { data: { publicUrl: sigUrl } } = supabase.storage.from('regieberichte').getPublicUrl(sigPath)
+                      signatureStorageUrl = sigUrl
+                    }
+                  }
+
+                  const dp = formData?.datum?.split('.') || []
+                  const datumISO = dp.length === 3 ? `${dp[2]}-${dp[1]}-${dp[0]}` : new Date().toISOString().split('T')[0]
+
+                  const { data: { session } } = await supabase.auth.getSession()
+                  await fetch('/api/regieberichte', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      invoice_id: invoiceId,
+                      datum: datumISO,
+                      uhrzeit: formData?.uhrzeit || null,
+                      objekt: formData?.objekt || null,
+                      beschreibung: formData?.beschreibung || null,
+                      mieter_name: formData?.mieterName || null,
+                      wohnungsnummer: formData?.wohnungsnummer || null,
+                      customer_name: regieberichtInvoice.customer_name || null,
+                      customer_address: [regieberichtInvoice.customer_street, `${regieberichtInvoice.customer_postal_code || ''} ${regieberichtInvoice.customer_city || ''}`.trim()].filter(Boolean).join(', ') || null,
+                      signature_url: signatureStorageUrl,
+                      pdf_url: publicUrl,
+                    })
+                  })
+
+                  setRegieberichtExists(prev => ({ ...prev, [invoiceId]: (typeof prev[invoiceId] === 'number' ? prev[invoiceId] : prev[invoiceId] ? 1 : 0) + 1 }))
+                  setRegieberichtInvoice(null)
+                  alert('✅ Regiebericht gespeichert! (Nicht als Anhang hinzugefügt)')
+                } catch (err) {
+                  console.error('Regiebericht save error:', err)
+                  alert('❌ Fehler: ' + (err.message || 'Unbekannter Fehler'))
+                } finally {
+                  setRegieberichtUploading(false)
+                }
+              }}
+              onClose={() => !regieberichtUploading && (regieberichtList.length > 0 ? setShowRegieForm(false) : setRegieberichtInvoice(null))}
+            />}
             {regieberichtUploading && (
               <div className="p-4 text-center">
                 <p className="text-blue-400 text-sm animate-pulse">⏳ Wird hochgeladen...</p>

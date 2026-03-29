@@ -70,7 +70,12 @@ export default function FeedPage() {
   const [showActive, setShowActive] = useState(false)
 
   // Filter
-  const [filter, setFilter] = useState('all') // 'all', 'open', 'closed'
+  const [filter, setFilter] = useState('all') // 'all', 'open', 'closed', 'archived', 'berichte'
+
+  // Regieberichte
+  const [regieberichte, setRegieberichte] = useState([])
+  const [berichteLoading, setBerichteLoading] = useState(false)
+  const [expandedBericht, setExpandedBericht] = useState(null)
 
   // Scroll to conversation from URL param
   useEffect(() => {
@@ -183,6 +188,17 @@ export default function FeedPage() {
     observer.observe(feedEndRef.current)
     return () => observer.disconnect()
   }, [hasMore, loadingMore])
+
+  const loadRegieberichte = async () => {
+    setBerichteLoading(true)
+    try {
+      const headers = await getHeaders()
+      const res = await fetch('/api/regieberichte', { headers })
+      const json = await res.json()
+      if (json.regieberichte) setRegieberichte(json.regieberichte)
+    } catch (err) { console.error(err) }
+    finally { setBerichteLoading(false) }
+  }
 
   const loadWorkers = async () => {
     try {
@@ -647,16 +663,17 @@ export default function FeedPage() {
       )}
 
       {/* Filter tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {[
           { key: 'all', label: 'Alle' },
           { key: 'open', label: 'Offen' },
           { key: 'closed', label: 'Erledigt' },
           { key: 'archived', label: 'Archiv' },
+          { key: 'berichte', label: 'Regieberichte' },
         ].map(f => (
           <button
             key={f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() => { setFilter(f.key); if (f.key === 'berichte') loadRegieberichte() }}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               filter === f.key ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
             }`}
@@ -680,8 +697,81 @@ export default function FeedPage() {
         if (replyGalleryRef.current) replyGalleryRef.current.value = ''
       }} className="hidden" />
 
+      {/* Regieberichte Tab */}
+      {filter === 'berichte' && (
+        berichteLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
+          </div>
+        ) : regieberichte.length > 0 ? (
+          <div className="space-y-3">
+            {regieberichte.map(b => (
+              <div key={b.id} className={`border rounded-xl overflow-hidden ${
+                b.status === 'attached' ? 'bg-slate-800/30 border-green-500/30' :
+                b.status === 'signed' ? 'bg-slate-800/50 border-blue-500/30' :
+                'bg-slate-800/50 border-slate-700'
+              }`}>
+                <div className="p-4 cursor-pointer" onClick={() => setExpandedBericht(expandedBericht === b.id ? null : b.id)}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white bg-blue-600">📋</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate">{b.objekt || 'Ohne Adresse'}</p>
+                      <p className="text-slate-500 text-xs">
+                        {new Date(b.datum).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        {b.uhrzeit && ` · ${b.uhrzeit}`}
+                        {b.worker_name && <span className="text-purple-400"> · 👷 {b.worker_name}</span>}
+                        {!b.worker_id && <span className="text-orange-400"> · 👔 Ich</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {b.status === 'signed' && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded">Unterschrieben</span>}
+                      {b.status === 'attached' && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded">An Rechnung</span>}
+                      {b.status === 'draft' && <span className="bg-slate-500/20 text-slate-400 text-xs px-2 py-0.5 rounded">Entwurf</span>}
+                    </div>
+                  </div>
+                  {b.mieter_name && <p className="text-slate-400 text-xs ml-10">Mieter: {b.mieter_name}</p>}
+                  {b.customer_name && <p className="text-slate-400 text-xs ml-10">Kunde: {b.customer_name}</p>}
+                </div>
+
+                {expandedBericht === b.id && (
+                  <div className="border-t border-slate-700/50 p-4 space-y-2">
+                    {b.beschreibung && (
+                      <div>
+                        <p className="text-slate-500 text-xs font-semibold mb-1">Arbeiten:</p>
+                        <p className="text-slate-300 text-sm whitespace-pre-line">{b.beschreibung}</p>
+                      </div>
+                    )}
+                    {b.wohnungsnummer && <p className="text-slate-400 text-xs">Wohnung: {b.wohnungsnummer}</p>}
+                    {b.signature_url && (
+                      <div>
+                        <p className="text-slate-500 text-xs font-semibold mb-1">Unterschrift:</p>
+                        <img src={b.signature_url} alt="Unterschrift" className="h-16 object-contain rounded border border-slate-600" style={{ backgroundColor: '#ffffff' }} />
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      {b.pdf_url && (
+                        <a href={b.pdf_url} target="_blank" rel="noopener noreferrer"
+                          className="px-3 py-2 bg-slate-700 text-white rounded-lg text-xs hover:bg-slate-600 transition-colors">
+                          📄 PDF öffnen
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-slate-500">
+            <p className="text-4xl mb-3">📋</p>
+            <p>Noch keine Regieberichte</p>
+            <p className="text-sm mt-1">Regieberichte Ihrer Mitarbeiter erscheinen hier</p>
+          </div>
+        )
+      )}
+
       {/* Feed */}
-      {Object.keys(byDate).length > 0 ? (
+      {filter !== 'berichte' && (Object.keys(byDate).length > 0 ? (
         Object.entries(byDate).map(([date, items]) => (
           <div key={date}>
             <h2 className="text-slate-400 text-sm font-semibold mb-3 sticky top-0 bg-slate-900/80 backdrop-blur py-1 z-10">{date}</h2>
@@ -892,7 +982,7 @@ export default function FeedPage() {
           <p>Noch keine Aktivitäten</p>
           <p className="text-sm mt-1">Starten Sie eine Konversation mit Ihrem Team</p>
         </div>
-      )}
+      ))}
 
       {/* Infinite scroll sentinel */}
       <div ref={feedEndRef} className="h-4" />
