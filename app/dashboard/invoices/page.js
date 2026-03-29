@@ -2082,7 +2082,7 @@ const HardResetModal = () => {
                         }
                       >
                         {regieberichtExists[invoice.id]
-                          ? `✅ Regiebericht (${regieberichtExists[invoice.id]})`
+                          ? `✅ Regiebericht${typeof regieberichtExists[invoice.id] === 'number' && regieberichtExists[invoice.id] > 1 ? ` (${regieberichtExists[invoice.id]})` : ''}`
                           : '📋 Regiebericht'}
                       </button>
                     )}
