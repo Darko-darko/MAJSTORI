@@ -3199,6 +3199,7 @@ const HardResetModal = () => {
                     method: 'POST',
                     headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                      invoice_id: invoiceId,
                       datum: datumISO,
                       uhrzeit: formData?.uhrzeit || null,
                       objekt: formData?.objekt || null,

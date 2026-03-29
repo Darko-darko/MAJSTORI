@@ -86,7 +86,37 @@ export async function GET(request) {
   const unlinked = searchParams.get('unlinked')
   if (unlinked === 'true') query = query.is('invoice_id', null)
 
+  // Für Picker: Regieberichte für diese Rechnung (nicht attached) + unverknüpfte
+  const forInvoice = searchParams.get('for_invoice')
+
   query = query.order('datum', { ascending: false })
+
+  if (forInvoice) {
+    // Zwei Queries: für diese Rechnung + unverknüpfte
+    const q1 = admin.from('regieberichte').select('*')
+      .eq('majstor_id', user.id).eq('invoice_id', forInvoice).neq('status', 'attached')
+      .order('datum', { ascending: false })
+    const q2 = admin.from('regieberichte').select('*')
+      .eq('majstor_id', user.id).is('invoice_id', null)
+      .order('datum', { ascending: false })
+    const [r1, r2] = await Promise.all([q1, q2])
+    const combined = [...(r1.data || []), ...(r2.data || [])]
+
+    // Worker-Namen anhängen
+    if (majstor?.role !== 'worker' && combined.length > 0) {
+      const workerIds = [...new Set(combined.filter(r => r.worker_id).map(r => r.worker_id))]
+      if (workerIds.length > 0) {
+        const { data: members } = await admin
+          .from('team_members').select('worker_id, worker_name')
+          .eq('owner_id', user.id).in('worker_id', workerIds)
+        const nameMap = {}
+        members?.forEach(m => { nameMap[m.worker_id] = m.worker_name })
+        combined.forEach(r => { r.worker_name = nameMap[r.worker_id] || null })
+      }
+    }
+
+    return NextResponse.json({ regieberichte: combined })
+  }
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

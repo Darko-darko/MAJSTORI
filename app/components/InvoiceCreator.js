@@ -797,7 +797,8 @@ export default function InvoiceCreator({
     setRegiePickerLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/regieberichte?unlinked=true', {
+      const qp = editData?.id ? `for_invoice=${editData.id}` : 'unlinked=true'
+      const res = await fetch(`/api/regieberichte?${qp}`, {
         headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
       })
       const json = await res.json()
